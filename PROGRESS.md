@@ -69,7 +69,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 94 passed, mt5_gateway 2 passed, frontend 21 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 102 passed, mt5_gateway 2 passed, frontend 23 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
@@ -95,6 +95,9 @@ Kết quả lần cuối: backend 94 passed, mt5_gateway 2 passed, frontend 21 p
   - Nến chỉ hợp lệ khi **đã đóng** (`available_at >= close_time`). `ingested_at` = đồng hồ thật lúc nhận. `available_at` = lúc được coi là đã biết: realtime thì bằng `ingested_at`; nạp bù (`backfill=True`) thì bằng `close_time` + cờ `BACKFILL`. Revision luôn có `available_at = ingested_at`.
   - Truy vấn point-in-time lọc theo `available_at`, dùng `store.query(..., as_of=...)`. Không đọc thẳng bảng.
   - Khóa nến: `(symbol, timeframe, source, open_time, revision)`. Cùng giá trị → bỏ qua; khác giá trị → revision mới.
+  - Trùng thời điểm trong **cùng một batch** mà giá khác nhau: cách ly tất cả (`CONFLICTING_DUPLICATE`), không tạo revision giả. Giống hệt nhau thì giữ một.
+  - Độ mới dữ liệu (`MarketDataService._freshness`): so nến mới nhất với **nến lẽ ra đã đóng gần nhất trong giờ mở cửa** (`expected_last_close`, cho trễ `FRESHNESS_GRACE` = 2 phút). Nhờ vậy không báo nhầm lúc mở cửa đầu tuần, và vẫn báo `STALE` vào cuối tuần nếu nguồn đã chết từ trước khi đóng cửa.
+  - CLI chỉ cho khung M1–H1. H4 trở lên được broker căn theo giờ server, chưa hỗ trợ.
   - CSV từ MT5 dùng giờ server broker. **Bắt buộc `--server-tz`**; giờ mơ hồ do đổi DST bị cách ly, không đoán.
   - Dữ liệu mẫu: tất định theo seed (`20260101`) và giá khởi đầu 2400. `ModeManager(guard=...)` chặn SHADOW/LIVE khi `GT_DATA_SOURCE=SAMPLE`; mode đã lưu là SHADOW/LIVE sẽ về PAPER khi khởi động (ghi audit).
   - Frontend test mock `lightweight-charts`, vì jsdom không có canvas (`src/pages/MarketPage.test.tsx`).
@@ -133,10 +136,16 @@ Kết quả lần cuối: backend 94 passed, mt5_gateway 2 passed, frontend 21 p
 - Frontend: trang Thị trường, header có giá thật, điều hướng bằng hash.
 - Đã kiểm tra bằng Docker thật: migration 0002, hypertable, 5.883 nến mẫu; restart không sinh trùng; SHADOW bị từ chối khi dùng dữ liệu mẫu; CLI nạp CSV cách ly nến lỗi và từ chối file thiếu múi giờ; UPDATE trên `candles` bị chặn.
 
+### 2026-11-05 — Soát lỗi bước ① + ②
+- Đã kiểm tra bằng kịch bản riêng: số nến mỗi tuần đúng 460, kể cả tuần Mỹ đổi giờ; không có nến ngoài phiên; EMA/RSI không đổi theo độ dài warm-up (lệch 0); point-in-time đúng.
+- Đã sửa: (1) trùng khóa mâu thuẫn trong cùng file từng tạo revision giả; (2) báo nhầm "giá cũ" lúc mở cửa đầu tuần; (3) che mất sự cố nguồn dữ liệu vào cuối tuần; (4) mốc 24h có thể lệch 1 nến; (5) CLI cho chọn H4 dù căn khung sai; (6) trục biểu đồ thiếu ngày, phần trăm thiếu dấu +.
+- Giới hạn còn lại: lịch thị trường chưa có ngày lễ/lịch riêng broker; giá lưu kiểu float (đủ cho hiển thị, PnL sau này phải dùng Decimal); chưa hỗ trợ H4/D1 theo giờ server.
+
 ## Việc tiếp theo (đề xuất)
 
 Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → **③ Technical analyst** → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
+0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
 1. **Technical analyst:** ATR, swing high/low, hỗ trợ/kháng cự, xu hướng, dùng `analysts/indicators.py` → `AnalystOutput` có `expires_at`.
 2. **Event Orchestrator tối thiểu:** nến M15 đóng → Technical → Snapshot → Quality Gate. Job idempotent theo `jobKey`.
 3. **Fusion đơn giản → `MarketView`** đầu tiên, hiển thị trên Tổng quan. MarketView sinh từ dữ liệu mẫu phải mang cờ để Risk chặn ở SHADOW/LIVE.

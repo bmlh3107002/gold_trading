@@ -4,7 +4,7 @@ import pytest
 
 from gold_trading.analysts.indicators import ema, rsi
 from gold_trading.contracts.candle import DataSource
-from gold_trading.ingestion.candles import CandleIngestor
+from gold_trading.ingestion.candles import CandleIngestor, RawBar
 from gold_trading.ingestion.sources import csv_file, sample
 from gold_trading.market.hours import MarketSession, session_at
 from gold_trading.market.timeframes import Timeframe
@@ -168,3 +168,50 @@ def test_cli_import_csv_into_sqlite(tmp_path, monkeypatch, capsys):
     # Nạp lại cùng file: không nhân đôi
     assert cli.main(["import-csv", str(f), "--server-tz", "Europe/Athens"]) == 0
     assert "thêm 0, trùng 2" in capsys.readouterr().out
+
+
+# ---- Độ mới dữ liệu ----
+
+
+def _svc_with_last_bar(open_time):
+    from gold_trading.market.service import MarketDataService
+
+    store = InMemoryCandleStore()
+    CandleIngestor(store).ingest(
+        [RawBar(open_time, 1, 2, 0.5, 1.5)],
+        symbol="XAUUSD",
+        timeframe=TF,
+        source=DataSource.SAMPLE,
+        ingested_at=open_time + TF.delta,
+        backfill=False,
+    )
+    return MarketDataService(store, source=DataSource.SAMPLE)
+
+
+FRI_LAST = datetime(2026, 1, 9, 21, 45, tzinfo=UTC)  # nến 16:45–17:00 NY thứ Sáu
+
+
+@pytest.mark.parametrize(
+    ("now", "expected"),
+    [
+        (datetime(2026, 1, 10, 12, 0, tzinfo=UTC), "MARKET_CLOSED"),  # thứ Bảy, đủ nến
+        (datetime(2026, 1, 11, 23, 1, tzinfo=UTC), "FRESH"),  # vừa mở cửa CN 18:01 NY
+        (datetime(2026, 1, 11, 23, 16, tzinfo=UTC), "FRESH"),  # nến đầu tuần mới đóng 1 phút
+        (datetime(2026, 1, 11, 23, 18, tzinfo=UTC), "STALE"),  # quá 2 phút vẫn chưa có
+    ],
+)
+def test_freshness_around_weekend(now, expected):
+    assert _svc_with_last_bar(FRI_LAST).summary(now).freshness == expected
+
+
+def test_outage_before_weekend_is_not_hidden():
+    thu = datetime(2026, 1, 8, 15, 0, tzinfo=UTC)
+    sat = datetime(2026, 1, 10, 12, 0, tzinfo=UTC)
+    assert _svc_with_last_bar(thu).summary(sat).freshness == "STALE"
+
+
+def test_cli_rejects_h4():
+    from gold_trading.ingestion import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(["import-csv", "x.csv", "--timeframe", "H4"])

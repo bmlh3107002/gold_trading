@@ -40,6 +40,12 @@ export function formatPercent(value: number | null | undefined): string {
 }
 
 /** Số tiền kèm đơn vị (USD/USDT không phải lúc nào cũng là mã ISO nên ghép thủ công). */
+/** Phần trăm có dấu: +0,8% / -0,8% / 0,0% */
+export function formatSignedPercent(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return EMPTY;
+  return `${value > 0 ? "+" : ""}${pct1.format(value)}`;
+}
+
 export function formatMoney(value: number | null | undefined, unit = "USD"): string {
   if (value == null || !Number.isFinite(value)) return EMPTY;
   return `${num2.format(value)} ${unit}`;
@@ -72,4 +78,12 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 export function formatTime(value: string | Date | null | undefined): string {
   const d = toDate(value);
   return d ? time.format(d) : EMPTY;
+}
+
+/** dd/MM theo giờ máy người xem (ghép tay để không phụ thuộc cách trình duyệt định dạng vi-VN). */
+export function formatDayMonth(value: string | Date | null | undefined): string {
+  const d = toDate(value);
+  if (!d) return EMPTY;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
 }

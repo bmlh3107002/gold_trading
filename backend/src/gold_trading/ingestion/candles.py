@@ -51,6 +51,10 @@ class IngestResult:
         self.reasons[reason] = self.reasons.get(reason, 0) + 1
 
 
+def _ohlcv(b: RawBar) -> tuple[float, float, float, float, int]:
+    return (b.open, b.high, b.low, b.close, b.tick_volume)
+
+
 def _finite(*xs: float) -> bool:
     return all(isinstance(x, int | float) and math.isfinite(x) for x in xs)
 
@@ -87,7 +91,31 @@ class CandleIngestor:
                     raw=raw,
                 )
             )
-        ordered = sorted(bars, key=lambda b: b.open_time)
+        # Cùng thời điểm xuất hiện nhiều lần trong một batch:
+        # - giống hệt nhau  -> giữ một, đếm là trùng
+        # - giá trị khác nhau -> không biết dòng nào đúng: cách ly tất cả, KHÔNG tạo revision giả
+        groups: dict[datetime, list[RawBar]] = {}
+        for b in bars:
+            groups.setdefault(b.open_time, []).append(b)
+        ordered: list[RawBar] = []
+        for t in sorted(groups, key=lambda x: (x.tzinfo is None, x.replace(tzinfo=None))):
+            items = groups[t]
+            if len({_ohlcv(b) for b in items}) > 1:
+                for b in items:
+                    result._reject("CONFLICTING_DUPLICATE")
+                    quarantine.append(
+                        QuarantineEntry(
+                            source=source,
+                            symbol=symbol,
+                            timeframe=timeframe,
+                            received_at=ingested_at,
+                            reason="CONFLICTING_DUPLICATE",
+                            raw=_raw_payload(b),
+                        )
+                    )
+                continue
+            result.duplicates += len(items) - 1
+            ordered.append(items[0])
         if not ordered:
             self.store.append([], quarantine)
             return result
@@ -114,8 +142,7 @@ class CandleIngestor:
                 continue
 
             current = existing.get(bar.open_time)
-            ohlcv = (bar.open, bar.high, bar.low, bar.close, bar.tick_volume)
-            if current is not None and current.ohlcv == ohlcv:
+            if current is not None and current.ohlcv == _ohlcv(bar):
                 result.duplicates += 1
                 prev = current
                 continue

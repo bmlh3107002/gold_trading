@@ -23,6 +23,8 @@ class Timeframe(StrEnum):
         return datetime.fromtimestamp(ts - ts % s, UTC)
 
     def is_aligned(self, t: datetime) -> bool:
+        """Căn theo epoch UTC. Đúng cho M1–H1 với mọi broker lệch giờ chẵn; H4 của broker
+        thường căn theo giờ server nên sẽ không khớp (chưa hỗ trợ)."""
         return int(t.astimezone(UTC).timestamp()) % _SECONDS[self] == 0 and t.microsecond == 0
 
 

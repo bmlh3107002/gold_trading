@@ -2,6 +2,7 @@ import {
   ColorType,
   CrosshairMode,
   LineStyle,
+  TickMarkType,
   createChart,
   type IChartApi,
   type IPriceLine,
@@ -14,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CandleOut } from "../../api/client";
 import type { Theme } from "../../hooks/useTheme";
-import { formatDateTime, formatNumber, formatTime } from "../../lib/format";
+import { formatDateTime, formatDayMonth, formatNumber, formatTime } from "../../lib/format";
 import { readChartColors } from "./chartTheme";
 
 interface PriceChartProps {
@@ -68,7 +69,11 @@ export function PriceChart({ candles, ema20, ema50, rsi14, theme }: PriceChartPr
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        tickMarkFormatter: (tm: Time) => formatTime(new Date((tm as number) * 1000)).slice(0, 5),
+        // Sang ngày mới thì hiện ngày/tháng, còn lại hiện giờ:phút (giờ máy người xem)
+        tickMarkFormatter: (tm: Time, type: TickMarkType) => {
+          const d = new Date((tm as number) * 1000);
+          return type <= TickMarkType.DayOfMonth ? formatDayMonth(d) : formatTime(d).slice(0, 5);
+        },
       },
     };
     const price = createChart(priceEl.current, common);

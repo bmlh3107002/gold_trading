@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { MarketSummary } from "../../api/client";
 import type { Theme } from "../../hooks/useTheme";
 import type { ConnectionState } from "../../lib/connection";
-import { formatNumber, formatPercent, formatTime, pnlTone } from "../../lib/format";
+import { formatNumber, formatSignedPercent, formatTime, pnlTone } from "../../lib/format";
 import { sessionLabel } from "../../lib/labels";
 import { Badge } from "../ui/Badge";
 import { IconButton } from "../ui/Button";
@@ -60,7 +60,7 @@ export function Header({
                 <span className={`header__change tone-${pnlTone(market.change)}`}>
                   {" "}
                   {market.change > 0 ? "+" : ""}
-                  {formatNumber(market.change)} ({formatPercent(market.change_pct)})
+                  {formatNumber(market.change)} ({formatSignedPercent(market.change_pct)})
                   <span className="sr-only"> {t("header.change24h")}</span>
                 </span>
               )}

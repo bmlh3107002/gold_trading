@@ -38,7 +38,8 @@ def main(argv: list[str] | None = None) -> int:
         "ghi múi giờ — MT5 xuất theo giờ server, không phải UTC.",
     )
     imp.add_argument("--symbol", default="XAUUSD")
-    imp.add_argument("--timeframe", default="M15", choices=[t.value for t in Timeframe])
+    # H4 trở lên được broker căn theo giờ server (ví dụ 00:00 GMT+2 = 22:00 UTC), chưa hỗ trợ.
+    imp.add_argument("--timeframe", default="M15", choices=["M1", "M5", "M15", "M30", "H1"])
     imp.add_argument("--dry-run", action="store_true", help="Chỉ đọc và kiểm tra, không ghi DB")
     args = p.parse_args(argv)
 

@@ -60,7 +60,7 @@ const vi = {
       "Giá được sinh tự động để kiểm thử hệ thống. Không dùng để ra quyết định giao dịch. Chế độ SHADOW và LIVE bị khóa khi dùng dữ liệu mẫu.",
     staleTitle: "Giá đã cũ",
     staleDesc:
-      "Thị trường đang mở nhưng nến mới nhất đóng lúc {{time}}. Nguồn dữ liệu có thể đang gián đoạn.",
+      "Thiếu nến lẽ ra đã phải có. Nến mới nhất đóng lúc {{time}}. Nguồn dữ liệu có thể đang gián đoạn.",
     noSourceTitle: "Chưa cấu hình nguồn dữ liệu",
     noSourceDesc: "Backend chưa được chỉ định nguồn nến (GT_DATA_SOURCE = SAMPLE hoặc CSV).",
     noDataTitle: "Chưa có nến nào",
@@ -221,6 +221,7 @@ const vi = {
       BAD_TIME: "Không đọc được thời gian",
       BAD_NUMBER: "Không đọc được số",
       AMBIGUOUS_LOCAL_TIME: "Giờ mơ hồ do đổi giờ mùa hè",
+      CONFLICTING_DUPLICATE: "Trùng thời điểm nhưng giá khác nhau",
       other: "Lỗi khác",
     },
   },

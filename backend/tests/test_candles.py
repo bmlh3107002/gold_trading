@@ -151,3 +151,16 @@ def test_query_limit_returns_latest(store):
     ingest(store, [bar(T0 + i * M) for i in range(10)], at=T0 + 20 * M)
     rows = visible(store, T0 + 20 * M, limit=3)
     assert [r.open_time for r in rows] == [T0 + 7 * M, T0 + 8 * M, T0 + 9 * M]
+
+
+def test_conflicting_duplicates_in_one_batch_are_quarantined(store):
+    r = ingest(
+        store,
+        [bar(T0, c=2401.0), bar(T0, c=2401.9), bar(T0 + M), bar(T0 + M)],
+        at=T0 + 5 * M,
+        backfill=True,
+    )
+    assert r.reasons == {"CONFLICTING_DUPLICATE": 2}
+    assert r.accepted == 1 and r.duplicates == 1
+    rows = visible(store, T0 + 5 * M)
+    assert [c.open_time for c in rows] == [T0 + M]  # không có revision giả cho T0

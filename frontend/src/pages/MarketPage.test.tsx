@@ -12,6 +12,7 @@ vi.mock("lightweight-charts", () => {
     ColorType: { Solid: "solid" },
     CrosshairMode: { Normal: 0 },
     LineStyle: { Dashed: 2 },
+    TickMarkType: { Year: 0, Month: 1, DayOfMonth: 2, Time: 3, TimeWithSeconds: 4 },
     createChart: () => ({
       addCandlestickSeries: series,
       addLineSeries: series,
@@ -70,6 +71,7 @@ describe("Trang Thị trường", () => {
     expect(await screen.findByText("Đang mở cửa")).toBeInTheDocument();
     expect(screen.getByText(/2\.412,50/)).toBeInTheDocument();
     expect(screen.getByText(/\+12,50/)).toBeInTheDocument();
+    expect(screen.getByText(/\+0,5\s?%/)).toBeInTheDocument();
     expect(screen.getAllByText("Dữ liệu mẫu").length).toBeGreaterThan(0);
   });
 

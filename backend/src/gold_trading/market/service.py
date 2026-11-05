@@ -8,18 +8,20 @@ from enum import StrEnum
 
 from gold_trading.analysts.indicators import ema, rsi
 from gold_trading.contracts.candle import Candle, DataSource
-from gold_trading.market.hours import MarketSession, session_at
+from gold_trading.market.hours import MarketSession, bar_in_session, session_at
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import CandleStore, QuarantineEntry, SeriesStats
 
 INDICATOR_WARMUP = 200  # số nến lấy thêm phía trước để EMA/RSI ổn định
+# Nguồn được phép trễ bao lâu sau khi nến đóng trước khi coi là "cũ"
+FRESHNESS_GRACE = timedelta(minutes=2)
 
 
 class Freshness(StrEnum):
     NO_DATA = "NO_DATA"
     FRESH = "FRESH"
-    STALE = "STALE"  # thị trường mở nhưng nến mới nhất quá cũ
-    MARKET_CLOSED = "MARKET_CLOSED"  # không có nến mới là bình thường
+    STALE = "STALE"  # thiếu nến lẽ ra đã phải có (kể cả khi bây giờ thị trường đã đóng)
+    MARKET_CLOSED = "MARKET_CLOSED"  # đủ nến tới lúc đóng cửa; không có nến mới là bình thường
 
 
 @dataclass(frozen=True)
@@ -88,7 +90,8 @@ class MarketDataService:
             ref_time = last.close_time - timedelta(hours=24)
             ref = next((c for c in reversed(recent) if c.close_time <= ref_time), None)
             if ref is None:
-                older = self.candles(as_of=now, limit=1, end=ref_time)
+                # end lọc theo open_time: lùi 1 nến để đảm bảo close_time <= ref_time
+                older = self.candles(as_of=now, limit=1, end=ref_time - self.timeframe.delta)
                 ref = older[-1] if older else None
             if ref:
                 change = round(last.close - ref.close, 2)
@@ -105,14 +108,23 @@ class MarketDataService:
             as_of=now,
         )
 
+    def expected_last_close(self, now: datetime) -> datetime:
+        """Thời điểm đóng của nến gần nhất (trong giờ mở cửa) lẽ ra đã phải có tại ``now``."""
+        tf = self.timeframe
+        t = tf.floor(now - FRESHNESS_GRACE)
+        for _ in range(7 * 24 * 60):  # tối đa một tuần nến M1; luôn dừng sớm hơn nhiều
+            if bar_in_session(t - tf.delta, t):
+                return t
+            t -= tf.delta
+        return t
+
     def _freshness(self, last: Candle | None, session: MarketSession, now: datetime) -> Freshness:
         if last is None:
             return Freshness.NO_DATA
+        if last.close_time < self.expected_last_close(now):
+            return Freshness.STALE
         if session is not MarketSession.OPEN:
             return Freshness.MARKET_CLOSED
-        # Cho phép trễ tối đa 2 nến trước khi coi là cũ
-        if now - last.close_time > self.timeframe.delta * 2:
-            return Freshness.STALE
         return Freshness.FRESH
 
     def stats(self) -> SeriesStats | None:

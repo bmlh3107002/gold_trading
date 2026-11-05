@@ -59,6 +59,7 @@ const KNOWN_QUARANTINE = new Set([
   "BAD_TIME",
   "BAD_NUMBER",
   "AMBIGUOUS_LOCAL_TIME",
+  "CONFLICTING_DUPLICATE",
 ]);
 
 export type DataSourceName = "SAMPLE" | "CSV" | "MT5";
