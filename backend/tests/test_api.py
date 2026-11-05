@@ -1,10 +1,11 @@
 from fastapi.testclient import TestClient
 
 from gold_trading.api.app import create_app
+from gold_trading.storage.repository import InMemoryRepository
 
 
 def client() -> TestClient:
-    return TestClient(create_app())
+    return TestClient(create_app(InMemoryRepository()))
 
 
 def test_status_defaults_safe():

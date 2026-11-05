@@ -35,6 +35,11 @@ const vi = {
     title: "Hệ thống",
     backend: "Backend v{{version}}",
     backendUnknown: "Backend chưa phản hồi",
+    storage: {
+      postgres: "Lưu trữ: PostgreSQL",
+      memory: "Lưu trữ: bộ nhớ (mất khi khởi động lại)",
+      other: "Lưu trữ: {{kind}}",
+    },
   },
   overview: {
     title: "Tổng quan",
@@ -138,7 +143,7 @@ const vi = {
     bias: { LONG: "LONG", SHORT: "SHORT", NEUTRAL: "Trung lập" },
     regime: { TREND: "Xu hướng", RANGE: "Đi ngang", RISK_OFF: "Risk-off", HIGH_VOL: "Biến động cao" },
     position: { OPEN: "Đang mở", CLOSED: "Đã đóng", PARTIALLY_CLOSED: "Đóng một phần" },
-    source: { dashboard: "Dashboard", unknown: "Khác" },
+    source: { dashboard: "Dashboard", startup: "Khởi động lại", unknown: "Khác" },
   },
   errors: {
     network: "Không kết nối được backend. Vui lòng thử lại.",

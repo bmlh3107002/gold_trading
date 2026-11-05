@@ -1,19 +1,39 @@
-# Chạy Gold Trading mà KHÔNG cần clone code hay cài Python/Node.
+# Chạy toàn bộ Gold Trading (giao diện + backend + database) mà KHÔNG cần clone code.
 # Chỉ cần Docker Desktop. Docker tự tải code từ GitHub và build.
 #
 #   docker compose up -d --build     # chạy (và cập nhật bản mới nhất của nhánh develop)
 #   docker compose logs -f           # xem log
-#   docker compose down              # dừng
+#   docker compose down              # dừng (dữ liệu vẫn giữ trong volume)
 #
 # Mở dashboard: http://localhost:8080
 name: gold-trading
 
 services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gold}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gold-local-only}
+      POSTGRES_DB: ${POSTGRES_DB:-gold_trading}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    # Không mở cổng ra máy host: chỉ backend trong mạng nội bộ của compose truy cập được.
+
   backend:
     build:
       context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:backend
     environment:
       GT_MODE: ${GT_MODE:-PAPER}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-gold}:${POSTGRES_PASSWORD:-gold-local-only}@db:5432/${POSTGRES_DB:-gold_trading}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -26,3 +46,6 @@ services:
       # Chỉ mở ở localhost: API chưa có xác thực.
       - "127.0.0.1:${DASHBOARD_PORT:-8080}:80"
     restart: unless-stopped
+
+volumes:
+  db_data:

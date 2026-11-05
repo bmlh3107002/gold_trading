@@ -3,6 +3,7 @@ import type { SystemStatus } from "../api/client";
 export function makeStatus(over: Partial<SystemStatus> = {}): SystemStatus {
   return {
     version: "0.1.0",
+    storage: "postgres",
     mode: "PAPER",
     live_unlocked: false,
     live_checklist: [],

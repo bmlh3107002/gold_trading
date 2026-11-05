@@ -14,7 +14,7 @@
 | Guardian EA | MQL5 |
 | Cấu trúc | Monorepo: `backend/`, `mt5_gateway/`, `guardian_ea/`, `frontend/`, `contracts/` |
 | Contract | Pydantic ở backend là nguồn sự thật → `contracts/openapi.json` → type TS (`npm run gen:api`) |
-| DB dự kiến | PostgreSQL/TimescaleDB (service `db` trong `docker-compose.yml`, profile `db`, chưa dùng) |
+| Database | PostgreSQL/TimescaleDB (image `timescale/timescaledb:2.17.2-pg16`), SQLAlchemy 2 Core + psycopg 3, migration bằng Alembic |
 | Quản lý Python | `uv` (mỗi package có `uv.lock` riêng) |
 | Git | Push lên `develop` (nhánh mặc định trên GitHub). Không tạo PR nếu chưa được yêu cầu |
 | Chạy trên máy cá nhân | Docker. `deploy/docker-compose.yml` build thẳng từ GitHub, không cần clone |
@@ -26,6 +26,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | # | Thành phần | Trạng thái | Vị trí | Ghi chú |
 | --- | --- | --- | --- | --- |
 | — | Data contract | ✅ | `backend/src/gold_trading/contracts/` | Bất biến (`frozen`), `extra=forbid`, datetime bắt buộc có tz → UTC |
+| — | Lưu trữ vận hành | ✅ | `backend/src/gold_trading/storage/`, `backend/migrations/` | Bảng append-only `safety_transitions`, `mode_changes`, `audit_log`; trigger DB chặn UPDATE/DELETE |
 | 02 | Ingestion / point-in-time | 🟡 | `ingestion/point_in_time.py` | Chỉ có store trong bộ nhớ. Chưa có nguồn thật, chưa có DB, chưa có quarantine |
 | 03 | Event Orchestrator | ⬜ | `orchestrator/` | |
 | 04 | 6 analyst | ⬜ | `analysts/` | Chỉ có contract `AnalystOutput` |
@@ -43,9 +44,9 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 11 | Training / registry | ⬜ | | |
 | 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
 | 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. Trang Tổng quan: 4 metric, điều khiển Safety/Mode có dialog xác nhận, MarketView, lịch sử Safety. Dark/Light, responsive, trạng thái loading/empty/error/stale. Các mục Thị trường, Lệnh, Rủi ro, Nhật ký đang để "Sắp có" |
-| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health`, `/api/status`, `POST /api/safety`, `POST /api/mode`. **Chưa có xác thực** |
+| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`), `/api/audit`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
 | 12 | Backtest | ⬜ | | |
-| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Backend chạy user không root, có healthcheck. Frontend là nginx, proxy `/api` sang `backend:8000`. Dashboard ở `127.0.0.1:8080` |
+| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Một lệnh `docker compose up -d --build` chạy db + backend + frontend. Backend chạy `alembic upgrade head` rồi mới start (`scripts/entrypoint.sh`). DB không mở cổng ra host ở bản `deploy/`. Dashboard ở `127.0.0.1:8080` |
 
 ## Lệnh kiểm tra nhanh
 
@@ -63,12 +64,14 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 33 passed, mt5_gateway 2 passed, frontend 17 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 39 passed, mt5_gateway 2 passed, frontend 17 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
-- State của API (Safety, Mode) đang nằm trong bộ nhớ, restart là mất. Cần chuyển sang DB.
-- `create_app()` nhận `safety`/`modes` để inject khi test.
+- `create_app(repo)` nhận `Repository` (`InMemoryRepository` cho test, `SqlRepository` cho Postgres/SQLite). Không truyền thì đọc `DATABASE_URL`; không có biến này thì dùng bộ nhớ. Chạy bằng `uvicorn --factory gold_trading.api.app:create_app`.
+- Quy tắc khôi phục khi khởi động (`storage/repository.py`): ACTIVE → PAUSED (ghi event `STARTUP_REQUIRES_REVIEW`, actor `system`, nguồn `startup`), HALTED giữ nguyên, LIVE → PAPER (ghi audit).
+- `SafetySupervisor(persist=...)` và `ModeManager(on_change=...)` ghi **trước** khi đổi state; ghi lỗi thì state giữ nguyên.
+- Đổi schema: sửa `storage/schema.py` **và** thêm migration mới trong `backend/migrations/versions/` (không sửa `0001`). Test dùng SQLite với `create_all()`.
 - CORS chỉ mở cho `http://localhost:5173`. Vite proxy `/api` sang `localhost:8000`.
 - Risk Engine giữ `ledger.lock` khi tính headroom và reserve, để tránh over-allocation khi chạy đồng thời.
 - Khi Docker chạy, CORS không cần vì nginx phục vụ dashboard và `/api` cùng origin.
@@ -104,9 +107,14 @@ Kết quả lần cuối: backend 33 passed, mt5_gateway 2 passed, frontend 17 p
 - Đã kiểm tra bằng ảnh chụp: desktop 1440, tablet 900, mobile 390, dark/light, mất kết nối, lỗi tải, dialog. Không có tràn ngang.
 - Lưu ý: prompt theme nhắc Binance/XAUUSDT, nhưng dự án dùng MT5/XAUUSD nên giữ XAUUSD. Chưa có biểu đồ nến/EMA/RSI vì chưa có dữ liệu giá; token màu chart đã khai báo sẵn.
 
+### 2026-11-05 — Database
+- Thêm PostgreSQL vào cả hai file compose. Backend lưu lịch sử Safety, Mode và audit vào DB, migration Alembic `0001`, trigger append-only.
+- API: `/api/audit`, health kiểm tra DB, `storage` trong status. Dashboard hiện "Lưu trữ: PostgreSQL" ở chân sidebar.
+- Đã kiểm tra bằng Docker thật: migration chạy; restart backend thì ACTIVE về PAUSED và mode được giữ; `down` + `up` vẫn còn HALTED; UPDATE/DELETE trực tiếp bị DB chặn.
+
 ## Việc tiếp theo (đề xuất)
 
-1. Ingestion giá MT5 (OHLC M15) và lưu TimescaleDB, kèm quarantine dữ liệu lỗi.
+1. Ingestion giá (OHLC M15) vào bảng hypertable TimescaleDB, kèm quarantine dữ liệu lỗi. Nguồn tạm thời: CSV lịch sử, vì MT5 cần máy Windows.
 2. Technical analyst (swing, S/R, ATR) → `AnalystOutput`.
 3. Event Orchestrator tối thiểu: nến M15 đóng → Technical → Snapshot → Quality Gate.
 4. Fusion đơn giản → `MarketView` đầu tiên và hiển thị trên Dashboard.

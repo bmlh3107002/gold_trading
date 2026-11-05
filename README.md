@@ -31,7 +31,7 @@ Chưa làm (TODO): Event Orchestrator, các analyst, Fusion, Strategy, Position 
 
 Chỉ cần Docker Desktop, không cần clone code: xem [`deploy/README.md`](deploy/README.md).
 
-Nếu đã clone repo: `docker compose up -d --build` rồi mở http://localhost:8080.
+Nếu đã clone repo: `docker compose up -d --build` rồi mở http://localhost:8080. Lệnh này chạy đủ giao diện, backend và database.
 
 ## Chạy khi phát triển
 
@@ -42,7 +42,7 @@ cd backend && uv sync && uv run pytest
 ```
 
 ```bash
-cd backend && uv run uvicorn gold_trading.api.app:app --port 8000
+cd backend && uv run uvicorn --factory gold_trading.api.app:create_app --port 8000
 ```
 
 ```bash
@@ -57,4 +57,5 @@ Khi đổi contract hoặc API, sinh lại type cho frontend:
 cd backend && uv run python scripts/export_openapi.py && cd ../frontend && npm run gen:api
 ```
 
-Database (chưa dùng trong khung): `docker compose --profile db up -d db`.
+Backend chạy ngoài Docker mặc định dùng bộ nhớ. Muốn dùng DB: `docker compose up -d db`, rồi chạy backend với
+`DATABASE_URL=postgresql+psycopg://gold:gold-local-only@localhost:5432/gold_trading`, sau đó chạy `uv run alembic upgrade head` một lần.

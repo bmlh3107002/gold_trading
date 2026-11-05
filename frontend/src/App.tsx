@@ -18,6 +18,7 @@ export default function App() {
         onClose={closeMenu}
         connection={sys.connection}
         version={sys.status?.version ?? null}
+        storage={sys.status?.storage ?? null}
       />
       <div className="main">
         <Header

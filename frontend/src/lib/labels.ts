@@ -43,5 +43,7 @@ export function positionLabel(t: TFunction, p: PositionStatus): string {
   return t(`enum.position.${p}`);
 }
 export function sourceLabel(t: TFunction, source: string): string {
-  return source === "dashboard" ? t("enum.source.dashboard") : t("enum.source.unknown");
+  if (source === "dashboard") return t("enum.source.dashboard");
+  if (source === "startup") return t("enum.source.startup");
+  return t("enum.source.unknown");
 }

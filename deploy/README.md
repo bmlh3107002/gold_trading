@@ -1,5 +1,7 @@
 # Chạy Gold Trading bằng Docker (không cần clone code)
 
+Một lệnh `docker compose up` sẽ chạy đủ 3 thành phần: **giao diện** (AurumDesk), **backend** (API) và **database** (PostgreSQL/TimescaleDB).
+
 Chỉ cần cài **Docker Desktop**. Không cần Python, Node hay git.
 
 ## 1. Cài Docker Desktop
@@ -40,13 +42,16 @@ Lần đầu mất vài phút để Docker tải code từ GitHub và build. Xon
 | Cập nhật lên code mới nhất của `develop` | `docker compose up -d --build` |
 | Xem log | `docker compose logs -f` |
 | Xem trạng thái | `docker compose ps` |
-| Dừng | `docker compose down` |
+| Dừng (giữ dữ liệu) | `docker compose down` |
+| Dừng và **xóa toàn bộ dữ liệu** | `docker compose down -v` |
 | Đổi cổng dashboard | `DASHBOARD_PORT=9000 docker compose up -d --build` |
 | Chạy nhánh khác | `GT_BRANCH=main docker compose up -d --build` |
 
 ## Lưu ý
 
 - Dashboard chỉ mở ở `localhost`. API **chưa có xác thực**, đừng mở cổng ra mạng ngoài.
-- Trạng thái Safety/Mode hiện nằm trong bộ nhớ: restart container là về mặc định (PAUSED, PAPER).
+- Dữ liệu (lịch sử Safety, Mode, audit) lưu trong volume `db_data`, không mất khi restart hay `down`. Chỉ `down -v` mới xóa.
+- Sau mỗi lần khởi động lại: nếu trước đó **ACTIVE** thì tự về **PAUSED** (phải bấm "Cho phép giao dịch" lại); **HALTED** được giữ nguyên; **LIVE** tự về **PAPER**.
+- Database không mở cổng ra máy. Mật khẩu mặc định `gold-local-only` chỉ dùng trong mạng nội bộ của Docker; muốn đổi thì tạo file `.env` cạnh `docker-compose.yml` với `POSTGRES_PASSWORD=...` **trước lần chạy đầu tiên** (đổi sau khi DB đã tạo sẽ không có tác dụng trừ khi `down -v`).
 - **MT5 Gateway và Guardian EA không chạy trong Docker.** Chúng cần terminal MetaTrader 5 trên Windows và sẽ có hướng dẫn riêng khi làm tới.
 - Nếu repo chuyển sang private, Docker sẽ không tự tải được code nữa. Khi đó cần cách khác (ví dụ image dựng sẵn trên GHCR).

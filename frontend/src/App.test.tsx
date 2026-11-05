@@ -23,6 +23,7 @@ describe("App", () => {
     expect(screen.getByText("Chưa có dữ liệu giá")).toBeInTheDocument();
     expect(screen.getAllByText("Chưa có MarketView hợp lệ").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Tổng quan" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Lưu trữ: PostgreSQL")).toBeInTheDocument();
   });
 
   it("hiển thị lỗi kèm nút thử lại khi backend không phản hồi", async () => {

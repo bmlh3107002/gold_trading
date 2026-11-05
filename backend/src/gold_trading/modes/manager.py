@@ -66,9 +66,10 @@ class ModeManager:
         if to is TradingMode.LIVE:
             self._check_live(actor, approver, checklist or {})
         change = ModeChange(self._mode, to, actor, approver)
-        self._mode = to
+        # Ghi lại trước khi đổi; nếu ghi lỗi thì mode giữ nguyên.
         if self._on_change:
             self._on_change(change)
+        self._mode = to
         return change
 
     def _check_live(self, actor: str, approver: str | None, checklist: Mapping[str, bool]) -> None:

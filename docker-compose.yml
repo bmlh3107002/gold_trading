@@ -4,10 +4,32 @@
 name: gold-trading
 
 services:
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gold}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gold-local-only}
+      POSTGRES_DB: ${POSTGRES_DB:-gold_trading}
+    ports:
+      # Mở ở localhost để dev chạy backend ngoài Docker (uv run ...) vẫn dùng được DB.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   backend:
     build: ./backend
     environment:
       GT_MODE: ${GT_MODE:-PAPER}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-gold}:${POSTGRES_PASSWORD:-gold-local-only}@db:5432/${POSTGRES_DB:-gold_trading}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -19,19 +41,6 @@ services:
       # Chỉ mở ở localhost: API chưa có xác thực.
       - "127.0.0.1:${DASHBOARD_PORT:-8080}:80"
     restart: unless-stopped
-
-  db:
-    # Chưa dùng trong khung hiện tại. Bật bằng: docker compose --profile db up -d
-    profiles: ["db"]
-    image: timescale/timescaledb:2.17.2-pg16
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-gold}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
-      POSTGRES_DB: ${POSTGRES_DB:-gold_trading}
-    ports:
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
 
 volumes:
   db_data:

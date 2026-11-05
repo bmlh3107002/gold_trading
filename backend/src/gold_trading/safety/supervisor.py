@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable, Iterable
 
 from gold_trading.common.enums import SafetyState
 from gold_trading.common.ids import new_id
@@ -24,11 +25,16 @@ class SafetySupervisor:
         self,
         policy_version: str,
         initial_state: SafetyState = SafetyState.PAUSED,
+        *,
+        history: Iterable[SafetyTransition] = (),
+        persist: Callable[[SafetyTransition], None] | None = None,
     ) -> None:
         # Khởi động ở PAUSED: chỉ mở lệnh khi đã kiểm tra hệ thống và chủ động resume.
         self._state = initial_state
         self._policy_version = policy_version
-        self._history: list[SafetyTransition] = []
+        self._history: list[SafetyTransition] = list(history)
+        # persist được gọi TRƯỚC khi đổi trạng thái; nếu nó lỗi thì trạng thái giữ nguyên.
+        self._persist = persist
         self._lock = threading.Lock()
 
     @property
@@ -88,6 +94,8 @@ class SafetySupervisor:
             at=utcnow(),
             policy_version=self._policy_version,
         )
+        if self._persist:
+            self._persist(event)
         self._state = to
         self._history.append(event)
         return event

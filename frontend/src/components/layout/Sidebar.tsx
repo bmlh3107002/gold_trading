@@ -25,9 +25,10 @@ interface SidebarProps {
   onClose: () => void;
   connection: ConnectionState;
   version: string | null;
+  storage: string | null;
 }
 
-export function Sidebar({ open, onClose, connection, version }: SidebarProps) {
+export function Sidebar({ open, onClose, connection, version, storage }: SidebarProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLElement>(null);
 
@@ -81,6 +82,13 @@ export function Sidebar({ open, onClose, connection, version }: SidebarProps) {
           <span className="header__label">
             {version ? t("system.backend", { version }) : t("system.backendUnknown")}
           </span>
+          {storage && (
+            <span className={`header__label ${storage === "memory" ? "tone-gold" : ""}`}>
+              {storage === "postgres" || storage === "memory"
+                ? t(`system.storage.${storage}`)
+                : t("system.storage.other", { kind: storage })}
+            </span>
+          )}
         </div>
       </aside>
     </>
