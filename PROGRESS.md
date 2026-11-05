@@ -175,6 +175,7 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - `technical-1.2.0`: vùng S/R không rộng quá 1 ATR (trước đây gộp dây chuyền ra vùng ~5 ATR trên dữ liệu thật); bỏ swing nằm trên nến spike. Lý do ở `docs/thiet-ke/03-technical-analyst.md`. Test tính tay cho phép gộp, test spike tạo hỗ trợ giả; đã xác nhận test mới **thất bại trên code cũ**.
 - Biểu đồ: vạch ngày nay đặt theo nửa đêm giờ máy người xem (`components/chart/chartTime.ts` dời mốc theo độ lệch múi giờ của từng mốc). Nếu DST làm giờ bị lặp thì giữ nguyên UTC để thư viện không lỗi. Test: giờ VN, New York lùi/tiến đồng hồ. Kiểm tra bằng ảnh chụp với múi giờ Asia/Ho_Chi_Minh: vạch "05/11" trùng nến 00:00 05/11.
 - Kết quả: backend 164 passed, frontend 35 passed, ruff/tsc/eslint sạch, build OK.
+- **Đã xác nhận trên máy người dùng:** `technical-1.2.0` HEALTHY, atr14 = 13,44; 12 vùng S/R, vùng rộng nhất 12,09 (≤ 1 ATR). Vùng cũ 3.891–3.951 (27 chạm) tách thành 5 vùng (tổng 26 chạm: swing trên nến spike 04/11 đã bị loại).
 
 ## Việc tiếp theo (đề xuất)
 
