@@ -1,0 +1,52 @@
+# Chạy Gold Trading bằng Docker (không cần clone code)
+
+Chỉ cần cài **Docker Desktop**. Không cần Python, Node hay git.
+
+## 1. Cài Docker Desktop
+
+Tải ở https://www.docker.com/products/docker-desktop/ (Windows / macOS), cài xong thì mở Docker Desktop lên và đợi biểu tượng báo "running".
+
+## 2. Tải file compose
+
+Tạo một thư mục trống, ví dụ `gold-trading`, rồi tải file [`docker-compose.yml`](docker-compose.yml) vào đó.
+Trên GitHub, mở file này, bấm nút **Download raw file**. Hoặc dùng lệnh:
+
+macOS / Linux:
+
+```bash
+mkdir gold-trading && cd gold-trading && curl -fsSLO https://raw.githubusercontent.com/bmlh3107002/gold_trading/develop/deploy/docker-compose.yml
+```
+
+Windows (PowerShell):
+
+```powershell
+mkdir gold-trading; cd gold-trading; curl.exe -fsSLO https://raw.githubusercontent.com/bmlh3107002/gold_trading/develop/deploy/docker-compose.yml
+```
+
+## 3. Chạy
+
+Mở terminal trong thư mục đó:
+
+```bash
+docker compose up -d --build
+```
+
+Lần đầu mất vài phút để Docker tải code từ GitHub và build. Xong thì mở **http://localhost:8080**.
+
+## Lệnh thường dùng
+
+| Việc | Lệnh |
+| --- | --- |
+| Cập nhật lên code mới nhất của `develop` | `docker compose up -d --build` |
+| Xem log | `docker compose logs -f` |
+| Xem trạng thái | `docker compose ps` |
+| Dừng | `docker compose down` |
+| Đổi cổng dashboard | `DASHBOARD_PORT=9000 docker compose up -d --build` |
+| Chạy nhánh khác | `GT_BRANCH=main docker compose up -d --build` |
+
+## Lưu ý
+
+- Dashboard chỉ mở ở `localhost`. API **chưa có xác thực**, đừng mở cổng ra mạng ngoài.
+- Trạng thái Safety/Mode hiện nằm trong bộ nhớ: restart container là về mặc định (PAUSED, PAPER).
+- **MT5 Gateway và Guardian EA không chạy trong Docker.** Chúng cần terminal MetaTrader 5 trên Windows và sẽ có hướng dẫn riêng khi làm tới.
+- Nếu repo chuyển sang private, Docker sẽ không tự tải được code nữa. Khi đó cần cách khác (ví dụ image dựng sẵn trên GHCR).

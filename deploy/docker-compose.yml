@@ -1,0 +1,28 @@
+# Chạy Gold Trading mà KHÔNG cần clone code hay cài Python/Node.
+# Chỉ cần Docker Desktop. Docker tự tải code từ GitHub và build.
+#
+#   docker compose up -d --build     # chạy (và cập nhật bản mới nhất của nhánh develop)
+#   docker compose logs -f           # xem log
+#   docker compose down              # dừng
+#
+# Mở dashboard: http://localhost:8080
+name: gold-trading
+
+services:
+  backend:
+    build:
+      context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:backend
+    environment:
+      GT_MODE: ${GT_MODE:-PAPER}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Chỉ mở ở localhost: API chưa có xác thực.
+      - "127.0.0.1:${DASHBOARD_PORT:-8080}:80"
+    restart: unless-stopped

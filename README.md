@@ -27,6 +27,12 @@ Hệ thống giao dịch vàng (XAUUSD) theo các lớp tách biệt: dữ liệ
 
 Chưa làm (TODO): Event Orchestrator, các analyst, Fusion, Strategy, Position Manager, Performance, Training, lưu trữ DB, adapter MT5 thật, xác thực API.
 
+## Chạy nhanh bằng Docker (không cần cài môi trường)
+
+Chỉ cần Docker Desktop, không cần clone code: xem [`deploy/README.md`](deploy/README.md).
+
+Nếu đã clone repo: `docker compose up -d --build` rồi mở http://localhost:8080.
+
 ## Chạy khi phát triển
 
 Cần [uv](https://docs.astral.sh/uv/) và Node 20+.
@@ -51,4 +57,4 @@ Khi đổi contract hoặc API, sinh lại type cho frontend:
 cd backend && uv run python scripts/export_openapi.py && cd ../frontend && npm run gen:api
 ```
 
-Database (chưa dùng trong khung): `cp .env.example .env && docker compose up -d db`.
+Database (chưa dùng trong khung): `docker compose --profile db up -d db`.
