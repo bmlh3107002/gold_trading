@@ -52,7 +52,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
 | 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`, `data_source`, `data_is_sample`), `/api/audit`, `/api/market/summary`, `/api/market/candles` (kèm EMA/RSI, warm-up 200 nến), `/api/market/quality`, `/api/analysts/technical/latest`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
 | 12 | Backtest | ⬜ | | |
-| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Một lệnh `docker compose up -d --build` chạy db + backend + frontend. Backend chạy `alembic upgrade head` rồi mới start (`scripts/entrypoint.sh`). DB không mở cổng ra host ở bản `deploy/`. Dashboard ở `127.0.0.1:8080` |
+| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Một lệnh `docker compose up -d --build` chạy db + backend + frontend. Backend chạy `alembic upgrade head` rồi mới start (`scripts/entrypoint.sh`). DB không mở cổng ra host ở bản `deploy/`. Dashboard ở `127.0.0.1:8080`; `DASHBOARD_BIND=<IP Tailscale>` để mở cho máy trong VPN (không dùng `0.0.0.0` vì API chưa có xác thực) |
 
 ## Lệnh kiểm tra nhanh
 
@@ -176,6 +176,10 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Biểu đồ: vạch ngày nay đặt theo nửa đêm giờ máy người xem (`components/chart/chartTime.ts` dời mốc theo độ lệch múi giờ của từng mốc). Nếu DST làm giờ bị lặp thì giữ nguyên UTC để thư viện không lỗi. Test: giờ VN, New York lùi/tiến đồng hồ. Kiểm tra bằng ảnh chụp với múi giờ Asia/Ho_Chi_Minh: vạch "05/11" trùng nến 00:00 05/11.
 - Kết quả: backend 164 passed, frontend 35 passed, ruff/tsc/eslint sạch, build OK.
 - **Đã xác nhận trên máy người dùng:** `technical-1.2.0` HEALTHY, atr14 = 13,44; 12 vùng S/R, vùng rộng nhất 12,09 (≤ 1 ATR). Vùng cũ 3.891–3.951 (27 chạm) tách thành 5 vùng (tổng 26 chạm: swing trên nến spike 04/11 đã bị loại).
+
+### 2026-11-05 — Truy cập dashboard qua Tailscale
+- Người dùng muốn mở dashboard từ máy khác qua Tailscale. Thêm `DASHBOARD_BIND` (mặc định `127.0.0.1`) vào cả hai file compose; hướng dẫn ở `deploy/README.md` (đặt IP Tailscale, hoặc `tailscale serve`). Cố ý không mở `0.0.0.0`: API chưa có xác thực, ai cùng Wi-Fi cũng điều khiển được Safety/Mode. Kiểm tra bằng `docker compose config` (mặc định và có IP).
+- Nhắc lại: **xác thực API** (việc 5) cần làm trước khi mở rộng truy cập hơn nữa.
 
 ## Việc tiếp theo (đề xuất)
 

@@ -48,8 +48,10 @@ services:
       backend:
         condition: service_healthy
     ports:
-      # Chỉ mở ở localhost: API chưa có xác thực.
-      - "127.0.0.1:${DASHBOARD_PORT:-8080}:80"
+      # Mặc định chỉ mở ở localhost vì API CHƯA có xác thực.
+      # Truy cập qua Tailscale: đặt DASHBOARD_BIND=<IP Tailscale của máy này, dạng 100.x.y.z> trong .env.
+      # KHÔNG dùng 0.0.0.0: mọi máy cùng mạng (kể cả Wi-Fi công cộng) sẽ điều khiển được Safety/Mode.
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8080}:80"
     restart: unless-stopped
 
 volumes:

@@ -47,6 +47,20 @@ Lần đầu mất vài phút để Docker tải code từ GitHub và build. Xon
 | Đổi cổng dashboard | `DASHBOARD_PORT=9000 docker compose up -d --build` |
 | Chạy nhánh khác | `GT_BRANCH=main docker compose up -d --build` |
 
+## Truy cập từ máy khác qua Tailscale
+
+Dashboard mặc định chỉ mở ở `localhost`, vì API **chưa có đăng nhập**. Muốn mở từ điện thoại hoặc laptop khác trong mạng Tailscale của bạn:
+
+1. Lấy IP Tailscale của máy đang chạy Docker (dạng `100.x.y.z`): mở PowerShell và chạy `tailscale ip -4`.
+2. Thêm vào file `.env` cạnh `docker-compose.yml`: `DASHBOARD_BIND=100.x.y.z`.
+3. Chạy `docker compose up -d`.
+4. Trên máy kia (đã bật Tailscale), mở `http://100.x.y.z:8080`.
+
+- Chỉ máy trong mạng Tailscale của bạn vào được. Mở trên máy chạy Docker thì dùng `http://100.x.y.z:8080` (không còn `localhost:8080`).
+- Docker phải khởi động **sau** khi Tailscale đã kết nối. Nếu container `frontend` báo lỗi kiểu *cannot assign requested address*, bật Tailscale rồi chạy lại `docker compose up -d`.
+- **Không** đặt `DASHBOARD_BIND=0.0.0.0`: khi đó mọi máy cùng mạng Wi-Fi đều điều khiển được Safety và Mode.
+- Cách khác không cần sửa gì: `tailscale serve --bg 8080` (Tailscale tự chuyển tiếp `localhost:8080` cho các máy trong mạng của bạn, có HTTPS).
+
 ## Dữ liệu giá
 
 Mặc định hệ thống chạy với **dữ liệu mẫu** (`GT_DATA_SOURCE=SAMPLE`): khoảng 90 ngày nến XAUUSD M15 được sinh tự động, và cứ mỗi nến M15 đóng thì có thêm một nến mới. Giao diện luôn gắn nhãn **"Dữ liệu mẫu"**, đồng thời chế độ **SHADOW và LIVE bị khóa**.
