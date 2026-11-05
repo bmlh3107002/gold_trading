@@ -167,17 +167,20 @@ Kết quả lần cuối: backend 160 passed, mt5_gateway 26 passed (không sử
 - **Sửa:** `BrokerSessions` + `MarketCalendar` (tham chiếu ∩ broker) dùng cho R2, độ mới dữ liệu và nhãn phiên. Cờ chặn mới `CALENDAR_MISMATCH` khi có nến ở chỗ lịch nói đóng (lưới an toàn cho khai báo sai). `technical-1.1.0`. Không tự suy lịch từ dữ liệu (sẽ che sự cố mất dữ liệu lặp lại). Lý do ghi ở `docs/thiet-ke/03-technical-analyst.md`.
 - Kiểm chứng: 31 test mới (cú pháp, mùa hè/đông, tuần lệch DST 26–30/10, thứ Sáu đóng sớm, mất dữ liệu giữa phiên vẫn bị bắt, khai báo sai lịch/múi giờ bị chặn, cấu hình sai → không khởi động). Mô phỏng toàn bộ lịch sử 18/08–05/11 khớp **chính xác** số liệu thật (5.000 nến có, 210 thiếu, cùng phân bố theo thứ). Kịch bản đầu cuối qua API: lịch cũ → INVALID 0,9615; lịch broker → HEALTHY, độ phủ 1,0.
 - Sửa câu "Dữ liệu mẫu sẽ tự nạp" bị sai khi dùng MT5.
+- **Đã xác nhận trên máy người dùng** (Docker build lại từ `develop`, `.env` có `GT_BROKER_SESSIONS=Mon-Fri 00:00-23:00`, `GT_BROKER_SERVER_TZ=Europe/Athens`): `technical-1.1.0` HEALTHY, độ phủ 1,0, 0 nến thiếu, 0 nến ngoài lịch; confidence 0,5 do spike 04/11 23:00 UTC (R3). Backend khởi động lại → Gateway tự thử lại và kết nối lại; nến 22:30–22:45 (giờ VN) về sau khi đóng khoảng 9 giây.
+- Quan sát cần soát: `cluster_levels` gộp chuỗi swing thành vùng 3.891–3.951 (rộng ~5 ATR, 27 lần chạm) — vùng quá rộng không có ý nghĩa hỗ trợ/kháng cự; spike có thể tạo swing giả.
 - Giới hạn còn lại: lịch broker phải chép tay (MT5 Python không đọc được Sessions); chưa có ngày lễ; trục thời gian biểu đồ đặt vạch ngày theo UTC nhưng ghi nhãn giờ máy (vạch "05/11" nằm ở 07:00 giờ VN) — chỉ là hiển thị; spike ở nến mở lại sau giờ nghỉ (01:00 server 04/11) chỉ gắn cờ.
 
 ## Việc tiếp theo (đề xuất)
 
-Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc 🟡 (chờ chạy thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
-00. **Sau khi người dùng cập nhật Docker với `GT_BROKER_SESSIONS`:** xác nhận analyst HEALTHY trên dữ liệu thật; theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Sửa trục ngày của biểu đồ (tickMarkFormatter theo giờ địa phương). Đổi token ingest (token đã lộ trong chat, rủi ro thấp vì chỉ mở localhost).
+00. **Soát Technical analyst trên dữ liệu thật:** giới hạn độ rộng vùng S/R (ví dụ ≤ 1 ATR) và loại swing tại nến spike; theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Sửa trục ngày của biểu đồ (tickMarkFormatter theo giờ địa phương). Đổi token ingest (token đã lộ trong chat, rủi ro thấp vì chỉ mở localhost).
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
 1. **Event & calendar analyst** (ưu tiên cao: chặn giao dịch quanh CPI/NFP/FOMC, tạo cờ `EVENT_WINDOW` mà Risk Engine đã chờ sẵn).
 2. **Event Orchestrator đầy đủ:** hiện `TechnicalRunner` polling 15s là bản tối thiểu; cần jobKey, deadline, retry giới hạn, dead-letter.
 3. **Fusion đơn giản → `MarketView`** đầu tiên, hiển thị trên Tổng quan. MarketView sinh từ dữ liệu mẫu phải mang cờ để Risk chặn ở SHADOW/LIVE.
 4. Strategy Engine và Backtest (replay theo `available_at`, có spread/slippage/phí). Backtest trên dữ liệu mẫu phải đánh dấu "không có giá trị đánh giá".
 5. Xác thực API trước khi chạy ngoài localhost.
-6. Gateway: chạy như dịch vụ Windows, đóng gói `.exe` (build trên runner Windows), hàng đợi bền vững; lịch giao dịch từ MT5 (R12). Đặt lệnh: thành phần riêng, làm sau cùng.
+6. **Giá sống (bid/ask/spread)** từ Gateway sang backend: để hiển thị và để Risk kiểm tra ngay trước khi vào lệnh (bỏ lệnh nếu spread giãn hoặc giá đã chạy xa so với lúc nến đóng). Phân tích vẫn chỉ dùng nến đã đóng. Phải có trước Strategy/đặt lệnh.
+7. Gateway: chạy như dịch vụ Windows, đóng gói `.exe` (build trên runner Windows), hàng đợi bền vững; lịch giao dịch từ MT5 (R12). Đặt lệnh: thành phần riêng, làm sau cùng.
