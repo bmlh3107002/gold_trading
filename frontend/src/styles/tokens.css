@@ -1,0 +1,125 @@
+/* AurumDesk design tokens. Mọi màu/khoảng cách dùng biến ở đây, không hardcode trong component. */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-app: #0b0f19;
+  --bg-sidebar: #0d1320;
+  --bg-header: #101624;
+  --bg-surface: #151b2b;
+  --bg-input: #0f1522;
+  --bg-elevated: #202c42;
+  --bg-secondary-btn: #222d42;
+  --bg-hover: #1b2335;
+
+  --border: #263148;
+  --border-strong: #34415a;
+  --border-input: #2d3a52;
+
+  --text: #e7edf8;
+  --text-secondary: #9ca8bc;
+  --text-muted: #8290a8;
+  --text-disabled: #64738c;
+  --text-on-gold: #14110a;
+
+  --gold: #f0b90b;
+  --profit: #0ecb81;
+  --loss: #f6465d;
+  --info: #5d8ef7;
+  --purple: #b58cff;
+
+  --gold-bg: rgba(240, 185, 11, 0.1);
+  --profit-bg: rgba(14, 203, 129, 0.1);
+  --loss-bg: rgba(246, 70, 93, 0.1);
+  --info-bg: rgba(93, 142, 247, 0.1);
+  --focus-ring: rgba(240, 185, 11, 0.35);
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  /* Chart */
+  --chart-up: var(--profit);
+  --chart-down: var(--loss);
+  --chart-ema20: var(--gold);
+  --chart-ema50: var(--info);
+  --chart-rsi: var(--purple);
+  --chart-grid: rgba(156, 168, 188, 0.08);
+  --chart-axis: rgba(156, 168, 188, 0.2);
+
+  /* Typography */
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --fs-label: 11px;
+  --fs-th: 10px;
+  --fs-body: 13px;
+  --fs-section: 14px;
+  --fs-metric: 24px;
+  --fs-title: 23px;
+
+  /* Layout */
+  --sidebar-w: 238px;
+  --header-h: 66px;
+  --content-max: 1500px;
+  --page-pad: 32px;
+  --gap: 14px;
+  --card-pad: 18px;
+  --radius-card: 10px;
+  --radius-ctl: 6px;
+  --control-h: 36px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-app: #eef2f7;
+  --bg-sidebar: #f8fafc;
+  --bg-header: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-input: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-secondary-btn: #f1f5f9;
+  --bg-hover: #eef2f7;
+
+  --border: #d8e0eb;
+  --border-strong: #c3cedd;
+  --border-input: #cbd5e1;
+
+  --text: #172033;
+  --text-secondary: #526176;
+  --text-muted: #5d6b80;
+  --text-disabled: #94a3b8;
+
+  /* Nền trong suốt đậm hơn để đủ tương phản trên nền sáng; chữ trạng thái dùng tông đậm hơn. */
+  --gold-bg: rgba(240, 185, 11, 0.16);
+  --profit-bg: rgba(14, 203, 129, 0.14);
+  --loss-bg: rgba(246, 70, 93, 0.12);
+  --info-bg: rgba(93, 142, 247, 0.14);
+  --gold-text: #8a6a00;
+  --profit-text: #067a4c;
+  --loss-text: #c4243b;
+  --focus-ring: rgba(240, 185, 11, 0.45);
+  --backdrop: rgba(15, 23, 42, 0.45);
+  --shadow-overlay: 0 16px 48px rgba(15, 23, 42, 0.18);
+
+  --chart-grid: rgba(82, 97, 118, 0.1);
+  --chart-axis: rgba(82, 97, 118, 0.25);
+}
+
+:root {
+  --gold-text: var(--gold);
+  --profit-text: var(--profit);
+  --loss-text: var(--loss);
+}
+:root[data-theme="light"] {
+  --gold-text: #8a6a00;
+  --profit-text: #067a4c;
+  --loss-text: #c4243b;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --page-pad: 15px;
+    --card-pad: 14px;
+    --fs-title: 21px;
+    --control-h: 40px;
+  }
+}
