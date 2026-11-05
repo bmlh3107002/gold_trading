@@ -47,6 +47,39 @@ Lần đầu mất vài phút để Docker tải code từ GitHub và build. Xon
 | Đổi cổng dashboard | `DASHBOARD_PORT=9000 docker compose up -d --build` |
 | Chạy nhánh khác | `GT_BRANCH=main docker compose up -d --build` |
 
+## Tìm các thành phần trong Docker Desktop
+
+Mọi thứ được gom dưới project **`gold_trading`**:
+
+| Loại | Tên |
+| --- | --- |
+| Nhóm container (tab *Containers*) | `gold_trading` → `gold_trading-db-1`, `gold_trading-backend-1`, `gold_trading-frontend-1` |
+| Image tự build (tab *Images*) | `gold_trading/backend`, `gold_trading/frontend` |
+| Image database tải về | `timescale/timescaledb` |
+| Dữ liệu (tab *Volumes*) | `gold_trading_db_data` |
+
+Lọc nhanh bằng lệnh:
+
+```bash
+docker images "gold_trading/*"
+```
+
+```bash
+docker compose ls
+```
+
+Mỗi lần `up --build` sẽ để lại image cũ không tên (`<none>`). Dọn bằng:
+
+```bash
+docker image prune -f
+```
+
+Gỡ **toàn bộ** dự án khỏi máy (container, image tự build, dữ liệu):
+
+```bash
+docker compose down -v --rmi local
+```
+
 ## Lưu ý
 
 - Dashboard chỉ mở ở `localhost`. API **chưa có xác thực**, đừng mở cổng ra mạng ngoài.

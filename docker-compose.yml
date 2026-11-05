@@ -1,7 +1,7 @@
 # Dành cho người đã clone repo: build từ code local.
 #   docker compose up -d --build
 # Không muốn clone code? Dùng deploy/docker-compose.yml.
-name: gold-trading
+name: gold_trading
 
 services:
   db:
@@ -23,6 +23,7 @@ services:
     restart: unless-stopped
 
   backend:
+    image: gold_trading/backend:latest
     build: ./backend
     environment:
       GT_MODE: ${GT_MODE:-PAPER}
@@ -33,6 +34,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: gold_trading/frontend:latest
     build: ./frontend
     depends_on:
       backend:

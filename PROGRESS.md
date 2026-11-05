@@ -17,7 +17,7 @@
 | Database | PostgreSQL/TimescaleDB (image `timescale/timescaledb:2.17.2-pg16`), SQLAlchemy 2 Core + psycopg 3, migration bằng Alembic |
 | Quản lý Python | `uv` (mỗi package có `uv.lock` riêng) |
 | Git | Push lên `develop` (nhánh mặc định trên GitHub). Không tạo PR nếu chưa được yêu cầu |
-| Chạy trên máy cá nhân | Docker. `deploy/docker-compose.yml` build thẳng từ GitHub, không cần clone |
+| Chạy trên máy cá nhân | Docker. `deploy/docker-compose.yml` build thẳng từ GitHub, không cần clone. Project `gold_trading`, image `gold_trading/backend` và `gold_trading/frontend`, volume `gold_trading_db_data` |
 
 ## Trạng thái theo thành phần
 
@@ -111,6 +111,9 @@ Kết quả lần cuối: backend 39 passed, mt5_gateway 2 passed, frontend 17 p
 - Thêm PostgreSQL vào cả hai file compose. Backend lưu lịch sử Safety, Mode và audit vào DB, migration Alembic `0001`, trigger append-only.
 - API: `/api/audit`, health kiểm tra DB, `storage` trong status. Dashboard hiện "Lưu trữ: PostgreSQL" ở chân sidebar.
 - Đã kiểm tra bằng Docker thật: migration chạy; restart backend thì ACTIVE về PAUSED và mode được giữ; `down` + `up` vẫn còn HALTED; UPDATE/DELETE trực tiếp bị DB chặn.
+
+### 2026-11-05 — Gom tên Docker
+- Đổi tên project compose `gold-trading` → `gold_trading`, đặt tên image cố định `gold_trading/backend:latest` và `gold_trading/frontend:latest`. `deploy/README.md` có thêm hướng dẫn tìm và dọn dẹp.
 
 ## Việc tiếp theo (đề xuất)
 

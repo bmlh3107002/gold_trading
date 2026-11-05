@@ -6,7 +6,7 @@
 #   docker compose down              # dừng (dữ liệu vẫn giữ trong volume)
 #
 # Mở dashboard: http://localhost:8080
-name: gold-trading
+name: gold_trading
 
 services:
   db:
@@ -26,6 +26,7 @@ services:
     # Không mở cổng ra máy host: chỉ backend trong mạng nội bộ của compose truy cập được.
 
   backend:
+    image: gold_trading/backend:latest
     build:
       context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:backend
     environment:
@@ -37,6 +38,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: gold_trading/frontend:latest
     build:
       context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:frontend
     depends_on:
