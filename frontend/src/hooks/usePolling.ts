@@ -11,6 +11,7 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs: number, sta
   const fetchRef = useRef(fetcher);
   fetchRef.current = fetcher;
   const mounted = useRef(true);
+  const firstFetcher = useRef(fetcher);
 
   const refresh = useCallback(async () => {
     try {
@@ -37,6 +38,13 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs: number, sta
       clearInterval(tick);
     };
   }, [refresh, intervalMs]);
+
+  // fetcher đổi (ví dụ vừa biết nguồn dữ liệu là MT5): tải lại ngay, không đợi tới lượt polling
+  useEffect(() => {
+    if (fetcher === firstFetcher.current) return;
+    firstFetcher.current = fetcher;
+    void refresh();
+  }, [fetcher, refresh]);
 
   const connection: ConnectionState = deriveConnection({
     hasData: data !== null,

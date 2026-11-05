@@ -1,12 +1,16 @@
 [project]
 name = "mt5-gateway"
-version = "0.1.0"
-description = "Adapter Python chạy trên Windows cạnh terminal MT5 (docs/09). Không chứa logic chiến lược."
-requires-python = ">=3.11"
+version = "0.2.0"
+description = "MT5 Gateway bản CHỈ ĐỌC: đưa nến XAUUSD M15 từ MetaTrader 5 vào backend. Không đặt lệnh."
+requires-python = ">=3.11,<3.14"
 dependencies = [
   # Thư viện chính thức của MetaQuotes chỉ có trên Windows.
   "MetaTrader5>=5.0.45; sys_platform == 'win32'",
+  "tzdata>=2024.2",
 ]
+
+[project.scripts]
+mt5-gateway = "mt5_gateway.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
@@ -21,3 +25,9 @@ packages = ["src/mt5_gateway"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

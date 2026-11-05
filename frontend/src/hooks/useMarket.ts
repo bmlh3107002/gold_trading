@@ -20,3 +20,12 @@ export function useDataQuality() {
 export function useTechnical() {
   return usePolling(useCallback(() => api.technicalLatest(), []), 30_000, 90_000);
 }
+
+/** Trạng thái MT5 Gateway: 10 giây/lần. */
+export function useGatewayStatus(enabled: boolean) {
+  return usePolling(
+    useCallback(() => (enabled ? api.gatewayStatus() : Promise.resolve(null)), [enabled]),
+    10_000,
+    30_000,
+  );
+}

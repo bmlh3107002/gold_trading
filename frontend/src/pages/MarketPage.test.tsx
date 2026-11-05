@@ -137,3 +137,17 @@ describe("Thẻ Phân tích kỹ thuật", () => {
     expect(await screen.findByText("Chưa có kết quả phân tích")).toBeInTheDocument();
   });
 });
+
+describe("Trạng thái MT5 Gateway", () => {
+  it("hiện ở sidebar khi nguồn dữ liệu là MT5", async () => {
+    routes({
+      "/api/status": makeStatus({ data_source: "MT5", data_is_sample: false }),
+      "/api/gateway/status": {
+        state: "CONNECTED", last_seen_at: "2026-01-06T14:45:00Z", age_seconds: 3,
+        heartbeat: { account_type: "DEMO" },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByText(/MT5: đã kết nối · demo/)).toBeInTheDocument();
+  });
+});

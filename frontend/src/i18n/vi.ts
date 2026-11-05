@@ -46,6 +46,12 @@ const vi = {
     title: "Hệ thống",
     backend: "Backend v{{version}}",
     backendUnknown: "Backend chưa phản hồi",
+    gateway: {
+      CONNECTED: "MT5: đã kết nối",
+      DISCONNECTED: "MT5: mất kết nối",
+      NEVER: "MT5: chưa kết nối",
+      account: { DEMO: "demo", CONTEST: "contest", REAL: "TÀI KHOẢN THẬT", UNKNOWN: "không rõ" },
+    },
     storage: {
       postgres: "Lưu trữ: PostgreSQL",
       memory: "Lưu trữ: bộ nhớ (mất khi khởi động lại)",

@@ -31,8 +31,10 @@ services:
       context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:backend
     environment:
       GT_MODE: ${GT_MODE:-PAPER}
-      # Nguồn nến: SAMPLE (dữ liệu mẫu, mặc định) | CSV | NONE
+      # Nguồn nến: SAMPLE (dữ liệu mẫu, mặc định) | CSV | MT5 | NONE
       GT_DATA_SOURCE: ${GT_DATA_SOURCE:-SAMPLE}
+      # Token cho MT5 Gateway gửi dữ liệu vào (>= 24 ký tự). Để trống = cổng nhận dữ liệu TẮT.
+      GT_INGEST_TOKEN: ${GT_INGEST_TOKEN:-}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-gold}:${POSTGRES_PASSWORD:-gold-local-only}@db:5432/${POSTGRES_DB:-gold_trading}
     depends_on:
       db:

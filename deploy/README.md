@@ -71,6 +71,10 @@ Muốn xem thử trước mà không ghi gì thì thêm `--dry-run`. Nạp lại
 
 4. Chuyển Dashboard sang dùng dữ liệu CSV: tạo file `.env` cạnh `docker-compose.yml` với nội dung `GT_DATA_SOURCE=CSV`, rồi chạy `docker compose up -d`.
 
+### Lấy dữ liệu trực tiếp từ MT5 (Windows)
+
+Xem hướng dẫn từng bước ở [`mt5_gateway/README.md`](../mt5_gateway/README.md). Tóm tắt: tạo file `.env` cạnh `docker-compose.yml` với `GT_DATA_SOURCE=MT5` và `GT_INGEST_TOKEN=<token>`, rồi chạy `docker compose up -d`. Sau đó chạy MT5 Gateway với cùng token. Gateway **chỉ đọc**, không đặt lệnh.
+
 ## Tìm các thành phần trong Docker Desktop
 
 Mọi thứ được gom dưới project **`gold_trading`**:

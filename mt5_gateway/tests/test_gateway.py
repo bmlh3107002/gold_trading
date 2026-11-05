@@ -1,0 +1,297 @@
+import re
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from mt5_gateway import checks
+from mt5_gateway.backend_client import BackendError
+from mt5_gateway.config import Config
+from mt5_gateway.reader import Mt5Reader
+from mt5_gateway.sync import Syncer
+from mt5_gateway.timeconv import detect_offset_hours, server_epoch_to_utc
+from tests.fake_mt5 import FakeMt5
+
+ATHENS = ZoneInfo("Europe/Athens")
+NOW_WINTER = datetime(2026, 1, 14, 10, 7, 30, tzinfo=UTC)  # thứ Tư, thị trường mở
+NOW_SUMMER = datetime(2026, 7, 15, 10, 7, 30, tzinfo=UTC)
+TOKEN = "k" * 32
+
+
+def cfg(**kw) -> Config:
+    base = dict(
+        backend_url="http://x",
+        token=TOKEN,
+        broker_symbol="XAUUSD",
+        symbol="XAUUSD",
+        server_tz="Europe/Athens",
+        terminal_path=None,
+        history_bars=5000,
+        poll_seconds=5,
+        heartbeat_seconds=10,
+        gateway_id="win-1",
+    )
+    return Config(**(base | kw))
+
+
+class FakeBackend:
+    base = "http://x"
+
+    def __init__(self, fail_health=False, dry_status=None):
+        self.posts: list[dict] = []
+        self.heartbeats: list[dict] = []
+        self.fail_health = fail_health
+        self.dry_status = dry_status
+
+    def health(self):
+        if self.fail_health:
+            raise BackendError(None, "Không kết nối được backend")
+        return {"status": "ok", "storage": "postgres"}
+
+    def post_candles(self, *, symbol, bars, backfill, gateway_id, dry_run=False):
+        if dry_run and self.dry_status:
+            raise BackendError(self.dry_status, "lỗi")
+        self.posts.append(dict(symbol=symbol, bars=bars, backfill=backfill, dry_run=dry_run))
+        return {
+            "received": len(bars),
+            "accepted": len(bars),
+            "duplicates": 0,
+            "revised": 0,
+            "quarantined": 0,
+            "reasons": {},
+            "session_outside_fraction": 0.0,
+        }
+
+    def heartbeat(self, payload):
+        self.heartbeats.append(payload)
+        return {"state": "CONNECTED"}
+
+
+# ---- Quy đổi giờ ----
+
+
+def test_server_epoch_to_utc_winter_and_summer():
+    # 12:00 giờ server mùa đông (GMT+2) = 10:00 UTC; mùa hè (GMT+3) = 09:00 UTC
+    w = int(datetime(2026, 1, 14, 12, 0, tzinfo=UTC).timestamp())
+    s = int(datetime(2026, 7, 15, 12, 0, tzinfo=UTC).timestamp())
+    assert server_epoch_to_utc(w, ATHENS) == datetime(2026, 1, 14, 10, 0, tzinfo=UTC)
+    assert server_epoch_to_utc(s, ATHENS) == datetime(2026, 7, 15, 9, 0, tzinfo=UTC)
+
+
+def test_ambiguous_dst_hour_returns_none():
+    amb = int(datetime(2026, 10, 25, 3, 30, tzinfo=UTC).timestamp())  # 03:30 Athens xảy ra hai lần
+    gap = int(datetime(2026, 3, 29, 3, 30, tzinfo=UTC).timestamp())  # 03:30 Athens không tồn tại
+    assert server_epoch_to_utc(amb, ATHENS) is None
+    assert server_epoch_to_utc(gap, ATHENS) is None
+
+
+def test_detect_offset_only_for_fresh_ticks():
+    now = 1_800_000_000
+    assert detect_offset_hours(now + 2 * 3600 + 3, now) == 2
+    assert detect_offset_hours(now + 3 * 3600 - 120, now) == 3
+    assert detect_offset_hours(now + 2 * 3600 + 1800, now) is None  # lệch nửa giờ: không đoán
+
+
+# ---- Đọc nến ----
+
+
+def test_closed_bars_exclude_forming_bar_and_convert_to_utc():
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    r = Mt5Reader(fake, broker_symbol="XAUUSD", server_tz=ATHENS)
+    bars = r.closed_bars(10)
+    assert len(bars) == 10
+    assert bars[-1].open_time_utc == datetime(
+        2026, 1, 14, 9, 45, tzinfo=UTC
+    )  # nến 10:00 đang chạy bị loại
+    assert all(b.open_time_utc + timedelta(minutes=15) <= NOW_WINTER for b in bars)
+
+
+def test_read_only_wrapper_blocks_trading_functions():
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    r = Mt5Reader(fake, broker_symbol="XAUUSD", server_tz=ATHENS)
+    with pytest.raises(AttributeError, match="chỉ đọc"):
+        r.mt5.order_send({})
+    assert fake.order_send_called is False
+
+
+def test_source_contains_no_trading_calls():
+    src = Path(__file__).resolve().parents[1] / "src" / "mt5_gateway"
+    forbidden = re.compile(
+        r"\b(order_send|order_check|order_calc|positions_get|positions_total|"
+        r"orders_get|orders_total|history_orders|history_deals)\b"
+    )
+    hits = [
+        f"{p.name}: {m.group(0)}"
+        for p in src.glob("*.py")
+        for m in forbidden.finditer(p.read_text(encoding="utf-8"))
+    ]
+    assert hits == []
+
+
+# ---- Lệnh check ----
+
+
+def names(rep):
+    return {s.name: s.status for s in rep.steps}
+
+
+def test_check_all_pass_on_demo_with_correct_timezone():
+    rep = checks.run_checks(
+        cfg(), FakeMt5(now_utc=NOW_WINTER), FakeBackend(), now=lambda: NOW_WINTER, tick_wait_s=1
+    )
+    assert rep.ok, [(s.name, s.status, s.detail) for s in rep.steps]
+    assert names(rep)["Giờ server (tick trực tiếp)"] == checks.PASS
+    assert names(rep)["Tài khoản"] == checks.PASS
+
+
+def test_check_summer_offset_also_matches():
+    rep = checks.run_checks(
+        cfg(), FakeMt5(now_utc=NOW_SUMMER), FakeBackend(), now=lambda: NOW_SUMMER, tick_wait_s=1
+    )
+    assert rep.ok and rep.offset_now == 3
+
+
+def test_check_fails_when_declared_timezone_wrong():
+    # Broker thật GMT+2/+3 nhưng người dùng khai báo UTC
+    rep = checks.run_checks(
+        cfg(server_tz="UTC"),
+        FakeMt5(now_utc=NOW_WINTER),
+        FakeBackend(),
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    assert not rep.ok and names(rep)["Giờ server (tick trực tiếp)"] == checks.FAIL
+
+
+def test_check_warns_when_no_live_tick_but_does_not_guess():
+    rep = checks.run_checks(
+        cfg(),
+        FakeMt5(now_utc=NOW_WINTER, live_ticks=False),
+        FakeBackend(),
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    assert names(rep)["Giờ server (tick trực tiếp)"] == checks.WARN and rep.offset_now is None
+
+
+@pytest.mark.parametrize(
+    ("kw", "fake_kw", "backend_kw", "step"),
+    [
+        ({"server_tz": ""}, {}, {}, "Cấu hình múi giờ server"),
+        ({"server_tz": "Mars/Base"}, {}, {}, "Cấu hình múi giờ server"),
+        ({"token": "short"}, {}, {}, "Token"),
+        ({}, {"init_ok": False}, {}, "Kết nối MT5"),
+        ({}, {"connected": False}, {}, "Kết nối MT5"),
+        ({"broker_symbol": "GOLD"}, {}, {}, "Symbol"),
+        ({}, {}, {"fail_health": True}, "Backend"),
+        ({}, {}, {"dry_status": 401}, "Chạy thử gửi dữ liệu (không lưu)"),
+    ],
+)
+def test_check_failures(kw, fake_kw, backend_kw, step):
+    rep = checks.run_checks(
+        cfg(**kw),
+        FakeMt5(now_utc=NOW_WINTER, **fake_kw),
+        FakeBackend(**backend_kw),
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    assert not rep.ok and names(rep)[step] == checks.FAIL
+
+
+def test_check_real_account_is_warning_not_failure():
+    rep = checks.run_checks(
+        cfg(),
+        FakeMt5(now_utc=NOW_WINTER, trade_mode=2),
+        FakeBackend(),
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    assert rep.ok and names(rep)["Tài khoản"] == checks.WARN
+
+
+def test_check_suggests_similar_symbols():
+    rep = checks.run_checks(
+        cfg(broker_symbol="GOLD"),
+        FakeMt5(now_utc=NOW_WINTER),
+        FakeBackend(),
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    sym = next(s for s in rep.steps if s.name == "Symbol")
+    assert "XAUUSD.r" in sym.fix
+
+
+def test_check_dry_run_does_not_store():
+    be = FakeBackend()
+    checks.run_checks(cfg(), FakeMt5(now_utc=NOW_WINTER), be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    assert be.posts and all(p["dry_run"] for p in be.posts)
+
+
+# ---- Đồng bộ ----
+
+
+def test_sync_backfill_then_live_and_heartbeat():
+    fake, be = FakeMt5(now_utc=NOW_WINTER), FakeBackend()
+    rep = checks.run_checks(cfg(), fake, be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    be.posts.clear()
+    s = Syncer(cfg(), rep.reader, be, rep, sleep=lambda _: None, clock=lambda: 0.0)
+    s.backfill()
+    assert all(p["backfill"] for p in be.posts) and all(len(p["bars"]) <= 1000 for p in be.posts)
+    assert sum(len(p["bars"]) for p in be.posts) == len(rep.reader.closed_bars(5000))
+    be.posts.clear()
+    loops = iter([False, True])
+    s.run_forever(stop=lambda: next(loops))
+    assert (
+        len(be.posts) == 1 and be.posts[0]["backfill"] is False and len(be.posts[0]["bars"]) == 20
+    )
+    hb = be.heartbeats[0]
+    assert hb["read_only"] is True and hb["account_type"] == "DEMO"
+    assert hb["symbol"]["contract_size"] == 100.0 and hb["server_offset_hours_now"] == 2
+    assert fake.order_send_called is False
+
+
+def test_sync_backs_off_on_backend_error():
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    rep = checks.run_checks(cfg(), fake, FakeBackend(), now=lambda: NOW_WINTER, tick_wait_s=1)
+
+    class Down(FakeBackend):
+        def post_candles(self, **kw):
+            raise BackendError(None, "down")
+
+    sleeps: list[float] = []
+    n = iter([False, False, False, True])
+    Syncer(cfg(), rep.reader, Down(), rep, sleep=sleeps.append, clock=lambda: 0.0).run_forever(
+        stop=lambda: next(n)
+    )
+    assert sleeps == [1.0, 2.0, 4.0]
+
+
+class SessionCheckingBackend(FakeBackend):
+    """Giả lập R1 của backend: từ chối nếu có nến rơi vào giờ đóng cửa (theo giờ New York)."""
+
+    def post_candles(self, *, symbol, bars, backfill, gateway_id, dry_run=False):
+        from tests.gold_trading_sample import _open
+
+        outside = sum(not _open(datetime.fromisoformat(b["open_time"])) for b in bars) / len(bars)
+        if outside > 0.01:
+            raise BackendError(422, f"Từ chối: {outside:.1%} số nến rơi vào giờ đóng cửa")
+        return super().post_candles(
+            symbol=symbol, bars=bars, backfill=backfill, gateway_id=gateway_id, dry_run=dry_run
+        )
+
+
+def test_wrong_timezone_suggests_iana_name_not_fixed_offset():
+    # Lịch sử trải qua đổi giờ (mùa hè GMT+3 → mùa đông GMT+2), không có tick để đối chiếu
+    fake = FakeMt5(now_utc=datetime(2026, 11, 18, 10, 7, tzinfo=UTC), live_ticks=False)
+    rep = checks.run_checks(
+        cfg(server_tz="UTC", history_bars=5000),
+        fake,
+        SessionCheckingBackend(),
+        now=lambda: datetime(2026, 11, 18, 10, 7, tzinfo=UTC),
+        tick_wait_s=1,
+    )
+    step = next(s for s in rep.steps if s.name == "Chạy thử gửi dữ liệu (không lưu)")
+    assert step.status == checks.FAIL
+    assert step.fix.startswith("Đặt GT_SERVER_TZ=Europe/Athens")
+    assert "Etc/GMT-2" not in step.fix and "Etc/GMT-3" not in step.fix  # độ lệch cố định đều sai

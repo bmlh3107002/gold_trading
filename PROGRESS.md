@@ -44,7 +44,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 07 | Risk Ledger | 🟡 | `risk/ledger.py` | Reserve/release append-only trong bộ nhớ. Chưa có fill/PnL, chưa đối soát MT5 |
 | 08 | Safety Supervisor | ✅ | `safety/supervisor.py` | Chưa nối các trigger tự động (tin nóng, spread, equity) |
 | 09 | Order FSM | ✅ | `execution/order_fsm.py` | Chưa có Execution Orchestrator |
-| 09 | MT5 Gateway | 🟡 | `mt5_gateway/` | Có Protocol `BrokerAdapter` và map retcode. Chưa có adapter MT5 thật |
+| 09 | MT5 Gateway **chỉ đọc** | 🟡 | `mt5_gateway/`, `backend/.../api/ingest.py` | Thiết kế: `docs/thiet-ke/09a-mt5-gateway-chi-doc.md`, hướng dẫn: `mt5_gateway/README.md`. Lệnh `check`/`run`; đọc nến M15 đã đóng, quy đổi giờ server (IANA) → UTC; nạp bù 5.000 nến rồi 5 giây/lần; nhịp tim. Backend: `POST /api/ingest/mt5/candles` (token, dry_run, R1), `/heartbeat`, `GET /api/gateway/status`. **Chưa chạy trên MT5 thật**; chưa đặt lệnh (cố ý) |
 | 09 | Guardian EA | 🟡 | `guardian_ea/GuardianEA.mq5` | **Chưa biên dịch, chưa test** |
 | 10 | Position Manager / Performance | ⬜ | `position/`, `performance/` | |
 | 11 | Training / registry | ⬜ | | |
@@ -70,7 +70,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 120 passed, mt5_gateway 2 passed, frontend 29 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 129 passed, mt5_gateway 26 passed, frontend 30 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
@@ -83,6 +83,12 @@ Kết quả lần cuối: backend 120 passed, mt5_gateway 2 passed, frontend 29 
 - Khi Docker chạy, CORS không cần vì nginx phục vụ dashboard và `/api` cùng origin.
 - Backend Dockerfile cài uv bằng pip (không `COPY --from=ghcr.io/...`) để chỉ phụ thuộc Docker Hub và PyPI.
 - Khi build Docker trong sandbox cloud: Docker Hub hay trả 429 (dùng `dockerd --registry-mirror=https://mirror.gcr.io`), và cần chèn CA của proxy (`/root/.ccr/ca-bundle.crt`) vào một **bản sao** Dockerfile trong scratchpad. Không commit CA vào repo.
+- **MT5 Gateway (chỉ đọc):**
+  - Chỉ được gọi các hàm trong `reader.READ_ONLY_FUNCTIONS`. Module MT5 bị bọc bởi `_ReadOnly`; test `test_source_contains_no_trading_calls` quét mã nguồn để tìm hàm giao dịch. **Không thêm chức năng đặt lệnh vào package này**; khi làm execution thì tách thành thành phần riêng, có review riêng.
+  - Giờ MT5 = giờ server viết như UTC. Bắt buộc `GT_SERVER_TZ` dạng IANA, không dùng độ lệch cố định. Kiểm tra chéo bằng tick sống (khi có) và R1 trên **toàn bộ** lịch sử.
+  - `copy_rates_from_pos(..., start_pos=1, ...)`: vị trí 0 là nến đang chạy.
+  - Backend dùng **đồng hồ của backend** làm `ingested_at`. Cổng nhận dữ liệu tắt nếu không có `GT_INGEST_TOKEN` (≥ 24 ký tự).
+  - Chạy trên Windows bằng `uv run mt5-gateway check|run` (`.python-version` = 3.12). Cấu hình ở `mt5_gateway/gateway.env`.
 - **Technical analyst:** đọc `docs/thiet-ke/03-technical-analyst.md` trước khi sửa. Đổi công thức hoặc ngưỡng thì tăng `VERSION` trong `analysts/technical.py`. Frontend đọc `features` qua `lib/technical.ts` (sai kiểu thì trả null, không đoán).
 - **Frontend — quy ước theme AurumDesk:**
   - Màu, khoảng cách, font chỉ khai báo trong `frontend/src/styles/tokens.css` (dark mặc định, light qua `html[data-theme="light"]`). Không hardcode màu trong component.
@@ -139,6 +145,11 @@ Kết quả lần cuối: backend 120 passed, mt5_gateway 2 passed, frontend 29 
 - Frontend: trang Thị trường, header có giá thật, điều hướng bằng hash.
 - Đã kiểm tra bằng Docker thật: migration 0002, hypertable, 5.883 nến mẫu; restart không sinh trùng; SHADOW bị từ chối khi dùng dữ liệu mẫu; CLI nạp CSV cách ly nến lỗi và từ chối file thiếu múi giờ; UPDATE trên `candles` bị chặn.
 
+### 2026-11-05 — MT5 Gateway bản chỉ đọc
+- Xóa khung `adapter.py` cũ (có kiểu dữ liệu đặt lệnh). Viết Gateway chỉ đọc: `timeconv`, `reader` (bọc chỉ đọc), `backend_client`, `checks` (9 bước, gợi ý múi giờ IANA), `sync`, `cli`, `gateway.env.example`, `README.md` hướng dẫn Windows.
+- Backend: cổng nhận dữ liệu có token, chạy thử không lưu, R1, nhịp tim và trạng thái Gateway. Giao diện: trạng thái MT5 ở sidebar. nginx `client_max_body_size 5m`. Compose thêm `GT_INGEST_TOKEN`.
+- Kiểm chứng bằng MT5 giả lập và Docker + Postgres qua nginx: xem mục 7 của thiết kế. **Người dùng sẽ chạy lần đầu với MT5 demo thật (XAUUSD) trên Windows.**
+
 ### 2026-11-05 — Bước ③: Technical analyst v1
 - Ghi **Nguyên tắc thận trọng tài chính** vào `CLAUDE.md`. Thiết kế chi tiết: `docs/thiet-ke/03-technical-analyst.md`.
 - Thêm R1 (kiểm tra múi giờ khi nạp CSV), R2–R6 (`market/quality.py`), ATR Wilder, analyst, bảng `analyst_outputs` (migration 0003), runner nền, API, thẻ giao diện và đường S/R trên biểu đồ.
@@ -151,12 +162,13 @@ Kết quả lần cuối: backend 120 passed, mt5_gateway 2 passed, frontend 29 
 
 ## Việc tiếp theo (đề xuất)
 
-Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc 🟡 (chờ chạy thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
+00. **Kiểm chứng Gateway với MT5 demo thật** của người dùng: xem kết quả `mt5-gateway check`; kiểm tra lại các ngưỡng R1–R6 trên dữ liệu thật; nếu có lỗi thì sửa trước khi làm tiếp.
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
 1. **Event & calendar analyst** (ưu tiên cao: chặn giao dịch quanh CPI/NFP/FOMC, tạo cờ `EVENT_WINDOW` mà Risk Engine đã chờ sẵn).
 2. **Event Orchestrator đầy đủ:** hiện `TechnicalRunner` polling 15s là bản tối thiểu; cần jobKey, deadline, retry giới hạn, dead-letter.
 3. **Fusion đơn giản → `MarketView`** đầu tiên, hiển thị trên Tổng quan. MarketView sinh từ dữ liệu mẫu phải mang cờ để Risk chặn ở SHADOW/LIVE.
 4. Strategy Engine và Backtest (replay theo `available_at`, có spread/slippage/phí). Backtest trên dữ liệu mẫu phải đánh dấu "không có giá trị đánh giá".
 5. Xác thực API trước khi chạy ngoài localhost.
-6. (Để sau) MT5 Gateway trên Windows, đẩy nến/tick qua WebSocket vào `CandleIngestor`; có thể đóng gói `.exe`.
+6. Gateway: chạy như dịch vụ Windows, đóng gói `.exe` (build trên runner Windows), hàng đợi bền vững; lịch giao dịch từ MT5 (R12). Đặt lệnh: thành phần riêng, làm sau cùng.

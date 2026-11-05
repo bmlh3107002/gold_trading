@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import type { GatewayStatus } from "../../api/client";
 import type { Route } from "../../hooks/useRoute";
 import type { ConnectionState } from "../../lib/connection";
 import { IconButton } from "../ui/Button";
@@ -32,9 +33,10 @@ interface SidebarProps {
   version: string | null;
   storage: string | null;
   route: Route;
+  gateway: GatewayStatus | null;
 }
 
-export function Sidebar({ open, onClose, connection, version, storage, route }: SidebarProps) {
+export function Sidebar({ open, onClose, connection, version, storage, route, gateway }: SidebarProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLElement>(null);
 
@@ -96,6 +98,17 @@ export function Sidebar({ open, onClose, connection, version, storage, route }: 
           <span className="header__label">
             {version ? t("system.backend", { version }) : t("system.backendUnknown")}
           </span>
+          {gateway && (
+            <span
+              className={`sidebar__status tone-${
+                gateway.state === "CONNECTED" ? "profit" : gateway.state === "NEVER" ? "neutral" : "loss"
+              }`}
+            >
+              <span className="dot" aria-hidden="true" />
+              {t(`system.gateway.${gateway.state}`)}
+              {gateway.heartbeat && ` · ${t(`system.gateway.account.${gateway.heartbeat.account_type}`)}`}
+            </span>
+          )}
           {storage && (
             <span className={`header__label ${storage === "memory" ? "tone-gold" : ""}`}>
               {storage === "postgres" || storage === "memory"

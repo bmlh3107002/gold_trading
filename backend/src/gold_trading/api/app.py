@@ -20,12 +20,14 @@ from pydantic import BaseModel, Field
 from gold_trading import __version__
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.analysts import analysts_router
+from gold_trading.api.ingest import GatewayMonitor, ingest_router
 from gold_trading.api.market import market_router
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.contracts.safety import SafetyTransition
+from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST, ModeChangeError, ModeManager
@@ -112,6 +114,7 @@ def create_app(
     run_sample_feed: bool | None = None,
     run_analysts: bool | None = None,
     analyst_store: AnalystOutputStore | None = None,
+    ingest_token: str | None | Literal["env"] = "env",
     live_unlocked: bool = False,
 ) -> FastAPI:
     repo = repo or repository_from_env()
@@ -204,6 +207,10 @@ def create_app(
     app = FastAPI(title="Gold Trading AI", version=__version__, lifespan=lifespan)
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
+    token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
+    app.include_router(
+        ingest_router(market, CandleIngestor(candle_store), GatewayMonitor(), token or None)
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173"],

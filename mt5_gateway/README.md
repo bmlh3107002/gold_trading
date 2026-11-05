@@ -1,0 +1,139 @@
+# MT5 Gateway (bản CHỈ ĐỌC): hướng dẫn chạy trên Windows
+
+Gateway đọc nến **XAUUSD M15** từ MetaTrader 5 và gửi vào hệ thống đang chạy bằng Docker.
+
+> 🔒 **Gateway này KHÔNG thể đặt, sửa hay hủy lệnh.** Mã nguồn không có hàm giao dịch nào, và có test tự động kiểm tra điều đó. Dù vậy, khi thử nghiệm vẫn nên dùng **tài khoản demo**.
+
+Cần có: máy **Windows**, **Docker Desktop** đang chạy, **MetaTrader 5** đã đăng nhập tài khoản demo.
+
+---
+
+## Bước 1: Chuẩn bị MetaTrader 5
+
+1. Mở MT5 và đăng nhập tài khoản **demo**. Góc dưới bên phải phải hiện tốc độ kết nối, không được hiện "No connection".
+2. Mở **Market Watch** (Ctrl+M) và kiểm tra có dòng **XAUUSD**. Nếu không thấy: chuột phải → **Show All**.
+3. **Tools → Options → Charts → Max bars in chart**, chọn **Unlimited**, bấm OK.
+4. Mở một chart **XAUUSD**, chọn khung **M15**, và cuộn về bên trái vài lần để MT5 tải lịch sử.
+
+> **Không cần** bật "Allow algorithmic trading" (nút **Algo Trading**). Gateway chỉ đọc dữ liệu nên không cần quyền giao dịch tự động. Hãy để **tắt**.
+
+## Bước 2: Tạo token bí mật
+
+Token là "mật khẩu" để chỉ Gateway của bạn mới gửi được dữ liệu vào hệ thống.
+
+Mở **PowerShell** và chạy:
+
+```powershell
+[guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
+```
+
+Copy chuỗi 64 ký tự vừa hiện ra. Bạn sẽ dán chuỗi này vào **2 chỗ** ở bước 3 và bước 4.
+
+## Bước 3: Cấu hình Docker dùng dữ liệu MT5
+
+1. Tải lại file `docker-compose.yml` mới nhất (cách tải như trong `deploy/README.md`), đặt vào thư mục bạn đang dùng cho Docker.
+2. Trong **cùng thư mục đó**, tạo file tên **`.env`** (có dấu chấm ở đầu) với nội dung:
+
+   ```text
+   GT_DATA_SOURCE=MT5
+   GT_INGEST_TOKEN=<dán token ở bước 2>
+   ```
+
+3. Chạy:
+
+   ```powershell
+   docker compose up -d --build
+   ```
+
+4. Mở http://localhost:8080. Trang **Thị trường** sẽ báo "Chưa có nến nào". Đây là bình thường, vì Gateway chưa chạy.
+
+## Bước 4: Tải và cấu hình Gateway
+
+1. Trên GitHub, vào repo → nút xanh **Code → Download ZIP**, rồi giải nén.
+2. Mở thư mục **`mt5_gateway`** bên trong.
+3. Copy file **`gateway.env.example`** thành **`gateway.env`** (cùng thư mục), mở bằng Notepad và sửa:
+
+   ```text
+   GT_INGEST_TOKEN=<dán CÙNG token ở bước 2>
+   GT_BROKER_SYMBOL=XAUUSD
+   GT_SERVER_TZ=Europe/Athens
+   ```
+
+   `Europe/Athens` đúng với đa số broker (giờ server GMT+2 mùa đông, GMT+3 mùa hè). Nếu sai, bước 6 sẽ báo và gợi ý múi giờ đúng.
+
+## Bước 5: Cài `uv` (chỉ làm một lần)
+
+`uv` tự tải đúng phiên bản Python mà Gateway cần; bạn không phải tự cài Python. Trong PowerShell chạy:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Sau đó **đóng và mở lại PowerShell**.
+
+## Bước 6: Chạy kiểm tra
+
+Trong PowerShell, chuyển vào thư mục `mt5_gateway` (thay đường dẫn cho đúng chỗ bạn giải nén):
+
+```powershell
+cd "C:\Users\<tên bạn>\Downloads\gold_trading-develop\mt5_gateway"
+```
+
+```powershell
+uv run mt5-gateway check
+```
+
+Lần đầu sẽ mất 1–2 phút để tải Python và thư viện. Kết quả mong muốn là **tất cả các dòng ĐẠT**, và cuối cùng là `KẾT QUẢ: SẴN SÀNG`:
+
+```text
+[  ĐẠT   ] 1. Cấu hình múi giờ server: Europe/Athens (hiện tại GMT+2)
+[  ĐẠT   ] 2. Token: Đã đặt (64 ký tự)
+[  ĐẠT   ] 3. Kết nối MT5: ...
+[  ĐẠT   ] 4. Tài khoản: DEMO · ...
+[  ĐẠT   ] 5. Symbol: XAUUSD: digits 2, contract 100, lot tối thiểu 0.01, bước lot 0.01
+[  ĐẠT   ] 6. Giờ server (tick trực tiếp): Khớp: GMT+2
+[  ĐẠT   ] 7. Lịch sử nến M15: ... nến đã đóng ...
+[  ĐẠT   ] 8. Backend: http://localhost:8080 · lưu trữ postgres
+[  ĐẠT   ] 9. Chạy thử gửi dữ liệu (không lưu): ...
+KẾT QUẢ: SẴN SÀNG. Chạy: mt5-gateway run
+```
+
+- Dòng 6 hiện **CẢNH BÁO** khi thị trường đóng cửa (cuối tuần) là bình thường; dòng 9 vẫn kiểm tra múi giờ bằng lịch sử. Tốt nhất nên chạy khi thị trường mở.
+- Nếu có dòng **LỖI**, xem gợi ý "→ Cách xử lý" ngay bên dưới dòng đó. **Hãy copy toàn bộ kết quả gửi lại để được hỗ trợ.**
+
+Lệnh `check` **không ghi dữ liệu** gì vào hệ thống.
+
+## Bước 7: Chạy đồng bộ
+
+```powershell
+uv run mt5-gateway run
+```
+
+- Gateway chạy lại `check`. Chỉ khi tất cả đạt, nó mới nạp khoảng 5.000 nến lịch sử (khoảng 2 tháng), sau đó cứ 5 giây gửi các nến vừa đóng.
+- **Để cửa sổ PowerShell mở.** Muốn dừng thì bấm **Ctrl+C**.
+- Trên http://localhost:8080:
+  - chân sidebar hiện **"MT5: đã kết nối · demo"**;
+  - trang Thị trường hiện giá thật, **không còn nhãn "Dữ liệu mẫu"**;
+  - khoảng 15 giây sau khi có dữ liệu, thẻ Phân tích kỹ thuật sẽ có kết quả.
+
+---
+
+## Lỗi thường gặp
+
+| Thông báo | Cách xử lý |
+| --- | --- |
+| `Không tìm thấy thư viện MetaTrader5` | Gateway phải chạy trên Windows. Chạy lại `uv run mt5-gateway check` |
+| `Kết nối MT5 (initialize) thất bại` | Mở MT5 và đăng nhập trước. Nếu máy cài nhiều MT5, đặt `GT_MT5_PATH` trong `gateway.env` trỏ tới `terminal64.exe` |
+| `Không tìm thấy XAUUSD` | Đặt `GT_BROKER_SYMBOL` đúng tên trong Market Watch (ví dụ `XAUUSDm`, `XAUUSD.r`) |
+| `Chỉ có ... nến` | Làm lại Bước 1, mục 3 và 4 |
+| `Không kết nối được backend` | Kiểm tra Docker đang chạy và mở được http://localhost:8080 |
+| `HTTP 503` / `chưa đặt GT_INGEST_TOKEN` | Thiếu file `.env` ở Bước 3, hoặc chưa chạy lại `docker compose up -d` |
+| `HTTP 401` / `Token không hợp lệ` | Token ở `gateway.env` khác token ở `.env` của Docker |
+| `Múi giờ ... không khớp` | Làm theo gợi ý `Đặt GT_SERVER_TZ=...` rồi chạy lại `check` |
+| Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |
+
+## Giới hạn của bản này
+
+- Đây là **lần đầu chạy với MT5 thật**: Gateway đã được test kỹ với MT5 giả lập, nhưng chưa chạy trên MT5 thật. Nếu có lỗi lạ, gửi lại toàn bộ kết quả `check` hoặc log.
+- Chưa chạy nền như một dịch vụ của Windows (phải để cửa sổ PowerShell mở) và chưa đóng gói `.exe`.
+- Gateway tắt quá khoảng 5 giờ thì khi chạy lại, nến bị lỡ trong thời gian đó vẫn được nạp, nhưng chỉ khi chạy `run` lại từ đầu (bước nạp bù lịch sử).

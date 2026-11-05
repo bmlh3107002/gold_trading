@@ -72,6 +72,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/mt5/candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ingest Candles */
+        post: operations["ingest_candles_api_ingest_mt5_candles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ingest/mt5/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Heartbeat */
+        post: operations["heartbeat_api_ingest_mt5_heartbeat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/gateway/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gateway Status */
+        get: operations["gateway_status_api_gateway_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -249,11 +300,50 @@ export interface components {
             /** Detail */
             detail?: string | null;
         };
+        /** BarIn */
+        BarIn: {
+            /**
+             * Open Time
+             * Format: date-time
+             */
+            open_time: string;
+            /** Open */
+            open: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Close */
+            close: number;
+            /**
+             * Tick Volume
+             * @default 0
+             */
+            tick_volume: number;
+            /** Spread Points */
+            spread_points?: number | null;
+        };
         /**
          * Bias
          * @enum {string}
          */
         Bias: "LONG" | "SHORT" | "NEUTRAL";
+        /** CandleBatch */
+        CandleBatch: {
+            /** Symbol */
+            symbol: string;
+            /**
+             * Timeframe
+             * @constant
+             */
+            timeframe: "M15";
+            /** Backfill */
+            backfill: boolean;
+            /** Gateway Id */
+            gateway_id: string;
+            /** Bars */
+            bars: components["schemas"]["BarIn"][];
+        };
         /**
          * CandleFlag
          * @enum {string}
@@ -341,10 +431,78 @@ export interface components {
          * @enum {string}
          */
         Freshness: "NO_DATA" | "FRESH" | "STALE" | "MARKET_CLOSED";
+        /** GatewayStatus */
+        GatewayStatus: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "NEVER" | "CONNECTED" | "DISCONNECTED";
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /** Age Seconds */
+            age_seconds: number | null;
+            heartbeat: components["schemas"]["Heartbeat"] | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** Heartbeat */
+        Heartbeat: {
+            /** Gateway Id */
+            gateway_id: string;
+            /** Gateway Version */
+            gateway_version: string;
+            /**
+             * Read Only
+             * @constant
+             */
+            read_only: true;
+            /** Terminal Connected */
+            terminal_connected: boolean;
+            /**
+             * Account Type
+             * @enum {string}
+             */
+            account_type: "DEMO" | "CONTEST" | "REAL" | "UNKNOWN";
+            /** Server */
+            server?: string | null;
+            /** Company */
+            company?: string | null;
+            /** Server Tz */
+            server_tz: string;
+            /** Server Offset Hours Now */
+            server_offset_hours_now?: number | null;
+            /** Last Tick Time */
+            last_tick_time?: string | null;
+            symbol?: components["schemas"]["SymbolSpec"] | null;
+            /** Last Sent Bar */
+            last_sent_bar?: string | null;
+        };
+        /** IngestReport */
+        IngestReport: {
+            /** Dry Run */
+            dry_run: boolean;
+            /** Received */
+            received: number;
+            /** Accepted */
+            accepted: number;
+            /** Duplicates */
+            duplicates: number;
+            /** Revised */
+            revised: number;
+            /** Quarantined */
+            quarantined: number;
+            /** Reasons */
+            reasons: {
+                [key: string]: number;
+            };
+            /** Session Outside Fraction */
+            session_outside_fraction?: number | null;
+            /** Session Best Shift Hours */
+            session_best_shift_hours?: number | null;
         };
         /**
          * MarketSession
@@ -503,6 +661,25 @@ export interface components {
          * @enum {string}
          */
         SourceStatus: "HEALTHY" | "STALE" | "MISSING" | "INVALID";
+        /** SymbolSpec */
+        SymbolSpec: {
+            /** Broker Symbol */
+            broker_symbol: string;
+            /** Digits */
+            digits: number;
+            /** Point */
+            point: number;
+            /** Contract Size */
+            contract_size: number;
+            /** Volume Min */
+            volume_min: number;
+            /** Volume Max */
+            volume_max: number;
+            /** Volume Step */
+            volume_step: number;
+            /** Currency Profit */
+            currency_profit?: string | null;
+        };
         /** SystemStatus */
         SystemStatus: {
             /** Version */
@@ -652,6 +829,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalystLatest"];
+                };
+            };
+        };
+    };
+    ingest_candles_api_ingest_mt5_candles_post: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandleBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    heartbeat_api_ingest_mt5_heartbeat_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Heartbeat"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gateway_status_api_gateway_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayStatus"];
                 };
             };
         };

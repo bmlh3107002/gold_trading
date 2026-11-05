@@ -132,6 +132,155 @@
         }
       }
     },
+    "/api/ingest/mt5/candles": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest Candles",
+        "operationId": "ingest_candles_api_ingest_mt5_candles_post",
+        "parameters": [
+          {
+            "name": "dry_run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Dry Run"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandleBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingest/mt5/heartbeat": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Heartbeat",
+        "operationId": "heartbeat_api_ingest_mt5_heartbeat_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Heartbeat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/gateway/status": {
+      "get": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Gateway Status",
+        "operationId": "gateway_status_api_gateway_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -473,6 +622,56 @@
         ],
         "title": "AuditRecord"
       },
+      "BarIn": {
+        "properties": {
+          "open_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Open Time"
+          },
+          "open": {
+            "type": "number",
+            "title": "Open"
+          },
+          "high": {
+            "type": "number",
+            "title": "High"
+          },
+          "low": {
+            "type": "number",
+            "title": "Low"
+          },
+          "close": {
+            "type": "number",
+            "title": "Close"
+          },
+          "tick_volume": {
+            "type": "integer",
+            "title": "Tick Volume",
+            "default": 0
+          },
+          "spread_points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open_time",
+          "open",
+          "high",
+          "low",
+          "close"
+        ],
+        "title": "BarIn"
+      },
       "Bias": {
         "type": "string",
         "enum": [
@@ -481,6 +680,46 @@
           "NEUTRAL"
         ],
         "title": "Bias"
+      },
+      "CandleBatch": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "timeframe": {
+            "type": "string",
+            "const": "M15",
+            "title": "Timeframe"
+          },
+          "backfill": {
+            "type": "boolean",
+            "title": "Backfill"
+          },
+          "gateway_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Gateway Id"
+          },
+          "bars": {
+            "items": {
+              "$ref": "#/components/schemas/BarIn"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "title": "Bars"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "timeframe",
+          "backfill",
+          "gateway_id",
+          "bars"
+        ],
+        "title": "CandleBatch"
       },
       "CandleFlag": {
         "type": "string",
@@ -756,6 +995,60 @@
         ],
         "title": "Freshness"
       },
+      "GatewayStatus": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "NEVER",
+              "CONNECTED",
+              "DISCONNECTED"
+            ],
+            "title": "State"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Seconds"
+          },
+          "heartbeat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Heartbeat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "last_seen_at",
+          "age_seconds",
+          "heartbeat"
+        ],
+        "title": "GatewayStatus"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -768,6 +1061,188 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Heartbeat": {
+        "properties": {
+          "gateway_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Gateway Id"
+          },
+          "gateway_version": {
+            "type": "string",
+            "title": "Gateway Version"
+          },
+          "read_only": {
+            "type": "boolean",
+            "const": true,
+            "title": "Read Only"
+          },
+          "terminal_connected": {
+            "type": "boolean",
+            "title": "Terminal Connected"
+          },
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "DEMO",
+              "CONTEST",
+              "REAL",
+              "UNKNOWN"
+            ],
+            "title": "Account Type"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "server_tz": {
+            "type": "string",
+            "title": "Server Tz"
+          },
+          "server_offset_hours_now": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Offset Hours Now"
+          },
+          "last_tick_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Tick Time"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SymbolSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_sent_bar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sent Bar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "gateway_id",
+          "gateway_version",
+          "read_only",
+          "terminal_connected",
+          "account_type",
+          "server_tz"
+        ],
+        "title": "Heartbeat"
+      },
+      "IngestReport": {
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "received": {
+            "type": "integer",
+            "title": "Received"
+          },
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          },
+          "revised": {
+            "type": "integer",
+            "title": "Revised"
+          },
+          "quarantined": {
+            "type": "integer",
+            "title": "Quarantined"
+          },
+          "reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Reasons"
+          },
+          "session_outside_fraction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Outside Fraction"
+          },
+          "session_best_shift_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Best Shift Hours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dry_run",
+          "received",
+          "accepted",
+          "duplicates",
+          "revised",
+          "quarantined",
+          "reasons"
+        ],
+        "title": "IngestReport"
       },
       "MarketSession": {
         "type": "string",
@@ -1156,6 +1631,60 @@
           "INVALID"
         ],
         "title": "SourceStatus"
+      },
+      "SymbolSpec": {
+        "properties": {
+          "broker_symbol": {
+            "type": "string",
+            "title": "Broker Symbol"
+          },
+          "digits": {
+            "type": "integer",
+            "title": "Digits"
+          },
+          "point": {
+            "type": "number",
+            "title": "Point"
+          },
+          "contract_size": {
+            "type": "number",
+            "title": "Contract Size"
+          },
+          "volume_min": {
+            "type": "number",
+            "title": "Volume Min"
+          },
+          "volume_max": {
+            "type": "number",
+            "title": "Volume Max"
+          },
+          "volume_step": {
+            "type": "number",
+            "title": "Volume Step"
+          },
+          "currency_profit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency Profit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "broker_symbol",
+          "digits",
+          "point",
+          "contract_size",
+          "volume_min",
+          "volume_max",
+          "volume_step"
+        ],
+        "title": "SymbolSpec"
       },
       "SystemStatus": {
         "properties": {
