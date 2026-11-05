@@ -1,0 +1,499 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Gold Trading AI",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "summary": "Get Status",
+        "operationId": "get_status_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/safety": {
+      "post": {
+        "summary": "Safety Command",
+        "operationId": "safety_command_api_safety_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SafetyCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mode": {
+      "post": {
+        "summary": "Mode Command",
+        "operationId": "mode_command_api_mode_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Bias": {
+        "type": "string",
+        "enum": [
+          "LONG",
+          "SHORT",
+          "NEUTRAL"
+        ],
+        "title": "Bias"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MarketView": {
+        "properties": {
+          "market_view_id": {
+            "type": "string",
+            "title": "Market View Id"
+          },
+          "snapshot_id": {
+            "type": "string",
+            "title": "Snapshot Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol",
+            "default": "XAUUSD"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "bias": {
+            "$ref": "#/components/schemas/Bias"
+          },
+          "p_up": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "P Up"
+          },
+          "p_down": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "P Down"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "regime": {
+            "$ref": "#/components/schemas/Regime"
+          },
+          "vol_forecast": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Vol Forecast"
+          },
+          "drivers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Drivers",
+            "default": []
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true,
+            "title": "Risk Flags",
+            "default": []
+          },
+          "quality_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true,
+            "title": "Quality Flags",
+            "default": []
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "market_view_id",
+          "snapshot_id",
+          "as_of",
+          "expires_at",
+          "bias",
+          "p_up",
+          "p_down",
+          "confidence",
+          "regime",
+          "vol_forecast",
+          "model_version"
+        ],
+        "title": "MarketView"
+      },
+      "ModeCommand": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TradingMode"
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Actor"
+          },
+          "approver": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approver"
+          },
+          "checklist": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Checklist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "actor"
+        ],
+        "title": "ModeCommand"
+      },
+      "Regime": {
+        "type": "string",
+        "enum": [
+          "TREND",
+          "RANGE",
+          "RISK_OFF",
+          "HIGH_VOL"
+        ],
+        "title": "Regime"
+      },
+      "SafetyCommand": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "halt",
+              "resume"
+            ],
+            "title": "Action"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Reason Code"
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Actor"
+          },
+          "operator_approved": {
+            "type": "boolean",
+            "title": "Operator Approved",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "reason_code",
+          "actor"
+        ],
+        "title": "SafetyCommand"
+      },
+      "SafetyState": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "PAUSED",
+          "HALTED"
+        ],
+        "title": "SafetyState"
+      },
+      "SafetyTransition": {
+        "properties": {
+          "transition_id": {
+            "type": "string",
+            "title": "Transition Id"
+          },
+          "from_state": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "to_state": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "trigger_source": {
+            "type": "string",
+            "title": "Trigger Source"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "transition_id",
+          "from_state",
+          "to_state",
+          "reason_code",
+          "trigger_source",
+          "actor",
+          "at",
+          "policy_version"
+        ],
+        "title": "SafetyTransition"
+      },
+      "SystemStatus": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/TradingMode"
+          },
+          "live_unlocked": {
+            "type": "boolean",
+            "title": "Live Unlocked"
+          },
+          "live_checklist": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Live Checklist"
+          },
+          "safety_state": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "allows_new_orders": {
+            "type": "boolean",
+            "title": "Allows New Orders"
+          },
+          "safety_history": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyTransition"
+            },
+            "type": "array",
+            "title": "Safety History"
+          },
+          "market_view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarketView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "mode",
+          "live_unlocked",
+          "live_checklist",
+          "safety_state",
+          "allows_new_orders",
+          "safety_history",
+          "market_view"
+        ],
+        "title": "SystemStatus"
+      },
+      "TradingMode": {
+        "type": "string",
+        "enum": [
+          "BACKTEST",
+          "PAPER",
+          "SHADOW",
+          "LIVE"
+        ],
+        "title": "TradingMode"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

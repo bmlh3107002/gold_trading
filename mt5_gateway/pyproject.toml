@@ -1,0 +1,23 @@
+[project]
+name = "mt5-gateway"
+version = "0.1.0"
+description = "Adapter Python chạy trên Windows cạnh terminal MT5 (docs/09). Không chứa logic chiến lược."
+requires-python = ">=3.11"
+dependencies = [
+  # Thư viện chính thức của MetaQuotes chỉ có trên Windows.
+  "MetaTrader5>=5.0.45; sys_platform == 'win32'",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mt5_gateway"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
