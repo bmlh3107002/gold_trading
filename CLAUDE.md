@@ -1,5 +1,7 @@
 # Hướng dẫn cho Claude
 
+@PROGRESS.md
+
 - **Đọc `PROGRESS.md` trước tiên.** Đó là trạng thái hiện tại của dự án. Chỉ đọc thêm code hoặc docs khi cần.
 - Đặc tả chức năng ở `docs/huong-dan-chuc-nang/`. Code phải tuân thủ các bất biến trong đó: point-in-time, idempotent, UTC, LIVE khóa mặc định, Safety có quyền chặn cao nhất.
 - Push code lên nhánh **`develop`**. Không tạo PR nếu người dùng chưa yêu cầu.
