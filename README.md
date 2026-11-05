@@ -24,6 +24,8 @@ Hệ thống giao dịch vàng (XAUUSD) theo các lớp tách biệt: dữ liệ
 - Order FSM (UNKNOWN không được gửi lại mù).
 - Risk Engine + Risk Ledger: sizing theo khoảng SL, reservation có khóa nên intent đồng thời không vượt hạn mức.
 - Dashboard: trạng thái Safety/Mode/MarketView, kill switch, chuyển mode, lịch sử Safety.
+- Dữ liệu nến: một cửa nạp chung cho mọi nguồn (dữ liệu mẫu, CSV MT5, sau này MT5 Gateway), lưu point-in-time trong TimescaleDB, có cách ly dữ liệu lỗi.
+- Trang Thị trường: biểu đồ nến M15, EMA 20/50, RSI 14, chất lượng dữ liệu. Header hiện giá và phiên giao dịch.
 
 Chưa làm (TODO): Event Orchestrator, các analyst, Fusion, Strategy, Position Manager, Performance, Training, lưu trữ DB, adapter MT5 thật, xác thực API.
 

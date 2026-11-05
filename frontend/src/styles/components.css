@@ -544,3 +544,70 @@
     padding: 0 6px;
   }
 }
+
+/* Biểu đồ giá */
+.price-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.price-chart__main {
+  height: 420px;
+  min-width: 0;
+}
+.price-chart__rsi {
+  height: 140px;
+  min-width: 0;
+}
+.price-chart__rsi-head {
+  display: flex;
+  gap: 8px;
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+.chart-legend div {
+  display: flex;
+  gap: 5px;
+}
+.chart-legend dt {
+  color: var(--text-muted);
+}
+.chart-legend dd {
+  margin: 0;
+  font-weight: 600;
+}
+.legend-ema20 {
+  color: var(--chart-ema20) !important;
+}
+.legend-ema50 {
+  color: var(--chart-ema50) !important;
+}
+.legend-rsi {
+  color: var(--chart-rsi);
+  font-weight: 600;
+}
+.chart-attribution {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+.chart-attribution a {
+  color: inherit;
+}
+@media (max-width: 720px) {
+  .price-chart__main {
+    height: 300px;
+  }
+  .price-chart__rsi {
+    height: 110px;
+  }
+}

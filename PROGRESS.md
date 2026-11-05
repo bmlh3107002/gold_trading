@@ -17,6 +17,8 @@
 | Database | PostgreSQL/TimescaleDB (image `timescale/timescaledb:2.17.2-pg16`), SQLAlchemy 2 Core + psycopg 3, migration bằng Alembic |
 | Quản lý Python | `uv` (mỗi package có `uv.lock` riêng) |
 | Git | Push lên `develop` (nhánh mặc định trên GitHub). Không tạo PR nếu chưa được yêu cầu |
+| Dữ liệu giá | Một cửa nạp `CandleIngestor` cho mọi nguồn (`SAMPLE`/`CSV`/`MT5`). Dashboard đọc **một** nguồn theo `GT_DATA_SOURCE` (mặc định Docker: `SAMPLE`). Về sau MT5 Gateway đẩy dữ liệu qua WebSocket vào cùng cửa nạp |
+| Biểu đồ | `lightweight-charts@4.2.1` (Apache-2.0); đã tắt logo nổi, có dòng ghi nguồn kèm link tradingview.com dưới biểu đồ theo yêu cầu giấy phép |
 | Chạy trên máy cá nhân | Docker. `deploy/docker-compose.yml` build thẳng từ GitHub, không cần clone. Project `gold_trading`, image `gold_trading/backend` và `gold_trading/frontend`, volume `gold_trading_db_data` |
 
 ## Trạng thái theo thành phần
@@ -27,7 +29,10 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | --- | --- | --- | --- | --- |
 | — | Data contract | ✅ | `backend/src/gold_trading/contracts/` | Bất biến (`frozen`), `extra=forbid`, datetime bắt buộc có tz → UTC |
 | — | Lưu trữ vận hành | ✅ | `backend/src/gold_trading/storage/`, `backend/migrations/` | Bảng append-only `safety_transitions`, `mode_changes`, `audit_log`; trigger DB chặn UPDATE/DELETE |
-| 02 | Ingestion / point-in-time | 🟡 | `ingestion/point_in_time.py` | Chỉ có store trong bộ nhớ. Chưa có nguồn thật, chưa có DB, chưa có quarantine |
+| 02 | Ingestion nến | ✅ | `ingestion/candles.py`, `ingestion/sources/`, `storage/candles.py`, `migrations/versions/0002_candles.py` | Kiểm tra, khử trùng, revision, cờ chất lượng, quarantine. Hypertable TimescaleDB, append-only. Nguồn: dữ liệu mẫu (`sample.py`, `sample_feed.py`) và CSV (`csv_file.py`, CLI `ingestion/cli.py`). Chưa có: tin tức, lịch kinh tế, vĩ mô, tick |
+| 02 | Point-in-time (bản cũ) | 🟡 | `ingestion/point_in_time.py` | Store chung trong bộ nhớ, chưa dùng; nến đã có store riêng |
+| — | Lịch thị trường | ✅ | `market/hours.py` | Theo giờ New York: CN 18:00 → T6 17:00, nghỉ 17:00–18:00. Chưa có ngày lễ/lịch riêng của broker |
+| — | Chỉ báo | ✅ | `analysts/indicators.py` | EMA (khởi tạo bằng SMA), RSI Wilder; test theo giá trị tham chiếu |
 | 03 | Event Orchestrator | ⬜ | `orchestrator/` | |
 | 04 | 6 analyst | ⬜ | `analysts/` | Chỉ có contract `AnalystOutput` |
 | 05 | Snapshot Builder | ✅ | `intelligence/snapshot_builder.py` | |
@@ -43,8 +48,8 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 10 | Position Manager / Performance | ⬜ | `position/`, `performance/` | |
 | 11 | Training / registry | ⬜ | | |
 | 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
-| 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. Trang Tổng quan: 4 metric, điều khiển Safety/Mode có dialog xác nhận, MarketView, lịch sử Safety. Dark/Light, responsive, trạng thái loading/empty/error/stale. Các mục Thị trường, Lệnh, Rủi ro, Nhật ký đang để "Sắp có" |
-| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`), `/api/audit`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
+| 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14, legend theo con trỏ, banner dữ liệu mẫu/giá cũ, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
+| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`, `data_source`, `data_is_sample`), `/api/audit`, `/api/market/summary`, `/api/market/candles` (kèm EMA/RSI, warm-up 200 nến), `/api/market/quality`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
 | 12 | Backtest | ⬜ | | |
 | — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Một lệnh `docker compose up -d --build` chạy db + backend + frontend. Backend chạy `alembic upgrade head` rồi mới start (`scripts/entrypoint.sh`). DB không mở cổng ra host ở bản `deploy/`. Dashboard ở `127.0.0.1:8080` |
 
@@ -64,7 +69,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 39 passed, mt5_gateway 2 passed, frontend 17 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 94 passed, mt5_gateway 2 passed, frontend 21 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
@@ -86,6 +91,13 @@ Kết quả lần cuối: backend 39 passed, mt5_gateway 2 passed, frontend 17 p
   - Trạng thái kết nối (`src/lib/connection.ts`): connecting/live/stale (>10s)/disconnected. Khi mất kết nối, dữ liệu cũ vẫn giữ và có banner "Dữ liệu đã cũ".
   - Header **không** hiển thị giá giả. Hiện ghi "Chưa có dữ liệu giá" cho tới khi có nguồn giá thật.
   - Theme lưu ở localStorage `aurumdesk.theme`, có try/catch.
+- **Dữ liệu nến — quy tắc bắt buộc:**
+  - Nến chỉ hợp lệ khi **đã đóng** (`available_at >= close_time`). `ingested_at` = đồng hồ thật lúc nhận. `available_at` = lúc được coi là đã biết: realtime thì bằng `ingested_at`; nạp bù (`backfill=True`) thì bằng `close_time` + cờ `BACKFILL`. Revision luôn có `available_at = ingested_at`.
+  - Truy vấn point-in-time lọc theo `available_at`, dùng `store.query(..., as_of=...)`. Không đọc thẳng bảng.
+  - Khóa nến: `(symbol, timeframe, source, open_time, revision)`. Cùng giá trị → bỏ qua; khác giá trị → revision mới.
+  - CSV từ MT5 dùng giờ server broker. **Bắt buộc `--server-tz`**; giờ mơ hồ do đổi DST bị cách ly, không đoán.
+  - Dữ liệu mẫu: tất định theo seed (`20260101`) và giá khởi đầu 2400. `ModeManager(guard=...)` chặn SHADOW/LIVE khi `GT_DATA_SOURCE=SAMPLE`; mode đã lưu là SHADOW/LIVE sẽ về PAPER khi khởi động (ghi audit).
+  - Frontend test mock `lightweight-charts`, vì jsdom không có canvas (`src/pages/MarketPage.test.tsx`).
 - XAUUSD mặc định `contract_size=100`, `volume_step=0.01` (`SymbolSpec`).
 
 ## Nhật ký
@@ -115,11 +127,19 @@ Kết quả lần cuối: backend 39 passed, mt5_gateway 2 passed, frontend 17 p
 ### 2026-11-05 — Gom tên Docker
 - Đổi tên project compose `gold-trading` → `gold_trading`, đặt tên image cố định `gold_trading/backend:latest` và `gold_trading/frontend:latest`. `deploy/README.md` có thêm hướng dẫn tìm và dọn dẹp.
 
+### 2026-11-05 — Dữ liệu giá và trang Thị trường (bước ① + ②)
+- Cửa nạp nến chung, migration `0002` (hypertable `candles`, `candle_quarantine`, append-only), lịch thị trường, EMA/RSI, API thị trường.
+- Nguồn dữ liệu mẫu tất định chạy nền (nạp bù 90 ngày, rồi thêm nến khi nến đóng). Nguồn CSV kèm CLI `import-csv`.
+- Frontend: trang Thị trường, header có giá thật, điều hướng bằng hash.
+- Đã kiểm tra bằng Docker thật: migration 0002, hypertable, 5.883 nến mẫu; restart không sinh trùng; SHADOW bị từ chối khi dùng dữ liệu mẫu; CLI nạp CSV cách ly nến lỗi và từ chối file thiếu múi giờ; UPDATE trên `candles` bị chặn.
+
 ## Việc tiếp theo (đề xuất)
 
-1. Ingestion giá (OHLC M15) vào bảng hypertable TimescaleDB, kèm quarantine dữ liệu lỗi. Nguồn tạm thời: CSV lịch sử, vì MT5 cần máy Windows.
-2. Technical analyst (swing, S/R, ATR) → `AnalystOutput`.
-3. Event Orchestrator tối thiểu: nến M15 đóng → Technical → Snapshot → Quality Gate.
-4. Fusion đơn giản → `MarketView` đầu tiên và hiển thị trên Dashboard.
+Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → **③ Technical analyst** → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+
+1. **Technical analyst:** ATR, swing high/low, hỗ trợ/kháng cự, xu hướng, dùng `analysts/indicators.py` → `AnalystOutput` có `expires_at`.
+2. **Event Orchestrator tối thiểu:** nến M15 đóng → Technical → Snapshot → Quality Gate. Job idempotent theo `jobKey`.
+3. **Fusion đơn giản → `MarketView`** đầu tiên, hiển thị trên Tổng quan. MarketView sinh từ dữ liệu mẫu phải mang cờ để Risk chặn ở SHADOW/LIVE.
+4. Strategy Engine và Backtest (replay theo `available_at`, có spread/slippage/phí). Backtest trên dữ liệu mẫu phải đánh dấu "không có giá trị đánh giá".
 5. Xác thực API trước khi chạy ngoài localhost.
-6. Khi có dữ liệu giá: biểu đồ nến (lightweight-charts) dùng token `--chart-*`, giá và trạng thái thị trường thật trên header.
+6. (Để sau) MT5 Gateway trên Windows, đẩy nến/tick qua WebSocket vào `CandleIngestor`; có thể đóng gói `.exe`.

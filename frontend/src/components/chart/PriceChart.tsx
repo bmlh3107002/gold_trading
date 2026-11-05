@@ -1,0 +1,196 @@
+import {
+  ColorType,
+  CrosshairMode,
+  LineStyle,
+  createChart,
+  type IChartApi,
+  type IPriceLine,
+  type ISeriesApi,
+  type LogicalRange,
+  type Time,
+  type UTCTimestamp,
+} from "lightweight-charts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { CandleOut } from "../../api/client";
+import type { Theme } from "../../hooks/useTheme";
+import { formatDateTime, formatNumber, formatTime } from "../../lib/format";
+import { readChartColors } from "./chartTheme";
+
+interface PriceChartProps {
+  candles: CandleOut[];
+  ema20: (number | null)[];
+  ema50: (number | null)[];
+  rsi14: (number | null)[];
+  theme: Theme;
+}
+
+const toTs = (iso: string) => Math.floor(new Date(iso).getTime() / 1000) as UTCTimestamp;
+
+function line(values: (number | null)[], times: UTCTimestamp[]) {
+  const out: { time: UTCTimestamp; value: number }[] = [];
+  values.forEach((v, i) => {
+    if (v != null) out.push({ time: times[i], value: v });
+  });
+  return out;
+}
+
+/** Biểu đồ nến + EMA 20/50 và khung RSI 14 đồng bộ trục thời gian. Hiển thị theo giờ máy người xem. */
+export function PriceChart({ candles, ema20, ema50, rsi14, theme }: PriceChartProps) {
+  const { t } = useTranslation();
+  const priceEl = useRef<HTMLDivElement>(null);
+  const rsiEl = useRef<HTMLDivElement>(null);
+  const charts = useRef<{
+    price: IChartApi;
+    rsi: IChartApi;
+    candle: ISeriesApi<"Candlestick">;
+    e20: ISeriesApi<"Line">;
+    e50: ISeriesApi<"Line">;
+    r: ISeriesApi<"Line">;
+    guides: IPriceLine[];
+  } | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+
+  const times = useMemo(() => candles.map((c) => toTs(c.open_time)), [candles]);
+  const indexByTime = useMemo(() => new Map(times.map((tm, i) => [tm as number, i])), [times]);
+
+  // Tạo biểu đồ một lần
+  useEffect(() => {
+    if (!priceEl.current || !rsiEl.current) return;
+    const common = {
+      autoSize: true,
+      crosshair: { mode: CrosshairMode.Normal },
+      localization: {
+        locale: "vi-VN",
+        timeFormatter: (tm: Time) => formatDateTime(new Date((tm as number) * 1000)),
+        priceFormatter: (p: number) => formatNumber(p),
+      },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (tm: Time) => formatTime(new Date((tm as number) * 1000)).slice(0, 5),
+      },
+    };
+    const price = createChart(priceEl.current, common);
+    const rsi = createChart(rsiEl.current, common);
+    const candle = price.addCandlestickSeries({ borderVisible: false, priceLineVisible: true });
+    const e20 = price.addLineSeries({ lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    const e50 = price.addLineSeries({ lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    const r = rsi.addLineSeries({
+      lineWidth: 1,
+      priceLineVisible: false,
+      // RSI luôn trong 0–100: cố định thang để mức 30/70 không nhảy khi cuộn
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+    });
+    rsi.priceScale("right").applyOptions({ scaleMargins: { top: 0.08, bottom: 0.08 } });
+    const guides = [70, 30].map((price) =>
+      r.createPriceLine({ price, lineStyle: LineStyle.Dashed, lineWidth: 1, axisLabelVisible: true, title: "" }),
+    );
+
+    // Đồng bộ cuộn/zoom giữa hai khung
+    let syncing = false;
+    const link = (from: IChartApi, to: IChartApi) =>
+      from.timeScale().subscribeVisibleLogicalRangeChange((range: LogicalRange | null) => {
+        if (syncing || !range) return;
+        syncing = true;
+        to.timeScale().setVisibleLogicalRange(range);
+        syncing = false;
+      });
+    link(price, rsi);
+    link(rsi, price);
+    price.subscribeCrosshairMove((p) => setHover(p.time == null ? null : (p.time as number)));
+
+    charts.current = { price, rsi, candle, e20, e50, r, guides };
+    return () => {
+      charts.current = null;
+      price.remove();
+      rsi.remove();
+    };
+  }, []);
+
+  // Theme
+  useEffect(() => {
+    const c = charts.current;
+    if (!c) return;
+    const col = readChartColors();
+    const opts = {
+      layout: {
+        background: { type: ColorType.Solid, color: col.bg },
+        textColor: col.text,
+        fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+        fontSize: 11,
+        attributionLogo: false, // đã ghi nguồn + link TradingView bên dưới biểu đồ
+      },
+      grid: { vertLines: { color: col.grid }, horzLines: { color: col.grid } },
+      rightPriceScale: { borderColor: col.border },
+      timeScale: { borderColor: col.border },
+      crosshair: {
+        vertLine: { color: col.guide, labelBackgroundColor: col.guide },
+        horzLine: { color: col.guide, labelBackgroundColor: col.guide },
+      },
+    };
+    c.price.applyOptions(opts);
+    c.rsi.applyOptions(opts);
+    c.candle.applyOptions({ upColor: col.up, downColor: col.down, wickUpColor: col.up, wickDownColor: col.down });
+    c.e20.applyOptions({ color: col.ema20 });
+    c.e50.applyOptions({ color: col.ema50 });
+    c.r.applyOptions({ color: col.rsi });
+    c.guides.forEach((g) => g.applyOptions({ color: col.guide }));
+  }, [theme]);
+
+  // Dữ liệu
+  useEffect(() => {
+    const c = charts.current;
+    if (!c) return;
+    c.candle.setData(
+      candles.map((k, i) => ({ time: times[i], open: k.open, high: k.high, low: k.low, close: k.close })),
+    );
+    c.e20.setData(line(ema20, times));
+    c.e50.setData(line(ema50, times));
+    c.r.setData(line(rsi14, times));
+  }, [candles, ema20, ema50, rsi14, times]);
+
+  const i = hover != null ? (indexByTime.get(hover) ?? candles.length - 1) : candles.length - 1;
+  const k = candles[i];
+  const up = k ? k.close >= k.open : true;
+
+  return (
+    <div className="price-chart">
+      {k && (
+        <dl className="chart-legend num" aria-live="off">
+          <div>
+            <dt>{t("market.legendTime")}</dt>
+            <dd>{formatDateTime(k.open_time)}</dd>
+          </div>
+          {(
+            [
+              ["open", k.open],
+              ["high", k.high],
+              ["low", k.low],
+              ["close", k.close],
+            ] as const
+          ).map(([key, v]) => (
+            <div key={key}>
+              <dt>{t(`market.${key}`)}</dt>
+              <dd className={up ? "tone-profit" : "tone-loss"}>{formatNumber(v)}</dd>
+            </div>
+          ))}
+          <div>
+            <dt className="legend-ema20">{t("market.ema20")}</dt>
+            <dd>{formatNumber(ema20[i])}</dd>
+          </div>
+          <div>
+            <dt className="legend-ema50">{t("market.ema50")}</dt>
+            <dd>{formatNumber(ema50[i])}</dd>
+          </div>
+        </dl>
+      )}
+      <div ref={priceEl} className="price-chart__main" role="img" aria-label={t("market.chartTitle")} />
+      <div className="price-chart__rsi-head">
+        <span className="legend-rsi">{t("market.rsi14")}</span>
+        <span className="num">{formatNumber(rsi14[i])}</span>
+      </div>
+      <div ref={rsiEl} className="price-chart__rsi" role="img" aria-label={t("market.rsiTitle")} />
+    </div>
+  );
+}

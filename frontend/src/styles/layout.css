@@ -255,3 +255,13 @@
   gap: 6px;
   font-weight: 600;
 }
+
+.header__change {
+  font-size: 12px;
+  font-weight: 600;
+}
+@media (max-width: 720px) {
+  .header__change {
+    display: none;
+  }
+}

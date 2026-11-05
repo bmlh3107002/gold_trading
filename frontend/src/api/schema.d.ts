@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/market/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Summary */
+        get: operations["summary_api_market_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/market/candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candles */
+        get: operations["candles_api_market_candles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/market/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Quality */
+        get: operations["quality_api_market_quality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -121,10 +172,126 @@ export interface components {
          * @enum {string}
          */
         Bias: "LONG" | "SHORT" | "NEUTRAL";
+        /**
+         * CandleFlag
+         * @enum {string}
+         */
+        CandleFlag: "BACKFILL" | "REVISED" | "GAP_BEFORE" | "PRICE_JUMP" | "ZERO_RANGE";
+        /** CandleOut */
+        CandleOut: {
+            /**
+             * Open Time
+             * Format: date-time
+             */
+            open_time: string;
+            /**
+             * Close Time
+             * Format: date-time
+             */
+            close_time: string;
+            /** Open */
+            open: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+            /** Close */
+            close: number;
+            /** Tick Volume */
+            tick_volume: number;
+            /** Spread Points */
+            spread_points: number | null;
+            /** Revision */
+            revision: number;
+            /** Flags */
+            flags: components["schemas"]["CandleFlag"][];
+        };
+        /** CandlesResponse */
+        CandlesResponse: {
+            /** Symbol */
+            symbol: string;
+            timeframe: components["schemas"]["Timeframe"];
+            source: components["schemas"]["DataSource"] | null;
+            /**
+             * Is Sample
+             * @description True: dữ liệu mẫu, KHÔNG phải giá thật
+             */
+            is_sample: boolean;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Candles */
+            candles: components["schemas"]["CandleOut"][];
+            /** Ema20 */
+            ema20: (number | null)[];
+            /** Ema50 */
+            ema50: (number | null)[];
+            /** Rsi14 */
+            rsi14: (number | null)[];
+        };
+        /** DataQuality */
+        DataQuality: {
+            source: components["schemas"]["DataSource"] | null;
+            /** Is Sample */
+            is_sample: boolean;
+            /** Candle Count */
+            candle_count: number;
+            /** First Open Time */
+            first_open_time: string | null;
+            /** Last Open Time */
+            last_open_time: string | null;
+            /** Last Ingested At */
+            last_ingested_at: string | null;
+            /** Quarantined */
+            quarantined: number;
+            /** Recent Quarantine */
+            recent_quarantine: components["schemas"]["QuarantineOut"][];
+        };
+        /**
+         * DataSource
+         * @enum {string}
+         */
+        DataSource: "SAMPLE" | "CSV" | "MT5";
+        /**
+         * Freshness
+         * @enum {string}
+         */
+        Freshness: "NO_DATA" | "FRESH" | "STALE" | "MARKET_CLOSED";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * MarketSession
+         * @enum {string}
+         */
+        MarketSession: "OPEN" | "DAILY_BREAK" | "WEEKEND";
+        /** MarketSummary */
+        MarketSummary: {
+            /** Symbol */
+            symbol: string;
+            timeframe: components["schemas"]["Timeframe"];
+            source: components["schemas"]["DataSource"] | null;
+            /** Is Sample */
+            is_sample: boolean;
+            session: components["schemas"]["MarketSession"];
+            freshness: components["schemas"]["Freshness"];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Last Price */
+            last_price: number | null;
+            /** Last Close Time */
+            last_close_time: string | null;
+            /** Change */
+            change: number | null;
+            /** Change Pct */
+            change_pct: number | null;
         };
         /** MarketView */
         MarketView: {
@@ -187,6 +354,21 @@ export interface components {
                 [key: string]: boolean;
             };
         };
+        /** QuarantineOut */
+        QuarantineOut: {
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            source: components["schemas"]["DataSource"];
+            /** Reason */
+            reason: string;
+            /** Raw */
+            raw: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * Regime
          * @enum {string}
@@ -243,6 +425,13 @@ export interface components {
              * @description memory | postgres — nơi lưu trạng thái vận hành
              */
             storage: string;
+            /** @description Nguồn nến đang dùng; None = chưa cấu hình */
+            data_source: components["schemas"]["DataSource"] | null;
+            /**
+             * Data Is Sample
+             * @description True: đang dùng dữ liệu mẫu, không phải giá thật
+             */
+            data_is_sample: boolean;
             mode: components["schemas"]["TradingMode"];
             /** Live Unlocked */
             live_unlocked: boolean;
@@ -255,6 +444,11 @@ export interface components {
             safety_history: components["schemas"]["SafetyTransition"][];
             market_view: components["schemas"]["MarketView"] | null;
         };
+        /**
+         * Timeframe
+         * @enum {string}
+         */
+        Timeframe: "M1" | "M5" | "M15" | "M30" | "H1" | "H4";
         /**
          * TradingMode
          * @enum {string}
@@ -282,6 +476,79 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    summary_api_market_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketSummary"];
+                };
+            };
+        };
+    };
+    candles_api_market_candles_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description open_time tối đa (UTC) */
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandlesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quality_api_market_quality_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataQuality"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;

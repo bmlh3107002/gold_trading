@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Literal
 
@@ -17,12 +18,17 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from gold_trading import __version__
+from gold_trading.api.market import market_router
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.time import utcnow
+from gold_trading.contracts.candle import DataSource
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.contracts.safety import SafetyTransition
+from gold_trading.ingestion.sample_feed import SampleFeed
+from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST, ModeChangeError, ModeManager
 from gold_trading.safety.supervisor import SafetySupervisor, SafetyTransitionError
+from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
 from gold_trading.storage.repository import (
     AuditEntry,
     InMemoryRepository,
@@ -39,6 +45,8 @@ log = logging.getLogger("gold_trading.api")
 class SystemStatus(BaseModel):
     version: str
     storage: str = Field(description="memory | postgres — nơi lưu trạng thái vận hành")
+    data_source: DataSource | None = Field(description="Nguồn nến đang dùng; None = chưa cấu hình")
+    data_is_sample: bool = Field(description="True: đang dùng dữ liệu mẫu, không phải giá thật")
     mode: TradingMode
     live_unlocked: bool
     live_checklist: list[str]
@@ -79,8 +87,35 @@ def repository_from_env() -> Repository:
     return SqlRepository.from_url(url)
 
 
-def create_app(repo: Repository | None = None, *, live_unlocked: bool = False) -> FastAPI:
+def data_source_from_env() -> DataSource | None:
+    raw = os.environ.get("GT_DATA_SOURCE", "").strip().upper()
+    if not raw or raw == "NONE":
+        return None
+    return DataSource(raw)
+
+
+SAMPLE_BLOCKED_MODES = (TradingMode.SHADOW, TradingMode.LIVE)
+
+
+def create_app(
+    repo: Repository | None = None,
+    *,
+    candle_store: CandleStore | None = None,
+    data_source: DataSource | None | str = "env",
+    run_sample_feed: bool | None = None,
+    live_unlocked: bool = False,
+) -> FastAPI:
     repo = repo or repository_from_env()
+    if candle_store is None:
+        engine = getattr(repo, "engine", None)
+        candle_store = SqlCandleStore(engine) if engine is not None else InMemoryCandleStore()
+    source = data_source_from_env() if data_source == "env" else data_source
+    market = MarketDataService(candle_store, source=source)  # type: ignore[arg-type]
+
+    def mode_guard(mode: TradingMode) -> str | None:
+        if market.is_sample and mode in SAMPLE_BLOCKED_MODES:
+            return f"Đang dùng dữ liệu mẫu: không được chuyển sang {mode}"
+        return None
 
     # --- Dựng lại trạng thái từ lịch sử append-only ---
     history = repo.safety_history()
@@ -92,10 +127,9 @@ def create_app(repo: Repository | None = None, *, live_unlocked: bool = False) -
         safety.pause(downgrade_reason, trigger_source="startup", actor="system")
 
     default_mode = TradingMode(os.environ.get("GT_MODE", "PAPER"))
-    if default_mode is TradingMode.LIVE:
+    if default_mode is TradingMode.LIVE or mode_guard(default_mode):
         default_mode = TradingMode.PAPER
     start_mode, relocked = restore_mode(repo.last_mode(), default_mode)
-    modes = ModeManager(start_mode, live_unlocked=live_unlocked, on_change=repo.append_mode)
     if relocked:
         repo.append_audit(
             AuditEntry(
@@ -107,10 +141,44 @@ def create_app(repo: Repository | None = None, *, live_unlocked: bool = False) -
                 "LIVE không được khôi phục tự động sau restart",
             )
         )
+    if (reason := mode_guard(start_mode)) is not None:
+        repo.append_audit(
+            AuditEntry(
+                utcnow(),
+                "system",
+                "mode.startup",
+                "ACCEPTED",
+                {"from": start_mode.value, "to": "PAPER"},
+                reason,
+            )
+        )
+        start_mode = TradingMode.PAPER
+    modes = ModeManager(
+        start_mode, live_unlocked=live_unlocked, on_change=repo.append_mode, guard=mode_guard
+    )
+
+    feed: SampleFeed | None = None
+    if run_sample_feed is None:
+        run_sample_feed = source is DataSource.SAMPLE
+    if run_sample_feed and source is DataSource.SAMPLE:
+        feed = SampleFeed(
+            candle_store,
+            history_days=int(os.environ.get("GT_SAMPLE_HISTORY_DAYS", "90")),
+            start_price=float(os.environ.get("GT_SAMPLE_START_PRICE", "2400")),
+        )
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        if feed:
+            feed.start()
+        yield
+        if feed:
+            feed.stop()
 
     market_view: MarketView | None = None  # TODO: lấy từ Market Intelligence
 
-    app = FastAPI(title="Gold Trading AI", version=__version__)
+    app = FastAPI(title="Gold Trading AI", version=__version__, lifespan=lifespan)
+    app.include_router(market_router(market))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173"],
@@ -122,6 +190,8 @@ def create_app(repo: Repository | None = None, *, live_unlocked: bool = False) -
         return SystemStatus(
             version=__version__,
             storage=repo.kind,
+            data_source=market.source,
+            data_is_sample=market.is_sample,
             mode=modes.mode,
             live_unlocked=modes.live_unlocked,
             live_checklist=list(LIVE_CHECKLIST),

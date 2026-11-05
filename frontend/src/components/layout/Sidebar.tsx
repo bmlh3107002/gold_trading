@@ -8,13 +8,18 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import type { Route } from "../../hooks/useRoute";
 import type { ConnectionState } from "../../lib/connection";
 import { IconButton } from "../ui/Button";
 import { connectionTone } from "./ConnectionBadge";
 import { Logo } from "./Logo";
 
-const SOON = [
+const PAGES = [
+  { key: "overview", icon: LayoutDashboard },
   { key: "market", icon: CandlestickChart },
+] as const;
+
+const SOON = [
   { key: "orders", icon: ListOrdered },
   { key: "risk", icon: ShieldAlert },
   { key: "journal", icon: BookOpenText },
@@ -26,9 +31,10 @@ interface SidebarProps {
   connection: ConnectionState;
   version: string | null;
   storage: string | null;
+  route: Route;
 }
 
-export function Sidebar({ open, onClose, connection, version, storage }: SidebarProps) {
+export function Sidebar({ open, onClose, connection, version, storage, route }: SidebarProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLElement>(null);
 
@@ -55,10 +61,18 @@ export function Sidebar({ open, onClose, connection, version, storage }: Sidebar
         </div>
         <nav className="nav" aria-label={t("nav.sectionMain")}>
           <div className="nav__section">{t("nav.sectionMain")}</div>
-          <a className="nav__item" href="#overview" aria-current="page" onClick={onClose}>
-            <LayoutDashboard size={17} aria-hidden="true" />
-            {t("nav.overview")}
-          </a>
+          {PAGES.map(({ key, icon: Icon }) => (
+            <a
+              key={key}
+              className="nav__item"
+              href={`#${key}`}
+              aria-current={route === key ? "page" : undefined}
+              onClick={onClose}
+            >
+              <Icon size={17} aria-hidden="true" />
+              {t(`nav.${key}`)}
+            </a>
+          ))}
           <div className="nav__section">{t("nav.sectionSoon")}</div>
           {SOON.map(({ key, icon: Icon }) => (
             <span

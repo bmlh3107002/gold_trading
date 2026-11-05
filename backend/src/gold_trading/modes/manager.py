@@ -38,12 +38,15 @@ class ModeManager:
         *,
         live_unlocked: bool = False,
         on_change: Callable[[ModeChange], None] | None = None,
+        guard: Callable[[TradingMode], str | None] | None = None,
     ) -> None:
         if initial is TradingMode.LIVE:
             raise ModeChangeError("Không được khởi động trực tiếp ở LIVE")
         self._mode = initial
         self._live_unlocked = live_unlocked
         self._on_change = on_change
+        # guard(mode) trả lý do nếu mode đang bị cấm (ví dụ khi dùng dữ liệu mẫu).
+        self._guard = guard
 
     @property
     def mode(self) -> TradingMode:
@@ -63,6 +66,8 @@ class ModeManager:
     ) -> ModeChange | None:
         if to is self._mode:
             return None
+        if self._guard and (reason := self._guard(to)):
+            raise ModeChangeError(reason)
         if to is TradingMode.LIVE:
             self._check_live(actor, approver, checklist or {})
         change = ModeChange(self._mode, to, actor, approver)

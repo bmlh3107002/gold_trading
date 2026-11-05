@@ -5,6 +5,112 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/market/summary": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Summary",
+        "operationId": "summary_api_market_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/market/candles": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Candles",
+        "operationId": "candles_api_market_candles_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "default": 300,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "open_time tối đa (UTC)",
+              "title": "End"
+            },
+            "description": "open_time tối đa (UTC)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandlesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/market/quality": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Quality",
+        "operationId": "quality_api_market_quality_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQuality"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -222,6 +328,280 @@
         ],
         "title": "Bias"
       },
+      "CandleFlag": {
+        "type": "string",
+        "enum": [
+          "BACKFILL",
+          "REVISED",
+          "GAP_BEFORE",
+          "PRICE_JUMP",
+          "ZERO_RANGE"
+        ],
+        "title": "CandleFlag"
+      },
+      "CandleOut": {
+        "properties": {
+          "open_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Open Time"
+          },
+          "close_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Close Time"
+          },
+          "open": {
+            "type": "number",
+            "title": "Open"
+          },
+          "high": {
+            "type": "number",
+            "title": "High"
+          },
+          "low": {
+            "type": "number",
+            "title": "Low"
+          },
+          "close": {
+            "type": "number",
+            "title": "Close"
+          },
+          "tick_volume": {
+            "type": "integer",
+            "title": "Tick Volume"
+          },
+          "spread_points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Points"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/CandleFlag"
+            },
+            "type": "array",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "open_time",
+          "close_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "tick_volume",
+          "spread_points",
+          "revision",
+          "flags"
+        ],
+        "title": "CandleOut"
+      },
+      "CandlesResponse": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "timeframe": {
+            "$ref": "#/components/schemas/Timeframe"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample",
+            "description": "True: dữ liệu mẫu, KHÔNG phải giá thật"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "candles": {
+            "items": {
+              "$ref": "#/components/schemas/CandleOut"
+            },
+            "type": "array",
+            "title": "Candles"
+          },
+          "ema20": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Ema20"
+          },
+          "ema50": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Ema50"
+          },
+          "rsi14": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Rsi14"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "timeframe",
+          "source",
+          "is_sample",
+          "as_of",
+          "candles",
+          "ema20",
+          "ema50",
+          "rsi14"
+        ],
+        "title": "CandlesResponse"
+      },
+      "DataQuality": {
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample"
+          },
+          "candle_count": {
+            "type": "integer",
+            "title": "Candle Count"
+          },
+          "first_open_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Open Time"
+          },
+          "last_open_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Open Time"
+          },
+          "last_ingested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ingested At"
+          },
+          "quarantined": {
+            "type": "integer",
+            "title": "Quarantined"
+          },
+          "recent_quarantine": {
+            "items": {
+              "$ref": "#/components/schemas/QuarantineOut"
+            },
+            "type": "array",
+            "title": "Recent Quarantine"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "is_sample",
+          "candle_count",
+          "first_open_time",
+          "last_open_time",
+          "last_ingested_at",
+          "quarantined",
+          "recent_quarantine"
+        ],
+        "title": "DataQuality"
+      },
+      "DataSource": {
+        "type": "string",
+        "enum": [
+          "SAMPLE",
+          "CSV",
+          "MT5"
+        ],
+        "title": "DataSource"
+      },
+      "Freshness": {
+        "type": "string",
+        "enum": [
+          "NO_DATA",
+          "FRESH",
+          "STALE",
+          "MARKET_CLOSED"
+        ],
+        "title": "Freshness"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -234,6 +614,111 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MarketSession": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "DAILY_BREAK",
+          "WEEKEND"
+        ],
+        "title": "MarketSession"
+      },
+      "MarketSummary": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "timeframe": {
+            "$ref": "#/components/schemas/Timeframe"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample"
+          },
+          "session": {
+            "$ref": "#/components/schemas/MarketSession"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "last_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Price"
+          },
+          "last_close_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Close Time"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "timeframe",
+          "source",
+          "is_sample",
+          "session",
+          "freshness",
+          "as_of",
+          "last_price",
+          "last_close_time",
+          "change",
+          "change_pct"
+        ],
+        "title": "MarketSummary"
       },
       "MarketView": {
         "properties": {
@@ -375,6 +860,35 @@
         ],
         "title": "ModeCommand"
       },
+      "QuarantineOut": {
+        "properties": {
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DataSource"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "raw": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Raw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "received_at",
+          "source",
+          "reason",
+          "raw"
+        ],
+        "title": "QuarantineOut"
+      },
       "Regime": {
         "type": "string",
         "enum": [
@@ -490,6 +1004,22 @@
             "title": "Storage",
             "description": "memory | postgres — nơi lưu trạng thái vận hành"
           },
+          "data_source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nguồn nến đang dùng; None = chưa cấu hình"
+          },
+          "data_is_sample": {
+            "type": "boolean",
+            "title": "Data Is Sample",
+            "description": "True: đang dùng dữ liệu mẫu, không phải giá thật"
+          },
           "mode": {
             "$ref": "#/components/schemas/TradingMode"
           },
@@ -533,6 +1063,8 @@
         "required": [
           "version",
           "storage",
+          "data_source",
+          "data_is_sample",
           "mode",
           "live_unlocked",
           "live_checklist",
@@ -542,6 +1074,18 @@
           "market_view"
         ],
         "title": "SystemStatus"
+      },
+      "Timeframe": {
+        "type": "string",
+        "enum": [
+          "M1",
+          "M5",
+          "M15",
+          "M30",
+          "H1",
+          "H4"
+        ],
+        "title": "Timeframe"
       },
       "TradingMode": {
         "type": "string",

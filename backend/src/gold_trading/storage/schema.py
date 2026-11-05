@@ -10,10 +10,12 @@ from sqlalchemy import (
     BigInteger,
     Column,
     DateTime,
+    Float,
     Identity,
     Index,
     Integer,
     MetaData,
+    PrimaryKeyConstraint,
     String,
     Table,
 )
@@ -62,3 +64,39 @@ audit_log = Table(
     Column("detail", String(512)),
 )
 Index("ix_audit_log_at", audit_log.c.at)
+
+
+# --- Dữ liệu thị trường (migration 0002) ---
+
+candles = Table(
+    "candles",
+    metadata,
+    Column("symbol", String(32), nullable=False),
+    Column("timeframe", String(8), nullable=False),
+    Column("source", String(16), nullable=False),
+    Column("open_time", DateTime(timezone=True), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("close_time", DateTime(timezone=True), nullable=False),
+    Column("open", Float, nullable=False),
+    Column("high", Float, nullable=False),
+    Column("low", Float, nullable=False),
+    Column("close", Float, nullable=False),
+    Column("tick_volume", BigInteger, nullable=False),
+    Column("spread_points", Integer),
+    Column("ingested_at", DateTime(timezone=True), nullable=False),
+    Column("available_at", DateTime(timezone=True), nullable=False),
+    Column("flags", JsonType, nullable=False),
+    PrimaryKeyConstraint("symbol", "timeframe", "source", "open_time", "revision"),
+)
+
+candle_quarantine = Table(
+    "candle_quarantine",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("received_at", DateTime(timezone=True), nullable=False),
+    Column("source", String(16), nullable=False),
+    Column("symbol", String(32), nullable=False),
+    Column("timeframe", String(8), nullable=False),
+    Column("reason", String(64), nullable=False),
+    Column("raw", JsonType, nullable=False),
+)

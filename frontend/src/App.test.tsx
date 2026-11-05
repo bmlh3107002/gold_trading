@@ -2,15 +2,20 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { makeStatus } from "./test/fixtures";
+import { json, makeStatus, makeSummary } from "./test/fixtures";
 
+/** Handler chỉ lo /api/status và lệnh ghi; /api/market/summary mặc định không có giá. */
 function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
-  const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => handler(String(input), init));
+  const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.startsWith("/api/market/summary")) {
+      return json(makeSummary({ last_price: null, change: null, change_pct: null, is_sample: false }));
+    }
+    return handler(url, init);
+  });
   vi.stubGlobal("fetch", fn);
   return fn;
 }
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -27,9 +32,12 @@ describe("App", () => {
   });
 
   it("hiển thị lỗi kèm nút thử lại khi backend không phản hồi", async () => {
-    mockFetch(() => {
-      throw new TypeError("Failed to fetch");
-    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
     render(<App />);
     expect(await screen.findByText("Không tải được trạng thái hệ thống")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Thử lại" }).length).toBeGreaterThan(0);

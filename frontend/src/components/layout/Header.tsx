@@ -1,8 +1,11 @@
 import { Menu, Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { MarketSummary } from "../../api/client";
 import type { Theme } from "../../hooks/useTheme";
 import type { ConnectionState } from "../../lib/connection";
-import { formatTime } from "../../lib/format";
+import { formatNumber, formatPercent, formatTime, pnlTone } from "../../lib/format";
+import { sessionLabel } from "../../lib/labels";
+import { Badge } from "../ui/Badge";
 import { IconButton } from "../ui/Button";
 import { ConnectionBadge } from "./ConnectionBadge";
 
@@ -13,9 +16,18 @@ interface HeaderProps {
   onToggleTheme: () => void;
   onOpenMenu: () => void;
   menuOpen: boolean;
+  market: MarketSummary | null;
 }
 
-export function Header({ connection, lastSuccessAt, theme, onToggleTheme, onOpenMenu, menuOpen }: HeaderProps) {
+export function Header({
+  connection,
+  lastSuccessAt,
+  theme,
+  onToggleTheme,
+  onOpenMenu,
+  menuOpen,
+  market,
+}: HeaderProps) {
   const { t } = useTranslation();
   return (
     <header className="header">
@@ -29,19 +41,47 @@ export function Header({ connection, lastSuccessAt, theme, onToggleTheme, onOpen
       </IconButton>
 
       <div className="header__ticker">
-        <span className="header__symbol">{t("header.symbol")}</span>
+        <span className="header__symbol header__hide-sm">{t("header.symbol")}</span>
         <div className="header__item header__hide-sm">
           <span className="header__label">{t("header.market")}</span>
-          <span className="header__value tone-neutral">{t("header.marketUnknown")}</span>
-        </div>
-        <div className="header__item">
-          <span className="header__label">{t("header.price")}</span>
-          {/* Chưa có nguồn giá: không hiển thị số giả. */}
           <span className="header__value tone-neutral">
-            <span className="header__hide-sm">{t("header.noPrice")}</span>
-            <span className="header__show-sm">{t("header.noPriceShort")}</span>
+            {market ? sessionLabel(t, market.session) : t("header.marketUnknown")}
           </span>
         </div>
+        <div className="header__item">
+          <span className="header__label">
+            <span className="header__hide-sm">{t("header.price")}</span>
+            <span className="header__show-sm">{t("header.priceShort")}</span>
+          </span>
+          {market?.last_price != null ? (
+            <span className="header__value num">
+              {formatNumber(market.last_price)}
+              {market.change != null && (
+                <span className={`header__change tone-${pnlTone(market.change)}`}>
+                  {" "}
+                  {market.change > 0 ? "+" : ""}
+                  {formatNumber(market.change)} ({formatPercent(market.change_pct)})
+                  <span className="sr-only"> {t("header.change24h")}</span>
+                </span>
+              )}
+            </span>
+          ) : (
+            // Chưa có nguồn giá: không hiển thị số giả.
+            <span className="header__value tone-neutral">
+              <span className="header__hide-sm">{t("header.noPrice")}</span>
+              <span className="header__show-sm">{t("header.noPriceShort")}</span>
+            </span>
+          )}
+        </div>
+        {market?.is_sample && (
+          <span title={t("header.sampleTip")}>
+            <Badge tone="gold">
+              <span className="header__hide-sm">{t("header.sample")}</span>
+              <span className="header__show-sm">{t("header.sampleShort")}</span>
+            </Badge>
+          </span>
+        )}
+        {market?.freshness === "STALE" && <Badge tone="loss">{t("header.priceStale")}</Badge>}
       </div>
 
       <div className="header__actions">

@@ -27,6 +27,8 @@ services:
     build: ./backend
     environment:
       GT_MODE: ${GT_MODE:-PAPER}
+      # Nguồn nến: SAMPLE (dữ liệu mẫu, mặc định) | CSV | NONE
+      GT_DATA_SOURCE: ${GT_DATA_SOURCE:-SAMPLE}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-gold}:${POSTGRES_PASSWORD:-gold-local-only}@db:5432/${POSTGRES_DB:-gold_trading}
     depends_on:
       db:

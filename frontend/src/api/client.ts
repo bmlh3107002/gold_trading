@@ -6,6 +6,10 @@ export type ModeCommand = components["schemas"]["ModeCommand"];
 export type TradingMode = components["schemas"]["TradingMode"];
 export type MarketView = components["schemas"]["MarketView"];
 export type SafetyTransition = components["schemas"]["SafetyTransition"];
+export type MarketSummary = components["schemas"]["MarketSummary"];
+export type CandlesResponse = components["schemas"]["CandlesResponse"];
+export type CandleOut = components["schemas"]["CandleOut"];
+export type DataQuality = components["schemas"]["DataQuality"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server";
 
@@ -48,6 +52,9 @@ export const api = {
   status: () => request<SystemStatus>("/api/status"),
   safety: (cmd: SafetyCommand) =>
     request<SystemStatus>("/api/safety", { method: "POST", body: JSON.stringify(cmd) }),
+  marketSummary: () => request<MarketSummary>("/api/market/summary"),
+  candles: (limit = 300) => request<CandlesResponse>(`/api/market/candles?limit=${limit}`),
+  dataQuality: () => request<DataQuality>("/api/market/quality"),
   mode: (cmd: ModeCommand) =>
     request<SystemStatus>("/api/mode", { method: "POST", body: JSON.stringify(cmd) }),
 };
