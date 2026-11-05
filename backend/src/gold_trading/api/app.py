@@ -29,6 +29,7 @@ from gold_trading.contracts.market_view import MarketView
 from gold_trading.contracts.safety import SafetyTransition
 from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.sample_feed import SampleFeed
+from gold_trading.market.hours import REFERENCE, BrokerSessions, MarketCalendar
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST, ModeChangeError, ModeManager
 from gold_trading.safety.supervisor import SafetySupervisor, SafetyTransitionError
@@ -103,6 +104,27 @@ def data_source_from_env() -> DataSource | None:
     return DataSource(raw)
 
 
+def calendar_from_env(source: DataSource | None) -> MarketCalendar:
+    """Lịch broker từ ``GT_BROKER_SESSIONS`` + ``GT_BROKER_SERVER_TZ`` (giờ server, IANA).
+
+    Chỉ áp dụng cho dữ liệu thật (MT5/CSV). Cấu hình sai → lỗi khi khởi động, không đoán.
+    Dữ liệu mẫu được sinh theo lịch tham chiếu nên luôn dùng lịch tham chiếu.
+    """
+    spec = os.environ.get("GT_BROKER_SESSIONS", "").strip()
+    tz = os.environ.get("GT_BROKER_SERVER_TZ", "").strip()
+    if not spec:
+        return REFERENCE
+    if not tz:
+        raise ValueError("Đã đặt GT_BROKER_SESSIONS nhưng thiếu GT_BROKER_SERVER_TZ (IANA)")
+    broker = BrokerSessions.parse(spec, tz)
+    if source is None or source.is_sample:
+        log.warning("Bỏ qua GT_BROKER_SESSIONS vì nguồn dữ liệu là %s", source)
+        return REFERENCE
+    cal = MarketCalendar(broker)
+    log.info("Lịch thị trường: %s", cal.description)
+    return cal
+
+
 SAMPLE_BLOCKED_MODES = (TradingMode.SHADOW, TradingMode.LIVE)
 
 
@@ -116,6 +138,7 @@ def create_app(
     analyst_store: AnalystOutputStore | None = None,
     ingest_token: str | None | Literal["env"] = "env",
     live_unlocked: bool = False,
+    calendar: MarketCalendar | Literal["env"] = "env",
 ) -> FastAPI:
     repo = repo or repository_from_env()
     if candle_store is None:
@@ -127,7 +150,11 @@ def create_app(
             SqlAnalystOutputStore(engine) if engine is not None else InMemoryAnalystOutputStore()
         )
     source = data_source_from_env() if data_source == "env" else data_source
-    market = MarketDataService(candle_store, source=source)  # type: ignore[arg-type]
+    market = MarketDataService(
+        candle_store,
+        source=source,  # type: ignore[arg-type]
+        calendar=calendar_from_env(source) if calendar == "env" else calendar,  # type: ignore[arg-type]
+    )
 
     def mode_guard(mode: TradingMode) -> str | None:
         if market.is_sample and mode in SAMPLE_BLOCKED_MODES:

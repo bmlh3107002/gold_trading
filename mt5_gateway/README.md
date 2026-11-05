@@ -37,7 +37,11 @@ Copy chuỗi 64 ký tự vừa hiện ra. Bạn sẽ dán chuỗi này vào **2 
    ```text
    GT_DATA_SOURCE=MT5
    GT_INGEST_TOKEN=<dán token ở bước 2>
+   GT_BROKER_SESSIONS=Mon-Fri 00:00-23:00
+   GT_BROKER_SERVER_TZ=Europe/Athens
    ```
+
+   Hai dòng cuối là **giờ báo giá của broker**. Lấy trong MT5: Market Watch → chuột phải XAUUSD → **Specification** → kéo xuống **Sessions**, chép cột **Quotes** (giờ server). Ví dụ trên là của MetaQuotes-Demo. `GT_BROKER_SERVER_TZ` phải giống `GT_SERVER_TZ` ở Bước 4. Thiếu hai dòng này thì phân tích kỹ thuật có thể bị chặn vì "thiếu nến" ở giờ broker nghỉ.
 
 3. Chạy:
 

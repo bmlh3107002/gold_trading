@@ -27,9 +27,23 @@ Chạy trước mọi phép tính. Không đạt cổng **bắt buộc** thì **
 | R5 `WIDE_SPREAD` | Spread nến cuối > 3 × trung vị spread của cửa sổ | có | Xuất, gắn cờ rủi ro `WIDE_SPREAD` |
 | — `SAMPLE_DATA` | Nguồn là `SAMPLE` | có | Xuất, gắn cờ; **cấm dùng cho SHADOW/LIVE** |
 
+| — `CALENDAR_MISMATCH` | Có nến thật vào lúc lịch nói là đóng cửa | có | **Bắt buộc**: không xuất (lịch broker hoặc múi giờ khai báo sai) |
+
 R1 (tự kiểm tra múi giờ khi nạp CSV) nằm ở bước nạp dữ liệu: nếu > 1% nến rơi vào giờ đóng cửa thì **từ chối cả file** và gợi ý múi giờ khớp nhất.
 
 **Lý do chọn ngưỡng:** 99% cho phép lỡ khoảng 3 nến trong 300 (lỗi nhỏ của feed) nhưng chặn trường hợp thiếu cả buổi. 8 × trung vị: vàng M15 hiếm khi có nến lớn hơn 4–5 lần trung vị, kể cả lúc ra tin. Đặt 8 để chỉ bắt lỗi feed, không bắt biến động tin thật (tin thật do Event analyst xử lý). Các ngưỡng này **phải được kiểm tra lại trên dữ liệu thật của broker**.
+
+### Lịch giao dịch dùng cho R2 và độ mới dữ liệu (từ `technical-1.1.0`)
+
+"Nến lẽ ra phải có" = lịch tham chiếu (NY 18:00 CN → 17:00 T6, nghỉ 17:00–18:00) **giao** với giờ báo giá chính thức của broker, nếu đã khai báo:
+
+- `GT_BROKER_SESSIONS`: chép từ MT5 → Market Watch → chuột phải symbol → Specification → Sessions → cột **Quotes**, theo giờ server. Ví dụ `Mon-Fri 00:00-23:00`; nhiều khoảng: `Mon 01:00-24:00; Tue-Fri 00:00-12:00, 13:00-23:00`. Ngày không ghi = đóng cả ngày.
+- `GT_BROKER_SERVER_TZ`: múi giờ server dạng IANA (giống `GT_SERVER_TZ` của Gateway).
+- Chỉ áp dụng cho MT5/CSV; dữ liệu mẫu luôn dùng lịch tham chiếu. Sai cú pháp hoặc thiếu múi giờ → backend **không khởi động**.
+
+**Lý do (2026-11-05, MT5 demo thật MetaQuotes-Demo):** broker báo giá Mon–Fri 00:00–23:00 giờ server, tức nghỉ thêm 23:00–24:00 server (16:00–17:00 NY). Với lịch tham chiếu, mỗi ngày "thiếu" 4 nến không bao giờ tồn tại, độ phủ cửa sổ 300 nến luôn ~96% nên analyst **bị chặn vĩnh viễn**, và trang Thị trường báo nhầm "giá cũ" mỗi ngày một giờ. Mô hình giao hai lịch khớp chính xác dữ liệu thật: 5.000 nến có, 210 nến "thiếu" so với lịch tham chiếu (kể cả tuần 26–30/10 khi châu Âu đã đổi giờ còn Mỹ chưa, lúc đó không thiếu nến nào), 0 nến ngoài giờ.
+
+**Vì sao dùng lịch chính thức chứ không tự suy từ dữ liệu:** suy lịch từ dữ liệu sẽ biến một sự cố mất dữ liệu lặp lại thành "giờ nghỉ" và che mất nó. Giao hai lịch chỉ có thể *bớt* nến lẽ ra phải có ở chỗ broker công bố là đóng. Lưới an toàn cho khai báo sai: nếu có nến thật ở chỗ lịch nói đóng cửa thì chặn bằng `CALENDAR_MISMATCH`. Mất dữ liệu giữa phiên vẫn bị R2 bắt như cũ (có test).
 
 ## 4. Đặc trưng (features)
 
@@ -72,6 +86,7 @@ R1 (tự kiểm tra múi giờ khi nạp CSV) nằm ở bước nạp dữ liệ
 
 ## 8. Giới hạn đã biết
 
-- **Ngày lễ:** lịch thị trường chưa có ngày lễ, nên quanh Giáng sinh/năm mới độ phủ có thể dưới 99% và analyst sẽ **tự chặn** (an toàn nhưng gây gián đoạn) trong tối đa ~3 ngày, cho tới khi có lịch giao dịch thật từ MT5 (R12).
+- **Lịch broker nhập tay:** MT5 Python không đọc được Sessions, nên phải chép tay từ Specification. Broker đổi giờ báo giá thì phải sửa `.env`; nếu broker mở *dài* hơn khai báo, `CALENDAR_MISMATCH` sẽ chặn; nếu broker đóng *sớm* hơn khai báo, R2 sẽ chặn. Cả hai đều theo hướng an toàn.
+- **Ngày lễ:** lịch thị trường chưa có ngày lễ (ví dụ Labor Day 07/09/2026: broker thật thiếu thêm 6 nến), nên quanh Giáng sinh/năm mới độ phủ có thể dưới 99% và analyst sẽ **tự chặn** (an toàn nhưng gây gián đoạn) trong tối đa ~3 ngày, cho tới khi có lịch giao dịch thật từ MT5 (R12).
 - Ngưỡng R2–R6 mới được kiểm tra trên dữ liệu mẫu; **phải kiểm tra lại trên CSV thật của broker**.
 - Không có xác suất và không có tín hiệu. Fusion/Strategy không được coi `trend` là lệnh mua/bán khi chưa có backtest.

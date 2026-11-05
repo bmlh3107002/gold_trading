@@ -31,7 +31,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | — | Lưu trữ vận hành | ✅ | `backend/src/gold_trading/storage/`, `backend/migrations/` | Bảng append-only `safety_transitions`, `mode_changes`, `audit_log`; trigger DB chặn UPDATE/DELETE |
 | 02 | Ingestion nến | ✅ | `ingestion/candles.py`, `ingestion/sources/`, `storage/candles.py`, `migrations/versions/0002_candles.py` | Kiểm tra, khử trùng, revision, cờ chất lượng, quarantine. Hypertable TimescaleDB, append-only. Nguồn: dữ liệu mẫu (`sample.py`, `sample_feed.py`) và CSV (`csv_file.py`, CLI `ingestion/cli.py`). Chưa có: tin tức, lịch kinh tế, vĩ mô, tick |
 | 02 | Point-in-time (bản cũ) | 🟡 | `ingestion/point_in_time.py` | Store chung trong bộ nhớ, chưa dùng; nến đã có store riêng |
-| — | Lịch thị trường | ✅ | `market/hours.py` | Theo giờ New York: CN 18:00 → T6 17:00, nghỉ 17:00–18:00. Chưa có ngày lễ/lịch riêng của broker |
+| — | Lịch thị trường | ✅ | `market/hours.py` | Tham chiếu theo giờ New York: CN 18:00 → T6 17:00, nghỉ 17:00–18:00. **Giao** với giờ báo giá của broker (`GT_BROKER_SESSIONS` + `GT_BROKER_SERVER_TZ`, giờ server, chép tay từ MT5 Specification) cho MT5/CSV. Chưa có ngày lễ |
 | — | Chỉ báo | ✅ | `analysts/indicators.py` | EMA (khởi tạo bằng SMA), RSI Wilder; test theo giá trị tham chiếu |
 | 03 | Event Orchestrator | ⬜ | `orchestrator/` | |
 | 04 | Technical analyst v1 | ✅ | `analysts/technical.py`, `analysts/runner.py`, `market/quality.py`, `storage/analyst_outputs.py`, `migrations/versions/0003_analyst_outputs.py` | Thiết kế: `docs/thiet-ke/03-technical-analyst.md`. Cổng chất lượng R2–R6; ATR/EMA/RSI, xu hướng, swing (xác nhận sau 3 nến), hỗ trợ/kháng cự. **Không có xác suất, không có tín hiệu**; confidence = chất lượng dữ liệu. Chạy mỗi 15s, lưu append-only, idempotent theo hash đầu vào |
@@ -44,7 +44,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 07 | Risk Ledger | 🟡 | `risk/ledger.py` | Reserve/release append-only trong bộ nhớ. Chưa có fill/PnL, chưa đối soát MT5 |
 | 08 | Safety Supervisor | ✅ | `safety/supervisor.py` | Chưa nối các trigger tự động (tin nóng, spread, equity) |
 | 09 | Order FSM | ✅ | `execution/order_fsm.py` | Chưa có Execution Orchestrator |
-| 09 | MT5 Gateway **chỉ đọc** | 🟡 | `mt5_gateway/`, `backend/.../api/ingest.py` | Thiết kế: `docs/thiet-ke/09a-mt5-gateway-chi-doc.md`, hướng dẫn: `mt5_gateway/README.md`. Lệnh `check`/`run`; đọc nến M15 đã đóng, quy đổi giờ server (IANA) → UTC; nạp bù 5.000 nến rồi 5 giây/lần; nhịp tim. Backend: `POST /api/ingest/mt5/candles` (token, dry_run, R1), `/heartbeat`, `GET /api/gateway/status`. **Chưa chạy trên MT5 thật**; chưa đặt lệnh (cố ý) |
+| 09 | MT5 Gateway **chỉ đọc** | ✅ | `mt5_gateway/`, `backend/.../api/ingest.py` | Thiết kế: `docs/thiet-ke/09a-mt5-gateway-chi-doc.md`, hướng dẫn: `mt5_gateway/README.md`. Lệnh `check`/`run`; đọc nến M15 đã đóng, quy đổi giờ server (IANA) → UTC; nạp bù 5.000 nến rồi 5 giây/lần; nhịp tim. Backend: `POST /api/ingest/mt5/candles` (token, dry_run, R1), `/heartbeat`, `GET /api/gateway/status`. **Đã chạy với MT5 demo thật** (MetaQuotes-Demo, 2026-11-05): check 9/9, nạp 5.000 nến. Chưa đặt lệnh (cố ý) |
 | 09 | Guardian EA | 🟡 | `guardian_ea/GuardianEA.mq5` | **Chưa biên dịch, chưa test** |
 | 10 | Position Manager / Performance | ⬜ | `position/`, `performance/` | |
 | 11 | Training / registry | ⬜ | | |
@@ -70,7 +70,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 129 passed, mt5_gateway 26 passed, frontend 30 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 160 passed, mt5_gateway 26 passed (không sửa), frontend 31 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
@@ -89,6 +89,7 @@ Kết quả lần cuối: backend 129 passed, mt5_gateway 26 passed, frontend 30
   - `copy_rates_from_pos(..., start_pos=1, ...)`: vị trí 0 là nến đang chạy.
   - Backend dùng **đồng hồ của backend** làm `ingested_at`. Cổng nhận dữ liệu tắt nếu không có `GT_INGEST_TOKEN` (≥ 24 ký tự).
   - Chạy trên Windows bằng `uv run mt5-gateway check|run` (`.python-version` = 3.12). Cấu hình ở `mt5_gateway/gateway.env`.
+- **Lịch thị trường:** mọi chỗ cần biết "nến nào lẽ ra phải có" dùng `MarketCalendar` (`MarketDataService.calendar`), không gọi thẳng `bar_in_session` của lịch tham chiếu. Chưa áp dụng cho cờ `GAP` lúc nạp và R1 (vẫn dùng lịch tham chiếu; lịch broker là tập con nên R1 không bị ảnh hưởng). Cấu hình sai → backend không khởi động.
 - **Technical analyst:** đọc `docs/thiet-ke/03-technical-analyst.md` trước khi sửa. Đổi công thức hoặc ngưỡng thì tăng `VERSION` trong `analysts/technical.py`. Frontend đọc `features` qua `lib/technical.ts` (sai kiểu thì trả null, không đoán).
 - **Frontend — quy ước theme AurumDesk:**
   - Màu, khoảng cách, font chỉ khai báo trong `frontend/src/styles/tokens.css` (dark mặc định, light qua `html[data-theme="light"]`). Không hardcode màu trong component.
@@ -160,11 +161,19 @@ Kết quả lần cuối: backend 129 passed, mt5_gateway 26 passed, frontend 30
 - Đã sửa: (1) trùng khóa mâu thuẫn trong cùng file từng tạo revision giả; (2) báo nhầm "giá cũ" lúc mở cửa đầu tuần; (3) che mất sự cố nguồn dữ liệu vào cuối tuần; (4) mốc 24h có thể lệch 1 nến; (5) CLI cho chọn H4 dù căn khung sai; (6) trục biểu đồ thiếu ngày, phần trăm thiếu dấu +.
 - Giới hạn còn lại: lịch thị trường chưa có ngày lễ/lịch riêng broker; giá lưu kiểu float (đủ cho hiển thị, PnL sau này phải dùng Decimal); chưa hỗ trợ H4/D1 theo giờ server.
 
+### 2026-11-05 — Chạy MT5 Gateway với MT5 demo thật + sửa lịch giờ broker
+- Người dùng chạy trên Windows: Docker (`GT_DATA_SOURCE=MT5`), MetaQuotes-Demo, XAUUSD M15. `mt5-gateway check` đạt 9/9 (giờ server khớp GMT+2 bằng tick sống, R1 0,00% trên 5.000 nến đi qua cả hai lần đổi giờ). `run`: nạp 5.000 nến, 0 trùng, 0 cách ly; heartbeat CONNECTED/DEMO/read_only.
+- **Lỗi tìm được:** Technical analyst bị chặn vĩnh viễn (`LOW_COVERAGE`, độ phủ 0,9615). Kịch bản chẩn đoán chỉ đọc trên DB thật: thiếu đúng 4 nến/ngày lúc 23:00–23:45 giờ server (16:00–16:45 NY), tổng 210; ngày 07/09 (Labor Day) thiếu 10. Specification của broker: Quotes Mon–Fri 00:00–23:00 giờ server. Lịch tham chiếu nghỉ 1 giờ, broker nghỉ thêm 1 giờ.
+- **Sửa:** `BrokerSessions` + `MarketCalendar` (tham chiếu ∩ broker) dùng cho R2, độ mới dữ liệu và nhãn phiên. Cờ chặn mới `CALENDAR_MISMATCH` khi có nến ở chỗ lịch nói đóng (lưới an toàn cho khai báo sai). `technical-1.1.0`. Không tự suy lịch từ dữ liệu (sẽ che sự cố mất dữ liệu lặp lại). Lý do ghi ở `docs/thiet-ke/03-technical-analyst.md`.
+- Kiểm chứng: 31 test mới (cú pháp, mùa hè/đông, tuần lệch DST 26–30/10, thứ Sáu đóng sớm, mất dữ liệu giữa phiên vẫn bị bắt, khai báo sai lịch/múi giờ bị chặn, cấu hình sai → không khởi động). Mô phỏng toàn bộ lịch sử 18/08–05/11 khớp **chính xác** số liệu thật (5.000 nến có, 210 thiếu, cùng phân bố theo thứ). Kịch bản đầu cuối qua API: lịch cũ → INVALID 0,9615; lịch broker → HEALTHY, độ phủ 1,0.
+- Sửa câu "Dữ liệu mẫu sẽ tự nạp" bị sai khi dùng MT5.
+- Giới hạn còn lại: lịch broker phải chép tay (MT5 Python không đọc được Sessions); chưa có ngày lễ; trục thời gian biểu đồ đặt vạch ngày theo UTC nhưng ghi nhãn giờ máy (vạch "05/11" nằm ở 07:00 giờ VN) — chỉ là hiển thị; spike ở nến mở lại sau giờ nghỉ (01:00 server 04/11) chỉ gắn cờ.
+
 ## Việc tiếp theo (đề xuất)
 
 Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc 🟡 (chờ chạy thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
-00. **Kiểm chứng Gateway với MT5 demo thật** của người dùng: xem kết quả `mt5-gateway check`; kiểm tra lại các ngưỡng R1–R6 trên dữ liệu thật; nếu có lỗi thì sửa trước khi làm tiếp.
+00. **Sau khi người dùng cập nhật Docker với `GT_BROKER_SESSIONS`:** xác nhận analyst HEALTHY trên dữ liệu thật; theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Sửa trục ngày của biểu đồ (tickMarkFormatter theo giờ địa phương). Đổi token ingest (token đã lộ trong chat, rủi ro thấp vì chỉ mở localhost).
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
 1. **Event & calendar analyst** (ưu tiên cao: chặn giao dịch quanh CPI/NFP/FOMC, tạo cờ `EVENT_WINDOW` mà Risk Engine đã chờ sẵn).
 2. **Event Orchestrator đầy đủ:** hiện `TechnicalRunner` polling 15s là bản tối thiểu; cần jobKey, deadline, retry giới hạn, dead-letter.

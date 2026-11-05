@@ -10,7 +10,7 @@ from datetime import datetime
 from statistics import median
 
 from gold_trading.contracts.candle import Candle
-from gold_trading.market.hours import bar_in_session
+from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.timeframes import Timeframe
 
 MIN_COVERAGE = 0.99
@@ -27,6 +27,8 @@ class WindowQuality:
     missing: list[datetime] = field(default_factory=list)
     spikes: list[datetime] = field(default_factory=list)
     frozen_runs: list[datetime] = field(default_factory=list)  # open_time của nến đầu mỗi chuỗi
+    # Nến có thật nhưng rơi vào lúc lịch nói là đóng cửa → lịch (hoặc múi giờ) đang sai
+    outside_session: list[datetime] = field(default_factory=list)
     wide_spread_last: bool = False
 
     @property
@@ -34,23 +36,30 @@ class WindowQuality:
         return self.coverage < MIN_COVERAGE
 
 
-def expected_open_times(first: datetime, last: datetime, tf: Timeframe) -> list[datetime]:
+def expected_open_times(
+    first: datetime, last: datetime, tf: Timeframe, calendar: MarketCalendar = REFERENCE
+) -> list[datetime]:
     """Mọi open_time trong giờ mở cửa từ ``first`` tới ``last`` (bao gồm hai đầu)."""
     out = []
     t = first
     while t <= last:
-        if bar_in_session(t, t + tf.delta):
+        if calendar.bar_in_session(t, t + tf.delta):
             out.append(t)
         t += tf.delta
     return out
 
 
-def assess_window(candles: list[Candle], tf: Timeframe) -> WindowQuality:
+def assess_window(
+    candles: list[Candle], tf: Timeframe, calendar: MarketCalendar = REFERENCE
+) -> WindowQuality:
     if not candles:
         return WindowQuality(0, 0, 0.0)
     present = {c.open_time for c in candles}
-    expected = expected_open_times(candles[0].open_time, candles[-1].open_time, tf)
+    expected = expected_open_times(candles[0].open_time, candles[-1].open_time, tf, calendar)
+    expected_set = set(expected)
     missing = [t for t in expected if t not in present]
+    outside = [c.open_time for c in candles if c.open_time not in expected_set]
+    # Độ phủ chỉ tính trên nến lẽ ra phải có; nến ngoài giờ được báo riêng, không bù cho nến thiếu
     coverage = (len(expected) - len(missing)) / len(expected) if expected else 0.0
 
     ranges = [c.high - c.low for c in candles]
@@ -86,4 +95,5 @@ def assess_window(candles: list[Candle], tf: Timeframe) -> WindowQuality:
         spikes=spikes,
         frozen_runs=frozen,
         wide_spread_last=wide,
+        outside_session=outside,
     )

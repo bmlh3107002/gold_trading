@@ -8,7 +8,7 @@ from enum import StrEnum
 
 from gold_trading.analysts.indicators import ema, rsi
 from gold_trading.contracts.candle import Candle, DataSource
-from gold_trading.market.hours import MarketSession, bar_in_session, session_at
+from gold_trading.market.hours import REFERENCE, MarketCalendar, MarketSession
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import CandleStore, QuarantineEntry, SeriesStats
 
@@ -52,8 +52,10 @@ class MarketDataService:
         source: DataSource | None,
         symbol: str = "XAUUSD",
         timeframe: Timeframe = Timeframe.M15,
+        calendar: MarketCalendar = REFERENCE,
     ) -> None:
         self.store = store
+        self.calendar = calendar
         self.source = source
         self.symbol = symbol
         self.timeframe = timeframe
@@ -81,7 +83,7 @@ class MarketDataService:
         )
 
     def summary(self, now: datetime) -> Summary:
-        session = session_at(now)
+        session = self.calendar.session_at(now)
         recent = self.candles(as_of=now, limit=200)
         last = recent[-1] if recent else None
         change = change_pct = None
@@ -113,7 +115,7 @@ class MarketDataService:
         tf = self.timeframe
         t = tf.floor(now - FRESHNESS_GRACE)
         for _ in range(7 * 24 * 60):  # tối đa một tuần nến M1; luôn dừng sớm hơn nhiều
-            if bar_in_session(t - tf.delta, t):
+            if self.calendar.bar_in_session(t - tf.delta, t):
                 return t
             t -= tf.delta
         return t

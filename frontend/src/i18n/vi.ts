@@ -70,7 +70,7 @@ const vi = {
     noSourceTitle: "Chưa cấu hình nguồn dữ liệu",
     noSourceDesc: "Backend chưa được chỉ định nguồn nến (GT_DATA_SOURCE = SAMPLE hoặc CSV).",
     noDataTitle: "Chưa có nến nào",
-    noDataDesc: "Nguồn dữ liệu đã cấu hình nhưng chưa có nến. Dữ liệu mẫu sẽ tự nạp sau vài giây.",
+    noDataDesc: "Nguồn dữ liệu đã cấu hình nhưng chưa có nến. Dữ liệu mẫu tự nạp sau vài giây; với MT5, hãy chạy MT5 Gateway.",
     loading: "Đang tải dữ liệu thị trường…",
     loadErrorTitle: "Không tải được dữ liệu thị trường",
     loadErrorDesc: "Không kết nối được tới backend. Kiểm tra dịch vụ rồi thử lại.",
@@ -135,6 +135,7 @@ const vi = {
     flag: {
       INSUFFICIENT_HISTORY: "Chưa đủ lịch sử nến (cần tối thiểu 250 nến)",
       LOW_COVERAGE: "Thiếu nến trong giờ mở cửa (độ phủ dưới 99%)",
+      CALENDAR_MISMATCH: "Có nến vào lúc lịch nói thị trường đóng cửa: lịch giờ broker hoặc múi giờ đang khai báo sai",
       STALE_INPUT: "Nến mới nhất chưa về: dữ liệu chưa cập nhật",
       FROZEN_FEED: "Nguồn dữ liệu có dấu hiệu đóng băng (nhiều nến giống hệt nhau)",
       SAMPLE_DATA: "Tính từ dữ liệu mẫu",

@@ -37,6 +37,7 @@ class TechnicalRunner:
             source=self.market.source,
             expected_last_close=self.market.expected_last_close(now),
             correlation_id=f"bar-close:{rows[-1].close_time.isoformat()}" if rows else "none",
+            calendar=self.market.calendar,
         )
         if out is None:
             return False

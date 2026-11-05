@@ -16,10 +16,11 @@ from gold_trading.analysts.indicators import atr, ema, rsi
 from gold_trading.common.enums import SourceStatus
 from gold_trading.contracts.analyst import AnalystOutput
 from gold_trading.contracts.candle import Candle, DataSource
+from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
-VERSION = "technical-1.0.0"
+VERSION = "technical-1.1.0"
 ANALYST_ID = "technical"
 WINDOW = 300
 MIN_BARS = 250
@@ -105,6 +106,7 @@ def analyze(
     source: DataSource,
     expected_last_close: datetime,
     correlation_id: str,
+    calendar: MarketCalendar = REFERENCE,
 ) -> AnalystOutput | None:
     """``rows``: nến point-in-time, đã gồm warm-up phía trước. None nếu không có nến nào."""
     if not rows:
@@ -112,7 +114,7 @@ def analyze(
     window = rows[-WINDOW:]
     last = window[-1]
     as_of = last.close_time
-    q = assess_window(window, timeframe)
+    q = assess_window(window, timeframe, calendar)
     quality_flags: set[str] = set()
     risk_flags: set[str] = set()
     status = SourceStatus.HEALTHY
@@ -122,6 +124,8 @@ def analyze(
         blocking.append("INSUFFICIENT_HISTORY")
     if q.low_coverage:
         blocking.append("LOW_COVERAGE")
+    if q.outside_session:
+        blocking.append("CALENDAR_MISMATCH")
     if last.close_time < expected_last_close:
         blocking.append("STALE_INPUT")
         status = SourceStatus.STALE
@@ -145,6 +149,8 @@ def analyze(
         "input_hash": input_hash(window),
         "coverage": round(q.coverage, 4),
         "missing_bars": len(q.missing),
+        "outside_session_bars": len(q.outside_session),
+        "calendar": calendar.description,
         "spikes": [t.isoformat() for t in q.spikes],
     }
     base = dict(

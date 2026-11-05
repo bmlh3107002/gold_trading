@@ -56,5 +56,11 @@ export function readTechnical(features: Record<string, unknown> | undefined): Te
   };
 }
 
-export const BLOCKING_FLAGS = ["INSUFFICIENT_HISTORY", "LOW_COVERAGE", "STALE_INPUT", "FROZEN_FEED"] as const;
+export const BLOCKING_FLAGS = [
+  "INSUFFICIENT_HISTORY",
+  "LOW_COVERAGE",
+  "CALENDAR_MISMATCH",
+  "STALE_INPUT",
+  "FROZEN_FEED",
+] as const;
 export const NOTICE_FLAGS = ["SAMPLE_DATA", "SPIKE_IN_WINDOW", "WIDE_SPREAD", "HIGH_VOLATILITY"] as const;
