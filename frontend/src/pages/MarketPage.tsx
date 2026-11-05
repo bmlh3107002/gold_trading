@@ -6,11 +6,13 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { InfoTip } from "../components/ui/InfoTip";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StateView";
-import { useCandles, useDataQuality, useMarketSummary } from "../hooks/useMarket";
+import { useCandles, useDataQuality, useMarketSummary, useTechnical } from "../hooks/useMarket";
 import type { Theme } from "../hooks/useTheme";
 import { formatDateTime, formatNumber, formatTime } from "../lib/format";
 import { flagLabel } from "../lib/labels";
+import { readTechnical } from "../lib/technical";
 import { DataQualityCard } from "./market/DataQualityCard";
+import { TechnicalCard } from "./market/TechnicalCard";
 
 type SummaryState = ReturnType<typeof useMarketSummary>;
 
@@ -18,6 +20,17 @@ export function MarketPage({ theme, summary }: { theme: Theme; summary: SummaryS
   const { t } = useTranslation();
   const candles = useCandles(300);
   const quality = useDataQuality();
+  const tech = useTechnical();
+  // Chỉ vẽ hỗ trợ/kháng cự từ kết quả còn hiệu lực và không bị chặn bởi cổng chất lượng
+  const techOut = tech.data?.output;
+  const techUsable =
+    !!techOut && !!tech.data?.valid_now && techOut.source_status === "HEALTHY";
+  const levels = techUsable ? readTechnical(techOut?.features as Record<string, unknown>) : null;
+  const srLevels = levels
+    ? [levels.nearest_support, levels.nearest_resistance].flatMap((lv, i) =>
+        lv ? [{ price: lv.price, kind: i === 0 ? ("S" as const) : ("R" as const) }] : [],
+      )
+    : [];
   const s = summary.data;
   const c = candles.data;
   const last = c?.candles.at(-1);
@@ -107,7 +120,14 @@ export function MarketPage({ theme, summary }: { theme: Theme; summary: SummaryS
         )}
         {c && c.candles.length > 0 && (
           <>
-            <PriceChart candles={c.candles} ema20={c.ema20} ema50={c.ema50} rsi14={c.rsi14} theme={theme} />
+            <PriceChart
+              candles={c.candles}
+              ema20={c.ema20}
+              ema50={c.ema50}
+              rsi14={c.rsi14}
+              theme={theme}
+              levels={srLevels}
+            />
             <p className="chart-attribution">
               {t("market.attribution")} ·{" "}
               <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer noopener">
@@ -124,7 +144,10 @@ export function MarketPage({ theme, summary }: { theme: Theme; summary: SummaryS
         )}
       </Card>
 
-      <DataQualityCard q={quality.data} />
+      <div className="grid-main">
+        <TechnicalCard data={tech.data} loading={tech.loading} onRetry={() => void tech.refresh()} />
+        <DataQualityCard q={quality.data} />
+      </div>
     </div>
   );
 }

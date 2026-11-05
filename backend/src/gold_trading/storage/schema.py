@@ -100,3 +100,32 @@ candle_quarantine = Table(
     Column("reason", String(64), nullable=False),
     Column("raw", JsonType, nullable=False),
 )
+
+
+# --- Kết quả analyst (migration 0003) ---
+
+analyst_outputs = Table(
+    "analyst_outputs",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("output_id", String(256), nullable=False, unique=True),
+    Column("analyst_id", String(32), nullable=False),
+    Column("version", String(32), nullable=False),
+    Column("symbol", String(32), nullable=False),
+    Column("timeframe", String(8), nullable=False),
+    Column("source", String(16), nullable=False),
+    Column("as_of", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False),
+    Column("source_status", String(16), nullable=False),
+    Column("confidence", Float, nullable=False),
+    Column("payload", JsonType, nullable=False),
+)
+Index(
+    "ix_analyst_outputs_lookup",
+    analyst_outputs.c.analyst_id,
+    analyst_outputs.c.symbol,
+    analyst_outputs.c.timeframe,
+    analyst_outputs.c.source,
+    analyst_outputs.c.as_of,
+)

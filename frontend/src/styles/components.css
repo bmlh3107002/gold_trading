@@ -449,14 +449,26 @@
   text-transform: none;
   letter-spacing: 0;
   box-shadow: var(--shadow-overlay);
-  visibility: hidden;
-  opacity: 0;
+  /* display:none để bong bóng ẩn không làm trang tràn ngang */
+  display: none;
   pointer-events: none;
 }
 .tip:hover .tip__bubble,
 .tip:focus-within .tip__bubble {
-  visibility: visible;
-  opacity: 1;
+  display: block;
+}
+@media (max-width: 720px) {
+  /* Mobile: hiện cố định ở cuối màn hình để không bị cắt mép */
+  .tip__bubble {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    transform: none;
+    width: auto;
+    max-width: none;
+    z-index: 60;
+  }
 }
 
 /* Dialog */

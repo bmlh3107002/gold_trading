@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analysts/technical/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Technical Latest */
+        get: operations["technical_latest_api_analysts_technical_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -144,6 +161,71 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnalystLatest */
+        AnalystLatest: {
+            output: components["schemas"]["AnalystOutput"] | null;
+            /** Computed At */
+            computed_at: string | null;
+            /**
+             * Valid Now
+             * @description Còn hiệu lực tại thời điểm trả lời (chưa quá expires_at)
+             */
+            valid_now: boolean;
+            /** Is Sample */
+            is_sample: boolean;
+            /**
+             * Confidence Meaning
+             * @description confidence của technical v1 chỉ đo chất lượng dữ liệu, không đo khả năng dự báo
+             * @default DATA_QUALITY_ONLY
+             */
+            confidence_meaning: string;
+        };
+        /** AnalystOutput */
+        AnalystOutput: {
+            /** Output Id */
+            output_id: string;
+            /**
+             * Analyst Id
+             * @description technical | news | event | macro | positioning | regime
+             */
+            analyst_id: string;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Confidence */
+            confidence: number;
+            /** Features */
+            features?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Drivers
+             * @default []
+             */
+            drivers: string[];
+            /**
+             * Risk Flags
+             * @default []
+             */
+            risk_flags: string[];
+            source_status: components["schemas"]["SourceStatus"];
+            /**
+             * Quality Flags
+             * @default []
+             */
+            quality_flags: string[];
+            /** Version */
+            version: string;
+            /** Correlation Id */
+            correlation_id: string;
+        };
         /** AuditRecord */
         AuditRecord: {
             /**
@@ -416,6 +498,11 @@ export interface components {
             /** Policy Version */
             policy_version: string;
         };
+        /**
+         * SourceStatus
+         * @enum {string}
+         */
+        SourceStatus: "HEALTHY" | "STALE" | "MISSING" | "INVALID";
         /** SystemStatus */
         SystemStatus: {
             /** Version */
@@ -545,6 +632,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataQuality"];
+                };
+            };
+        };
+    };
+    technical_latest_api_analysts_technical_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalystLatest"];
                 };
             };
         };

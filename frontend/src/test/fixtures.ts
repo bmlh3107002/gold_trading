@@ -1,4 +1,10 @@
-import type { CandlesResponse, DataQuality, MarketSummary, SystemStatus } from "../api/client";
+import type {
+  AnalystLatest,
+  CandlesResponse,
+  DataQuality,
+  MarketSummary,
+  SystemStatus,
+} from "../api/client";
 
 export function makeStatus(over: Partial<SystemStatus> = {}): SystemStatus {
   return {
@@ -82,3 +88,43 @@ export function makeQuality(over: Partial<DataQuality> = {}): DataQuality {
 
 export const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+export function makeTechnical(
+  over: Partial<AnalystLatest> = {},
+  outOver: Partial<NonNullable<AnalystLatest["output"]>> = {},
+): AnalystLatest {
+  return {
+    computed_at: "2026-01-06T14:46:00Z",
+    valid_now: true,
+    is_sample: true,
+    confidence_meaning: "DATA_QUALITY_ONLY",
+    output: {
+      output_id: "technical:1",
+      analyst_id: "technical",
+      as_of: "2026-01-06T14:45:00Z",
+      expires_at: "2026-01-06T15:02:00Z",
+      confidence: 1,
+      features: {
+        close: 2412.5,
+        atr14: 4.2,
+        atr_pct: 0.0017,
+        vol_ratio: 1.1,
+        trend: "UP",
+        structure: "BULLISH",
+        rsi14: 61.2,
+        nearest_support: { price: 2405.1, low: 2404.8, high: 2405.4, touches: 3, distance_atr: 1.8 },
+        nearest_resistance: { price: 2420.0, low: 2419.7, high: 2420.3, touches: 2, distance_atr: 1.8 },
+        levels: [],
+        input: { coverage: 1 },
+      },
+      drivers: ["TREND_UP"],
+      risk_flags: [],
+      source_status: "HEALTHY",
+      quality_flags: ["SAMPLE_DATA"],
+      version: "technical-1.0.0",
+      correlation_id: "c",
+      ...outOver,
+    },
+    ...over,
+  };
+}

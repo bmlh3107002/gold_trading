@@ -15,3 +15,8 @@ export function useCandles(limit = 300) {
 export function useDataQuality() {
   return usePolling(useCallback(() => api.dataQuality(), []), 60_000, 180_000);
 }
+
+/** Kết quả Technical analyst: 30 giây/lần. */
+export function useTechnical() {
+  return usePolling(useCallback(() => api.technicalLatest(), []), 30_000, 90_000);
+}

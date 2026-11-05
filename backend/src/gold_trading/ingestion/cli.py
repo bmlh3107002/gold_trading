@@ -56,6 +56,25 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Đọc được {len(bars)} nến, {len(rejects)} dòng lỗi.")
     if bars:
         print(f"Khoảng thời gian (UTC): {bars[0].open_time} → {bars[-1].open_time}")
+
+    # R1: khai báo sai múi giờ làm mọi nến lệch giờ mà không có lỗi định dạng nào -> chặn cả file
+    tf = Timeframe(args.timeframe)
+    chk = csv_file.check_sessions(bars, int(tf.delta.total_seconds() // 60))
+    if not chk.ok:
+        print(
+            f"TỪ CHỐI: {chk.outside_fraction:.1%} số nến rơi vào giờ thị trường đóng cửa "
+            f"(cho phép tối đa {csv_file.SESSION_MISMATCH_MAX:.0%}). Nhiều khả năng múi giờ "
+            f"--server-tz chưa đúng.",
+            file=sys.stderr,
+        )
+        if chk.best_shift_hours != 0 and chk.best_outside_fraction <= csv_file.SESSION_MISMATCH_MAX:
+            print(
+                f"Gợi ý: dữ liệu khớp lịch nhất khi lệch thêm {chk.best_shift_hours:+d} giờ "
+                f"(còn {chk.best_outside_fraction:.1%} nến ngoài giờ). Kiểm tra lại múi giờ server "
+                "của broker.",
+                file=sys.stderr,
+            )
+        return 3
     if args.dry_run:
         for r in rejects[:20]:
             print(f"  dòng {r.line}: {r.reason}")
@@ -69,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     result = CandleIngestor(store).ingest(
         bars,
         symbol=args.symbol,
-        timeframe=Timeframe(args.timeframe),
+        timeframe=tf,
         source=DataSource.CSV,
         ingested_at=utcnow(),
         backfill=True,

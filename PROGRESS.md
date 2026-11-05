@@ -34,7 +34,8 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | — | Lịch thị trường | ✅ | `market/hours.py` | Theo giờ New York: CN 18:00 → T6 17:00, nghỉ 17:00–18:00. Chưa có ngày lễ/lịch riêng của broker |
 | — | Chỉ báo | ✅ | `analysts/indicators.py` | EMA (khởi tạo bằng SMA), RSI Wilder; test theo giá trị tham chiếu |
 | 03 | Event Orchestrator | ⬜ | `orchestrator/` | |
-| 04 | 6 analyst | ⬜ | `analysts/` | Chỉ có contract `AnalystOutput` |
+| 04 | Technical analyst v1 | ✅ | `analysts/technical.py`, `analysts/runner.py`, `market/quality.py`, `storage/analyst_outputs.py`, `migrations/versions/0003_analyst_outputs.py` | Thiết kế: `docs/thiet-ke/03-technical-analyst.md`. Cổng chất lượng R2–R6; ATR/EMA/RSI, xu hướng, swing (xác nhận sau 3 nến), hỗ trợ/kháng cự. **Không có xác suất, không có tín hiệu**; confidence = chất lượng dữ liệu. Chạy mỗi 15s, lưu append-only, idempotent theo hash đầu vào |
+| 04 | 5 analyst còn lại | ⬜ | `analysts/` | Thứ tự đã chốt: Event & calendar → Macro → News → Positioning → Regime |
 | 05 | Snapshot Builder | ✅ | `intelligence/snapshot_builder.py` | |
 | 05 | Data Quality Gate | ✅ | `intelligence/quality_gate.py` | Kiểm tra required/optional, TTL, source_status. Chưa có outlier/schema |
 | 05 | Fusion / MarketView | 🟡 | `contracts/market_view.py` | Có contract, chưa có fusion |
@@ -48,8 +49,8 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 10 | Position Manager / Performance | ⬜ | `position/`, `performance/` | |
 | 11 | Training / registry | ⬜ | | |
 | 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
-| 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14, legend theo con trỏ, banner dữ liệu mẫu/giá cũ, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
-| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`, `data_source`, `data_is_sample`), `/api/audit`, `/api/market/summary`, `/api/market/candles` (kèm EMA/RSI, warm-up 200 nến), `/api/market/quality`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
+| 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
+| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`, `data_source`, `data_is_sample`), `/api/audit`, `/api/market/summary`, `/api/market/candles` (kèm EMA/RSI, warm-up 200 nến), `/api/market/quality`, `/api/analysts/technical/latest`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
 | 12 | Backtest | ⬜ | | |
 | — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Một lệnh `docker compose up -d --build` chạy db + backend + frontend. Backend chạy `alembic upgrade head` rồi mới start (`scripts/entrypoint.sh`). DB không mở cổng ra host ở bản `deploy/`. Dashboard ở `127.0.0.1:8080` |
 
@@ -69,7 +70,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 102 passed, mt5_gateway 2 passed, frontend 23 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 120 passed, mt5_gateway 2 passed, frontend 29 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
@@ -82,6 +83,7 @@ Kết quả lần cuối: backend 102 passed, mt5_gateway 2 passed, frontend 23 
 - Khi Docker chạy, CORS không cần vì nginx phục vụ dashboard và `/api` cùng origin.
 - Backend Dockerfile cài uv bằng pip (không `COPY --from=ghcr.io/...`) để chỉ phụ thuộc Docker Hub và PyPI.
 - Khi build Docker trong sandbox cloud: Docker Hub hay trả 429 (dùng `dockerd --registry-mirror=https://mirror.gcr.io`), và cần chèn CA của proxy (`/root/.ccr/ca-bundle.crt`) vào một **bản sao** Dockerfile trong scratchpad. Không commit CA vào repo.
+- **Technical analyst:** đọc `docs/thiet-ke/03-technical-analyst.md` trước khi sửa. Đổi công thức hoặc ngưỡng thì tăng `VERSION` trong `analysts/technical.py`. Frontend đọc `features` qua `lib/technical.ts` (sai kiểu thì trả null, không đoán).
 - **Frontend — quy ước theme AurumDesk:**
   - Màu, khoảng cách, font chỉ khai báo trong `frontend/src/styles/tokens.css` (dark mặc định, light qua `html[data-theme="light"]`). Không hardcode màu trong component.
   - CSS: `base.css`, `layout.css` (sidebar 238px, header 66px, breakpoint 1100px/720px/480px), `components.css`.
@@ -97,6 +99,7 @@ Kết quả lần cuối: backend 102 passed, mt5_gateway 2 passed, frontend 23 
   - Khóa nến: `(symbol, timeframe, source, open_time, revision)`. Cùng giá trị → bỏ qua; khác giá trị → revision mới.
   - Trùng thời điểm trong **cùng một batch** mà giá khác nhau: cách ly tất cả (`CONFLICTING_DUPLICATE`), không tạo revision giả. Giống hệt nhau thì giữ một.
   - Độ mới dữ liệu (`MarketDataService._freshness`): so nến mới nhất với **nến lẽ ra đã đóng gần nhất trong giờ mở cửa** (`expected_last_close`, cho trễ `FRESHNESS_GRACE` = 2 phút). Nhờ vậy không báo nhầm lúc mở cửa đầu tuần, và vẫn báo `STALE` vào cuối tuần nếu nguồn đã chết từ trước khi đóng cửa.
+  - R1: CLI nạp CSV **từ chối cả file** nếu > 1% nến (khi có ≥ 200 nến) rơi vào giờ đóng cửa, và gợi ý độ lệch giờ khớp nhất (`csv_file.check_sessions`). Không có cờ bỏ qua.
   - CLI chỉ cho khung M1–H1. H4 trở lên được broker căn theo giờ server, chưa hỗ trợ.
   - CSV từ MT5 dùng giờ server broker. **Bắt buộc `--server-tz`**; giờ mơ hồ do đổi DST bị cách ly, không đoán.
   - Dữ liệu mẫu: tất định theo seed (`20260101`) và giá khởi đầu 2400. `ModeManager(guard=...)` chặn SHADOW/LIVE khi `GT_DATA_SOURCE=SAMPLE`; mode đã lưu là SHADOW/LIVE sẽ về PAPER khi khởi động (ghi audit).
@@ -136,6 +139,11 @@ Kết quả lần cuối: backend 102 passed, mt5_gateway 2 passed, frontend 23 
 - Frontend: trang Thị trường, header có giá thật, điều hướng bằng hash.
 - Đã kiểm tra bằng Docker thật: migration 0002, hypertable, 5.883 nến mẫu; restart không sinh trùng; SHADOW bị từ chối khi dùng dữ liệu mẫu; CLI nạp CSV cách ly nến lỗi và từ chối file thiếu múi giờ; UPDATE trên `candles` bị chặn.
 
+### 2026-11-05 — Bước ③: Technical analyst v1
+- Ghi **Nguyên tắc thận trọng tài chính** vào `CLAUDE.md`. Thiết kế chi tiết: `docs/thiet-ke/03-technical-analyst.md`.
+- Thêm R1 (kiểm tra múi giờ khi nạp CSV), R2–R6 (`market/quality.py`), ATR Wilder, analyst, bảng `analyst_outputs` (migration 0003), runner nền, API, thẻ giao diện và đường S/R trên biểu đồ.
+- Kiểm chứng: đối chiếu thư viện `ta` (ATR lệch 5e-11); tái lập 40/40 kết quả sau khi thêm dữ liệu tương lai; Docker + Postgres OK. Sửa lỗi tooltip làm tràn ngang trên mobile.
+
 ### 2026-11-05 — Soát lỗi bước ① + ②
 - Đã kiểm tra bằng kịch bản riêng: số nến mỗi tuần đúng 460, kể cả tuần Mỹ đổi giờ; không có nến ngoài phiên; EMA/RSI không đổi theo độ dài warm-up (lệch 0); point-in-time đúng.
 - Đã sửa: (1) trùng khóa mâu thuẫn trong cùng file từng tạo revision giả; (2) báo nhầm "giá cũ" lúc mở cửa đầu tuần; (3) che mất sự cố nguồn dữ liệu vào cuối tuần; (4) mốc 24h có thể lệch 1 nến; (5) CLI cho chọn H4 dù căn khung sai; (6) trục biểu đồ thiếu ngày, phần trăm thiếu dấu +.
@@ -143,11 +151,11 @@ Kết quả lần cuối: backend 102 passed, mt5_gateway 2 passed, frontend 23 
 
 ## Việc tiếp theo (đề xuất)
 
-Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → **③ Technical analyst** → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
-1. **Technical analyst:** ATR, swing high/low, hỗ trợ/kháng cự, xu hướng, dùng `analysts/indicators.py` → `AnalystOutput` có `expires_at`.
-2. **Event Orchestrator tối thiểu:** nến M15 đóng → Technical → Snapshot → Quality Gate. Job idempotent theo `jobKey`.
+1. **Event & calendar analyst** (ưu tiên cao: chặn giao dịch quanh CPI/NFP/FOMC, tạo cờ `EVENT_WINDOW` mà Risk Engine đã chờ sẵn).
+2. **Event Orchestrator đầy đủ:** hiện `TechnicalRunner` polling 15s là bản tối thiểu; cần jobKey, deadline, retry giới hạn, dead-letter.
 3. **Fusion đơn giản → `MarketView`** đầu tiên, hiển thị trên Tổng quan. MarketView sinh từ dữ liệu mẫu phải mang cờ để Risk chặn ở SHADOW/LIVE.
 4. Strategy Engine và Backtest (replay theo `available_at`, có spread/slippage/phí). Backtest trên dữ liệu mẫu phải đánh dấu "không có giá trị đánh giá".
 5. Xác thực API trước khi chạy ngoài localhost.

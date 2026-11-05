@@ -18,6 +18,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from gold_trading import __version__
+from gold_trading.analysts.runner import TechnicalRunner
+from gold_trading.api.analysts import analysts_router
 from gold_trading.api.market import market_router
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.time import utcnow
@@ -28,6 +30,11 @@ from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST, ModeChangeError, ModeManager
 from gold_trading.safety.supervisor import SafetySupervisor, SafetyTransitionError
+from gold_trading.storage.analyst_outputs import (
+    AnalystOutputStore,
+    InMemoryAnalystOutputStore,
+    SqlAnalystOutputStore,
+)
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
 from gold_trading.storage.repository import (
     AuditEntry,
@@ -103,12 +110,19 @@ def create_app(
     candle_store: CandleStore | None = None,
     data_source: DataSource | None | str = "env",
     run_sample_feed: bool | None = None,
+    run_analysts: bool | None = None,
+    analyst_store: AnalystOutputStore | None = None,
     live_unlocked: bool = False,
 ) -> FastAPI:
     repo = repo or repository_from_env()
     if candle_store is None:
         engine = getattr(repo, "engine", None)
         candle_store = SqlCandleStore(engine) if engine is not None else InMemoryCandleStore()
+    if analyst_store is None:
+        engine = getattr(repo, "engine", None)
+        analyst_store = (
+            SqlAnalystOutputStore(engine) if engine is not None else InMemoryAnalystOutputStore()
+        )
     source = data_source_from_env() if data_source == "env" else data_source
     market = MarketDataService(candle_store, source=source)  # type: ignore[arg-type]
 
@@ -167,11 +181,21 @@ def create_app(
             start_price=float(os.environ.get("GT_SAMPLE_START_PRICE", "2400")),
         )
 
+    runner: TechnicalRunner | None = None
+    if run_analysts is None:
+        run_analysts = source is not None and os.environ.get("GT_RUN_ANALYSTS", "1") != "0"
+    if run_analysts and source is not None:
+        runner = TechnicalRunner(market, analyst_store)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         if feed:
             feed.start()
+        if runner:
+            runner.start()
         yield
+        if runner:
+            runner.stop()
         if feed:
             feed.stop()
 
@@ -179,6 +203,7 @@ def create_app(
 
     app = FastAPI(title="Gold Trading AI", version=__version__, lifespan=lifespan)
     app.include_router(market_router(market))
+    app.include_router(analysts_router(market, analyst_store))
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173"],

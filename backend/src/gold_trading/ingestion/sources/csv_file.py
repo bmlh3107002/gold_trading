@@ -137,3 +137,39 @@ def parse(text: str, *, server_tz: str | None) -> tuple[list[RawBar], list[CsvRe
         except (KeyError, ValueError):
             rejects.append(CsvReject(line_no, "BAD_NUMBER", rec))
     return bars, rejects
+
+
+# ---- R1: tự kiểm tra múi giờ (docs/thiet-ke/03) ----
+
+SESSION_MISMATCH_MAX = 0.01  # > 1% nến rơi vào giờ đóng cửa thì coi như khai báo sai múi giờ
+SESSION_CHECK_MIN_BARS = 200
+
+
+@dataclass(frozen=True)
+class SessionCheck:
+    bars: int
+    outside_fraction: float
+    best_shift_hours: int  # cộng bao nhiêu giờ vào thời gian đã đổi sang UTC thì khớp lịch nhất
+    best_outside_fraction: float
+
+    @property
+    def ok(self) -> bool:
+        return self.bars < SESSION_CHECK_MIN_BARS or self.outside_fraction <= SESSION_MISMATCH_MAX
+
+
+def check_sessions(bars: list[RawBar], tf_minutes: int) -> SessionCheck:
+    """Tỷ lệ nến rơi vào giờ đóng cửa, và độ lệch giờ (−6…+6) cho tỷ lệ thấp nhất."""
+    from datetime import timedelta
+
+    from gold_trading.market.hours import bar_in_session
+
+    width = timedelta(minutes=tf_minutes)
+
+    def outside(shift: int) -> float:
+        d = timedelta(hours=shift)
+        n = sum(not bar_in_session(b.open_time + d, b.open_time + d + width) for b in bars)
+        return n / len(bars) if bars else 0.0
+
+    base = outside(0)
+    best = min(range(-6, 7), key=lambda s: (outside(s), abs(s)))
+    return SessionCheck(len(bars), base, best, outside(best))

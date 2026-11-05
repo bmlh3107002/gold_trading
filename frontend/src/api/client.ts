@@ -10,6 +10,8 @@ export type MarketSummary = components["schemas"]["MarketSummary"];
 export type CandlesResponse = components["schemas"]["CandlesResponse"];
 export type CandleOut = components["schemas"]["CandleOut"];
 export type DataQuality = components["schemas"]["DataQuality"];
+export type AnalystLatest = components["schemas"]["AnalystLatest"];
+export type AnalystOutputDto = components["schemas"]["AnalystOutput"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server";
 
@@ -55,6 +57,7 @@ export const api = {
   marketSummary: () => request<MarketSummary>("/api/market/summary"),
   candles: (limit = 300) => request<CandlesResponse>(`/api/market/candles?limit=${limit}`),
   dataQuality: () => request<DataQuality>("/api/market/quality"),
+  technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
   mode: (cmd: ModeCommand) =>
     request<SystemStatus>("/api/mode", { method: "POST", body: JSON.stringify(cmd) }),
 };

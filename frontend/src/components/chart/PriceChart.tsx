@@ -24,6 +24,8 @@ interface PriceChartProps {
   ema50: (number | null)[];
   rsi14: (number | null)[];
   theme: Theme;
+  /** Hỗ trợ (S) / kháng cự (R) từ Technical analyst còn hiệu lực */
+  levels?: { price: number; kind: "S" | "R" }[];
 }
 
 const toTs = (iso: string) => Math.floor(new Date(iso).getTime() / 1000) as UTCTimestamp;
@@ -37,7 +39,7 @@ function line(values: (number | null)[], times: UTCTimestamp[]) {
 }
 
 /** Biểu đồ nến + EMA 20/50 và khung RSI 14 đồng bộ trục thời gian. Hiển thị theo giờ máy người xem. */
-export function PriceChart({ candles, ema20, ema50, rsi14, theme }: PriceChartProps) {
+export function PriceChart({ candles, ema20, ema50, rsi14, theme, levels = [] }: PriceChartProps) {
   const { t } = useTranslation();
   const priceEl = useRef<HTMLDivElement>(null);
   const rsiEl = useRef<HTMLDivElement>(null);
@@ -51,6 +53,7 @@ export function PriceChart({ candles, ema20, ema50, rsi14, theme }: PriceChartPr
     guides: IPriceLine[];
   } | null>(null);
   const [hover, setHover] = useState<number | null>(null);
+  const levelLines = useRef<IPriceLine[]>([]);
 
   const times = useMemo(() => candles.map((c) => toTs(c.open_time)), [candles]);
   const indexByTime = useMemo(() => new Map(times.map((tm, i) => [tm as number, i])), [times]);
@@ -154,6 +157,26 @@ export function PriceChart({ candles, ema20, ema50, rsi14, theme }: PriceChartPr
     c.e50.setData(line(ema50, times));
     c.r.setData(line(rsi14, times));
   }, [candles, ema20, ema50, rsi14, times]);
+
+  // Vẽ lại đường hỗ trợ/kháng cự khi kết quả phân tích hoặc theme đổi
+  const levelKey = levels.map((l) => `${l.kind}${l.price}`).join("|");
+  useEffect(() => {
+    const c = charts.current;
+    if (!c) return;
+    levelLines.current.forEach((ln) => c.candle.removePriceLine(ln));
+    const col = readChartColors();
+    levelLines.current = levels.map((lv) =>
+      c.candle.createPriceLine({
+        price: lv.price,
+        color: lv.kind === "S" ? col.up : col.down,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: lv.kind === "S" ? t("technical.support") : t("technical.resistance"),
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [levelKey, theme, t]);
 
   const i = hover != null ? (indexByTime.get(hover) ?? candles.length - 1) : candles.length - 1;
   const k = candles[i];

@@ -50,3 +50,40 @@ def rsi(values: Sequence[float], period: int = 14) -> list[float | None]:
         avg_l = (avg_l * (period - 1) + max(-d, 0.0)) / period
         out[i] = value(avg_g, avg_l)
     return out
+
+
+def true_range(
+    highs: Sequence[float], lows: Sequence[float], closes: Sequence[float]
+) -> list[float]:
+    """TR[0] = H−L; TR[i] = max(H−L, |H−C₋₁|, |L−C₋₁|)."""
+    if not (len(highs) == len(lows) == len(closes)):
+        raise ValueError("highs, lows, closes phải cùng độ dài")
+    out: list[float] = []
+    for i, (h, lo) in enumerate(zip(highs, lows, strict=True)):
+        if i == 0:
+            out.append(h - lo)
+        else:
+            pc = closes[i - 1]
+            out.append(max(h - lo, abs(h - pc), abs(lo - pc)))
+    return out
+
+
+def atr(
+    highs: Sequence[float], lows: Sequence[float], closes: Sequence[float], period: int = 14
+) -> list[float | None]:
+    """ATR Wilder: ATR đầu = SMA của ``period`` TR (từ TR[1]), sau đó (ATR₋₁·(n−1) + TR) / n.
+
+    TR[0] không có close trước nên bỏ qua khi khởi tạo; giá trị đầu tiên nằm ở chỉ số ``period``.
+    """
+    if period < 1:
+        raise ValueError("period phải >= 1")
+    tr = true_range(highs, lows, closes)
+    out: list[float | None] = [None] * len(tr)
+    if len(tr) <= period:
+        return out
+    prev = sum(tr[1 : period + 1]) / period
+    out[period] = prev
+    for i in range(period + 1, len(tr)):
+        prev = (prev * (period - 1) + tr[i]) / period
+        out[i] = prev
+    return out

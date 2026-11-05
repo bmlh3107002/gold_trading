@@ -215,3 +215,42 @@ def test_cli_rejects_h4():
 
     with pytest.raises(SystemExit):
         cli.main(["import-csv", "x.csv", "--timeframe", "H4"])
+
+
+def _mt5_rows(start_utc, n, tz_name):
+    """Sinh CSV kiểu MT5 với giờ server = giờ UTC đổi sang tz_name."""
+    from zoneinfo import ZoneInfo
+
+    tz = ZoneInfo(tz_name)
+    lines = ["<DATE>\t<TIME>\t<OPEN>\t<HIGH>\t<LOW>\t<CLOSE>\t<TICKVOL>"]
+    bars = list(
+        sample.generate(
+            start=start_utc, end=start_utc + timedelta(days=30), tf=TF, prev_close=2400.0, seed=3
+        )
+    )[:n]
+    for b in bars:
+        local = b.open_time.astimezone(tz)
+        lines.append(
+            f"{local:%Y.%m.%d}\t{local:%H:%M:%S}\t{b.open}\t{b.high}\t{b.low}\t{b.close}\t1"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def test_session_check_accepts_correct_timezone_and_rejects_wrong_one():
+    text = _mt5_rows(datetime(2026, 2, 2, tzinfo=UTC), 600, "Europe/Athens")
+    good, _ = csv_file.parse(text, server_tz="Europe/Athens")
+    assert csv_file.check_sessions(good, 15).ok
+    wrong, _ = csv_file.parse(text, server_tz="UTC")  # khai báo sai: lệch 2 giờ
+    chk = csv_file.check_sessions(wrong, 15)
+    assert not chk.ok and chk.best_shift_hours == -2 and chk.best_outside_fraction <= 0.01
+
+
+def test_cli_refuses_file_with_wrong_timezone(tmp_path, monkeypatch, capsys):
+    from gold_trading.ingestion import cli
+
+    f = tmp_path / "w.csv"
+    f.write_text(_mt5_rows(datetime(2026, 2, 2, tzinfo=UTC), 600, "Europe/Athens"))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'n.db'}")
+    assert cli.main(["import-csv", str(f), "--server-tz", "UTC"]) == 3
+    err = capsys.readouterr().err
+    assert "TỪ CHỐI" in err and "-2 giờ" in err

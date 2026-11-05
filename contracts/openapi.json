@@ -111,6 +111,27 @@
         }
       }
     },
+    "/api/analysts/technical/latest": {
+      "get": {
+        "tags": [
+          "analysts"
+        ],
+        "summary": "Technical Latest",
+        "operationId": "technical_latest_api_analysts_technical_latest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalystLatest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -268,6 +289,139 @@
   },
   "components": {
     "schemas": {
+      "AnalystLatest": {
+        "properties": {
+          "output": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalystOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "computed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computed At"
+          },
+          "valid_now": {
+            "type": "boolean",
+            "title": "Valid Now",
+            "description": "Còn hiệu lực tại thời điểm trả lời (chưa quá expires_at)"
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample"
+          },
+          "confidence_meaning": {
+            "type": "string",
+            "title": "Confidence Meaning",
+            "description": "confidence của technical v1 chỉ đo chất lượng dữ liệu, không đo khả năng dự báo",
+            "default": "DATA_QUALITY_ONLY"
+          }
+        },
+        "type": "object",
+        "required": [
+          "output",
+          "computed_at",
+          "valid_now",
+          "is_sample"
+        ],
+        "title": "AnalystLatest"
+      },
+      "AnalystOutput": {
+        "properties": {
+          "output_id": {
+            "type": "string",
+            "title": "Output Id"
+          },
+          "analyst_id": {
+            "type": "string",
+            "title": "Analyst Id",
+            "description": "technical | news | event | macro | positioning | regime"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "features": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Features"
+          },
+          "drivers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Drivers",
+            "default": []
+          },
+          "risk_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true,
+            "title": "Risk Flags",
+            "default": []
+          },
+          "source_status": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "quality_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true,
+            "title": "Quality Flags",
+            "default": []
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "output_id",
+          "analyst_id",
+          "as_of",
+          "expires_at",
+          "confidence",
+          "source_status",
+          "version",
+          "correlation_id"
+        ],
+        "title": "AnalystOutput"
+      },
       "AuditRecord": {
         "properties": {
           "at": {
@@ -992,6 +1146,16 @@
           "policy_version"
         ],
         "title": "SafetyTransition"
+      },
+      "SourceStatus": {
+        "type": "string",
+        "enum": [
+          "HEALTHY",
+          "STALE",
+          "MISSING",
+          "INVALID"
+        ],
+        "title": "SourceStatus"
       },
       "SystemStatus": {
         "properties": {
