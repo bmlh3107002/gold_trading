@@ -240,3 +240,53 @@ def test_api_technical_latest():
     body = c.get("/api/analysts/technical/latest").json()
     assert body["is_sample"] is True and body["confidence_meaning"] == "DATA_QUALITY_ONLY"
     assert "SAMPLE_DATA" in body["output"]["quality_flags"]
+
+
+# ---- Vùng hỗ trợ/kháng cự: không gộp dây chuyền (technical-1.2.0) ----
+
+
+def _sw(prices):
+    t = NOW
+    return [technical.Swing("LOW", t, p, t) for p in prices]
+
+
+def test_cluster_levels_hand_computed_chain_is_split():
+    # Swing cách nhau đều 0,4 với tol 0,5: bản cũ gộp hết thành 1 vùng rộng 2,0
+    prices = [100.0, 100.4, 100.8, 101.2, 101.6, 102.0]
+    old = technical.cluster_levels(_sw(prices), 0.5)
+    assert len(old) == 1 and old[0]["high"] - old[0]["low"] == pytest.approx(2.0)
+    new = technical.cluster_levels(_sw(prices), 0.5, 1.0)
+    # 100.0–100.8 (rộng 0,8; thêm 101.2 sẽ thành 1,2 > 1) | 101.2–102.0 (rộng 0,8)
+    assert [(g["low"], g["high"], g["touches"]) for g in new] == [
+        (100.0, 100.8, 3),
+        (101.2, 102.0, 3),
+    ]
+    assert new[0]["price"] == pytest.approx(100.4)
+
+
+def test_cluster_levels_width_exactly_at_limit_and_isolated_swing_dropped():
+    out = technical.cluster_levels(_sw([10.0, 10.5, 11.0, 20.0]), 0.5, 1.0)
+    assert [(g["low"], g["high"], g["touches"]) for g in out] == [(10.0, 11.0, 3)]
+
+
+def test_levels_never_wider_than_one_atr():
+    for seed in range(1, 6):
+        out = run(sample_rows(seed=seed))
+        a = out.features["atr14"]
+        for lv in out.features["levels"]:
+            assert lv["high"] - lv["low"] <= technical.LEVEL_MAX_WIDTH_ATR * a + 1e-9
+
+
+def test_spike_bar_does_not_create_swing_or_level():
+    rows = sample_rows()
+    i = len(rows) - 40
+    c = rows[i]
+    # Râu dưới cắm sâu (giống nến 04/11 trên MetaQuotes-Demo): low thấp hơn rất nhiều
+    rows[i] = mk(c.open_time, c.open, c.high, c.low - 150.0, c.close)
+    base = run(sample_rows())
+    out = run(rows)
+    assert "SPIKE_IN_WINDOW" in out.quality_flags
+    assert c.open_time.isoformat() in out.features["input"]["spikes"]
+    assert all(s["open_time"] != c.open_time.isoformat() for s in out.features["swings"])
+    assert all(lv["low"] > c.low - 100.0 for lv in out.features["levels"])
+    assert base.features["levels"]  # dữ liệu sạch vẫn có vùng S/R

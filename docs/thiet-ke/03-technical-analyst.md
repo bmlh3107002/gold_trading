@@ -59,7 +59,7 @@ R1 (tự kiểm tra múi giờ khi nạp CSV) nằm ở bước nạp dữ liệ
 | `rsi14` | RSI Wilder |
 | `swings` | Fractal k = 3: nến *i* là swing high nếu high[i] > high của 3 nến mỗi bên. **Chỉ được xác nhận khi đã đóng đủ 3 nến sau** (không nhìn trước) |
 | `structure` | Hai swing high và hai swing low gần nhất: HH+HL = `BULLISH`, LH+LL = `BEARISH`, còn lại `MIXED` |
-| `levels` | Gom các swing đã xác nhận trong cửa sổ thành vùng giá, dung sai 0,5 × atr14; mỗi vùng có số lần chạm. Giữ các vùng chạm ≥ 2 lần |
+| `levels` | Gom các swing đã xác nhận trong cửa sổ thành vùng giá: giá kế tiếp vào vùng khi cách giá cao nhất của vùng ≤ 0,5 × atr14 **và** độ rộng vùng ≤ 1 × atr14 (từ `technical-1.2.0`); mỗi vùng có số lần chạm. Giữ các vùng chạm ≥ 2 lần. **Bỏ swing nằm trên nến spike (R3)** |
 | `nearest_support` / `nearest_resistance` | Vùng gần nhất dưới / trên close, kèm khoảng cách tính theo ATR |
 
 ## 5. Đầu ra (`AnalystOutput`)
@@ -83,6 +83,11 @@ R1 (tự kiểm tra múi giờ khi nạp CSV) nằm ở bước nạp dữ liệ
 - **Quy ước khởi tạo ATR:** theo TA-Lib, giá trị đầu tại chỉ số 14 = SMA(TR[1..14]). TR[0] bị bỏ vì chưa có close trước. Một số thư viện tính cả TR[0] nên giá trị *đầu tiên* khác, nhưng nằm trong đoạn warm-up nên không ảnh hưởng kết quả.
 - **Tái lập và không nhìn trước:** mô phỏng chạy realtime 40 nến, sau đó thêm 20 nến "tương lai" rồi tính lại từng kết quả tại đúng thời điểm cũ: lệch 0/40.
 - **Docker + PostgreSQL:** migration 0003 chạy, kết quả được lưu, restart không ghi trùng, DELETE trên `analyst_outputs` bị chặn.
+
+### Thay đổi `technical-1.2.0` (2026-11-05, sau khi chạy dữ liệu MT5 thật)
+
+- **Giới hạn độ rộng vùng S/R ≤ 1 ATR.** Trên dữ liệu MetaQuotes-Demo, cách gộp cũ (chỉ xét khoảng cách tới swing liền trước) nối dây chuyền các swing cách nhau đều đặn thành vùng 3.891–3.951 (rộng ~60$, ~5 ATR, 27 lần chạm). Vùng như vậy không có ý nghĩa hỗ trợ/kháng cự và làm khoảng cách `distance_atr` sai. 1 ATR đủ chứa dao động quanh một mức giá nhưng vẫn tách các mức khác nhau.
+- **Bỏ swing trên nến spike.** Nến mở lại sau giờ nghỉ ngày 04/11 có râu cắm ~150$; giá cực trị của nến lỗi feed không phải mức giá được thị trường xác nhận. Cách làm theo hướng an toàn: mất bớt thông tin (ít swing hơn) chứ không tạo mức giả. Hệ quả: swing thật trong phạm vi 3 nến quanh spike có thể không được nhận ra.
 
 ## 8. Giới hạn đã biết
 

@@ -17,6 +17,7 @@ import type { CandleOut } from "../../api/client";
 import type { Theme } from "../../hooks/useTheme";
 import { formatDateTime, formatDayMonth, formatNumber, formatTime } from "../../lib/format";
 import { readChartColors } from "./chartTheme";
+import { toChartTimes } from "./chartTime";
 
 interface PriceChartProps {
   candles: CandleOut[];
@@ -27,8 +28,6 @@ interface PriceChartProps {
   /** Hỗ trợ (S) / kháng cự (R) từ Technical analyst còn hiệu lực */
   levels?: { price: number; kind: "S" | "R" }[];
 }
-
-const toTs = (iso: string) => Math.floor(new Date(iso).getTime() / 1000) as UTCTimestamp;
 
 function line(values: (number | null)[], times: UTCTimestamp[]) {
   const out: { time: UTCTimestamp; value: number }[] = [];
@@ -55,7 +54,12 @@ export function PriceChart({ candles, ema20, ema50, rsi14, theme, levels = [] }:
   const [hover, setHover] = useState<number | null>(null);
   const levelLines = useRef<IPriceLine[]>([]);
 
-  const times = useMemo(() => candles.map((c) => toTs(c.open_time)), [candles]);
+  // Thời gian trên trục đã dời theo giờ máy người xem (xem chartTime.ts); formatter đổi ngược lại
+  const chartTimes = useMemo(() => toChartTimes(candles.map((c) => c.open_time)), [candles]);
+  const times = chartTimes.times;
+  const toReal = useRef(chartTimes.toReal);
+  toReal.current = chartTimes.toReal;
+  const realDate = (tm: Time) => new Date(toReal.current(tm as number) * 1000);
   const indexByTime = useMemo(() => new Map(times.map((tm, i) => [tm as number, i])), [times]);
 
   // Tạo biểu đồ một lần
@@ -66,7 +70,7 @@ export function PriceChart({ candles, ema20, ema50, rsi14, theme, levels = [] }:
       crosshair: { mode: CrosshairMode.Normal },
       localization: {
         locale: "vi-VN",
-        timeFormatter: (tm: Time) => formatDateTime(new Date((tm as number) * 1000)),
+        timeFormatter: (tm: Time) => formatDateTime(realDate(tm)),
         priceFormatter: (p: number) => formatNumber(p),
       },
       timeScale: {
@@ -74,7 +78,7 @@ export function PriceChart({ candles, ema20, ema50, rsi14, theme, levels = [] }:
         secondsVisible: false,
         // Sang ngày mới thì hiện ngày/tháng, còn lại hiện giờ:phút (giờ máy người xem)
         tickMarkFormatter: (tm: Time, type: TickMarkType) => {
-          const d = new Date((tm as number) * 1000);
+          const d = realDate(tm);
           return type <= TickMarkType.DayOfMonth ? formatDayMonth(d) : formatTime(d).slice(0, 5);
         },
       },

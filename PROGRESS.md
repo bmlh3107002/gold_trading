@@ -70,7 +70,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 160 passed, mt5_gateway 26 passed (không sửa), frontend 31 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sửa), frontend 35 passed + tsc/eslint sạch + build OK, ruff sạch.
 
 ## Lưu ý kỹ thuật
 
@@ -171,11 +171,16 @@ Kết quả lần cuối: backend 160 passed, mt5_gateway 26 passed (không sử
 - Quan sát cần soát: `cluster_levels` gộp chuỗi swing thành vùng 3.891–3.951 (rộng ~5 ATR, 27 lần chạm) — vùng quá rộng không có ý nghĩa hỗ trợ/kháng cự; spike có thể tạo swing giả.
 - Giới hạn còn lại: lịch broker phải chép tay (MT5 Python không đọc được Sessions); chưa có ngày lễ; trục thời gian biểu đồ đặt vạch ngày theo UTC nhưng ghi nhãn giờ máy (vạch "05/11" nằm ở 07:00 giờ VN) — chỉ là hiển thị; spike ở nến mở lại sau giờ nghỉ (01:00 server 04/11) chỉ gắn cờ.
 
+### 2026-11-05 — Bước 00: soát Technical analyst trên dữ liệu thật
+- `technical-1.2.0`: vùng S/R không rộng quá 1 ATR (trước đây gộp dây chuyền ra vùng ~5 ATR trên dữ liệu thật); bỏ swing nằm trên nến spike. Lý do ở `docs/thiet-ke/03-technical-analyst.md`. Test tính tay cho phép gộp, test spike tạo hỗ trợ giả; đã xác nhận test mới **thất bại trên code cũ**.
+- Biểu đồ: vạch ngày nay đặt theo nửa đêm giờ máy người xem (`components/chart/chartTime.ts` dời mốc theo độ lệch múi giờ của từng mốc). Nếu DST làm giờ bị lặp thì giữ nguyên UTC để thư viện không lỗi. Test: giờ VN, New York lùi/tiến đồng hồ. Kiểm tra bằng ảnh chụp với múi giờ Asia/Ho_Chi_Minh: vạch "05/11" trùng nến 00:00 05/11.
+- Kết quả: backend 164 passed, frontend 35 passed, ruff/tsc/eslint sạch, build OK.
+
 ## Việc tiếp theo (đề xuất)
 
 Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
-00. **Soát Technical analyst trên dữ liệu thật:** giới hạn độ rộng vùng S/R (ví dụ ≤ 1 ATR) và loại swing tại nến spike; theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Sửa trục ngày của biểu đồ (tickMarkFormatter theo giờ địa phương). Đổi token ingest (token đã lộ trong chat, rủi ro thấp vì chỉ mở localhost).
+00. Theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Người dùng đổi token ingest (token đã lộ trong chat).
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
 1. **Event & calendar analyst** (ưu tiên cao: chặn giao dịch quanh CPI/NFP/FOMC, tạo cờ `EVENT_WINDOW` mà Risk Engine đã chờ sẵn).
 2. **Event Orchestrator đầy đủ:** hiện `TechnicalRunner` polling 15s là bản tối thiểu; cần jobKey, deadline, retry giới hạn, dead-letter.

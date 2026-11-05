@@ -20,7 +20,7 @@ from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
-VERSION = "technical-1.1.0"
+VERSION = "technical-1.2.0"
 ANALYST_ID = "technical"
 WINDOW = 300
 MIN_BARS = 250
@@ -28,6 +28,7 @@ SWING_K = 3
 SLOPE_BARS = 10
 SLOPE_MIN_ATR = 0.1
 LEVEL_TOL_ATR = 0.5
+LEVEL_MAX_WIDTH_ATR = 1.0  # một vùng S/R không được rộng hơn 1 ATR (tránh gộp dây chuyền)
 LEVEL_MIN_TOUCHES = 2
 VOL_LOOKBACK = 96
 HIGH_VOL_RATIO = 2.0
@@ -65,12 +66,23 @@ def find_swings(candles: list[Candle], k: int = SWING_K) -> list[Swing]:
     return out
 
 
-def cluster_levels(swings: list[Swing], tol: float) -> list[dict[str, Any]]:
-    """Gom swing thành vùng giá trong dung sai ``tol``; giữ vùng chạm >= LEVEL_MIN_TOUCHES."""
+def cluster_levels(
+    swings: list[Swing], tol: float, max_width: float | None = None
+) -> list[dict[str, Any]]:
+    """Gom swing thành vùng giá; giữ vùng chạm >= LEVEL_MIN_TOUCHES.
+
+    Giá kế tiếp vào vùng hiện tại khi cách giá cao nhất của vùng <= ``tol`` VÀ độ rộng vùng
+    sau khi thêm vẫn <= ``max_width``. Không có giới hạn độ rộng thì các swing cách nhau đều
+    đặn sẽ bị nối thành một vùng dài vô nghĩa (đã gặp trên dữ liệu thật: vùng rộng ~5 ATR).
+    """
     prices = sorted(s.price for s in swings)
     groups: list[list[float]] = []
     for p in prices:
-        if groups and p - groups[-1][-1] <= tol:
+        if (
+            groups
+            and p - groups[-1][-1] <= tol
+            and (max_width is None or p - groups[-1][0] <= max_width)
+        ):
             groups[-1].append(p)
         else:
             groups.append([p])
@@ -205,8 +217,12 @@ def analyze(
     if vol_ratio is not None and vol_ratio > HIGH_VOL_RATIO:
         risk_flags.add("HIGH_VOLATILITY")
 
-    swings = [s for s in find_swings(window) if s.confirmed_at <= as_of]
-    levels = cluster_levels(swings, LEVEL_TOL_ATR * a)
+    # Bỏ swing nằm trên nến spike (R3): giá cực trị của nến lỗi feed không phải hỗ trợ/kháng cự
+    spike_bars = set(q.spikes)
+    swings = [
+        s for s in find_swings(window) if s.confirmed_at <= as_of and s.open_time not in spike_bars
+    ]
+    levels = cluster_levels(swings, LEVEL_TOL_ATR * a, LEVEL_MAX_WIDTH_ATR * a)
     supports = [lv for lv in levels if lv["high"] < close]
     resistances = [lv for lv in levels if lv["low"] > close]
     sup = max(supports, key=lambda lv: lv["price"]) if supports else None
