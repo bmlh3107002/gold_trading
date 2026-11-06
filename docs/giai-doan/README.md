@@ -30,7 +30,7 @@ Mã **không bao giờ đổi hoặc dùng lại**; việc mới lấy số kế
 
 | GĐ | Tên | Khối mô hình | Đặc tả | Trạng thái |
 | --- | --- | --- | --- | --- |
-| 0 | Nền móng: contract, DB, Docker, CI, bảo mật, sao lưu | Database, Vận hành | 01, 12 | `[~]` |
+| 0 | Nền móng: contract, DB, Docker, CI, bảo mật, sao lưu | Database, Vận hành | 01, 12 | `[x]` (đóng 2026-11-06; OPS-06 hoãn) |
 | 1 | **Dữ liệu vào: đủ 4 nhóm nguồn** + lịch thị trường | Nguồn dữ liệu, Ingestion | 02 | `[~]` (mới có giá M15) |
 | 2 | Event Orchestrator + Làn nhanh | Event Orchestrator, Làn nhanh | 03 | `[~]` |
 | 3 | **6 analyst** (bản luật, chưa ML) | Market Intelligence | 04 | `[~]` (Technical) |

@@ -206,5 +206,5 @@
 - **DB-09 đạt:** `backup.sh once` → `app-20261106T205937Z.dump` + `keycloak-20261106T205937Z.dump` (+ `.sha256`) → `stop backend keycloak` → `restore app latest` + `restore keycloak latest` (DB tạo lại lúc 21:02:34 / 21:02:41 UTC, kiểm bằng `pg_stat_file`) → `up -d` → healthy, đăng nhập lại được, 5013 nến còn nguyên. Gateway báo `HTTP 502` trong lúc dừng rồi tự thử lại (tối đa 30 s), không mất nến.
 - **OPS-16 đạt** (đã kiểm từ trước: HTTPS Tailscale trên máy tính + iPhone).
 - **Phát hiện (chuyển GĐ1):** Gateway bỏ nến ở vị trí 0 (đang chạy) → **nến cuối tuần** (thứ Sáu, ví dụ 20:45 UTC) chỉ được gửi khi thị trường mở lại thứ Hai (khi có nến kế tiếp). An toàn (không dùng nến chưa chắc đã đóng) nhưng trễ ~2 ngày. Xem xét ở GĐ1: coi nến là đã đóng khi `open + 15 phút ≤ giờ server` và lịch broker báo đóng cửa, có test DST/cuối tuần.
-- **Gate GĐ0:** đủ điều kiện (xem bảng Gate). Chờ người dùng xác nhận đóng GĐ0.
+- **Gate GĐ0:** đủ điều kiện. **Người dùng xác nhận đóng GĐ0 (2026-11-06).** OPS-06 (CD) vẫn hoãn. Chuyển GĐ1 — làm ở phiên chat mới, prompt `docs/prompts/GD1-bat-dau.md`.
 

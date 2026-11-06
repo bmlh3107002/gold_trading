@@ -17,6 +17,12 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | DEC-06 | Ngân sách: chấp nhận nguồn trả phí không, tối đa bao nhiêu/tháng | | `[!]` |
 | DEC-07 | Đăng ký khóa API miễn phí (ví dụ FRED) — người dùng tự đăng ký, khóa để trong `.env`, không gửi qua chat | | `[!]` |
 
+### Chuyển từ GĐ0 (2026-11-06)
+
+- **Đa tài khoản** (thuộc GĐ1, chi tiết ở [`MT-da-nguoi-dung.md`](MT-da-nguoi-dung.md)): MT-05 (nguồn giá theo broker/server, ← **DEC-14** cần chốt: nhiều nguồn giá song song?), MT-12..15 (Gateway báo danh tính terminal, liên kết MT5, phát hiện đổi tài khoản, nhiều terminal MT5 trên một máy). Người dùng muốn **một Gateway quản lý nhiều terminal** (mỗi terminal một nhánh, token riêng).
+- **1A-C21** (mới, ghi ở bảng 1A): nến cuối tuần bị giữ lại tới thứ Hai.
+- **Câu hỏi còn treo cho người dùng:** token Gateway do ADMIN phát (hiện tại, DEC-16) hay mỗi USER tự lấy — người dùng chưa chọn, giữ ADMIN phát. Tài khoản trống `u-…` của Lord Trade: người dùng tạm giữ.
+
 ### 1A — Giá MT5 (OHLC, tick, spread, thông tin symbol/tài khoản)
 
 | Mã | Việc | TT | Vị trí / ghi chú |
@@ -63,6 +69,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | 1A-C18 | Token sai/thiếu, batch quá lớn, symbol/khung không đúng | 401 / 413-422 / từ chối, ghi lại | `[x]` |
 | 1A-C19 | Nến D1/H4 căn theo giờ server khác nửa đêm UTC | Lưu đúng `open_time` theo broker, không tự cắt lại | `[ ]` |
 | 1A-C20 | Đồng hồ máy chạy Gateway lệch | Backend dùng đồng hồ của mình; lệch lớn → cảnh báo | `[~]` |
+| 1A-C21 | Nến cuối phiên trước cuối tuần / ngày lễ (MT5 vẫn coi là vị trí 0 "đang chạy" vì chưa có nến kế) | Hiện tại: chỉ gửi khi thị trường mở lại (an toàn, trễ ~2 ngày; phát hiện 2026-11-06 trên máy người dùng). Cải tiến: coi là đã đóng khi `open + khung ≤ giờ server` **và** lịch broker báo đóng cửa; test DST, cuối tuần, ngày lễ, nghỉ giữa phiên | `[ ]` |
 
 ### 1B — Lịch thị trường và ngày lễ
 

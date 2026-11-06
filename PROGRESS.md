@@ -7,9 +7,9 @@
 
 ## Trạng thái hiện tại
 
-- **Giai đoạn hiện tại: GĐ0 — Nền móng** → [`docs/giai-doan/GD0-nen-mong.md`](docs/giai-doan/GD0-nen-mong.md)
-- **GĐ0: đủ điều kiện Gate, chờ người dùng xác nhận đóng.** Trên máy Windows đã đạt: Docker, đăng nhập Keycloak qua HTTPS (máy tính + iPhone), MT5 Gateway 9/9 có nến, break-glass, MT-20, DEC-16 (chỉ ADMIN/USER), **diễn tập sao lưu + khôi phục cả hai DB (DB-09)**. Ghi cho GĐ1: nến cuối tuần chỉ gửi khi thị trường mở lại.
-- Sau GĐ0: GĐ1 cần người dùng chốt DEC-01..07 (xem `docs/giai-doan/GD1-du-lieu-vao.md`).
+- **Giai đoạn hiện tại: GĐ1 — Dữ liệu vào** → [`docs/giai-doan/GD1-du-lieu-vao.md`](docs/giai-doan/GD1-du-lieu-vao.md). Bắt đầu bằng prompt [`docs/prompts/GD1-bat-dau.md`](docs/prompts/GD1-bat-dau.md).
+- **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
+- **Việc đầu tiên của GĐ1:** người dùng chốt DEC-01..07 (+ DEC-14 cho đa tài khoản), hỏi từng câu một. Chưa code nguồn mới trước khi chốt.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
 ## Quyết định đã chốt
