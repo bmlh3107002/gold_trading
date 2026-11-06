@@ -17,17 +17,14 @@ Cần có: máy **Windows**, **Docker Desktop** đang chạy, **MetaTrader 5** �
 
 > **Không cần** bật "Allow algorithmic trading" (nút **Algo Trading**). Gateway chỉ đọc dữ liệu nên không cần quyền giao dịch tự động. Hãy để **tắt**.
 
-## Bước 2: Tạo token bí mật
+## Bước 2: Lấy token cho Gateway
 
-Token là "mật khẩu" để chỉ Gateway của bạn mới gửi được dữ liệu vào hệ thống.
+Token là "mật khẩu" để chỉ Gateway của bạn mới gửi được dữ liệu vào **đúng tài khoản giao dịch**.
 
-Mở **PowerShell** và chạy:
+- **Cách mới (khuyên dùng):** đăng nhập Dashboard → trang **Tài khoản** → **MT5 Gateway** → **Tạo token Gateway** → bấm **Sao chép**. Token chỉ hiện **một lần**. Mỗi lần tạo token mới, token cũ hết hiệu lực ngay (kể cả `GT_INGEST_TOKEN` trong `.env` của Docker), nên phải dán token mới vào `gateway.env` (Bước 4) rồi chạy lại Gateway.
+- **Cách cũ (vẫn chạy được cho "Tài khoản chính" tới lần tạo token đầu tiên trên Dashboard):** tạo chuỗi ngẫu nhiên bằng PowerShell `[guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")`, dán vào `GT_INGEST_TOKEN` ở cả `.env` của Docker (Bước 3) và `gateway.env` (Bước 4).
 
-```powershell
-[guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
-```
-
-Copy chuỗi 64 ký tự vừa hiện ra. Bạn sẽ dán chuỗi này vào **2 chỗ** ở bước 3 và bước 4.
+Không gửi token qua chat hay email.
 
 ## Bước 3: Cấu hình Docker dùng dữ liệu MT5
 
@@ -132,7 +129,9 @@ uv run mt5-gateway run
 | `Chỉ có ... nến` | Làm lại Bước 1, mục 3 và 4 |
 | `Không kết nối được backend` | Kiểm tra Docker đang chạy và mở được http://localhost:8080 |
 | `HTTP 503` / `chưa đặt GT_INGEST_TOKEN` | Thiếu file `.env` ở Bước 3, hoặc chưa chạy lại `docker compose up -d` |
-| `HTTP 401` / `Token không hợp lệ` | Token ở `gateway.env` khác token ở `.env` của Docker |
+| `HTTP 401` / `Token không hợp lệ` | Token ở `gateway.env` sai, hoặc đã tạo token mới trên Dashboard (token cũ hết hiệu lực): dán token mới vào `gateway.env` |
+| `HTTP 403` / `chưa được phép ghi nến dùng chung` | Token thuộc tài khoản giao dịch không phải "Tài khoản chính". Tới GĐ1 chỉ tài khoản chính được ghi nến |
+| `HTTP 503` / `đồng hồ máy chủ lệch` | Đồng hồ máy chạy Docker lệch > 30 giây: khởi động lại Docker Desktop (hay gặp sau khi máy ngủ) |
 | `Múi giờ ... không khớp` | Làm theo gợi ý `Đặt GT_SERVER_TZ=...` rồi chạy lại `check` |
 | Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |
 
