@@ -2,7 +2,7 @@
 # Đồng bộ client "gold-trading-dashboard" với .env SAU KHI realm đã được nhập:
 # - redirect URI / post-logout theo GT_PUBLIC_URL (khi đổi địa chỉ truy cập)
 # - client secret theo GT_OIDC_CLIENT_SECRET (khi xoay secret)
-# - theme trang đăng nhập "aurumdesk" (realm cài trước khi có theme)
+# - theme trang đăng nhập "cutlotdesk" (realm cài trước khi có theme)
 # Keycloak chỉ nhập realm một lần, nên đổi .env về sau phải chạy script này:
 #   docker compose exec keycloak /opt/keycloak/bin/sync-client.sh
 # Không in bí mật ra màn hình.
@@ -22,5 +22,5 @@ $KCADM update "clients/$ID" --config "$CFG" -r gold-trading \
   -s "redirectUris=[\"$URL/api/auth/callback\"]" \
   -s "attributes.\"post.logout.redirect.uris\"=$URL/" \
   -s "secret=$GT_OIDC_CLIENT_SECRET"
-$KCADM update realms/gold-trading --config "$CFG" -s loginTheme=aurumdesk
-echo "Đã đồng bộ client: địa chỉ $URL, client secret theo .env (không in ra), theme đăng nhập aurumdesk."
+$KCADM update realms/gold-trading --config "$CFG" -s loginTheme=cutlotdesk
+echo "Đã đồng bộ client: địa chỉ $URL, client secret theo .env (không in ra), theme đăng nhập cutlotdesk."

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 export type Theme = "dark" | "light";
-const KEY = "aurumdesk.theme";
+const KEY = "cutlotdesk.theme";
+/** Khóa cũ trước khi đổi tên AurumDesk → CutlotDesk: chỉ đọc, để không mất lựa chọn đã lưu. */
+const LEGACY_KEY = "aurumdesk.theme";
 
 function readStored(): Theme {
   try {
-    return localStorage.getItem(KEY) === "light" ? "light" : "dark";
+    return (localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY)) === "light" ? "light" : "dark";
   } catch {
     return "dark";
   }

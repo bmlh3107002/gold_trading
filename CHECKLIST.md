@@ -66,7 +66,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | SAF-01 | Safety: ACTIVE/PAUSED/HALTED, ghi trước khi đổi | `[x]` | `safety/supervisor.py` |
 | SAF-02 | Safety lưu bền + khôi phục | `[x]` | `storage/repository.py` |
 | SAF-03 | Kill switch trên Dashboard, có xác nhận + audit | `[x]` | `POST /api/safety` |
-| DSH-01 | Theme AurumDesk, i18n, responsive. **Chỉ web** (không app mobile/PWA) | `[x]` | `frontend/` |
+| DSH-01 | Theme CutlotDesk, i18n, responsive. **Chỉ web** (không app mobile/PWA) | `[x]` | `frontend/` |
 | DSH-02 | Trang Tổng quan | `[x]` | `frontend/src/pages/` |
 | OPS-01 | Docker compose db + backend + frontend, migration tự chạy | `[x]` | `docker-compose.yml`, `deploy/` |
 | OPS-02 | Bản deploy build thẳng từ GitHub | `[x]` | `deploy/README.md` |

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type AccountSummary } from "../api/client";
 import { usePolling } from "./usePolling";
 
-const KEY = "aurumdesk.account";
+const KEY = "cutlotdesk.account";
 
 function readSaved(): string | null {
   try {

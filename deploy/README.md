@@ -1,6 +1,6 @@
 # Chạy Gold Trading bằng Docker (không cần clone code)
 
-Một lệnh `docker compose up` sẽ chạy đủ các thành phần: **giao diện** (AurumDesk), **backend** (API), **database** (PostgreSQL/TimescaleDB), **Keycloak** (đăng nhập, có database riêng) và **backup** (sao lưu tự động).
+Một lệnh `docker compose up` sẽ chạy đủ các thành phần: **giao diện** (CutlotDesk), **backend** (API), **database** (PostgreSQL/TimescaleDB), **Keycloak** (đăng nhập, có database riêng) và **backup** (sao lưu tự động).
 
 Chỉ cần cài **Docker Desktop**. Không cần Python, Node hay git.
 

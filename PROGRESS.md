@@ -10,7 +10,7 @@
 | Chủ đề | Quyết định |
 | --- | --- |
 | Ngôn ngữ | Python cho backend, AI, MT5 Gateway và backtest (không dùng Java) |
-| Giao diện | React 18 + TypeScript + Vite, nằm chung repo (`frontend/`). Theme **AurumDesk** (terminal tối), i18next tiếng Việt, icon Lucide, font Inter tự host |
+| Giao diện | React 18 + TypeScript + Vite, nằm chung repo (`frontend/`). Theme **CutlotDesk** (terminal tối), i18next tiếng Việt, icon Lucide, font Inter tự host |
 | Truy cập | **Chỉ dùng web** (giao diện responsive, mở trên trình duyệt điện thoại qua Tailscale). Không làm app mobile/PWA; thông báo đẩy xét lại khi có đặt lệnh (người dùng chốt 2026-11-06) |
 | Guardian EA | MQL5 |
 | Cấu trúc | Monorepo: `backend/`, `mt5_gateway/`, `guardian_ea/`, `frontend/`, `contracts/` |
@@ -50,7 +50,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 10 | Position Manager / Performance | ⬜ | `position/`, `performance/` | |
 | 11 | Training / registry | ⬜ | | |
 | 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
-| 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
+| 12 | Dashboard | 🟡 | `frontend/` | Theme CutlotDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
 | 12 | API | ✅ | `backend/src/gold_trading/api/` | Mọi route cần đăng nhập trừ `/api/health`, `/api/auth/*`, `/api/ingest/mt5/*` (token Gateway). `/api/status` (thông tin hệ thống), `/api/system/health` (đồng hồ, ổ đĩa, sao lưu), `/api/accounts[/{id}/status|audit|safety|mode|mode/live-requests|members|gateway/*]`, `/api/admin/kill-switch|audit`, `/api/market/*`, `/api/analysts/technical/latest`. Mọi lệnh ghi vào audit kèm `actor_sub`, kể cả lệnh bị từ chối |
 | — | Xác thực + phân quyền | ✅ | `auth/`, `accounts/`, `api/accounts.py`, `ops/keycloak/` | Thiết kế: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`. Keycloak 26.8.2 (OIDC, BFF, PKCE), phiên trong bộ nhớ 8 giờ/30 phút, RBAC VIEWER/OPERATOR/OWNER + ADMIN, đa tài khoản giao dịch, LIVE hai người, break-glass `gt-break-glass`. **Chưa nhận người dùng thứ hai** (DEC-12) |
 | — | Vận hành | ✅ | `ops/clock.py`, `ops/logging.py`, `ops/backup/` | Kiểm đồng hồ (> 30 s ngừng nhận nến), log JSON che bí mật, sao lưu 2 DB mỗi 24 giờ giữ 14 bản + khôi phục |
@@ -105,7 +105,7 @@ Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sử
   - Chạy trên Windows bằng `uv run mt5-gateway check|run` (`.python-version` = 3.12). Cấu hình ở `mt5_gateway/gateway.env`.
 - **Lịch thị trường:** mọi chỗ cần biết "nến nào lẽ ra phải có" dùng `MarketCalendar` (`MarketDataService.calendar`), không gọi thẳng `bar_in_session` của lịch tham chiếu. Chưa áp dụng cho cờ `GAP` lúc nạp và R1 (vẫn dùng lịch tham chiếu; lịch broker là tập con nên R1 không bị ảnh hưởng). Cấu hình sai → backend không khởi động.
 - **Technical analyst:** đọc `docs/thiet-ke/03-technical-analyst.md` trước khi sửa. Đổi công thức hoặc ngưỡng thì tăng `VERSION` trong `analysts/technical.py`. Frontend đọc `features` qua `lib/technical.ts` (sai kiểu thì trả null, không đoán).
-- **Frontend — quy ước theme AurumDesk:**
+- **Frontend — quy ước theme CutlotDesk:**
   - Màu, khoảng cách, font chỉ khai báo trong `frontend/src/styles/tokens.css` (dark mặc định, light qua `html[data-theme="light"]`). Không hardcode màu trong component.
   - CSS: `base.css`, `layout.css` (sidebar 238px, header 66px, breakpoint 1100px/720px/480px), `components.css`.
   - Component dùng chung ở `src/components/ui/`: `Button`, `IconButton`, `Card`, `Badge`, `Field`, `Dialog` (focus trap, Escape), `InfoTip`, `StateView` (Loading/Empty/Error/Skeleton). Layout: `Sidebar`, `Header`, `ConnectionBadge`, `Logo`.
@@ -113,7 +113,7 @@ Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sử
   - Lỗi API được phân loại trong `ApiError.kind` (network/conflict/validation/server). UI chỉ hiện thông báo i18n, không hiện chi tiết thô.
   - Trạng thái kết nối (`src/lib/connection.ts`): connecting/live/stale (>10s)/disconnected. Khi mất kết nối, dữ liệu cũ vẫn giữ và có banner "Dữ liệu đã cũ".
   - Header **không** hiển thị giá giả. Hiện ghi "Chưa có dữ liệu giá" cho tới khi có nguồn giá thật.
-  - Theme lưu ở localStorage `aurumdesk.theme`, có try/catch.
+  - Theme lưu ở localStorage `cutlotdesk.theme` (đọc dự phòng khóa cũ `aurumdesk.theme`), có try/catch.
 - **Dữ liệu nến — quy tắc bắt buộc:**
   - Nến chỉ hợp lệ khi **đã đóng** (`available_at >= close_time`). `ingested_at` = đồng hồ thật lúc nhận. `available_at` = lúc được coi là đã biết: realtime thì bằng `ingested_at`; nạp bù (`backfill=True`) thì bằng `close_time` + cờ `BACKFILL`. Revision luôn có `available_at = ingested_at`.
   - Truy vấn point-in-time lọc theo `available_at`, dùng `store.query(..., as_of=...)`. Không đọc thẳng bảng.

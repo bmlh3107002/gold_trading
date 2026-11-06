@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Realm JSON hợp lệ và không chứa bí mật
         run: python3 ops/keycloak/check_realm.py ops/keycloak/realm/gold-trading-realm.json
-      - name: Theme đăng nhập AurumDesk khớp màu Dashboard
+      - name: Theme đăng nhập CutlotDesk khớp màu Dashboard
         run: python3 ops/keycloak/check_theme.py
       - run: docker build -q -t gold_trading/backend:latest backend
       - run: docker build -q -t gold_trading/frontend:latest frontend

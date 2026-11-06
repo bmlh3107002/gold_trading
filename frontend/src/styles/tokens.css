@@ -1,4 +1,4 @@
-/* AurumDesk design tokens. Mọi màu/khoảng cách dùng biến ở đây, không hardcode trong component. */
+/* CutlotDesk design tokens. Mọi màu/khoảng cách dùng biến ở đây, không hardcode trong component. */
 :root,
 :root[data-theme="dark"] {
   color-scheme: dark;

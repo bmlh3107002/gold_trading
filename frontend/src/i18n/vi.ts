@@ -1,5 +1,5 @@
 const vi = {
-  app: { name: "AurumDesk" },
+  app: { name: "CutlotDesk" },
   nav: {
     sectionMain: "Điều hành",
     sectionSoon: "Phân tích & giao dịch",

@@ -1,7 +1,7 @@
 {
   "realm": "gold-trading",
   "displayName": "Gold Trading",
-  "loginTheme": "aurumdesk",
+  "loginTheme": "cutlotdesk",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,

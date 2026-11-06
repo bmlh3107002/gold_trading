@@ -1,8 +1,8 @@
-"""Kiểm tra theme đăng nhập AurumDesk của Keycloak.
+"""Kiểm tra theme đăng nhập CutlotDesk của Keycloak.
 
 - theme.properties kế thừa keycloak.v2 và nạp đủ file CSS/JS khai báo;
-- realm dùng loginTheme "aurumdesk"; sync-client.sh đặt lại theme cho realm đã cài;
-- màu trong aurumdesk.css khớp frontend/src/styles/tokens.css (cùng tên biến, cả sáng và tối);
+- realm dùng loginTheme "cutlotdesk"; sync-client.sh đặt lại theme cho realm đã cài;
+- màu trong cutlotdesk.css khớp frontend/src/styles/tokens.css (cùng tên biến, cả sáng và tối);
 - JS chỉ đọc đúng khóa localStorage của Dashboard, không gọi mạng.
 
 Chạy từ gốc repo: python3 ops/keycloak/check_theme.py
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-THEME = ROOT / "ops/keycloak/themes/aurumdesk/login"
+THEME = ROOT / "ops/keycloak/themes/cutlotdesk/login"
 TOKENS = ROOT / "frontend/src/styles/tokens.css"
 REALM = ROOT / "ops/keycloak/realm/gold-trading-realm.json"
 SYNC = ROOT / "ops/keycloak/sync-client.sh"
@@ -62,22 +62,22 @@ def check() -> list[str]:
 
     for lang in ("vi", "en"):
         msgs = props(THEME / f"messages/messages_{lang}.properties")
-        need("AURUM" in msgs.get("loginTitleHtml", ""), f"messages_{lang}: thiếu logo loginTitleHtml")
+        need("CUTLOT" in msgs.get("loginTitleHtml", ""), f"messages_{lang}: thiếu logo loginTitleHtml")
 
     realm = json.loads(REALM.read_text(encoding="utf-8"))
-    need(realm.get("loginTheme") == "aurumdesk", "realm phải đặt loginTheme=aurumdesk")
-    need("loginTheme=aurumdesk" in SYNC.read_text(encoding="utf-8"), "sync-client.sh phải đặt loginTheme")
-    need("themes/aurumdesk" in DOCKERFILE.read_text(encoding="utf-8"), "Dockerfile phải chép theme")
+    need(realm.get("loginTheme") == "cutlotdesk", "realm phải đặt loginTheme=cutlotdesk")
+    need("loginTheme=cutlotdesk" in SYNC.read_text(encoding="utf-8"), "sync-client.sh phải đặt loginTheme")
+    need("themes/cutlotdesk" in DOCKERFILE.read_text(encoding="utf-8"), "Dockerfile phải chép theme")
 
-    js = (THEME / "resources/js/aurumdesk-theme.js").read_text(encoding="utf-8")
-    need('"aurumdesk.theme"' in js, "JS phải đọc khóa localStorage aurumdesk.theme")
+    js = (THEME / "resources/js/cutlotdesk-theme.js").read_text(encoding="utf-8")
+    need('"cutlotdesk.theme"' in js, "JS phải đọc khóa localStorage cutlotdesk.theme")
     need(
         not re.search(r"fetch|XMLHttpRequest|sendBeacon|WebSocket|import\(", js),
         "JS không được gọi mạng",
     )
 
     tokens = TOKENS.read_text(encoding="utf-8")
-    theme_css = (THEME / "resources/css/aurumdesk.css").read_text(encoding="utf-8")
+    theme_css = (THEME / "resources/css/cutlotdesk.css").read_text(encoding="utf-8")
     for mode, fe_sel, kc_sel in (
         ("tối", r':root, :root\[data-theme="dark"\]', r'html\.login-pf, html\.login-pf\[data-theme="dark"\]'),
         ("sáng", r':root\[data-theme="light"\]', r'html\.login-pf\[data-theme="light"\]'),
@@ -97,5 +97,5 @@ if __name__ == "__main__":
     errs = check()
     for e in errs:
         print("LỖI:", e)
-    print("Theme AurumDesk: OK" if not errs else f"{len(errs)} lỗi")
+    print("Theme CutlotDesk: OK" if not errs else f"{len(errs)} lỗi")
     sys.exit(1 if errs else 0)

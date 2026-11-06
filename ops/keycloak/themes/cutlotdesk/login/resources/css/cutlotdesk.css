@@ -1,5 +1,5 @@
 /*
- * AurumDesk cho trang đăng nhập Keycloak (theme cha: keycloak.v2 / PatternFly 5).
+ * CutlotDesk cho trang đăng nhập Keycloak (theme cha: keycloak.v2 / PatternFly 5).
  * Màu chép từ frontend/src/styles/tokens.css. Sửa màu ở đó thì sửa cả ở đây;
  * ops/keycloak/check_theme.py (chạy trong CI) so khớp hai file.
  */
@@ -91,13 +91,13 @@ html.login-pf {
   color: var(--text);
   text-align: center;
 }
-.ad-logo {
+.brand-logo {
   color: var(--text);
   font-weight: 800;
   font-size: 26px;
   letter-spacing: 2.5px;
 }
-.ad-logo__aurum {
+.brand-logo__brand {
   color: var(--gold);
 }
 
@@ -220,7 +220,7 @@ a,
 
 /* ---- Điện thoại ---- */
 @media (max-width: 480px) {
-  .ad-logo {
+  .brand-logo {
     font-size: 22px;
   }
   .pf-v5-c-login__main {
