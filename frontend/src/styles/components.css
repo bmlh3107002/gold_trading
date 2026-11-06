@@ -706,3 +706,10 @@
   word-break: break-all;
   user-select: all;
 }
+
+.ops-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px var(--page-pad) 0;
+}

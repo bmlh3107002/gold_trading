@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI
@@ -35,6 +36,7 @@ from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.hours import REFERENCE, BrokerSessions, MarketCalendar
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST
+from gold_trading.ops.clock import ClockMonitor
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -52,6 +54,21 @@ from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
 
 POLICY_VERSION = "policy-0.1.0"
 log = logging.getLogger("gold_trading.api")
+
+
+class ClockOut(BaseModel):
+    state: Literal["OK", "WARN", "BLOCKED", "UNKNOWN"] = Field(
+        description="OK ≤ 2 s; WARN 2–30 s; BLOCKED > 30 s (ngừng nhận nến); UNKNOWN chưa đo được"
+    )
+    offset_s: float | None = Field(description="Đồng hồ backend nhanh hơn giờ chuẩn (giây)")
+    sources_ok: int
+    measured_at: datetime | None
+
+
+class OpsHealth(BaseModel):
+    """Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu)."""
+
+    clock: ClockOut
 
 
 class SystemStatus(BaseModel):
@@ -119,6 +136,8 @@ def create_app(
     calendar: MarketCalendar | Literal["env"] = "env",
     auth: AuthConfig | Literal["env"] = "env",
     oidc: OidcClient | None = None,
+    clock: ClockMonitor | None = None,
+    run_clock: bool | None = None,
 ) -> FastAPI:
     repo = repo or repository_from_env()
     if candle_store is None:
@@ -168,9 +187,22 @@ def create_app(
     if run_analysts and source is not None:
         runner = TechnicalRunner(market, analyst_store)
 
+    if clock is None:
+        srcs = tuple(
+            u.strip() for u in os.environ.get("GT_CLOCK_SOURCES", "").split(",") if u.strip()
+        )
+        clock = ClockMonitor(
+            unknown_blocks=os.environ.get("GT_CLOCK_UNKNOWN_BLOCKS", "0") == "1",
+            **({"sources": srcs} if srcs else {}),
+        )
+    if run_clock is None:
+        run_clock = os.environ.get("GT_CLOCK_CHECK", "1") != "0"
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         registry.start()
+        if run_clock:
+            clock.start()
         if feed:
             feed.start()
         if runner:
@@ -180,6 +212,7 @@ def create_app(
             runner.stop()
         if feed:
             feed.stop()
+        clock.stop()
         registry.stop()
 
     market_view: MarketView | None = None  # TODO: lấy từ Market Intelligence
@@ -232,7 +265,14 @@ def create_app(
     token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
     monitors = GatewayMonitors()
     app.include_router(
-        ingest_router(market, CandleIngestor(candle_store), monitors, token or None, repo)
+        ingest_router(
+            market,
+            CandleIngestor(candle_store),
+            monitors,
+            token or None,
+            repo,
+            ingest_guard=clock.ingest_block_reason,
+        )
     )
     # Chống DNS rebinding: chỉ nhận Host của địa chỉ công khai, localhost và tên nội bộ.
     app.add_middleware(
@@ -257,6 +297,11 @@ def create_app(
         ok = repo.healthy()
         body = {"status": "ok" if ok else "degraded", "storage": repo.kind}
         return body if ok else JSONResponse(body, status_code=503)
+
+    @app.get("/api/system/health", response_model=OpsHealth)
+    def ops_health() -> OpsHealth:
+        st = clock.status
+        return OpsHealth(clock=ClockOut(**st.__dict__))
 
     @app.get("/api/status", response_model=SystemStatus)
     def get_status() -> SystemStatus:

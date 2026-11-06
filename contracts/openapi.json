@@ -1143,6 +1143,24 @@
         }
       }
     },
+    "/api/system/health": {
+      "get": {
+        "summary": "Ops Health",
+        "operationId": "ops_health_api_system_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsHealth"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/status": {
       "get": {
         "summary": "Get Status",
@@ -1806,6 +1824,57 @@
           "rsi14"
         ],
         "title": "CandlesResponse"
+      },
+      "ClockOut": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "WARN",
+              "BLOCKED",
+              "UNKNOWN"
+            ],
+            "title": "State",
+            "description": "OK ≤ 2 s; WARN 2–30 s; BLOCKED > 30 s (ngừng nhận nến); UNKNOWN chưa đo được"
+          },
+          "offset_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset S",
+            "description": "Đồng hồ backend nhanh hơn giờ chuẩn (giây)"
+          },
+          "sources_ok": {
+            "type": "integer",
+            "title": "Sources Ok"
+          },
+          "measured_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "offset_s",
+          "sources_ok",
+          "measured_at"
+        ],
+        "title": "ClockOut"
       },
       "DataQuality": {
         "properties": {
@@ -2722,6 +2791,19 @@
           "mode"
         ],
         "title": "ModeCommand"
+      },
+      "OpsHealth": {
+        "properties": {
+          "clock": {
+            "$ref": "#/components/schemas/ClockOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clock"
+        ],
+        "title": "OpsHealth",
+        "description": "Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu)."
       },
       "Perm": {
         "type": "string",

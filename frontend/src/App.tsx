@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Header } from "./components/layout/Header";
+import { OpsBanner } from "./components/layout/OpsBanner";
 import { Sidebar } from "./components/layout/Sidebar";
 import { useGatewayStatus, useMarketSummary } from "./hooks/useMarket";
 import { useRoute } from "./hooks/useRoute";
@@ -49,6 +50,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const accountId = accounts.selected?.account_id ?? null;
   const sys = useSystemStatus(accounts.loading ? null : accountId);
   const system = usePolling(api.system, 15_000, 60_000);
+  const ops = usePolling(api.opsHealth, 30_000, 120_000);
   const market = useMarketSummary();
   const route = useRoute();
   const gateway = useGatewayStatus(system.data?.data_source === "MT5" ? accountId : null);
@@ -83,6 +85,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
           selectedAccount={accountId}
           onSelectAccount={accounts.select}
         />
+        <OpsBanner health={ops.data} />
         <main>
           {route === "market" ? (
             <MarketPage theme={theme} summary={market} />

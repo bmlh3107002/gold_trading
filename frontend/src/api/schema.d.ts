@@ -386,6 +386,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ops Health */
+        get: operations["ops_health_api_system_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/status": {
         parameters: {
             query?: never;
@@ -649,6 +666,24 @@ export interface components {
             ema50: (number | null)[];
             /** Rsi14 */
             rsi14: (number | null)[];
+        };
+        /** ClockOut */
+        ClockOut: {
+            /**
+             * State
+             * @description OK ≤ 2 s; WARN 2–30 s; BLOCKED > 30 s (ngừng nhận nến); UNKNOWN chưa đo được
+             * @enum {string}
+             */
+            state: "OK" | "WARN" | "BLOCKED" | "UNKNOWN";
+            /**
+             * Offset S
+             * @description Đồng hồ backend nhanh hơn giờ chuẩn (giây)
+             */
+            offset_s: number | null;
+            /** Sources Ok */
+            sources_ok: number;
+            /** Measured At */
+            measured_at: string | null;
         };
         /** DataQuality */
         DataQuality: {
@@ -982,6 +1017,13 @@ export interface components {
             checklist?: {
                 [key: string]: boolean;
             };
+        };
+        /**
+         * OpsHealth
+         * @description Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu).
+         */
+        OpsHealth: {
+            clock: components["schemas"]["ClockOut"];
         };
         /**
          * Perm
@@ -1929,6 +1971,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    ops_health_api_system_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpsHealth"];
                 };
             };
         };

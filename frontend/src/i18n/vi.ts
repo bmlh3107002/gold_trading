@@ -104,6 +104,12 @@ const vi = {
     copied: "Đã sao chép",
     issuedDone: "Tôi đã lưu token",
   },
+  ops: {
+    clockWarn: "Đồng hồ máy chủ lệch {{offset}} giây so với giờ chuẩn. Nên khởi động lại Docker Desktop hoặc đồng bộ giờ Windows.",
+    clockBlocked:
+      "Đồng hồ máy chủ lệch {{offset}} giây: ĐÃ NGỪNG nhận nến để tránh sai thời điểm dữ liệu. Khởi động lại Docker Desktop hoặc đồng bộ giờ Windows.",
+    clockUnknown: "Không kiểm tra được đồng hồ máy chủ (không kết nối được máy chủ thời gian).",
+  },
   connection: {
     live: "Trực tiếp",
     connecting: "Đang kết nối",

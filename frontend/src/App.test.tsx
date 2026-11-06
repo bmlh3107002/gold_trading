@@ -7,13 +7,19 @@ import { json, makeAccount, makeMe, makeStatus, makeSummary, makeSystem } from "
 const ACC = "/api/accounts/default";
 
 /** Handler lo trạng thái tài khoản và lệnh ghi; các API khác có giá trị mặc định. */
-function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
+const OK_HEALTH = { clock: { state: "OK", offset_s: 0.2, sources_ok: 5, measured_at: "2026-11-06T03:00:00Z" } };
+
+function mockFetch(
+  handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
+  handlesHealth = false,
+) {
   const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/auth/me") return json(makeMe());
     if (url === "/api/status") return json(makeSystem());
     if (url === "/api/accounts") return json([makeAccount()]);
     if (url === `${ACC}/mode/live-requests` && init?.method !== "POST") return json([]);
+    if (url === "/api/system/health" && !handlesHealth) return json(OK_HEALTH);
     if (url.startsWith("/api/market/summary")) {
       return json(makeSummary({ last_price: null, change: null, change_pct: null, is_sample: false }));
     }
@@ -125,6 +131,18 @@ describe("App", () => {
     await waitFor(() =>
       expect(fn).toHaveBeenCalledWith(`${ACC}/mode/live-requests/lr1/approve`, expect.objectContaining({ method: "POST" })),
     );
+  });
+
+  it("đồng hồ lệch quá 30 giây: banner báo đã ngừng nhận nến", async () => {
+    mockFetch(
+      (url) =>
+        url === "/api/system/health"
+          ? json({ clock: { state: "BLOCKED", offset_s: -41.5, sources_ok: 5, measured_at: "2026-11-06T03:00:00Z" } })
+          : json(makeStatus()),
+      true,
+    );
+    render(<App />);
+    expect(await screen.findByText(/lệch -41.5 giây: ĐÃ NGỪNG nhận nến/)).toBeInTheDocument();
   });
 
   it("chưa đăng nhập: hiện trang đăng nhập, không gọi API trạng thái", async () => {

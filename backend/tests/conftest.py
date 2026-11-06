@@ -23,3 +23,4 @@ def _auth_env(monkeypatch):
     monkeypatch.setenv("GT_OIDC_INTERNAL_URL", INTERNAL)
     monkeypatch.setenv("GT_OIDC_CLIENT_ID", "gold-trading-dashboard")
     monkeypatch.setenv("GT_OIDC_CLIENT_SECRET", CLIENT_SECRET)
+    monkeypatch.setenv("GT_CLOCK_CHECK", "0")  # không gọi Internet trong test
