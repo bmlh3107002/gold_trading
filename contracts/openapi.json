@@ -716,6 +716,205 @@
         }
       }
     },
+    "/api/accounts/{account_id}/members": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "List Members",
+        "operationId": "list_members_api_accounts__account_id__members_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberOut"
+                  },
+                  "title": "Response List Members Api Accounts  Account Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Add Member",
+        "operationId": "add_member_api_accounts__account_id__members_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberAdd"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/members/{user_sub}": {
+      "put": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Change Role",
+        "operationId": "change_role_api_accounts__account_id__members__user_sub__put",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "user_sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Sub"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberRole"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Remove Member",
+        "operationId": "remove_member_api_accounts__account_id__members__user_sub__delete",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "user_sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Sub"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/accounts/{account_id}/gateway/status": {
       "get": {
         "tags": [
@@ -2394,6 +2593,115 @@
           "idle_timeout_seconds"
         ],
         "title": "Me"
+      },
+      "MemberAdd": {
+        "properties": {
+          "user": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "User",
+            "description": "username hoặc email Keycloak"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "OPERATOR",
+              "VIEWER"
+            ],
+            "title": "Role"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user",
+          "role"
+        ],
+        "title": "MemberAdd"
+      },
+      "MemberOut": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "OPERATOR",
+              "VIEWER"
+            ],
+            "title": "Role"
+          },
+          "granted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Granted At"
+          },
+          "granted_by": {
+            "type": "string",
+            "title": "Granted By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "username",
+          "email",
+          "display_name",
+          "role",
+          "granted_at",
+          "granted_by"
+        ],
+        "title": "MemberOut"
+      },
+      "MemberRole": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "OWNER",
+              "OPERATOR",
+              "VIEWER"
+            ],
+            "title": "Role"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "title": "MemberRole"
       },
       "ModeCommand": {
         "properties": {

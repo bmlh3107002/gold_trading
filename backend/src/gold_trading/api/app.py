@@ -247,6 +247,7 @@ def create_app(
             market_view=lambda: market_view,
             monitors=monitors,
             legacy_token_configured=bool(token and len(token) >= 24),
+            multi_user_enabled=auth_cfg.multi_user_enabled,
         )
     )
     app.state.registry = registry

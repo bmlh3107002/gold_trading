@@ -31,6 +31,7 @@ from gold_trading.safety.supervisor import SafetyTransitionError
 from gold_trading.storage.repository import (
     AuditEntry,
     ConflictError,
+    Member,
     Repository,
     StaleStateError,
     TradingAccount,
@@ -113,6 +114,29 @@ class GatewayTokenIssued(BaseModel):
     token_id: str
     token: str = Field(description="CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN)")
     created_at: datetime
+
+
+class MemberOut(BaseModel):
+    sub: str
+    username: str
+    email: str | None
+    display_name: str | None
+    role: Literal["OWNER", "OPERATOR", "VIEWER"]
+    granted_at: datetime
+    granted_by: str
+
+
+class MemberAdd(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user: str = Field(min_length=1, max_length=256, description="username hoặc email Keycloak")
+    role: Literal["OWNER", "OPERATOR", "VIEWER"]
+
+
+class MemberRole(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["OWNER", "OPERATOR", "VIEWER"]
 
 
 class KillSwitchCommand(BaseModel):
@@ -235,6 +259,7 @@ def accounts_router(
     market_view: Callable[[], MarketView | None],
     monitors: GatewayMonitors,
     legacy_token_configured: bool,
+    multi_user_enabled: bool = False,
 ) -> APIRouter:
     r = APIRouter(tags=["accounts"])
     guard = Guard(repo, registry)
@@ -394,6 +419,77 @@ def accounts_router(
         guard.audit(p, "mode.live_approve", "ACCEPTED", {**payload, "requester": req.requester},
                     None, account_id)
         return status(a, p)
+
+    # ---------- Thành viên (MT-10) ----------
+
+    def member_out(m: Member) -> MemberOut:
+        u = repo.user(m.sub)
+        return MemberOut(
+            sub=m.sub, username=u.username if u else m.sub, email=u.email if u else None,
+            display_name=u.display_name if u else None, role=m.role,  # type: ignore[arg-type]
+            granted_at=m.granted_at, granted_by=m.granted_by,
+        )
+
+    def owners(account_id: str) -> list[str]:
+        return [m.sub for m in repo.members(account_id) if m.role == "OWNER"]
+
+    @r.get("/api/accounts/{account_id}/members", response_model=list[MemberOut])
+    def list_members(account_id: str, p: CurrentUser) -> list[MemberOut]:
+        guard.check(account_id, p, Perm.VIEW, "members.list")
+        return [member_out(m) for m in repo.members(account_id)]
+
+    @r.post("/api/accounts/{account_id}/members", response_model=MemberOut, status_code=201)
+    def add_member(account_id: str, cmd: MemberAdd, p: CurrentUser) -> MemberOut:
+        guard.check(account_id, p, Perm.MANAGE_MEMBERS, "members.add")
+        payload = cmd.model_dump()
+        user = repo.find_user(cmd.user)
+        if user is None:
+            guard.audit(p, "members.add", "REJECTED", payload, "Người dùng chưa đăng nhập lần nào",
+                        account_id)
+            raise HTTPException(
+                404, "Không tìm thấy người dùng. Người đó cần đăng nhập Dashboard ít nhất một lần."
+            )
+        if not multi_user_enabled and user.sub != p.sub:
+            msg = ("Chưa nhận người dùng thứ hai (DEC-12: cần ý kiến pháp lý trước). "
+                   "Bật GT_MULTI_USER_ENABLED=1 khi đã có câu trả lời.")
+            guard.audit(p, "members.add", "REJECTED", payload, msg, account_id)
+            raise HTTPException(409, msg)
+        if repo.role(account_id, user.sub) is not None:
+            raise HTTPException(409, "Người dùng đã là thành viên; hãy đổi vai trò")
+        m = Member(account_id, user.sub, cmd.role, utcnow(), p.username)
+        repo.set_member(m)
+        guard.audit(p, "members.add", "ACCEPTED", {**payload, "sub": user.sub}, None, account_id)
+        return member_out(m)
+
+    @r.put("/api/accounts/{account_id}/members/{user_sub}", response_model=MemberOut)
+    def change_role(account_id: str, user_sub: str, cmd: MemberRole, p: CurrentUser) -> MemberOut:
+        guard.check(account_id, p, Perm.MANAGE_MEMBERS, "members.change_role")
+        old = repo.role(account_id, user_sub)
+        payload = {"sub": user_sub[:255], "role": cmd.role, "from": old}
+        if old is None:
+            raise HTTPException(404, "Không phải thành viên của tài khoản")
+        if old == "OWNER" and cmd.role != "OWNER" and owners(account_id) == [user_sub]:
+            guard.audit(p, "members.change_role", "REJECTED", payload, "OWNER cuối cùng",
+                        account_id)
+            raise HTTPException(409, "Không thể hạ quyền OWNER cuối cùng của tài khoản")
+        m = Member(account_id, user_sub, cmd.role, utcnow(), p.username)
+        repo.set_member(m)
+        guard.audit(p, "members.change_role", "ACCEPTED", payload, None, account_id)
+        return member_out(m)
+
+    @r.delete("/api/accounts/{account_id}/members/{user_sub}", status_code=204)
+    def remove_member(account_id: str, user_sub: str, p: CurrentUser) -> Response:
+        guard.check(account_id, p, Perm.MANAGE_MEMBERS, "members.remove")
+        old = repo.role(account_id, user_sub)
+        payload = {"sub": user_sub[:255], "from": old}
+        if old is None:
+            raise HTTPException(404, "Không phải thành viên của tài khoản")
+        if old == "OWNER" and owners(account_id) == [user_sub]:
+            guard.audit(p, "members.remove", "REJECTED", payload, "OWNER cuối cùng", account_id)
+            raise HTTPException(409, "Không thể gỡ OWNER cuối cùng của tài khoản")
+        repo.remove_member(account_id, user_sub)
+        guard.audit(p, "members.remove", "ACCEPTED", payload, None, account_id)
+        return Response(status_code=204)
 
     # ---------- Gateway (MT-04) ----------
 

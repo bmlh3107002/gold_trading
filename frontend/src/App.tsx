@@ -12,6 +12,7 @@ import { api, type Me } from "./api/client";
 import { ErrorState, LoadingState } from "./components/ui/StateView";
 import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
+import { AccountPage } from "./pages/AccountPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { useTranslation } from "react-i18next";
 
@@ -85,6 +86,8 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         <main>
           {route === "market" ? (
             <MarketPage theme={theme} summary={market} />
+          ) : route === "account" ? (
+            <AccountPage account={accounts.selected} me={me} />
           ) : (
             <OverviewPage sys={sys} accountId={accounts.loading ? null : accountId} me={me} />
           )}

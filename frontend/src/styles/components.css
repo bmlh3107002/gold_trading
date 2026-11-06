@@ -685,3 +685,24 @@
     max-width: 120px;
   }
 }
+
+.plain-list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+.token-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.token-box__value {
+  display: block;
+  padding: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-ctl);
+  word-break: break-all;
+  user-select: all;
+}

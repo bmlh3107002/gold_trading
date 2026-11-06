@@ -6,6 +6,7 @@ export type AccountSummary = components["schemas"]["AccountSummary"];
 export type Perm = components["schemas"]["Perm"];
 export type LiveRequest = components["schemas"]["LiveRequestOut"];
 export type KillSwitchResult = components["schemas"]["KillSwitchResult"];
+export type MemberOut = components["schemas"]["MemberOut"];
 export type GatewayTokenInfo = components["schemas"]["GatewayTokenInfo"];
 export type GatewayTokenIssued = components["schemas"]["GatewayTokenIssued"];
 export type SafetyCommand = components["schemas"]["SafetyCommand"];
@@ -73,6 +74,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/** Request không có body trả về (204). */
+async function requestEmpty(path: string, init?: RequestInit): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...init });
+  } catch {
+    throw new ApiError("network", null);
+  }
+  if (res.status === 401) unauthorizedListeners.forEach((fn) => fn());
+  if (!res.ok) throw new ApiError(kindFor(res.status), res.status);
+}
+
 /** Chuyển trình duyệt sang trang đăng nhập Keycloak (qua backend), quay lại đúng trang đang xem. */
 export function loginUrl(next: string): string {
   return `/api/auth/login?next=${encodeURIComponent(next)}`;
@@ -102,6 +115,16 @@ export const api = {
   dataQuality: () => request<DataQuality>("/api/market/quality"),
   technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
+  members: (id: string) => request<MemberOut[]>(`${acc(id)}/members`),
+  addMember: (id: string, user: string, role: MemberOut["role"]) =>
+    request<MemberOut>(`${acc(id)}/members`, post({ user, role })),
+  setMemberRole: (id: string, sub: string, role: MemberOut["role"]) =>
+    request<MemberOut>(`${acc(id)}/members/${encodeURIComponent(sub)}`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    }),
+  removeMember: (id: string, sub: string) =>
+    requestEmpty(`${acc(id)}/members/${encodeURIComponent(sub)}`, { method: "DELETE" }),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
   rotateGatewayToken: (id: string) => request<GatewayTokenIssued>(`${acc(id)}/gateway/token`, { method: "POST" }),
 };

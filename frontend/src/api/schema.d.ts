@@ -264,6 +264,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Members */
+        get: operations["list_members_api_accounts__account_id__members_get"];
+        put?: never;
+        /** Add Member */
+        post: operations["add_member_api_accounts__account_id__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/members/{user_sub}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Role */
+        put: operations["change_role_api_accounts__account_id__members__user_sub__put"];
+        post?: never;
+        /** Remove Member */
+        delete: operations["remove_member_api_accounts__account_id__members__user_sub__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/gateway/status": {
         parameters: {
             query?: never;
@@ -894,6 +930,50 @@ export interface components {
             session_expires_at: string;
             /** Idle Timeout Seconds */
             idle_timeout_seconds: number;
+        };
+        /** MemberAdd */
+        MemberAdd: {
+            /**
+             * User
+             * @description username hoặc email Keycloak
+             */
+            user: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "OWNER" | "OPERATOR" | "VIEWER";
+        };
+        /** MemberOut */
+        MemberOut: {
+            /** Sub */
+            sub: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "OWNER" | "OPERATOR" | "VIEWER";
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /** Granted By */
+            granted_by: string;
+        };
+        /** MemberRole */
+        MemberRole: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "OWNER" | "OPERATOR" | "VIEWER";
         };
         /** ModeCommand */
         ModeCommand: {
@@ -1532,6 +1612,138 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AccountStatus"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_api_accounts__account_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_api_accounts__account_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_role_api_accounts__account_id__members__user_sub__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                user_sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberRole"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_api_accounts__account_id__members__user_sub__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                user_sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
