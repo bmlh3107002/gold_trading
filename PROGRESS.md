@@ -182,6 +182,10 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Người dùng muốn mở dashboard từ máy khác qua Tailscale. Thêm `DASHBOARD_BIND` (mặc định `127.0.0.1`) vào cả hai file compose; hướng dẫn ở `deploy/README.md` (đặt IP Tailscale, hoặc `tailscale serve`). Cố ý không mở `0.0.0.0`: API chưa có xác thực, ai cùng Wi-Fi cũng điều khiển được Safety/Mode. Kiểm tra bằng `docker compose config` (mặc định và có IP).
 - Nhắc lại: **xác thực API** (việc 5) cần làm trước khi mở rộng truy cập hơn nữa.
 
+### 2026-11-06 — CI (GitHub Actions)
+- `.github/workflows/ci.yml`: chạy khi push `develop`/`main` và PR. Bốn job: backend (ruff, pytest, OpenAPI không lệch), mt5_gateway (pytest), frontend (type TS không lệch, `npm run check`, build), docker (build hai image). Lần chạy đầu tiên: **4/4 xanh**.
+- **CD (máy Windows tự cập nhật) — tạm hoãn theo yêu cầu người dùng.** Đã chốt cách làm: Task Scheduler mỗi 5 phút hỏi GitHub; chỉ deploy commit `develop` có CI xanh; build đúng commit đó (`GT_BRANCH=<sha>`); kiểm tra `/api/health`; không deploy khi mode LIVE; không thử lại commit lỗi; không dùng self-hosted runner (repo public). Script PowerShell phải chỉ dùng ký tự ASCII (Windows PowerShell 5.1) và được test trên runner `windows-latest` trong CI (sandbox không chạy được PowerShell).
+
 ## Việc tiếp theo (đề xuất)
 
 Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
@@ -194,4 +198,5 @@ Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical
 4. Strategy Engine và Backtest (replay theo `available_at`, có spread/slippage/phí). Backtest trên dữ liệu mẫu phải đánh dấu "không có giá trị đánh giá".
 5. Xác thực API trước khi chạy ngoài localhost.
 6. **Giá sống (bid/ask/spread)** từ Gateway sang backend: để hiển thị và để Risk kiểm tra ngay trước khi vào lệnh (bỏ lệnh nếu spread giãn hoặc giá đã chạy xa so với lúc nến đóng). Phân tích vẫn chỉ dùng nến đã đóng. Phải có trước Strategy/đặt lệnh.
-7. Gateway: chạy như dịch vụ Windows, đóng gói `.exe` (build trên runner Windows), hàng đợi bền vững; lịch giao dịch từ MT5 (R12). Đặt lệnh: thành phần riêng, làm sau cùng.
+7. **CD tự deploy lên máy Windows** (đã chốt thiết kế ở nhật ký 2026-11-06, chưa làm).
+8. Gateway: chạy như dịch vụ Windows, đóng gói `.exe` (build trên runner Windows), hàng đợi bền vững; lịch giao dịch từ MT5 (R12). Đặt lệnh: thành phần riêng, làm sau cùng.
