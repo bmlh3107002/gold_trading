@@ -3,6 +3,8 @@
 # - redirect URI / post-logout theo GT_PUBLIC_URL (khi đổi địa chỉ truy cập)
 # - client secret theo GT_OIDC_CLIENT_SECRET (khi xoay secret)
 # - theme trang đăng nhập "cutlotdesk" (realm cài trước khi có theme)
+# - service account của client: chỉ manage-users + view-users, để ADMIN tạo người dùng
+#   trên Dashboard (MT-20). Không cấp realm-admin hay realm role nào.
 # Keycloak chỉ nhập realm một lần, nên đổi .env về sau phải chạy script này:
 #   docker compose exec keycloak /opt/keycloak/bin/sync-client.sh
 # Không in bí mật ra màn hình.
@@ -21,6 +23,15 @@ $KCADM update "clients/$ID" --config "$CFG" -r gold-trading \
   -s "rootUrl=$URL" \
   -s "redirectUris=[\"$URL/api/auth/callback\"]" \
   -s "attributes.\"post.logout.redirect.uris\"=$URL/" \
-  -s "secret=$GT_OIDC_CLIENT_SECRET"
+  -s "secret=$GT_OIDC_CLIENT_SECRET" \
+  -s serviceAccountsEnabled=true
+$KCADM add-roles --config "$CFG" -r gold-trading \
+  --uusername service-account-gold-trading-dashboard \
+  --cclientid realm-management --rolename manage-users --rolename view-users
+# Keycloak ≥ 26.8: token Admin API cần scope kc-admin-api (TÙY CHỌN: backend tự xin khi cần)
+SID=$($KCADM get client-scopes --config "$CFG" -r gold-trading --fields id,name --format csv \
+  --noquotes | grep ",kc-admin-api$" | cut -d, -f1)
+[ -n "$SID" ] || { echo "Không tìm thấy client scope kc-admin-api" >&2; exit 1; }
+$KCADM update "clients/$ID/optional-client-scopes/$SID" --config "$CFG" -r gold-trading
 $KCADM update realms/gold-trading --config "$CFG" -s loginTheme=cutlotdesk
-echo "Đã đồng bộ client: địa chỉ $URL, client secret theo .env (không in ra), theme đăng nhập cutlotdesk."
+echo "Đã đồng bộ client: địa chỉ $URL, client secret theo .env (không in ra), theme đăng nhập cutlotdesk, quyền tạo người dùng cho backend."

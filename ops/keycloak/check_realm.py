@@ -40,9 +40,22 @@ def check(realm: dict) -> list[str]:
             "PKCE S256 bắt buộc",
         )
         need(PLACEHOLDER.match(str(c.get("secret", ""))) is not None, "client secret phải là ${VAR}")
+        need(c.get("serviceAccountsEnabled") is True, "service account (MT-20) phải bật")
+        need("kc-admin-api" in c.get("optionalClientScopes", [])
+             and "kc-admin-api" not in c.get("defaultClientScopes", []),
+             "kc-admin-api phải là scope TÙY CHỌN (token người dùng không mang quyền Admin API)")
         for uri in c.get("redirectUris", []):
             need("*" not in uri, f"redirect URI không được có ký tự đại diện: {uri}")
 
+    sa = [u for u in realm.get("users", []) if u.get("serviceAccountClientId")]
+    need(len(sa) == 1 and sa[0].get("serviceAccountClientId") == "gold-trading-dashboard",
+         "cần đúng một service account cho gold-trading-dashboard")
+    for u in sa:
+        need(not u.get("realmRoles"), "service account không được có realm role")
+        roles = u.get("clientRoles", {})
+        need(set(roles) <= {"realm-management"}
+             and set(roles.get("realm-management", [])) == {"manage-users", "view-users"},
+             "service account chỉ được manage-users + view-users")
     for u in realm.get("users", []):
         for cred in u.get("credentials", []):
             need(

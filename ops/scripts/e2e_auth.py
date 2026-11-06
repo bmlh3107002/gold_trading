@@ -133,6 +133,8 @@ def main() -> int:
     p.add_argument("--initial-password", required=True)
     p.add_argument("--new-password", required=True)
     p.add_argument("--legacy-token", required=True)
+    p.add_argument("--member-password", default="",
+                   help="mật khẩu tạm cho người dùng tạo trên Dashboard (MT-20); trống = bỏ qua")
     p.add_argument("--compose", default="", help="tiền tố lệnh docker compose (để chạy break-glass)")
     a = p.parse_args()
 
@@ -185,6 +187,32 @@ def main() -> int:
     check("Token cũ hết hiệu lực ngay sau khi xoay", s == 401)
     s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
     check("Token mới dùng được", s == 200)
+
+    # MT-20: ADMIN tạo người dùng trên Dashboard → Keycloak + tài khoản giao dịch riêng
+    if a.member_password:
+        uname = f"e2e{int(time.time()) % 1000000}"
+        new_user = {"username": uname, "email": f"{uname}@example.invalid", "first_name": "E2E",
+                    "last_name": "Member", "password": a.member_password}
+        s, cu = b.api("POST", "/api/admin/users", new_user)
+        check("ADMIN tạo người dùng trên Dashboard (MT-20)",
+              s == 201 and cu["account_id"] == f"u-{uname}")
+        s, _ = b.api("POST", "/api/admin/users", new_user)
+        check("Tạo trùng tên đăng nhập → 409", s == 409)
+        m = Browser(a.base)
+        status, page, url = login(m, uname, a.member_password, a.member_password + "N2")
+        check("Người dùng mới đăng nhập (bắt đổi mật khẩu tạm) → về Dashboard",
+              urllib.parse.urlsplit(url).path == "/" and "auth_error" not in url)
+        s, me2 = m.api("GET", "/api/auth/me")
+        check("Người dùng mới không phải ADMIN", s == 200 and me2["is_admin"] is False)
+        s, accs2 = m.api("GET", "/api/accounts")
+        check("Người dùng mới chỉ thấy tài khoản riêng, là OWNER",
+              s == 200 and [(x["account_id"], x["role"]) for x in accs2]
+              == [(f"u-{uname}", "OWNER")])
+        s, _ = m.api("GET", "/api/accounts/default/status")
+        check("Người dùng mới không xem được Tài khoản chính → 404", s == 404)
+        s, _ = m.api("POST", "/api/admin/users", {**new_user, "username": uname + "x",
+                                                  "email": f"x{uname}@example.invalid"})
+        check("Người không phải ADMIN tạo người dùng → 403", s == 403)
 
     # Break-glass: HALT bằng CLI, backend đang chạy nhận trạng thái
     if a.compose:

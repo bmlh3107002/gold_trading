@@ -90,8 +90,9 @@ users = Table(
     Column("username", String(128), nullable=False),
     Column("email", String(256)),
     Column("display_name", String(256)),
-    Column("first_login_at", DateTime(timezone=True), nullable=False),
-    Column("last_login_at", DateTime(timezone=True), nullable=False),
+    # NULL = do ADMIN tạo trên Dashboard (MT-20), chưa đăng nhập lần nào (migration 0005)
+    Column("first_login_at", DateTime(timezone=True)),
+    Column("last_login_at", DateTime(timezone=True)),
 )
 Index("ix_users_username", users.c.username)
 Index("ix_users_email", users.c.email)

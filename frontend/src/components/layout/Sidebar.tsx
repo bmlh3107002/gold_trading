@@ -1,4 +1,5 @@
 import {
+  UserCog,
   Users,
   BookOpenText,
   CandlestickChart,
@@ -36,9 +37,10 @@ interface SidebarProps {
   storage: string | null;
   route: Route;
   gateway: GatewayStatus | null;
+  isAdmin: boolean;
 }
 
-export function Sidebar({ open, onClose, connection, version, storage, route, gateway }: SidebarProps) {
+export function Sidebar({ open, onClose, connection, version, storage, route, gateway, isAdmin }: SidebarProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLElement>(null);
 
@@ -77,6 +79,20 @@ export function Sidebar({ open, onClose, connection, version, storage, route, ga
               {t(`nav.${key}`)}
             </a>
           ))}
+          {isAdmin && (
+            <>
+              <div className="nav__section">{t("nav.sectionAdmin")}</div>
+              <a
+                className="nav__item"
+                href="#admin"
+                aria-current={route === "admin" ? "page" : undefined}
+                onClick={onClose}
+              >
+                <UserCog size={17} aria-hidden="true" />
+                {t("nav.admin")}
+              </a>
+            </>
+          )}
           <div className="nav__section">{t("nav.sectionSoon")}</div>
           {SOON.map(({ key, icon: Icon }) => (
             <span

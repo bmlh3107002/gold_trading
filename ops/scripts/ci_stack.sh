@@ -2,7 +2,7 @@
 # Kiểm thử cả hệ thống bằng Docker (dùng trong CI, chạy tay cũng được):
 #   1. dựng toàn bộ compose với bí mật NGẪU NHIÊN (không ghi ra log)
 #   2. e2e_auth.py: đăng nhập qua Keycloak thật, phân quyền, CSRF, token Gateway,
-#      break-glass, đăng xuất, brute force
+#      ADMIN tạo người dùng (MT-20), break-glass, đăng xuất, brute force
 #   3. sao lưu một lần → phá dữ liệu → khôi phục cả hai DB → kiểm tra dữ liệu + đăng nhập lại
 #   4. quét log mọi container tìm bí mật
 # Yêu cầu: các image gold_trading/* đã build sẵn (docker compose build).
@@ -12,7 +12,7 @@ WORK="$(mktemp -d)"
 PROJECT="gt_ci_$$"
 rnd() { python3 -c "import secrets; print(secrets.token_urlsafe(24))"; }
 KC_DB_PASSWORD="$(rnd)"; KC_ADMIN_PASSWORD="$(rnd)"; GT_OIDC_CLIENT_SECRET="$(rnd)"
-INIT_PW="Init-$(rnd)"; NEW_PW="New-$(rnd)"; LEGACY="$(rnd)$(rnd)"
+INIT_PW="Init-$(rnd)"; NEW_PW="New-$(rnd)"; LEGACY="$(rnd)$(rnd)"; MEMBER_PW="Mem-$(rnd)"
 cat > "$WORK/.env" <<EOF
 KC_DB_PASSWORD=$KC_DB_PASSWORD
 KC_ADMIN_PASSWORD=$KC_ADMIN_PASSWORD
@@ -23,6 +23,7 @@ GT_PUBLIC_URL=http://localhost:8080
 GT_INGEST_TOKEN=$LEGACY
 GT_BACKUP_DIR=$WORK/backups
 GT_DATA_SOURCE=SAMPLE
+GT_MULTI_USER_ENABLED=1
 EOF
 DC="docker compose -p $PROJECT --env-file $WORK/.env"
 cleanup() { $DC logs --no-color > "$WORK/all.log" 2>&1 || true; $DC down -v >/dev/null 2>&1 || true; }
@@ -45,7 +46,8 @@ wait_healthy
 
 echo "== 2. Đăng nhập đầu-cuối"
 python3 ops/scripts/e2e_auth.py --base http://localhost:8080 --user admin \
-  --initial-password "$INIT_PW" --new-password "$NEW_PW" --legacy-token "$LEGACY" --compose "$DC"
+  --initial-password "$INIT_PW" --new-password "$NEW_PW" --legacy-token "$LEGACY" --compose "$DC" \
+  --member-password "$MEMBER_PW"
 
 echo "== 3. Sao lưu → phá → khôi phục"
 Q() { $DC exec -T db psql -U gold -d gold_trading -Atc "$1"; }
@@ -70,7 +72,8 @@ tail -1 "$WORK/e2e2.log"
 echo "== 4. Quét log tìm bí mật"
 $DC logs --no-color > "$WORK/all.log" 2>&1
 leak=0
-for s in "$KC_DB_PASSWORD" "$KC_ADMIN_PASSWORD" "$GT_OIDC_CLIENT_SECRET" "$INIT_PW" "$NEW_PW" "$LEGACY"; do
+for s in "$KC_DB_PASSWORD" "$KC_ADMIN_PASSWORD" "$GT_OIDC_CLIENT_SECRET" "$INIT_PW" "$NEW_PW" "$LEGACY" \
+         "$MEMBER_PW" "${MEMBER_PW}N2"; do
   if grep -qF -- "$s" "$WORK/all.log"; then leak=1; echo "LỖI: một bí mật xuất hiện trong log" >&2; fi
 done
 if grep -qE "gtk_[A-Za-z0-9_-]{20,}" "$WORK/all.log"; then leak=1; echo "LỖI: token Gateway trong log" >&2; fi

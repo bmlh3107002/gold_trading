@@ -266,3 +266,22 @@ ACTIVE ──OWNER gỡ──► REVOKED
 - Không code nào được chọn MT5/Gateway "mặc định" cho một tài khoản không có liên kết của chính nó.
 - Danh tính MT5 so khớp theo `(login, server)` do terminal báo, không theo dữ liệu người dùng gõ tay.
 - Mọi bảng lệnh/vị thế/ledger/vốn/hạn mức mới đều có `account_id` (và `link_id` khi liên quan MT5), lọc ở tầng truy cập dữ liệu như MT-03.
+
+## 15. ADMIN tạo người dùng trên Dashboard (MT-20, người dùng chốt 2026-11-06)
+
+**Yêu cầu:** tạo người dùng ngay trên Dashboard (menu **Quản trị**, chỉ ADMIN thấy), tự tạo bên Keycloak; mỗi người mới có **tài khoản giao dịch riêng** và là **Chủ**; ADMIN tự nhập mật khẩu tạm; **không giới hạn số người** (khi `GT_MULTI_USER_ENABLED=1`, DEC-12).
+
+**Luồng** (`POST /api/admin/users`, `api/users.py`):
+1. Chỉ ADMIN (realm role); người khác → 403 + audit, không gọi Keycloak. `GT_MULTI_USER_ENABLED=0` → 409.
+2. Kiểm dữ liệu: username `^[a-z0-9][a-z0-9._-]{2,29}$`, email, họ, tên, mật khẩu ≥ 12 ký tự và khác username/email. Mã tài khoản `u-<username>` (`.` → `-`).
+3. Keycloak Admin API (`auth/kc_admin.py`): token `client_credentials` của chính client `gold-trading-dashboard` với scope **tùy chọn** `kc-admin-api` (Keycloak ≥ 26.8 bắt buộc audience này; token đăng nhập của người dùng không có). Tạo người dùng `enabled`, `emailVerified`, mật khẩu **temporary** → Keycloak bắt đổi ở lần đăng nhập đầu; chính sách mật khẩu realm do Keycloak kiểm (đã thử thật: ngắn, trùng username → 400).
+4. Một giao dịch DB (`provision_user`): hồ sơ `users` (`first_login_at` NULL = chưa đăng nhập, migration 0005) + `trading_accounts` (`price_feed=false`) + `account_members` OWNER. Lỗi DB → **xóa người dùng vừa tạo trên Keycloak** (không để đăng nhập mồ côi), audit REJECTED.
+5. Audit `user.create` không bao giờ chứa mật khẩu. Lỗi 422 toàn hệ thống **không trả lại giá trị đã gửi** (trước đây FastAPI trả nguyên `input`, có thể lộ mật khẩu — tìm được khi viết test).
+
+**Quyền của service account** (`realm-management`): chỉ `manage-users` + `view-users` (CI `check_realm.py` kiểm). Đã thử thật: không sửa được cài đặt realm (403), không đọc được realm `master` (403). Rủi ro còn lại: `manage-users` về lý thuyết cho phép gán realm role; backend không có code làm việc đó, và bí mật client đã là bí mật cấp cao nhất của backend.
+
+**Cài đặt đã có từ trước:** realm chỉ nhập một lần → chạy `sync-client.sh` (bật service account, cấp hai quyền trên, thêm scope `kc-admin-api` tùy chọn). Thiếu bước này → API trả 503 kèm hướng dẫn.
+
+**Kiểm thử:** `tests/test_admin_users.py` (20 test: quyền, DEC-12, trùng, dữ liệu sai, Keycloak hỏng/chưa cấp quyền, bù trừ khi DB lỗi, SQL, không giới hạn số người, không lộ mật khẩu); Keycloak 26.8.2 thật (realm cũ + `sync-client.sh`, cài mới); `ops/scripts/ci_stack.sh` (ADMIN tạo → người mới đăng nhập, bị bắt đổi mật khẩu, chỉ thấy tài khoản riêng, không vào được Tài khoản chính, không tạo được người dùng; mật khẩu không có trong log). Frontend: `AdminPage.test.tsx`.
+
+**Chưa có:** danh sách/khóa/xóa người dùng trên Dashboard (vẫn làm trên trang quản trị Keycloak); tài khoản giao dịch mới chưa nhận dữ liệu giá và chưa liên kết MT5 (MT-05, MT-12..15, GĐ1).

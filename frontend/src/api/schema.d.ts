@@ -369,6 +369,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create User */
+        post: operations["create_user_api_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1194,6 +1211,45 @@ export interface components {
          * @enum {string}
          */
         TradingMode: "BACKTEST" | "PAPER" | "SHADOW" | "LIVE";
+        /** UserCreate */
+        UserCreate: {
+            /**
+             * Username
+             * @description Chữ thường không dấu, số, . _ - (3–30 ký tự)
+             */
+            username: string;
+            /** Email */
+            email: string;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
+            /**
+             * Password
+             * @description Mật khẩu tạm; người dùng phải đổi ở lần đăng nhập đầu
+             */
+            password: string;
+            /**
+             * Account Name
+             * @description Tên tài khoản giao dịch riêng
+             */
+            account_name?: string | null;
+        };
+        /** UserCreated */
+        UserCreated: {
+            /** Sub */
+            sub: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email: string;
+            /** Display Name */
+            display_name: string;
+            /** Account Id */
+            account_id: string;
+            /** Account Name */
+            account_name: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1982,6 +2038,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditRecord"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_user_api_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserCreated"];
                 };
             };
             /** @description Validation Error */

@@ -29,6 +29,7 @@ from sqlalchemy import (
     text,
     update,
 )
+from sqlalchemy.exc import IntegrityError
 
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.ids import new_id
@@ -79,8 +80,9 @@ class UserRecord:
     username: str
     email: str | None
     display_name: str | None
-    first_login_at: datetime
-    last_login_at: datetime
+    # None = tài khoản do ADMIN tạo trên Dashboard (MT-20), người đó chưa đăng nhập lần nào
+    first_login_at: datetime | None
+    last_login_at: datetime | None
 
 
 @dataclass(frozen=True)
@@ -135,6 +137,9 @@ class Repository(Protocol):
     def memberships(self, sub: str) -> list[Member]: ...
     def set_member(self, m: Member) -> None: ...
     def remove_member(self, account_id: str, sub: str) -> bool: ...
+    def provision_user(self, user: UserRecord, acc: TradingAccount, owner: Member) -> None:
+        """MT-20: người dùng mới + tài khoản riêng + vai trò OWNER, trong MỘT giao dịch."""
+        ...
     # Token Gateway
     def rotate_gateway_token(self, account_id: str, raw: str, by: str, at: datetime) -> str: ...
     def account_for_token(self, raw: str) -> str | None: ...
@@ -239,7 +244,7 @@ class InMemoryRepository:
     def upsert_user(self, sub, username, email, display_name, at) -> None:
         with self._lock:
             old = self._users.get(sub)
-            first = old.first_login_at if old else at
+            first = (old.first_login_at if old else None) or at
             self._users[sub] = UserRecord(sub, username, email, display_name, first, at)
 
     def user(self, sub: str) -> UserRecord | None:
@@ -279,6 +284,19 @@ class InMemoryRepository:
     def remove_member(self, account_id: str, sub: str) -> bool:
         with self._lock:
             return self._members.pop((account_id, sub), None) is not None
+
+    def provision_user(self, user: UserRecord, acc: TradingAccount, owner: Member) -> None:
+        _check_role(owner.role)
+        if owner.sub != user.sub or owner.account_id != acc.account_id:
+            raise ValueError("owner phải là người dùng mới của tài khoản mới")
+        with self._lock:
+            if acc.account_id in self._accounts:
+                raise ConflictError(f"Tài khoản {acc.account_id} đã tồn tại")
+            if user.sub in self._users:
+                raise ConflictError("Người dùng đã tồn tại")
+            self._users[user.sub] = user
+            self._accounts[acc.account_id] = acc
+            self._members[(acc.account_id, user.sub)] = owner
 
     # --- Token Gateway ---
 
@@ -481,7 +499,9 @@ class SqlRepository:
             old = conn.execute(select(users.c.sub).where(users.c.sub == sub)).first()
             if old:
                 conn.execute(update(users).where(users.c.sub == sub).values(
-                    username=username, email=email, display_name=display_name, last_login_at=at
+                    username=username, email=email, display_name=display_name, last_login_at=at,
+                    # Tạo từ Dashboard (MT-20): lần đăng nhập đầu tiên mới có first_login_at
+                    first_login_at=func.coalesce(users.c.first_login_at, at),
                 ))
             else:
                 conn.execute(insert(users).values(
@@ -544,6 +564,18 @@ class SqlRepository:
                 and_(c.account_id == account_id, c.sub == sub)
             ))
         return res.rowcount > 0
+
+    def provision_user(self, user: UserRecord, acc: TradingAccount, owner: Member) -> None:
+        _check_role(owner.role)
+        if owner.sub != user.sub or owner.account_id != acc.account_id:
+            raise ValueError("owner phải là người dùng mới của tài khoản mới")
+        try:
+            with self.engine.begin() as conn:
+                conn.execute(insert(users).values(**user.__dict__))
+                conn.execute(insert(trading_accounts).values(**acc.__dict__))
+                conn.execute(insert(account_members).values(**owner.__dict__))
+        except IntegrityError as e:
+            raise ConflictError("Người dùng hoặc tài khoản đã tồn tại") from e
 
     # --- Token Gateway ---
 

@@ -610,7 +610,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | Mã | Câu hỏi cần chốt | TT |
 | --- | --- | --- |
 | DEC-11 | Người dùng là ai: người thân/bạn bè hay khách hàng bên ngoài? Hệ thống **tự giao dịch tiền của họ** hay chỉ đưa phân tích để họ tự quyết? | `[x]` 2026-11-06: người thân/bạn bè, hệ thống **tự giao dịch** |
-| DEC-12 | Rủi ro pháp lý khi quản lý/giao dịch tiền của người khác hoặc cung cấp khuyến nghị đầu tư (cần hỏi luật sư theo nơi cư trú) | `[x]` 2026-11-06: người dùng **chấp nhận rủi ro**, chỉ dùng nội bộ cho mình và **một người thân** → bật `GT_MULTI_USER_ENABLED=1` trên máy người dùng. Không mở cho người ngoài |
+| DEC-12 | Rủi ro pháp lý khi quản lý/giao dịch tiền của người khác hoặc cung cấp khuyến nghị đầu tư (cần hỏi luật sư theo nơi cư trú) | `[x]` 2026-11-06: người dùng **chấp nhận rủi ro**, chỉ dùng **nội bộ** (bản thân và người thân), **không giới hạn số người** → bật `GT_MULTI_USER_ENABLED=1` trên máy người dùng |
 | DEC-13 | Nơi chạy hệ thống: máy của người dùng hiện tại (Tailscale) hay máy chủ riêng; mỗi người tự chạy Gateway trên máy Windows của họ hay gom về một máy | `[x]` 2026-11-06: máy Windows của người dùng, **gom mọi Gateway/MT5 về máy này** (nhiều terminal MT5 trên một máy: GĐ1/MT-05) |
 | DEC-14 | Các broker khác nhau → lịch phiên, spread, giá khác nhau: chấp nhận nhiều nguồn giá song song? | `[!]` |
 
@@ -635,6 +635,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | MT-17 | Định tuyến lệnh: backend chỉ giao lệnh của tài khoản X cho thành phần thực thi của **liên kết ACTIVE của X**; không có đường dự phòng sang MT5/Gateway khác | `[ ]` | **GĐ9** (← GW-10) |
 | MT-18 | **Kiểm tra danh tính trước MỌI thao tác lệnh** (đặt/sửa/hủy/đóng): lệnh mang `expected_login/server/link_id`; thành phần thực thi đọc `account_info()` ngay trước khi gửi; lệch/không đọc được → từ chối `MT5_IDENTITY_MISMATCH`/`MT5_DISCONNECTED`, PAUSE/HALT tài khoản đó, audit, cảnh báo | `[ ]` | **GĐ9** |
 | MT-19 | Giao diện: người chỉ có **một** tài khoản giao dịch không phải chọn tài khoản (bộ chọn chỉ hiện khi ≥ 2), đăng nhập xong tự dùng tài khoản của mình | `[x]` | **GĐ0.** `Header.tsx`; test `App.test.tsx` (1 tài khoản: không có bộ chọn; 2 tài khoản: có, đổi được) |
+| MT-20 | ADMIN tạo người dùng trên Dashboard (menu **Quản trị** chỉ ADMIN thấy): tự tạo trên Keycloak (mật khẩu tạm ADMIN nhập, bắt đổi lần đầu) + tài khoản giao dịch riêng, người đó là Chủ; không giới hạn số người | `[x]` | **GĐ0.** Thiết kế `docs/thiet-ke/00-xac-thuc-phan-quyen.md` mục 15. `api/users.py`, `auth/kc_admin.py`, migration 0005, `sync-client.sh`; test `test_admin_users.py`, `AdminPage.test.tsx`, `ci_stack.sh`. Chưa có: danh sách/khóa/xóa người dùng trên Dashboard |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |

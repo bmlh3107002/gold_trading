@@ -21,11 +21,13 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
 from gold_trading.auth.config import AuthConfig
+from gold_trading.auth.kc_admin import KeycloakAdmin
 from gold_trading.auth.oidc import OidcClient
 from gold_trading.auth.web import AuthService
 
 PUBLIC_URL = "https://testserver"
 INTERNAL = "http://keycloak:8080/auth/realms/gold-trading"
+ADMIN_API = "http://keycloak:8080/auth/admin/realms/gold-trading"
 CLIENT_ID = "gold-trading-dashboard"
 CLIENT_SECRET = "test-client-secret-0123456789"
 ORIGIN = {"Origin": PUBLIC_URL}
@@ -59,6 +61,12 @@ class FakeKeycloak:
     # code -> (sub, nonce, code_challenge)
     codes: dict[str, tuple[str, str, str]] = field(default_factory=dict)
     refresh_tokens: dict[str, str] = field(default_factory=dict)  # token -> sub
+    # Admin API (MT-20): bật service account chưa, mật khẩu đã đặt, lượt gọi admin
+    service_account: bool = True
+    passwords: dict[str, tuple[str, bool]] = field(default_factory=dict)  # sub -> (pw, temporary)
+    admin_requests: list[tuple[str, str]] = field(default_factory=list)
+    admin_tokens: set[str] = field(default_factory=set)
+    fail_admin_create: int | None = None  # ép mã lỗi khi tạo người dùng
     down: bool = False
     clock_offset: int = 0
     issuer: str = PUBLIC_URL + "/auth/realms/gold-trading"
@@ -125,6 +133,14 @@ class FakeKeycloak:
                     "id_token": self.id_token(user, nonce),
                     "refresh_token": self._new_refresh(sub),
                 })
+            if form["grant_type"] == "client_credentials":
+                if not self.service_account:
+                    return httpx.Response(400, json={"error": "unauthorized_client"})
+                if "kc-admin-api" not in form.get("scope", "").split():
+                    return httpx.Response(200, json={"access_token": "no-admin-aud"})
+                t = "at_" + secrets.token_urlsafe(16)
+                self.admin_tokens.add(t)
+                return httpx.Response(200, json={"access_token": t, "token_type": "Bearer"})
             if form["grant_type"] == "refresh_token":
                 sub = self.refresh_tokens.pop(form.get("refresh_token", ""), None)
                 if sub is None or not self.users[sub].enabled:
@@ -134,7 +150,38 @@ class FakeKeycloak:
                     "id_token": self.id_token(user),
                     "refresh_token": self._new_refresh(sub),
                 })
+        if url.startswith(ADMIN_API + "/users"):
+            return self._admin(request, url)
         return httpx.Response(404)
+
+    def _admin(self, request: httpx.Request, url: str) -> httpx.Response:
+        self.admin_requests.append((request.method, url))
+        auth = request.headers.get("authorization", "")
+        if not auth.startswith("Bearer ") or auth[7:] not in self.admin_tokens:
+            return httpx.Response(401)
+        if request.method == "POST" and url == ADMIN_API + "/users":
+            if self.fail_admin_create:
+                return httpx.Response(self.fail_admin_create, json={"errorMessage": "forced"})
+            body = json.loads(request.content)
+            name = body["username"]
+            if any(u.username == name or (u.email and u.email == body.get("email"))
+                   for u in self.users.values()):
+                return httpx.Response(409, json={"errorMessage": "User exists"})
+            cred = body["credentials"][0]
+            if len(cred["value"]) < 12:
+                return httpx.Response(400, json={"error": "invalidPasswordMinLengthMessage",
+                                                 "errorMessage": "Invalid password: min length."})
+            sub = "kc-" + secrets.token_hex(8)
+            self.users[sub] = User(sub, name, [], body.get("email"))
+            self.passwords[sub] = (cred["value"], bool(cred["temporary"]))
+            return httpx.Response(201, headers={"Location": f"{ADMIN_API}/users/{sub}"})
+        if request.method == "DELETE":
+            sub = url.rsplit("/", 1)[-1]
+            if self.users.pop(sub, None) is None:
+                return httpx.Response(404)
+            self.passwords.pop(sub, None)
+            return httpx.Response(204)
+        return httpx.Response(405)
 
     # --- Dựng service ---
 
@@ -148,7 +195,8 @@ class FakeKeycloak:
     def app_kwargs(self, **cfg: Any) -> dict[str, Any]:
         """Tham số cho create_app: cấu hình đăng nhập test + OIDC client nối vào Keycloak giả."""
         config = make_config(**cfg)
-        return {"auth": config, "oidc": self.oidc(config)}
+        http = httpx.Client(transport=httpx.MockTransport(self.handler))
+        return {"auth": config, "oidc": self.oidc(config), "kc_admin": KeycloakAdmin(config, http)}
 
     def add_user(self, username: str, *, admin: bool = False, email: str | None = None) -> User:
         sub = f"sub-{username}"

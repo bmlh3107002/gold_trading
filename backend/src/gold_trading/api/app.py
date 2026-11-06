@@ -13,6 +13,8 @@ from datetime import datetime
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -24,7 +26,9 @@ from gold_trading.api.accounts import accounts_router
 from gold_trading.api.analysts import analysts_router
 from gold_trading.api.ingest import GatewayMonitors, ingest_router
 from gold_trading.api.market import market_router
+from gold_trading.api.users import users_router
 from gold_trading.auth.config import AuthConfig
+from gold_trading.auth.kc_admin import KeycloakAdmin
 from gold_trading.auth.oidc import OidcClient
 from gold_trading.auth.web import AuthService
 from gold_trading.common.enums import TradingMode
@@ -157,6 +161,7 @@ def create_app(
     calendar: MarketCalendar | Literal["env"] = "env",
     auth: AuthConfig | Literal["env"] = "env",
     oidc: OidcClient | None = None,
+    kc_admin: KeycloakAdmin | None = None,
     clock: ClockMonitor | None = None,
     run_clock: bool | None = None,
 ) -> FastAPI:
@@ -282,6 +287,14 @@ def create_app(
         openapi_url=None,
     )
     app.state.auth = auth_service
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_request, exc: RequestValidationError):
+        # Không bao giờ trả lại giá trị đã gửi (mật khẩu, token...): chỉ vị trí + loại lỗi.
+        errors = [{k: v for k, v in e.items() if k not in ("input", "ctx", "url")}
+                  for e in exc.errors()]
+        return JSONResponse({"detail": jsonable_encoder(errors)}, status_code=422)
+
     app.include_router(auth_service.router())
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
@@ -311,6 +324,14 @@ def create_app(
             market_view=lambda: market_view,
             monitors=monitors,
             legacy_token_configured=bool(token and len(token) >= 24),
+            multi_user_enabled=auth_cfg.multi_user_enabled,
+        )
+    )
+    app.include_router(
+        users_router(
+            repo,
+            registry,
+            kc_admin or KeycloakAdmin(auth_cfg),
             multi_user_enabled=auth_cfg.multi_user_enabled,
         )
     )

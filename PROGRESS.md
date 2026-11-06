@@ -52,7 +52,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
 | 12 | Dashboard | 🟡 | `frontend/` | Theme CutlotDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
 | 12 | API | ✅ | `backend/src/gold_trading/api/` | Mọi route cần đăng nhập trừ `/api/health`, `/api/auth/*`, `/api/ingest/mt5/*` (token Gateway). `/api/status` (thông tin hệ thống), `/api/system/health` (đồng hồ, ổ đĩa, sao lưu), `/api/accounts[/{id}/status|audit|safety|mode|mode/live-requests|members|gateway/*]`, `/api/admin/kill-switch|audit`, `/api/market/*`, `/api/analysts/technical/latest`. Mọi lệnh ghi vào audit kèm `actor_sub`, kể cả lệnh bị từ chối |
-| — | Xác thực + phân quyền | ✅ | `auth/`, `accounts/`, `api/accounts.py`, `ops/keycloak/` | Thiết kế: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`. Keycloak 26.8.2 (OIDC, BFF, PKCE), phiên trong bộ nhớ 8 giờ/30 phút, RBAC VIEWER/OPERATOR/OWNER + ADMIN, đa tài khoản giao dịch, LIVE hai người, break-glass `gt-break-glass`. **Chưa nhận người dùng thứ hai** (DEC-12) |
+| — | Xác thực + phân quyền | ✅ | `auth/`, `accounts/`, `api/accounts.py`, `api/users.py`, `ops/keycloak/` | Thiết kế: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`. Keycloak 26.8.2 (OIDC, BFF, PKCE), phiên trong bộ nhớ 8 giờ/30 phút, RBAC VIEWER/OPERATOR/OWNER + ADMIN, đa tài khoản giao dịch, LIVE hai người, break-glass `gt-break-glass`. ADMIN tạo người dùng trên Dashboard (MT-20); nhiều người dùng bật trên máy người dùng (DEC-12) |
 | — | Vận hành | ✅ | `ops/clock.py`, `ops/logging.py`, `ops/backup/` | Kiểm đồng hồ (> 30 s ngừng nhận nến), log JSON che bí mật, sao lưu 2 DB mỗi 24 giờ giữ 14 bản + khôi phục |
 | 12 | Backtest | ⬜ | | |
 | — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `ops/keycloak/`, `ops/backup/`, `docker-compose.yml`, `deploy/` | `docker compose up -d --build` chạy db + keycloak-db + keycloak + backend + frontend + backup. Bí mật bắt buộc trong `.env` (thiếu → compose báo lỗi). Dashboard ở `127.0.0.1:8080`; máy khác dùng **Tailscale Serve** (HTTPS, `GT_PUBLIC_URL=https://….ts.net`). Kiểm thử cả hệ thống: `ops/scripts/ci_stack.sh` (chạy trong CI) |
@@ -73,7 +73,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sửa code), frontend 46 passed + tsc/eslint sạch + build OK, ruff sạch, `ops/scripts/ci_stack.sh` đạt (e2e 20/20 + khôi phục + 18/18 + không có bí mật trong log).
+Kết quả lần cuối: backend 328 passed, mt5_gateway 26 passed (không sửa code), frontend 57 passed + tsc/eslint sạch + build OK, ruff sạch, `ops/scripts/ci_stack.sh` đạt (e2e 20/20 + khôi phục + 18/18 + không có bí mật trong log).
 
 ## Lưu ý kỹ thuật
 
@@ -236,7 +236,8 @@ Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sử
 ### 2026-11-06 — Cài GĐ0 trên máy Windows mới + theme đăng nhập + đổi tên
 - Người dùng làm xong trên máy Windows mới: `.env` bí mật, Docker 6/6 healthy, đăng nhập lần đầu (Chủ "Tài khoản chính"), MT5 Gateway check 9/9 + run (5.000 nến, 0 cách ly), Tailscale Serve `https://k.….ts.net` + `sync-client.sh`, đăng nhập trên máy tính và iPhone (OPS-16), diễn tập break-glass khi tắt Keycloak (HALTED, lịch sử ghi `break-glass`).
 - Theme đăng nhập Keycloak kế thừa `keycloak.v2` (`ops/keycloak/themes/cutlotdesk`, CI `check_theme.py` so màu với `tokens.css`). Đổi tên AurumDesk → **CutlotDesk** (đọc dự phòng khóa localStorage cũ). Realm còn tên theme cũ thì Keycloak dùng theme mặc định; `sync-client.sh` đặt lại.
-- **DEC-12 chốt:** người dùng chấp nhận rủi ro pháp lý, chỉ dùng nội bộ cho mình và một người thân → bật `GT_MULTI_USER_ENABLED=1` trên máy người dùng (mặc định trong code vẫn `0`).
+- **DEC-12 chốt:** người dùng chấp nhận rủi ro pháp lý, chỉ dùng nội bộ (bản thân và người thân), không giới hạn số người → bật `GT_MULTI_USER_ENABLED=1` trên máy người dùng (mặc định trong code vẫn `0`).
+- **MT-20:** ADMIN tạo người dùng trên Dashboard (menu **Quản trị** chỉ ADMIN thấy) → Keycloak (mật khẩu tạm, bắt đổi) + tài khoản giao dịch riêng `u-<username>`, người đó là Chủ. Thiết kế mục 15 của `docs/thiet-ke/00-xac-thuc-phan-quyen.md`. Keycloak 26.8 cần scope tùy chọn `kc-admin-api` cho Admin API (tìm được khi chạy thật). **Lỗi tìm được:** lỗi 422 của FastAPI trả nguyên giá trị đã gửi (có thể lộ mật khẩu) → handler toàn cục bỏ `input`. Kiểm chứng: backend 328 passed, frontend 57 passed, Keycloak thật (realm cũ + `sync-client.sh`, cài mới), `ci_stack.sh` 27/27 + 18/18 + không có bí mật trong log. Máy người dùng cần: build lại + `sync-client.sh`.
 - Còn lại của Gate GĐ0: diễn tập sao lưu + khôi phục trên máy người dùng (DB-09).
 
 ## Việc tiếp theo (đề xuất)

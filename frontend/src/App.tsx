@@ -14,6 +14,7 @@ import { ErrorState, LoadingState } from "./components/ui/StateView";
 import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
 import { AccountPage } from "./pages/AccountPage";
+import { AdminPage } from "./pages/AdminPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { useTranslation } from "react-i18next";
 
@@ -68,6 +69,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         storage={system.data?.storage ?? null}
         route={route}
         gateway={system.data?.data_source === "MT5" ? gateway.data : null}
+        isAdmin={me.is_admin}
       />
       <div className="main">
         <Header
@@ -89,6 +91,12 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         <main>
           {route === "market" ? (
             <MarketPage theme={theme} summary={market} />
+          ) : route === "admin" ? (
+            <AdminPage
+              me={me}
+              multiUser={system.data?.multi_user_enabled ?? true}
+              onUserCreated={() => void accounts.refresh()}
+            />
           ) : route === "account" ? (
             <AccountPage account={accounts.selected} me={me} />
           ) : (

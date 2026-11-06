@@ -62,7 +62,7 @@
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
+      "serviceAccountsEnabled": true,
       "frontchannelLogout": false,
       "fullScopeAllowed": true,
       "rootUrl": "${GT_PUBLIC_URL}",
@@ -75,7 +75,7 @@
         "client_credentials.use_refresh_token": "false"
       },
       "defaultClientScopes": ["profile", "email", "roles", "basic"],
-      "optionalClientScopes": [],
+      "optionalClientScopes": ["kc-admin-api"],
       "protocolMappers": [
         {
           "name": "gt-realm-roles",
@@ -109,6 +109,15 @@
           "temporary": true
         }
       ]
+    },
+    {
+      "username": "service-account-gold-trading-dashboard",
+      "enabled": true,
+      "serviceAccountClientId": "gold-trading-dashboard",
+      "realmRoles": [],
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
     }
   ]
 }

@@ -24,6 +24,8 @@ export type GatewayStatus = components["schemas"]["GatewayStatus"];
 export type AnalystOutputDto = components["schemas"]["AnalystOutput"];
 export type Me = components["schemas"]["Me"];
 export type LogoutResult = components["schemas"]["LogoutResult"];
+export type UserCreate = components["schemas"]["UserCreate"];
+export type UserCreated = components["schemas"]["UserCreated"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
@@ -128,5 +130,6 @@ export const api = {
   removeMember: (id: string, sub: string) =>
     requestEmpty(`${acc(id)}/members/${encodeURIComponent(sub)}`, { method: "DELETE" }),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
+  createUser: (body: UserCreate) => request<UserCreated>("/api/admin/users", post(body)),
   rotateGatewayToken: (id: string) => request<GatewayTokenIssued>(`${acc(id)}/gateway/token`, { method: "POST" }),
 };
