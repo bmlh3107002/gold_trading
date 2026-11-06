@@ -53,6 +53,21 @@ describe("Trang Tài khoản", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
+  it("Quản trị không là thành viên (DEC-15): ẩn hẳn mục MT5 Gateway, không gọi API token", async () => {
+    const fn = mock();
+    render(
+      <AccountPage
+        account={makeAccount({ role: null, permissions: ["VIEW", "PAUSE_HALT", "APPROVE_LIVE", "MANAGE_MEMBERS"] })}
+        me={makeMe()}
+      />,
+    );
+    expect(await screen.findByText("admin")).toBeInTheDocument();
+    expect(screen.queryByText("MT5 Gateway")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /token Gateway/ })).not.toBeInTheDocument();
+    expect(fn).not.toHaveBeenCalledWith(`${ACC}/gateway/token`, expect.anything());
+    expect(fn.mock.calls.some(([u]) => String(u).includes("/gateway/token"))).toBe(false);
+  });
+
   it("thêm thành viên bị từ chối (chưa nhận người thứ hai): hiện thông báo thân thiện", async () => {
     mock((url, init) =>
       url === `${ACC}/members` && init?.method === "POST" ? json({ detail: "raw DEC-12" }, 409) : null,

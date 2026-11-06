@@ -38,10 +38,12 @@ MIN_ROLE: dict[Perm, str] = {
 }
 
 # ADMIN (realm role) được làm gì trên tài khoản mà mình KHÔNG là thành viên:
-# chỉ giám sát, dừng (hướng an toàn), duyệt LIVE, xoay token, quản lý thành viên.
+# chỉ giám sát, dừng (hướng an toàn), duyệt LIVE, quản lý thành viên.
 # Không được mở giao dịch hay đổi Mode thay chủ tài khoản.
+# Không xoay token Gateway (DEC-15): token là chìa khóa nối tài khoản với MT5, chỉ OWNER
+# cầm; ADMIN muốn cấp token thì tự thêm mình làm OWNER (có ghi audit).
 ADMIN_PERMS: frozenset[Perm] = frozenset(
-    {Perm.VIEW, Perm.PAUSE_HALT, Perm.APPROVE_LIVE, Perm.ROTATE_TOKEN, Perm.MANAGE_MEMBERS}
+    {Perm.VIEW, Perm.PAUSE_HALT, Perm.APPROVE_LIVE, Perm.MANAGE_MEMBERS}
 )
 
 Decision = Literal["ok", "forbidden", "not_found"]

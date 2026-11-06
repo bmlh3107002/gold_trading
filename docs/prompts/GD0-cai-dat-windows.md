@@ -14,6 +14,7 @@ Người dùng không rành kỹ thuật: giải thích đơn giản bằng ti�
 7–11. MT5 (MetaQuotes-Demo, XAUUSD M15), Gateway ở `C:\gold-trading\code\gold_trading-develop\mt5_gateway`, token Gateway, `check` 9/9, `run` có nến.
 12–14. Tailscale Serve `https://k.tail8836b4.ts.net`, `GT_PUBLIC_URL` + `sync-client.sh`, đăng nhập máy tính + iPhone. Theme đăng nhập CutlotDesk.
 15. Diễn tập break-glass khi tắt Keycloak: đạt (đang HALTED, chưa cần mở lại).
+16. MT-20 đạt (tạo `thunghiem`, đăng nhập ẩn danh đúng). Người giao dịch "Lord Trade" đã là Chủ "Tài khoản chính". DEC-15: admin chỉ quản trị, token Gateway ẩn với admin (cần build lại + gỡ admin khỏi "Tài khoản chính").
 
 ## Các bước còn lại (mỗi lần một bước)
 

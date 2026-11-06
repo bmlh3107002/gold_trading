@@ -13,6 +13,7 @@
 | DEC-12 | Rủi ro pháp lý khi quản lý/giao dịch tiền của người khác hoặc cung cấp khuyến nghị đầu tư (cần hỏi luật sư theo nơi cư trú) | `[x]` 2026-11-06: người dùng **chấp nhận rủi ro**, chỉ dùng **nội bộ** (bản thân và người thân), **không giới hạn số người** → bật `GT_MULTI_USER_ENABLED=1` trên máy người dùng |
 | DEC-13 | Nơi chạy hệ thống: máy của người dùng hiện tại (Tailscale) hay máy chủ riêng; mỗi người tự chạy Gateway trên máy Windows của họ hay gom về một máy | `[x]` 2026-11-06: máy Windows của người dùng, **gom mọi Gateway/MT5 về máy này** (nhiều terminal MT5 trên một máy: GĐ1/MT-05) |
 | DEC-14 | Các broker khác nhau → lịch phiên, spread, giá khác nhau: chấp nhận nhiều nguồn giá song song? | `[!]` |
+| DEC-15 | Vai trò của tài khoản `admin` | `[x]` 2026-11-06: **chỉ quản trị, không giao dịch**; ẩn token Gateway với admin (chi tiết: `docs/thiet-ke/00-xac-thuc-phan-quyen.md` mục 0). Yêu cầu kèm theo cho MT-15: một máy Windows chạy nhiều MT5, mỗi người chỉ thao tác MT5 của mình; mong muốn **một Gateway quản lý nhiều terminal** (mỗi terminal một nhánh, token riêng) |
 
 | Mã | Việc | TT | Ghi chú |
 | --- | --- | --- | --- |

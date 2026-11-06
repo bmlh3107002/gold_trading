@@ -77,15 +77,26 @@ def test_rotate_requires_owner_or_admin():
     repo.set_member(Member("default", "sub-vera", "OPERATOR", utcnow(), "t"))
     assert v.post("/api/accounts/default/gateway/token").status_code == 403
     assert v.get("/api/accounts/default/gateway/status").status_code == 200
-    # ADMIN không là thành viên vẫn xoay được (ma trận quyền)
+    # DEC-15: ADMIN không là thành viên KHÔNG xoay được, cũng không lấy được token
     admin.post("/api/accounts", json={"account_id": "acc_b", "name": "B"})
+    r = admin.post("/api/accounts/acc_b/gateway/token")
+    assert r.status_code == 403 and "token" not in r.json()
+    assert not repo.has_gateway_tokens("acc_b")
+    me = admin.get("/api/accounts").json()
+    perms = next(a["permissions"] for a in me if a["account_id"] == "acc_b")
+    assert "ROTATE_TOKEN" not in perms and "VIEW" in perms
+    # Tự thêm mình làm OWNER (có audit) thì mới cấp token được
+    sub = next(u.sub for u in kc.users.values() if u.username == "admin")
+    repo.set_member(Member("acc_b", sub, "OWNER", utcnow(), "t"))
     assert admin.post("/api/accounts/acc_b/gateway/token").status_code == 200
 
 
 def test_gateway_of_a_cannot_write_into_b():
     """MT-C02."""
-    repo, store, _, _, admin = world()
+    repo, store, _, kc, admin = world()
     admin.post("/api/accounts", json={"account_id": "acc_b", "name": "B"})
+    sub = next(u.sub for u in kc.users.values() if u.username == "admin")
+    repo.set_member(Member("acc_b", sub, "OWNER", utcnow(), "t"))
     tok_default = rotate(admin).json()["token"]
     tok_b = rotate(admin, "acc_b").json()["token"]
 

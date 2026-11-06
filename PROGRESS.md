@@ -8,7 +8,7 @@
 ## Trạng thái hiện tại
 
 - **Giai đoạn hiện tại: GĐ0 — Nền móng** → [`docs/giai-doan/GD0-nen-mong.md`](docs/giai-doan/GD0-nen-mong.md)
-- Code + test GĐ0 xong. Người dùng đã cài trên máy Windows mới (Docker, đăng nhập, MT5 Gateway 9/9, Tailscale HTTPS máy tính + iPhone, break-glass). **Còn:** người dùng build lại + `sync-client.sh` cho MT-20 (ADMIN tạo người dùng), rồi diễn tập sao lưu + khôi phục (DB-09) → xác nhận đóng GĐ0.
+- Code + test GĐ0 xong. Trên máy Windows người dùng đã đạt: Docker, đăng nhập, MT5 Gateway 9/9, Tailscale HTTPS máy tính + iPhone, break-glass, **MT-20** (ADMIN tạo người dùng). **DEC-15:** admin chỉ quản trị, token Gateway ẩn với admin. **Còn:** gỡ admin khỏi "Tài khoản chính" + build lại, rồi diễn tập sao lưu + khôi phục (DB-09) → xác nhận đóng GĐ0.
 - Sau GĐ0: GĐ1 cần người dùng chốt DEC-01..07 (xem `docs/giai-doan/GD1-du-lieu-vao.md`).
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
@@ -46,4 +46,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-06): backend 328 passed, mt5_gateway 26 passed, frontend 57 passed, ruff/tsc/eslint sạch, build OK, `ci_stack.sh` đạt (e2e 27/27 + khôi phục 18/18 + không có bí mật trong log).
+Kết quả lần cuối (2026-11-06): backend 328 passed, mt5_gateway 26 passed, frontend 58 passed, ruff/tsc/eslint sạch, build OK, `ci_stack.sh` đạt (e2e 27/27 + khôi phục 18/18 + không có bí mật trong log).

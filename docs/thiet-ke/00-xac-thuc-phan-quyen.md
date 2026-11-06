@@ -10,6 +10,7 @@
 | DEC-11 | Sau này: **người thân/bạn bè**, hệ thống **tự giao dịch** bằng tiền của họ | Nền móng đa tài khoản làm đầy đủ. Tự giao dịch tiền người khác có rủi ro pháp lý (xem DEC-12) |
 | DEC-12 | **Chưa trả lời** (cần hỏi luật sư) | `GT_MULTI_USER_ENABLED=0` mặc định: backend **từ chối** thêm người thứ hai vào bất kỳ tài khoản nào. Chỉ bật khi DEC-12 có câu trả lời |
 | DEC-13 | Chạy trên **máy Windows của người dùng**; **gom mọi Gateway/MT5 về máy này** | Mỗi tài khoản giao dịch có token Gateway riêng. Nhiều terminal MT5 trên một máy là việc của GĐ1 (MT-05) |
+| DEC-15 (2026-11-06) | Tài khoản `admin` **chỉ để quản trị, không giao dịch**; giao dịch bằng người dùng khác là Chủ tài khoản. Mỗi tài khoản giao dịch ↔ một token ↔ một MT5. **Ẩn token Gateway với admin** | ADMIN (không là thành viên) **không** xoay/cấp token Gateway và Dashboard ẩn hẳn mục MT5 Gateway. Lý do: token là chìa khóa nối tài khoản với MT5; admin bị lộ mật khẩu thì không lấy được token để gửi dữ liệu giả hay (sau này) lệnh vào MT5 của người khác. Admin vẫn xem, dừng khẩn cấp, quản lý thành viên; muốn cấp token hộ thì phải tự thêm mình làm Chủ (có audit). Hướng chặt hơn = an toàn hơn |
 | Phiên | Tối đa **8 giờ**, không hoạt động **30 phút** thì hết | `GT_SESSION_MAX_HOURS=8`, `GT_SESSION_IDLE_MINUTES=30`; Keycloak cấu hình cùng giá trị |
 | Tailscale | Hiện truy cập bằng `http://100.x.y.z:8080` (chưa HTTPS) | Chuyển sang **Tailscale Serve** (HTTPS `*.ts.net`), địa chỉ đặt qua `GT_PUBLIC_URL`; nginx quay về chỉ mở `127.0.0.1` |
 | 2 lớp (OTP) | **Chưa bật** | Realm không bắt buộc OTP. Bật sau bằng một thao tác trong Keycloak (Authentication → Required actions → Configure OTP), không cần đổi code |
@@ -119,7 +120,7 @@ Vai trò theo tài khoản giao dịch (DB ứng dụng): **VIEWER < OPERATOR < 
 | Đổi Mode BACKTEST/PAPER/SHADOW | ✗ | ✗ | ✓ | ✗ |
 | Yêu cầu bật LIVE | ✗ | ✗ | ✓ | ✗ |
 | **Duyệt** LIVE (người khác người yêu cầu) | ✗ | ✗ | ✓ | ✓ |
-| Xoay token Gateway | ✗ | ✗ | ✓ | ✓ |
+| Xoay token Gateway | ✗ | ✗ | ✓ | ✗ (DEC-15) |
 | Thêm/đổi vai trò/gỡ thành viên | ✗ | ✗ | ✓ | ✓ |
 | Tạo tài khoản giao dịch mới | — | — | — | ✓ |
 | Kill switch **toàn hệ thống** (HALT mọi tài khoản) | ✗ | ✗ | ✗ | ✓ |

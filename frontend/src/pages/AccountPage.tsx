@@ -42,7 +42,8 @@ export function AccountPage({ account, me }: { account: AccountSummary | null; m
         </div>
       </div>
       <Members account={account} me={me} />
-      <GatewayToken account={account} />
+      {/* DEC-15: token Gateway chỉ Chủ tài khoản thấy; Quản trị không là thành viên thì ẩn. */}
+      {account.permissions.includes("ROTATE_TOKEN") && <GatewayToken account={account} />}
     </div>
   );
 }
