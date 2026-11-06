@@ -606,9 +606,9 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 
 | Mã | Câu hỏi cần chốt | TT |
 | --- | --- | --- |
-| DEC-11 | Người dùng là ai: người thân/bạn bè hay khách hàng bên ngoài? Hệ thống **tự giao dịch tiền của họ** hay chỉ đưa phân tích để họ tự quyết? | `[!]` |
-| DEC-12 | Rủi ro pháp lý khi quản lý/giao dịch tiền của người khác hoặc cung cấp khuyến nghị đầu tư (cần hỏi luật sư theo nơi cư trú) | `[!]` |
-| DEC-13 | Nơi chạy hệ thống: máy của người dùng hiện tại (Tailscale) hay máy chủ riêng; mỗi người tự chạy Gateway trên máy Windows của họ hay gom về một máy | `[!]` |
+| DEC-11 | Người dùng là ai: người thân/bạn bè hay khách hàng bên ngoài? Hệ thống **tự giao dịch tiền của họ** hay chỉ đưa phân tích để họ tự quyết? | `[x]` 2026-11-06: người thân/bạn bè, hệ thống **tự giao dịch** |
+| DEC-12 | Rủi ro pháp lý khi quản lý/giao dịch tiền của người khác hoặc cung cấp khuyến nghị đầu tư (cần hỏi luật sư theo nơi cư trú) | `[!]` Chưa trả lời → `GT_MULTI_USER_ENABLED=0`: backend từ chối thêm người thứ hai |
+| DEC-13 | Nơi chạy hệ thống: máy của người dùng hiện tại (Tailscale) hay máy chủ riêng; mỗi người tự chạy Gateway trên máy Windows của họ hay gom về một máy | `[x]` 2026-11-06: máy Windows của người dùng, **gom mọi Gateway/MT5 về máy này** (nhiều terminal MT5 trên một máy: GĐ1/MT-05) |
 | DEC-14 | Các broker khác nhau → lịch phiên, spread, giá khác nhau: chấp nhận nhiều nguồn giá song song? | `[!]` |
 
 | Mã | Việc | TT | Ghi chú |
