@@ -6,6 +6,7 @@ import json
 
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
+from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository, Member
 from tests.auth_helpers import client, make_app
@@ -98,7 +99,7 @@ def test_gateway_of_a_cannot_write_into_b():
     # acc_b chưa được ghi nến dùng chung (tới MT-05): nến bị từ chối, nhịp tim được nhận
     r = admin.post("/api/ingest/mt5/candles", json=batch(bars(5)), headers=bearer(tok_b))
     assert r.status_code == 403
-    assert store.stats("XAUUSD", "M15", DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5).count == 0
     assert admin.post("/api/ingest/mt5/heartbeat", json=HB,
                       headers=bearer(tok_b)).status_code == 200
     # Trạng thái Gateway tách theo tài khoản

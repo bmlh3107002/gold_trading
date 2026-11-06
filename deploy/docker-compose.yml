@@ -109,8 +109,38 @@ services:
       GT_SESSION_IDLE_MINUTES: ${GT_SESSION_IDLE_MINUTES:-30}
       # Chưa nhận người dùng thứ hai cho tới khi có ý kiến pháp lý (DEC-12)
       GT_MULTI_USER_ENABLED: ${GT_MULTI_USER_ENABLED:-0}
+      # Đọc trạng thái sao lưu + đo dung lượng ổ để cảnh báo trên Dashboard (chỉ đọc)
+      GT_BACKUP_DIR: /backups
+    volumes:
+      - ${GT_BACKUP_DIR:-./backups}:/backups:ro
     depends_on:
       db:
+        condition: service_healthy
+    logging: *logging
+    restart: unless-stopped
+
+  # Sao lưu tự động DB ứng dụng + DB Keycloak mỗi 24 giờ, giữ 14 bản (DB-09).
+  # Bản sao lưu nằm ở thư mục backups/ cạnh file này (đổi bằng GT_BACKUP_DIR).
+  # Khôi phục: xem README (mục "Sao lưu và khôi phục").
+  backup:
+    image: gold_trading/backup:latest
+    build:
+      context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:ops/backup
+    environment:
+      APP_DB_HOST: db
+      APP_DB_USER: ${POSTGRES_USER:-gold}
+      APP_DB_NAME: ${POSTGRES_DB:-gold_trading}
+      APP_DB_PASSWORD: ${POSTGRES_PASSWORD:-gold-local-only}
+      KC_DB_HOST: keycloak-db
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:?Thiếu KC_DB_PASSWORD trong .env}
+      GT_BACKUP_INTERVAL_HOURS: ${GT_BACKUP_INTERVAL_HOURS:-24}
+      GT_BACKUP_KEEP: ${GT_BACKUP_KEEP:-14}
+    volumes:
+      - ${GT_BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak-db:
         condition: service_healthy
     logging: *logging
     restart: unless-stopped

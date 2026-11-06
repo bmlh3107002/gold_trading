@@ -38,6 +38,7 @@ from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST
 from gold_trading.ops.clock import ClockMonitor
 from gold_trading.ops.logging import CorrelationMiddleware, configure_logging
+from gold_trading.ops.storage_health import backup_info, disk
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -66,10 +67,29 @@ class ClockOut(BaseModel):
     measured_at: datetime | None
 
 
+class DiskOut(BaseModel):
+    name: Literal["docker", "backups"]
+    used_pct: float | None
+    free_gb: float | None
+    warn: bool = Field(description="True khi đã dùng > 85%")
+
+
+class BackupOut(BaseModel):
+    state: Literal["OK", "STALE", "FAILED", "MISSING", "DISABLED"]
+    last_finished_at: datetime | None
+    last_result: str | None
+    app_file: str | None
+    keycloak_file: str | None
+    app_count: int | None
+    keycloak_count: int | None
+
+
 class OpsHealth(BaseModel):
     """Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu)."""
 
     clock: ClockOut
+    disks: list[DiskOut]
+    backup: BackupOut
 
 
 class SystemStatus(BaseModel):
@@ -305,7 +325,18 @@ def create_app(
     @app.get("/api/system/health", response_model=OpsHealth)
     def ops_health() -> OpsHealth:
         st = clock.status
-        return OpsHealth(clock=ClockOut(**st.__dict__))
+        bdir = os.environ.get("GT_BACKUP_DIR") or None
+        disks = [disk("docker", "/")]
+        if bdir:
+            disks.append(disk("backups", bdir))
+        for d in disks:
+            if d.warn:
+                log.warning("Ổ đĩa %s đã dùng %.1f%% (> 85%%)", d.name, d.used_pct)
+        return OpsHealth(
+            clock=ClockOut(**st.__dict__),
+            disks=[DiskOut(**d.__dict__) for d in disks],
+            backup=BackupOut(**backup_info(bdir).__dict__),
+        )
 
     @app.get("/api/status", response_model=SystemStatus)
     def get_status() -> SystemStatus:

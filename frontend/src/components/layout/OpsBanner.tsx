@@ -20,6 +20,15 @@ export function OpsBanner({ health }: { health: OpsHealth | null }) {
   } else if (c.state === "UNKNOWN" && c.measured_at) {
     items.push({ key: "clock", text: t("ops.clockUnknown"), danger: false });
   }
+  for (const d of health.disks ?? []) {
+    if (d.warn && d.used_pct != null) {
+      items.push({ key: `disk-${d.name}`, text: t(`ops.disk.${d.name}`, { pct: d.used_pct.toFixed(0) }), danger: d.used_pct > 95 });
+    }
+  }
+  const b = health.backup;
+  if (b && (b.state === "FAILED" || b.state === "STALE" || b.state === "MISSING")) {
+    items.push({ key: "backup", text: t(`ops.backup.${b.state}`), danger: b.state === "FAILED" });
+  }
   if (items.length === 0) return null;
   return (
     <div className="ops-banners">

@@ -1540,6 +1540,99 @@
         ],
         "title": "AuditRecord"
       },
+      "BackupOut": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "STALE",
+              "FAILED",
+              "MISSING",
+              "DISABLED"
+            ],
+            "title": "State"
+          },
+          "last_finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Finished At"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "app_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App File"
+          },
+          "keycloak_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keycloak File"
+          },
+          "app_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Count"
+          },
+          "keycloak_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keycloak Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "last_finished_at",
+          "last_result",
+          "app_file",
+          "keycloak_file",
+          "app_count",
+          "keycloak_count"
+        ],
+        "title": "BackupOut"
+      },
       "BarIn": {
         "properties": {
           "open_time": {
@@ -1965,6 +2058,53 @@
           "MT5"
         ],
         "title": "DataSource"
+      },
+      "DiskOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "docker",
+              "backups"
+            ],
+            "title": "Name"
+          },
+          "used_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Used Pct"
+          },
+          "free_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Gb"
+          },
+          "warn": {
+            "type": "boolean",
+            "title": "Warn",
+            "description": "True khi đã dùng > 85%"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "used_pct",
+          "free_gb",
+          "warn"
+        ],
+        "title": "DiskOut"
       },
       "Freshness": {
         "type": "string",
@@ -2796,11 +2936,23 @@
         "properties": {
           "clock": {
             "$ref": "#/components/schemas/ClockOut"
+          },
+          "disks": {
+            "items": {
+              "$ref": "#/components/schemas/DiskOut"
+            },
+            "type": "array",
+            "title": "Disks"
+          },
+          "backup": {
+            "$ref": "#/components/schemas/BackupOut"
           }
         },
         "type": "object",
         "required": [
-          "clock"
+          "clock",
+          "disks",
+          "backup"
         ],
         "title": "OpsHealth",
         "description": "Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu)."

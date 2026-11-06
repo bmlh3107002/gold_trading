@@ -109,6 +109,15 @@ const vi = {
     clockBlocked:
       "Đồng hồ máy chủ lệch {{offset}} giây: ĐÃ NGỪNG nhận nến để tránh sai thời điểm dữ liệu. Khởi động lại Docker Desktop hoặc đồng bộ giờ Windows.",
     clockUnknown: "Không kiểm tra được đồng hồ máy chủ (không kết nối được máy chủ thời gian).",
+    disk: {
+      docker: "Ổ đĩa của Docker đã dùng {{pct}}%. Dọn bớt dữ liệu trước khi ổ đầy (ổ đầy sẽ ngừng nhận nến).",
+      backups: "Ổ chứa bản sao lưu đã dùng {{pct}}%. Dọn bớt hoặc chuyển thư mục sao lưu.",
+    },
+    backup: {
+      FAILED: "Lần sao lưu gần nhất THẤT BẠI. Xem log: docker compose logs backup",
+      STALE: "Đã quá 26 giờ chưa có bản sao lưu mới. Kiểm tra container backup đang chạy.",
+      MISSING: "Chưa có bản sao lưu nào (hoặc không đọc được trạng thái sao lưu).",
+    },
   },
   connection: {
     live: "Trực tiếp",

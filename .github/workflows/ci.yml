@@ -69,13 +69,17 @@ jobs:
       - run: npm run build
 
   docker:
-    # Máy Windows build đúng hai Dockerfile này khi deploy: lỗi build phải bị chặn ở đây.
+    # Máy Windows build đúng các Dockerfile này khi deploy: lỗi build phải bị chặn ở đây.
+    # Sau đó dựng cả hệ thống và chạy kiểm thử đầu-cuối với Keycloak thật + sao lưu/khôi phục.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -q -t gold_trading/backend:ci backend
-      - run: docker build -q -t gold_trading/frontend:ci frontend
-      - run: docker build -q -t gold_trading/keycloak:ci ops/keycloak
       - name: Realm JSON hợp lệ và không chứa bí mật
         run: python3 ops/keycloak/check_realm.py ops/keycloak/realm/gold-trading-realm.json
+      - run: docker build -q -t gold_trading/backend:latest backend
+      - run: docker build -q -t gold_trading/frontend:latest frontend
+      - run: docker build -q -t gold_trading/keycloak:26.8.2 ops/keycloak
+      - run: docker build -q -t gold_trading/backup:latest ops/backup
+      - name: Kiểm thử cả hệ thống (đăng nhập, phân quyền, break-glass, sao lưu/khôi phục, log)
+        run: ops/scripts/ci_stack.sh

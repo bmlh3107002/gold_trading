@@ -7,7 +7,11 @@ import { json, makeAccount, makeMe, makeStatus, makeSummary, makeSystem } from "
 const ACC = "/api/accounts/default";
 
 /** Handler lo trạng thái tài khoản và lệnh ghi; các API khác có giá trị mặc định. */
-const OK_HEALTH = { clock: { state: "OK", offset_s: 0.2, sources_ok: 5, measured_at: "2026-11-06T03:00:00Z" } };
+const OK_HEALTH = {
+  clock: { state: "OK", offset_s: 0.2, sources_ok: 5, measured_at: "2026-11-06T03:00:00Z" },
+  disks: [{ name: "docker", used_pct: 40, free_gb: 100, warn: false }],
+  backup: { state: "OK", last_finished_at: "2026-11-06T03:00:00Z", last_result: "OK", app_file: "a", keycloak_file: "k", app_count: 3, keycloak_count: 3 },
+};
 
 function mockFetch(
   handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
@@ -137,12 +141,19 @@ describe("App", () => {
     mockFetch(
       (url) =>
         url === "/api/system/health"
-          ? json({ clock: { state: "BLOCKED", offset_s: -41.5, sources_ok: 5, measured_at: "2026-11-06T03:00:00Z" } })
+          ? json({
+              ...OK_HEALTH,
+              clock: { state: "BLOCKED", offset_s: -41.5, sources_ok: 5, measured_at: "2026-11-06T03:00:00Z" },
+              disks: [{ name: "docker", used_pct: 91, free_gb: 5, warn: true }],
+              backup: { ...OK_HEALTH.backup, state: "FAILED" },
+            })
           : json(makeStatus()),
       true,
     );
     render(<App />);
     expect(await screen.findByText(/lệch -41.5 giây: ĐÃ NGỪNG nhận nến/)).toBeInTheDocument();
+    expect(screen.getByText(/Ổ đĩa của Docker đã dùng 91%/)).toBeInTheDocument();
+    expect(screen.getByText(/Lần sao lưu gần nhất THẤT BẠI/)).toBeInTheDocument();
   });
 
   it("chưa đăng nhập: hiện trang đăng nhập, không gọi API trạng thái", async () => {

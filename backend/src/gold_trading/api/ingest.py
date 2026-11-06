@@ -8,6 +8,7 @@ có token đầu tiên trong DB. Không có token nào → cổng TẮT (503).
 from __future__ import annotations
 
 import hmac
+import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
 
 from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
@@ -25,6 +27,8 @@ from gold_trading.market.service import MarketDataService
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import Repository
 from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
+
+log = logging.getLogger("gold_trading.ingest")
 
 MIN_TOKEN_LEN = 24
 MAX_BARS = 2000
@@ -221,14 +225,22 @@ def ingest_router(
         if dry_run:
             # Chạy toàn bộ kiểm tra trên một kho tạm, có sẵn nến hiện có để khử trùng giống thật
             target = CandleIngestor(_DryRunStore(ingestor.store))
-        res = target.ingest(
-            bars,
-            symbol=batch.symbol,
-            timeframe=market.timeframe,
-            source=DataSource.MT5,
-            ingested_at=utcnow(),
-            backfill=batch.backfill,
-        )
+        try:
+            res = target.ingest(
+                bars,
+                symbol=batch.symbol,
+                timeframe=market.timeframe,
+                source=DataSource.MT5,
+                ingested_at=utcnow(),
+                backfill=batch.backfill,
+            )
+        except SQLAlchemyError as e:
+            # 0-C05: ổ đầy / DB lỗi. Cả lô nằm trong một transaction nên không ghi dở;
+            # nến đã ghi trước đó không mất. Gateway sẽ gửi lại.
+            log.error("Không ghi được nến vào DB: %s", type(e).__name__)
+            raise HTTPException(
+                503, "Lưu trữ đang lỗi (có thể ổ đĩa đầy): chưa ghi lô nến này, Gateway sẽ gửi lại"
+            ) from e
         return IngestReport(
             dry_run=dry_run,
             received=len(bars),

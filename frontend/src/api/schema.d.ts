@@ -562,6 +562,26 @@ export interface components {
             /** Account Id */
             account_id?: string | null;
         };
+        /** BackupOut */
+        BackupOut: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "OK" | "STALE" | "FAILED" | "MISSING" | "DISABLED";
+            /** Last Finished At */
+            last_finished_at: string | null;
+            /** Last Result */
+            last_result: string | null;
+            /** App File */
+            app_file: string | null;
+            /** Keycloak File */
+            keycloak_file: string | null;
+            /** App Count */
+            app_count: number | null;
+            /** Keycloak Count */
+            keycloak_count: number | null;
+        };
         /** BarIn */
         BarIn: {
             /**
@@ -708,6 +728,23 @@ export interface components {
          * @enum {string}
          */
         DataSource: "SAMPLE" | "CSV" | "MT5";
+        /** DiskOut */
+        DiskOut: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "docker" | "backups";
+            /** Used Pct */
+            used_pct: number | null;
+            /** Free Gb */
+            free_gb: number | null;
+            /**
+             * Warn
+             * @description True khi đã dùng > 85%
+             */
+            warn: boolean;
+        };
         /**
          * Freshness
          * @enum {string}
@@ -1024,6 +1061,9 @@ export interface components {
          */
         OpsHealth: {
             clock: components["schemas"]["ClockOut"];
+            /** Disks */
+            disks: components["schemas"]["DiskOut"][];
+            backup: components["schemas"]["BackupOut"];
         };
         /**
          * Perm
