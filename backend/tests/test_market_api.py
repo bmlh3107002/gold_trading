@@ -60,7 +60,9 @@ def test_sample_data_blocks_shadow_and_live():
 
 def test_restored_shadow_downgraded_when_sample():
     repo = InMemoryRepository()
-    repo.append_mode(ModeChange(TradingMode.PAPER, TradingMode.SHADOW, "op", None))
+    repo.append_mode(
+        "default", ModeChange(TradingMode.PAPER, TradingMode.SHADOW, "op", None)
+    )
     c, _ = sample_app(repo)
     assert c.get("/api/status").json()["mode"] == "PAPER"
     assert any(e.action == "mode.startup" for e in repo.audit())

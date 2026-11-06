@@ -8,9 +8,12 @@ from __future__ import annotations
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     Float,
+    ForeignKey,
     Identity,
     Index,
     Integer,
@@ -22,6 +25,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData()
+
+DEFAULT_ACCOUNT_ID = "default"
+ACCOUNT_ROLES = ("OWNER", "OPERATOR", "VIEWER")
 
 JsonType = JSON().with_variant(JSONB(), "postgresql")
 # SQLite chỉ tự tăng với INTEGER PRIMARY KEY; Postgres dùng BIGINT IDENTITY.
@@ -39,7 +45,10 @@ safety_transitions = Table(
     Column("actor", String(128), nullable=False),
     Column("at", DateTime(timezone=True), nullable=False),
     Column("policy_version", String(64), nullable=False),
+    # migration 0004: Safety theo từng tài khoản giao dịch
+    Column("account_id", String(64), ForeignKey("trading_accounts.account_id"), nullable=False),
 )
+Index("ix_safety_transitions_account", safety_transitions.c.account_id, safety_transitions.c.seq)
 
 mode_changes = Table(
     "mode_changes",
@@ -50,7 +59,9 @@ mode_changes = Table(
     Column("actor", String(128), nullable=False),
     Column("approver", String(128)),
     Column("at", DateTime(timezone=True), nullable=False),
+    Column("account_id", String(64), ForeignKey("trading_accounts.account_id"), nullable=False),
 )
+Index("ix_mode_changes_account", mode_changes.c.account_id, mode_changes.c.seq)
 
 audit_log = Table(
     "audit_log",
@@ -62,8 +73,64 @@ audit_log = Table(
     Column("outcome", String(16), nullable=False),  # ACCEPTED | REJECTED | NOOP
     Column("payload", JsonType, nullable=False),
     Column("detail", String(512)),
+    # NULL = sự kiện hệ thống (đăng nhập, kill switch toàn hệ thống...)
+    Column("account_id", String(64)),
+    Column("actor_sub", String(255)),
 )
 Index("ix_audit_log_at", audit_log.c.at)
+Index("ix_audit_log_account", audit_log.c.account_id, audit_log.c.seq)
+
+
+# --- Người dùng, tài khoản giao dịch, phân quyền (migration 0004) ---
+
+users = Table(
+    "users",
+    metadata,
+    Column("sub", String(255), primary_key=True),  # `sub` của Keycloak
+    Column("username", String(128), nullable=False),
+    Column("email", String(256)),
+    Column("display_name", String(256)),
+    Column("first_login_at", DateTime(timezone=True), nullable=False),
+    Column("last_login_at", DateTime(timezone=True), nullable=False),
+)
+Index("ix_users_username", users.c.username)
+Index("ix_users_email", users.c.email)
+
+trading_accounts = Table(
+    "trading_accounts",
+    metadata,
+    Column("account_id", String(64), primary_key=True),
+    Column("name", String(128), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", String(128), nullable=False),
+    # Được ghi nến vào kho dùng chung (tới MT-05 chỉ tài khoản mặc định)
+    Column("price_feed", Boolean, nullable=False),
+)
+
+account_members = Table(
+    "account_members",
+    metadata,
+    Column("account_id", String(64), ForeignKey("trading_accounts.account_id"), nullable=False),
+    Column("sub", String(255), ForeignKey("users.sub"), nullable=False),
+    Column("role", String(16), nullable=False),
+    Column("granted_at", DateTime(timezone=True), nullable=False),
+    Column("granted_by", String(128), nullable=False),
+    PrimaryKeyConstraint("account_id", "sub"),
+    CheckConstraint("role IN ('OWNER', 'OPERATOR', 'VIEWER')", name="ck_account_members_role"),
+)
+
+gateway_tokens = Table(
+    "gateway_tokens",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("token_id", String(64), nullable=False, unique=True),
+    Column("account_id", String(64), ForeignKey("trading_accounts.account_id"), nullable=False),
+    Column("token_sha256", String(64), nullable=False, unique=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", String(128), nullable=False),
+    Column("revoked_at", DateTime(timezone=True)),
+)
+Index("ix_gateway_tokens_account", gateway_tokens.c.account_id)
 
 
 # --- Dữ liệu thị trường (migration 0002) ---

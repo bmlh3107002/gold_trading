@@ -613,8 +613,8 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 
 | Mã | Việc | TT | Ghi chú |
 | --- | --- | --- | --- |
-| MT-01 | Mô hình dữ liệu: `User` (khóa theo `sub` của Keycloak), `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[ ]` | **GĐ0.** ← OPS-07 |
-| MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[ ]` | **GĐ0.** Không sửa migration cũ |
+| MT-01 | Mô hình dữ liệu: `User` (khóa theo `sub` của Keycloak), `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[x]` | **GĐ0.** Bảng `users`, `trading_accounts`, `account_members` (migration 0004). ADMIN đầu tiên đăng nhập → OWNER tài khoản `default`. Test: `tests/test_repository_accounts.py` (bộ nhớ + SQLite) |
+| MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[x]` | **GĐ0.** `account_id` cho Safety/Mode/audit (+ `actor_sub`), dữ liệu cũ → `default` bằng `ADD COLUMN DEFAULT` (không UPDATE). Đã kiểm trên TimescaleDB thật: trigger append-only còn nguyên, schema khớp migration |
 | MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[ ]` | **GĐ0.** |
 | MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[ ]` | **GĐ0.** |
 | MT-05 | Nguồn giá theo broker/server (một tài khoản ↔ một nguồn); analyst chạy theo từng nguồn | `[ ]` | **GĐ1.** ← ING-15, DEC-14 |

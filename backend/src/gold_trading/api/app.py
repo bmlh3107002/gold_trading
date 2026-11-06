@@ -45,11 +45,13 @@ from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCa
 from gold_trading.storage.repository import (
     AuditEntry,
     InMemoryRepository,
+    Member,
     Repository,
     SqlRepository,
     restore_mode,
     restore_safety_state,
 )
+from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
 
 POLICY_VERSION = "policy-0.1.0"
 log = logging.getLogger("gold_trading.api")
@@ -169,11 +171,17 @@ def create_app(
             return f"Đang dùng dữ liệu mẫu: không được chuyển sang {mode}"
         return None
 
+    repo.ensure_default_account()
+    acc = DEFAULT_ACCOUNT_ID  # TODO(MT-06): Safety/Mode cho từng tài khoản
+
     # --- Dựng lại trạng thái từ lịch sử append-only ---
-    history = repo.safety_history()
+    history = repo.safety_history(acc)
     start_state, downgrade_reason = restore_safety_state(history)
     safety = SafetySupervisor(
-        POLICY_VERSION, initial_state=start_state, history=history, persist=repo.append_safety
+        POLICY_VERSION,
+        initial_state=start_state,
+        history=history,
+        persist=lambda t: repo.append_safety(acc, t),
     )
     if downgrade_reason:
         safety.pause(downgrade_reason, trigger_source="startup", actor="system")
@@ -181,7 +189,7 @@ def create_app(
     default_mode = TradingMode(os.environ.get("GT_MODE", "PAPER"))
     if default_mode is TradingMode.LIVE or mode_guard(default_mode):
         default_mode = TradingMode.PAPER
-    start_mode, relocked = restore_mode(repo.last_mode(), default_mode)
+    start_mode, relocked = restore_mode(repo.last_mode(acc), default_mode)
     if relocked:
         repo.append_audit(
             AuditEntry(
@@ -191,6 +199,7 @@ def create_app(
                 "ACCEPTED",
                 {"from": "LIVE", "to": "PAPER"},
                 "LIVE không được khôi phục tự động sau restart",
+                account_id=acc,
             )
         )
     if (reason := mode_guard(start_mode)) is not None:
@@ -202,11 +211,15 @@ def create_app(
                 "ACCEPTED",
                 {"from": start_mode.value, "to": "PAPER"},
                 reason,
+                account_id=acc,
             )
         )
         start_mode = TradingMode.PAPER
     modes = ModeManager(
-        start_mode, live_unlocked=live_unlocked, on_change=repo.append_mode, guard=mode_guard
+        start_mode,
+        live_unlocked=live_unlocked,
+        on_change=lambda ch: repo.append_mode(acc, ch),
+        guard=mode_guard,
     )
 
     feed: SampleFeed | None = None
@@ -247,14 +260,29 @@ def create_app(
         detail: str | None = None,
         *,
         actor_sub: str | None = None,
+        account_id: str | None = None,
     ):
-        repo.append_audit(AuditEntry(utcnow(), actor, action, outcome, payload, detail))
+        repo.append_audit(
+            AuditEntry(utcnow(), actor, action, outcome, payload, detail, account_id, actor_sub)
+        )
 
     def auth_audit(actor, actor_sub, action, outcome, payload, detail):
         audit(actor, action, outcome, payload, detail, actor_sub=actor_sub)
 
+    def on_login(p) -> None:
+        """MT-01: lưu hồ sơ người dùng; ADMIN đầu tiên thành OWNER của tài khoản mặc định."""
+        now = utcnow()
+        repo.upsert_user(p.sub, p.username, p.email, p.display_name, now)
+        if p.is_admin and not any(m.role == "OWNER" for m in repo.members(DEFAULT_ACCOUNT_ID)):
+            repo.set_member(Member(DEFAULT_ACCOUNT_ID, p.sub, "OWNER", now, "bootstrap"))
+            audit(p.username, "account.bootstrap_owner", "ACCEPTED", {"role": "OWNER"},
+                  "ADMIN đầu tiên đăng nhập được gán OWNER tài khoản mặc định",
+                  actor_sub=p.sub, account_id=DEFAULT_ACCOUNT_ID)
+
     auth_cfg = AuthConfig.from_env() if auth == "env" else auth
-    auth_service = AuthService(auth_cfg, oidc or OidcClient(auth_cfg), audit=auth_audit)
+    auth_service = AuthService(
+        auth_cfg, oidc or OidcClient(auth_cfg), audit=auth_audit, on_login=on_login
+    )
 
     app = FastAPI(
         title="Gold Trading AI",
@@ -306,7 +334,12 @@ def create_app(
 
     @app.get("/api/audit", response_model=list[AuditRecord])
     def get_audit(limit: int = 100) -> list[AuditRecord]:
-        return [AuditRecord(**e.__dict__) for e in repo.audit(min(max(limit, 1), 500))]
+        rows = repo.audit(min(max(limit, 1), 500), account_id=acc)
+        return [
+            AuditRecord(at=e.at, actor=e.actor, action=e.action, outcome=e.outcome,
+                        payload=e.payload, detail=e.detail)
+            for e in rows
+        ]
 
     @app.post("/api/safety", response_model=SystemStatus)
     def safety_command(cmd: SafetyCommand, p: CurrentUser) -> SystemStatus:
@@ -323,10 +356,10 @@ def create_app(
                 )
         except SafetyTransitionError as e:
             audit(p.username, f"safety.{cmd.action}", "REJECTED", payload, str(e),
-                  actor_sub=p.sub)
+                  actor_sub=p.sub, account_id=acc)
             raise HTTPException(status_code=409, detail=str(e)) from e
         audit(p.username, f"safety.{cmd.action}", "ACCEPTED" if event else "NOOP", payload,
-              actor_sub=p.sub)
+              actor_sub=p.sub, account_id=acc)
         return status()
 
     @app.post("/api/mode", response_model=SystemStatus)
@@ -337,10 +370,11 @@ def create_app(
             # người duyệt nên LIVE luôn bị từ chối.
             change = modes.set_mode(cmd.mode, actor=p.username, checklist=cmd.checklist)
         except ModeChangeError as e:
-            audit(p.username, "mode.set", "REJECTED", payload, str(e), actor_sub=p.sub)
+            audit(p.username, "mode.set", "REJECTED", payload, str(e), actor_sub=p.sub,
+                  account_id=acc)
             raise HTTPException(status_code=409, detail=str(e)) from e
         audit(p.username, "mode.set", "ACCEPTED" if change else "NOOP", payload,
-              actor_sub=p.sub)
+              actor_sub=p.sub, account_id=acc)
         return status()
 
     return app

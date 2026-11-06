@@ -49,7 +49,8 @@ def test_mode_persisted_and_live_never_restored(repo):
 
     from gold_trading.modes.manager import ModeChange
 
-    repo.append_mode(ModeChange("SHADOW", "LIVE", "a", "b"))  # giả lập lần chạy trước ở LIVE
+    # giả lập lần chạy trước ở LIVE
+    repo.append_mode("default", ModeChange("SHADOW", "LIVE", "a", "b"))
     assert admin_client(repo).get("/api/status").json()["mode"] == "PAPER"
 
 
@@ -58,7 +59,10 @@ def test_audit_records_accepted_and_rejected(repo):
     post(c, "halt")
     assert post(c, "resume").status_code == 409
     c.post("/api/mode", json={"mode": "LIVE"})
-    entries = [e for e in c.get("/api/audit").json() if not e["action"].startswith("auth.")]
+    entries = [
+        e for e in c.get("/api/audit").json()
+        if e["action"] in ("mode.set", "safety.resume", "safety.halt")
+    ]
     assert [(e["action"], e["outcome"], e["actor"]) for e in entries] == [
         ("mode.set", "REJECTED", "admin"),
         ("safety.resume", "REJECTED", "admin"),
