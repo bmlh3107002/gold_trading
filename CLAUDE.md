@@ -13,15 +13,16 @@ Hệ thống này giao dịch bằng **tiền thật của người dùng**. M�
 - **Mỗi thay đổi đều phải có test**, gồm cả test cho trường hợp xấu (thiếu nến, spike, feed đóng băng, đổi giờ DST, trùng dữ liệu). Với công thức tài chính, phải có test so với giá trị tham chiếu tính tay hoặc từ nguồn chuẩn.
 - **Soát lại sau khi làm:** viết kịch bản kiểm tra riêng nhắm vào chỗ dễ sai, không chỉ dựa vào việc test đang qua. Báo cáo trung thực cả lỗi tìm được và giới hạn còn lại.
 - **Không mở rộng phạm vi trong một lần làm.** Chia nhỏ, làm xong và kiểm chứng xong từng phần rồi mới sang phần tiếp theo.
-- Mọi thay đổi ảnh hưởng tới quyết định giao dịch (công thức, ngưỡng, chính sách rủi ro) phải được ghi vào `PROGRESS.md` hoặc `docs/thiet-ke/`, kèm lý do.
+- Mọi thay đổi ảnh hưởng tới quyết định giao dịch (công thức, ngưỡng, chính sách rủi ro) phải được ghi vào file giai đoạn (`docs/giai-doan/`) hoặc `docs/thiet-ke/`, kèm lý do.
 
 ## Quy ước làm việc
 
-- **Đọc `PROGRESS.md` trước tiên.** Đó là trạng thái hiện tại của dự án. Chỉ đọc thêm code hoặc docs khi cần.
-- **`CHECKLIST.md`** là bản đồ việc theo **giai đoạn tuần tự** (GĐ0 → GĐ10) bám mô hình; mỗi việc có mã (`ING-07`, `EVT-02`…), mỗi giai đoạn có bảng case và Gate. **Đi sạch từng giai đoạn:** chỉ làm việc thuộc giai đoạn hiện tại; xong hết việc + case + Gate (và người dùng xác nhận) mới sang giai đoạn sau. Khi làm xong một việc: đổi trạng thái trong `CHECKLIST.md`, ghi nhật ký ở `PROGRESS.md`, nhắc mã việc trong commit.
+- **Đọc `PROGRESS.md` trước tiên** (ngắn, đã nạp sẵn). Rồi mở **đúng một** file giai đoạn đang làm trong `docs/giai-doan/` (ví dụ `GD0-nen-mong.md`). **Không đọc các giai đoạn khác** hay cả thư mục, trừ khi cần tra một mã việc cụ thể (`grep -rn "<mã>" docs/giai-doan/`). Chỉ đọc thêm code hoặc docs khi cần.
+- `docs/ghi-chu-ky-thuat.md`: bảng thành phần + quy ước kỹ thuật. Chỉ đọc **mục liên quan** tới phần đang sửa.
+- **Đi sạch từng giai đoạn** (`docs/giai-doan/README.md`): chỉ làm việc thuộc giai đoạn hiện tại; xong hết việc + case + Gate (và người dùng xác nhận) mới sang giai đoạn sau. Khi làm xong một việc: đổi trạng thái và ghi nhật ký **trong file của giai đoạn đó**, nhắc mã việc trong commit.
 - Đặc tả chức năng ở `docs/huong-dan-chuc-nang/`. Code phải tuân thủ các bất biến trong đó: point-in-time, idempotent, UTC, LIVE khóa mặc định, Safety có quyền chặn cao nhất.
 - Push code lên nhánh **`develop`**. Không tạo PR nếu người dùng chưa yêu cầu.
-- **Sau mỗi đợt làm việc:** cập nhật `PROGRESS.md` (bảng trạng thái, kết quả test, nhật ký, việc tiếp theo), rồi commit và push lên `develop`.
+- **Sau mỗi đợt làm việc:** ghi nhật ký + trạng thái vào file giai đoạn hiện tại; cập nhật `PROGRESS.md` **ngắn gọn** (mục "Trạng thái hiện tại", kết quả test lần cuối); quy ước kỹ thuật mới → `docs/ghi-chu-ky-thuat.md`. Giữ `PROGRESS.md` dưới ~5 KB. Rồi commit và push lên `develop`.
 - Trước khi push: chạy `uv run pytest` và `uv run ruff check .` trong `backend/` (và `mt5_gateway/` nếu có sửa), cùng `npm run build` trong `frontend/` nếu có sửa.
 - Khi đổi schema DB: sửa `backend/src/gold_trading/storage/schema.py` và thêm migration Alembic mới. Không sửa migration đã có.
 - Khi đổi contract hoặc API: chạy `uv run python scripts/export_openapi.py` trong `backend/`, rồi `npm run gen:api` trong `frontend/`.

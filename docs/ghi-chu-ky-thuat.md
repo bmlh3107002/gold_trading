@@ -1,0 +1,90 @@
+# Ghi chú kỹ thuật — Gold Trading AI
+
+> Chuyển từ `PROGRESS.md` (2026-11-06). **Chỉ đọc mục liên quan tới phần đang sửa.** Cập nhật khi đổi kiến trúc, quy ước hoặc thêm thành phần.
+
+## Trạng thái theo thành phần
+
+Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
+
+| # | Thành phần | Trạng thái | Vị trí | Ghi chú |
+| --- | --- | --- | --- | --- |
+| — | Data contract | ✅ | `backend/src/gold_trading/contracts/` | Bất biến (`frozen`), `extra=forbid`, datetime bắt buộc có tz → UTC |
+| — | Lưu trữ vận hành | ✅ | `backend/src/gold_trading/storage/`, `backend/migrations/` | Bảng append-only `safety_transitions`, `mode_changes`, `audit_log`; trigger DB chặn UPDATE/DELETE |
+| 02 | Ingestion nến | ✅ | `ingestion/candles.py`, `ingestion/sources/`, `storage/candles.py`, `migrations/versions/0002_candles.py` | Kiểm tra, khử trùng, revision, cờ chất lượng, quarantine. Hypertable TimescaleDB, append-only. Nguồn: dữ liệu mẫu (`sample.py`, `sample_feed.py`) và CSV (`csv_file.py`, CLI `ingestion/cli.py`). Chưa có: tin tức, lịch kinh tế, vĩ mô, tick |
+| 02 | Point-in-time (bản cũ) | 🟡 | `ingestion/point_in_time.py` | Store chung trong bộ nhớ, chưa dùng; nến đã có store riêng |
+| — | Lịch thị trường | ✅ | `market/hours.py` | Tham chiếu theo giờ New York: CN 18:00 → T6 17:00, nghỉ 17:00–18:00. **Giao** với giờ báo giá của broker (`GT_BROKER_SESSIONS` + `GT_BROKER_SERVER_TZ`, giờ server, chép tay từ MT5 Specification) cho MT5/CSV. Chưa có ngày lễ |
+| — | Chỉ báo | ✅ | `analysts/indicators.py` | EMA (khởi tạo bằng SMA), RSI Wilder; test theo giá trị tham chiếu |
+| 03 | Event Orchestrator | ⬜ | `orchestrator/` | |
+| 04 | Technical analyst v1 | ✅ | `analysts/technical.py`, `analysts/runner.py`, `market/quality.py`, `storage/analyst_outputs.py`, `migrations/versions/0003_analyst_outputs.py` | Thiết kế: `docs/thiet-ke/03-technical-analyst.md`. Cổng chất lượng R2–R6; ATR/EMA/RSI, xu hướng, swing (xác nhận sau 3 nến), hỗ trợ/kháng cự. **Không có xác suất, không có tín hiệu**; confidence = chất lượng dữ liệu. Chạy mỗi 15s, lưu append-only, idempotent theo hash đầu vào |
+| 04 | 5 analyst còn lại | ⬜ | `analysts/` | Thứ tự đã chốt: Event & calendar → Macro → News → Positioning → Regime |
+| 05 | Snapshot Builder | ✅ | `intelligence/snapshot_builder.py` | |
+| 05 | Data Quality Gate | ✅ | `intelligence/quality_gate.py` | Kiểm tra required/optional, TTL, source_status. Chưa có outlier/schema |
+| 05 | Fusion / MarketView | 🟡 | `contracts/market_view.py` | Có contract, chưa có fusion |
+| 06 | Strategy Engine | ⬜ | `strategy/` | Có contract `TradeIntent` (validate SL/TP theo chiều lệnh) |
+| 07 | Risk Engine | 🟡 | `risk/engine.py` | Có: Safety, hết hạn, risk flags, spread, sizing, hạn mức tổng. Chưa có: margin, correlation, exposure ròng, daily DD |
+| 07 | Risk Ledger | 🟡 | `risk/ledger.py` | Reserve/release append-only trong bộ nhớ. Chưa có fill/PnL, chưa đối soát MT5 |
+| 08 | Safety Supervisor | ✅ | `safety/supervisor.py` | Chưa nối các trigger tự động (tin nóng, spread, equity) |
+| 09 | Order FSM | ✅ | `execution/order_fsm.py` | Chưa có Execution Orchestrator |
+| 09 | MT5 Gateway **chỉ đọc** | ✅ | `mt5_gateway/`, `backend/.../api/ingest.py` | Thiết kế: `docs/thiet-ke/09a-mt5-gateway-chi-doc.md`, hướng dẫn: `mt5_gateway/README.md`. Lệnh `check`/`run`; đọc nến M15 đã đóng, quy đổi giờ server (IANA) → UTC; nạp bù 5.000 nến rồi 5 giây/lần; nhịp tim. Backend: `POST /api/ingest/mt5/candles` (token, dry_run, R1), `/heartbeat`, `GET /api/gateway/status`. **Đã chạy với MT5 demo thật** (MetaQuotes-Demo, 2026-11-05): check 9/9, nạp 5.000 nến. Chưa đặt lệnh (cố ý) |
+| 09 | Guardian EA | 🟡 | `guardian_ea/GuardianEA.mq5` | **Chưa biên dịch, chưa test** |
+| 10 | Position Manager / Performance | ⬜ | `position/`, `performance/` | |
+| 11 | Training / registry | ⬜ | | |
+| 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
+| 12 | Dashboard | 🟡 | `frontend/` | Theme CutlotDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
+| 12 | API | ✅ | `backend/src/gold_trading/api/` | Mọi route cần đăng nhập trừ `/api/health`, `/api/auth/*`, `/api/ingest/mt5/*` (token Gateway). `/api/status` (thông tin hệ thống), `/api/system/health` (đồng hồ, ổ đĩa, sao lưu), `/api/accounts[/{id}/status|audit|safety|mode|mode/live-requests|members|gateway/*]`, `/api/admin/kill-switch|audit`, `/api/market/*`, `/api/analysts/technical/latest`. Mọi lệnh ghi vào audit kèm `actor_sub`, kể cả lệnh bị từ chối |
+| — | Xác thực + phân quyền | ✅ | `auth/`, `accounts/`, `api/accounts.py`, `api/users.py`, `ops/keycloak/` | Thiết kế: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`. Keycloak 26.8.2 (OIDC, BFF, PKCE), phiên trong bộ nhớ 8 giờ/30 phút, RBAC VIEWER/OPERATOR/OWNER + ADMIN, đa tài khoản giao dịch, LIVE hai người, break-glass `gt-break-glass`. ADMIN tạo người dùng trên Dashboard (MT-20); nhiều người dùng bật trên máy người dùng (DEC-12) |
+| — | Vận hành | ✅ | `ops/clock.py`, `ops/logging.py`, `ops/backup/` | Kiểm đồng hồ (> 30 s ngừng nhận nến), log JSON che bí mật, sao lưu 2 DB mỗi 24 giờ giữ 14 bản + khôi phục |
+| 12 | Backtest | ⬜ | | |
+| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `ops/keycloak/`, `ops/backup/`, `docker-compose.yml`, `deploy/` | `docker compose up -d --build` chạy db + keycloak-db + keycloak + backend + frontend + backup. Bí mật bắt buộc trong `.env` (thiếu → compose báo lỗi). Dashboard ở `127.0.0.1:8080`; máy khác dùng **Tailscale Serve** (HTTPS, `GT_PUBLIC_URL=https://….ts.net`). Kiểm thử cả hệ thống: `ops/scripts/ci_stack.sh` (chạy trong CI) |
+
+## Lưu ý kỹ thuật
+
+- `create_app(repo)` nhận `Repository` (`InMemoryRepository` cho test, `SqlRepository` cho Postgres/SQLite). Không truyền thì đọc `DATABASE_URL`; không có biến này thì dùng bộ nhớ. Chạy bằng `uvicorn --factory gold_trading.api.app:create_app`.
+- Quy tắc khôi phục khi khởi động (`storage/repository.py`): ACTIVE → PAUSED (ghi event `STARTUP_REQUIRES_REVIEW`, actor `system`, nguồn `startup`), HALTED giữ nguyên, LIVE → PAPER (ghi audit).
+- `SafetySupervisor(persist=...)` và `ModeManager(on_change=...)` ghi **trước** khi đổi state; ghi lỗi thì state giữ nguyên.
+- Đổi schema: sửa `storage/schema.py` **và** thêm migration mới trong `backend/migrations/versions/` (không sửa `0001`). Test dùng SQLite với `create_all()`.
+- Không còn CORS. Dev frontend: Vite proxy `/api` → `localhost:8000`, `/auth` → `localhost:8080`; đặt `GT_PUBLIC_URL=http://localhost:5173` cho backend dev.
+- **Xác thực / phân quyền (GĐ0):**
+  - Đọc `docs/thiet-ke/00-xac-thuc-phan-quyen.md` trước khi sửa. Ma trận quyền ở `accounts/access.py`; test `test_permission_matrix_matches_design_doc` so khớp với bảng mục 5 của tài liệu: sửa một nơi thì sửa cả hai.
+  - Mọi route mặc định cần đăng nhập (dependency toàn cục trong `auth/web.py`). Thêm route công khai phải sửa `PUBLIC_PATHS`/`PUBLIC_PREFIXES` và test `test_public_paths_are_exactly_the_allowed_ones`.
+  - Endpoint có `{account_id}` phải gọi `Guard.check(...)` **trước** khi đọc/ghi gì. Actor = `Principal` từ phiên; contract request có `extra="forbid"`.
+  - FastAPI 0.162: router include thành `_IncludedRouter`, không thấy trong `app.routes` → liệt kê route qua `app.openapi()`.
+  - Test không cần Keycloak: `tests/auth_helpers.py` (`FakeKeycloak`, `make_app`, `admin_client`, client HTTPS + Origin). `conftest.py` đặt biến auth giả và `GT_CLOCK_CHECK=0`.
+  - Safety theo tài khoản: DB là nguồn sự thật (`append_safety(..., expected_last=...)`, đồng bộ 2 s). Đừng đổi `SafetySupervisor` mà bỏ `persist` có `expected_last`.
+  - Keycloak chỉ nhập realm **một lần**; đổi `GT_PUBLIC_URL`/client secret sau đó → `sync-client.sh`. Lần đăng nhập đầu Keycloak yêu cầu đổi mật khẩu + bổ sung hồ sơ (VERIFY_PROFILE).
+  - Phiên + refresh token chỉ trong bộ nhớ backend (một tiến trình uvicorn). Chạy nhiều worker phải chuyển phiên sang kho dùng chung.
+  - Token Gateway: `gtk_` + 32 byte, DB lưu SHA-256. `GT_INGEST_TOKEN` cũ chỉ còn cho `default` tới lần xoay đầu. Chỉ tài khoản `price_feed` (default) ghi nến tới MT-05.
+- **Vận hành:** log JSON khi `GT_LOG_FORMAT=json` (đặt sẵn trong image); access log do `CorrelationMiddleware` ghi (không query string). Thêm loại bí mật mới → thêm mẫu vào `ops/logging.py::_PATTERNS` + test. Sao lưu: image `ops/backup` là Alpine/busybox (không có `sha256sum --status`); khôi phục TimescaleDB cần `timescaledb_pre_restore/post_restore` và `DROP DATABASE ... WITH (FORCE)` (worker nền giữ kết nối).
+- Risk Engine giữ `ledger.lock` khi tính headroom và reserve, để tránh over-allocation khi chạy đồng thời.
+- Khi Docker chạy, CORS không cần vì nginx phục vụ dashboard và `/api` cùng origin.
+- Backend Dockerfile cài uv bằng pip (không `COPY --from=ghcr.io/...`) để chỉ phụ thuộc Docker Hub và PyPI.
+- Khi build Docker trong sandbox cloud: Docker Hub hay trả 429 (dùng `dockerd --registry-mirror=https://mirror.gcr.io`), và cần chèn CA của proxy (`/root/.ccr/ca-bundle.crt`) vào một **bản sao** Dockerfile trong scratchpad. Không commit CA vào repo.
+- **MT5 Gateway (chỉ đọc):**
+  - Chỉ được gọi các hàm trong `reader.READ_ONLY_FUNCTIONS`. Module MT5 bị bọc bởi `_ReadOnly`; test `test_source_contains_no_trading_calls` quét mã nguồn để tìm hàm giao dịch. **Không thêm chức năng đặt lệnh vào package này**; khi làm execution thì tách thành thành phần riêng, có review riêng.
+  - Giờ MT5 = giờ server viết như UTC. Bắt buộc `GT_SERVER_TZ` dạng IANA, không dùng độ lệch cố định. Kiểm tra chéo bằng tick sống (khi có) và R1 trên **toàn bộ** lịch sử.
+  - `copy_rates_from_pos(..., start_pos=1, ...)`: vị trí 0 là nến đang chạy.
+  - Backend dùng **đồng hồ của backend** làm `ingested_at`. Cổng nhận dữ liệu tắt nếu không có `GT_INGEST_TOKEN` (≥ 24 ký tự).
+  - Chạy trên Windows bằng `uv run mt5-gateway check|run` (`.python-version` = 3.12). Cấu hình ở `mt5_gateway/gateway.env`.
+- **Lịch thị trường:** mọi chỗ cần biết "nến nào lẽ ra phải có" dùng `MarketCalendar` (`MarketDataService.calendar`), không gọi thẳng `bar_in_session` của lịch tham chiếu. Chưa áp dụng cho cờ `GAP` lúc nạp và R1 (vẫn dùng lịch tham chiếu; lịch broker là tập con nên R1 không bị ảnh hưởng). Cấu hình sai → backend không khởi động.
+- **Technical analyst:** đọc `docs/thiet-ke/03-technical-analyst.md` trước khi sửa. Đổi công thức hoặc ngưỡng thì tăng `VERSION` trong `analysts/technical.py`. Frontend đọc `features` qua `lib/technical.ts` (sai kiểu thì trả null, không đoán).
+- **Frontend — quy ước theme CutlotDesk:**
+  - Màu, khoảng cách, font chỉ khai báo trong `frontend/src/styles/tokens.css` (dark mặc định, light qua `html[data-theme="light"]`). Không hardcode màu trong component.
+  - CSS: `base.css`, `layout.css` (sidebar 238px, header 66px, breakpoint 1100px/720px/480px), `components.css`.
+  - Component dùng chung ở `src/components/ui/`: `Button`, `IconButton`, `Card`, `Badge`, `Field`, `Dialog` (focus trap, Escape), `InfoTip`, `StateView` (Loading/Empty/Error/Skeleton). Layout: `Sidebar`, `Header`, `ConnectionBadge`, `Logo`.
+  - Mọi chuỗi giao diện nằm trong `src/i18n/vi.ts` (có type-check key). Enum hiển thị qua `src/lib/labels.ts`; số/tiền/ngày dùng `src/lib/format.ts` (`vi-VN`).
+  - Lỗi API được phân loại trong `ApiError.kind` (network/conflict/validation/server). UI chỉ hiện thông báo i18n, không hiện chi tiết thô.
+  - Trạng thái kết nối (`src/lib/connection.ts`): connecting/live/stale (>10s)/disconnected. Khi mất kết nối, dữ liệu cũ vẫn giữ và có banner "Dữ liệu đã cũ".
+  - Header **không** hiển thị giá giả. Hiện ghi "Chưa có dữ liệu giá" cho tới khi có nguồn giá thật.
+  - Theme lưu ở localStorage `cutlotdesk.theme` (đọc dự phòng khóa cũ `aurumdesk.theme`), có try/catch.
+- **Dữ liệu nến — quy tắc bắt buộc:**
+  - Nến chỉ hợp lệ khi **đã đóng** (`available_at >= close_time`). `ingested_at` = đồng hồ thật lúc nhận. `available_at` = lúc được coi là đã biết: realtime thì bằng `ingested_at`; nạp bù (`backfill=True`) thì bằng `close_time` + cờ `BACKFILL`. Revision luôn có `available_at = ingested_at`.
+  - Truy vấn point-in-time lọc theo `available_at`, dùng `store.query(..., as_of=...)`. Không đọc thẳng bảng.
+  - Khóa nến: `(symbol, timeframe, source, open_time, revision)`. Cùng giá trị → bỏ qua; khác giá trị → revision mới.
+  - Trùng thời điểm trong **cùng một batch** mà giá khác nhau: cách ly tất cả (`CONFLICTING_DUPLICATE`), không tạo revision giả. Giống hệt nhau thì giữ một.
+  - Độ mới dữ liệu (`MarketDataService._freshness`): so nến mới nhất với **nến lẽ ra đã đóng gần nhất trong giờ mở cửa** (`expected_last_close`, cho trễ `FRESHNESS_GRACE` = 2 phút). Nhờ vậy không báo nhầm lúc mở cửa đầu tuần, và vẫn báo `STALE` vào cuối tuần nếu nguồn đã chết từ trước khi đóng cửa.
+  - R1: CLI nạp CSV **từ chối cả file** nếu > 1% nến (khi có ≥ 200 nến) rơi vào giờ đóng cửa, và gợi ý độ lệch giờ khớp nhất (`csv_file.check_sessions`). Không có cờ bỏ qua.
+  - CLI chỉ cho khung M1–H1. H4 trở lên được broker căn theo giờ server, chưa hỗ trợ.
+  - CSV từ MT5 dùng giờ server broker. **Bắt buộc `--server-tz`**; giờ mơ hồ do đổi DST bị cách ly, không đoán.
+  - Dữ liệu mẫu: tất định theo seed (`20260101`) và giá khởi đầu 2400. `ModeManager(guard=...)` chặn SHADOW/LIVE khi `GT_DATA_SOURCE=SAMPLE`; mode đã lưu là SHADOW/LIVE sẽ về PAPER khi khởi động (ghi audit).
+  - Frontend test mock `lightweight-charts`, vì jsdom không có canvas (`src/pages/MarketPage.test.tsx`).
+- XAUUSD mặc định `contract_size=100`, `volume_step=0.01` (`SymbolSpec`).
