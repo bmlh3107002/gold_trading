@@ -1,0 +1,78 @@
+# CI: chạy lại đúng các bước kiểm tra trong CLAUDE.md cho mỗi lần đẩy code.
+# Máy Windows (CD kiểu "tự kiểm tra định kỳ") CHỈ cập nhật commit mà workflow này báo thành công.
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13" # giống backend/Dockerfile
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run pytest -q
+      - name: OpenAPI không lệch với code
+        run: |
+          uv run python scripts/export_openapi.py
+          git diff --exit-code -- ../contracts/openapi.json
+
+  mt5_gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mt5_gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6 # dùng .python-version (3.12)
+      - run: uv sync --locked
+      - run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # giống frontend/Dockerfile
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Type TS không lệch với contracts/openapi.json
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api/schema.d.ts
+      - run: npm run check
+      - run: npm run build
+
+  docker:
+    # Máy Windows build đúng hai Dockerfile này khi deploy: lỗi build phải bị chặn ở đây.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -q -t gold_trading/backend:ci backend
+      - run: docker build -q -t gold_trading/frontend:ci frontend
