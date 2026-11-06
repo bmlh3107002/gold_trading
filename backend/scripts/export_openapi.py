@@ -16,7 +16,6 @@ AUTH = AuthConfig(
 )
 
 out = Path(__file__).resolve().parents[2] / "contracts" / "openapi.json"
-out.write_text(
-    json.dumps(create_app(InMemoryRepository(), auth=AUTH).openapi(), indent=2, ensure_ascii=False) + "\n"
-)
+schema = create_app(InMemoryRepository(), auth=AUTH).openapi()
+out.write_text(json.dumps(schema, indent=2, ensure_ascii=False) + "\n")
 print(f"wrote {out}")
