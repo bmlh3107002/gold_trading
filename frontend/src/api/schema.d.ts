@@ -140,23 +140,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/gateway/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Gateway Status */
-        get: operations["gateway_status_api_gateway_status_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/accounts": {
         parameters: {
             query?: never;
@@ -275,6 +258,41 @@ export interface paths {
         put?: never;
         /** Approve Live */
         post: operations["approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/gateway/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gateway Status */
+        get: operations["gateway_status_api_accounts__account_id__gateway_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/gateway/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Gateway Token Info */
+        get: operations["gateway_token_info_api_accounts__account_id__gateway_token_get"];
+        put?: never;
+        /** Rotate Gateway Token */
+        post: operations["rotate_gateway_token_api_accounts__account_id__gateway_token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -521,6 +539,8 @@ export interface components {
         Bias: "LONG" | "SHORT" | "NEUTRAL";
         /** CandleBatch */
         CandleBatch: {
+            /** Account Id */
+            account_id?: string | null;
             /** Symbol */
             symbol: string;
             /**
@@ -635,6 +655,39 @@ export interface components {
             age_seconds: number | null;
             heartbeat: components["schemas"]["Heartbeat"] | null;
         };
+        /** GatewayTokenInfo */
+        GatewayTokenInfo: {
+            /**
+             * Has Token
+             * @description Đã có token tạo trên giao diện
+             */
+            has_token: boolean;
+            /**
+             * Legacy Token Active
+             * @description Token cũ GT_INGEST_TOKEN còn được nhận (chỉ tài khoản mặc định)
+             */
+            legacy_token_active: boolean;
+            /**
+             * Price Feed
+             * @description Gateway của tài khoản này được ghi nến dùng chung
+             */
+            price_feed: boolean;
+        };
+        /** GatewayTokenIssued */
+        GatewayTokenIssued: {
+            /** Token Id */
+            token_id: string;
+            /**
+             * Token
+             * @description CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN)
+             */
+            token: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -642,6 +695,8 @@ export interface components {
         };
         /** Heartbeat */
         Heartbeat: {
+            /** Account Id */
+            account_id?: string | null;
             /** Gateway Id */
             gateway_id: string;
             /** Gateway Version */
@@ -1204,26 +1259,6 @@ export interface operations {
             };
         };
     };
-    gateway_status_api_gateway_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GatewayStatus"];
-                };
-            };
-        };
-    };
     list_accounts_api_accounts_get: {
         parameters: {
             query?: never;
@@ -1496,6 +1531,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gateway_status_api_accounts__account_id__gateway_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gateway_token_info_api_accounts__account_id__gateway_token_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayTokenInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rotate_gateway_token_api_accounts__account_id__gateway_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayTokenIssued"];
                 };
             };
             /** @description Validation Error */

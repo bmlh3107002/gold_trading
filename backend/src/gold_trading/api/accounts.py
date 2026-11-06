@@ -7,17 +7,19 @@ hai đều ghi audit.
 
 from __future__ import annotations
 
+import secrets
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from gold_trading.accounts.access import Perm, decide, permissions
 from gold_trading.accounts.runtime import GLOBAL_KILL_REASON, AccountRegistry, AccountRuntime
+from gold_trading.api.ingest import GatewayMonitors, GatewayStatus
 from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.ids import new_id
@@ -97,6 +99,20 @@ class LiveRequestOut(BaseModel):
     requested_at: datetime
     expires_at: datetime
     checklist: dict[str, bool]
+
+
+class GatewayTokenInfo(BaseModel):
+    has_token: bool = Field(description="Đã có token tạo trên giao diện")
+    legacy_token_active: bool = Field(
+        description="Token cũ GT_INGEST_TOKEN còn được nhận (chỉ tài khoản mặc định)"
+    )
+    price_feed: bool = Field(description="Gateway của tài khoản này được ghi nến dùng chung")
+
+
+class GatewayTokenIssued(BaseModel):
+    token_id: str
+    token: str = Field(description="CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN)")
+    created_at: datetime
 
 
 class KillSwitchCommand(BaseModel):
@@ -217,6 +233,8 @@ def accounts_router(
     registry: AccountRegistry,
     *,
     market_view: Callable[[], MarketView | None],
+    monitors: GatewayMonitors,
+    legacy_token_configured: bool,
 ) -> APIRouter:
     r = APIRouter(tags=["accounts"])
     guard = Guard(repo, registry)
@@ -376,6 +394,38 @@ def accounts_router(
         guard.audit(p, "mode.live_approve", "ACCEPTED", {**payload, "requester": req.requester},
                     None, account_id)
         return status(a, p)
+
+    # ---------- Gateway (MT-04) ----------
+
+    @r.get("/api/accounts/{account_id}/gateway/status", response_model=GatewayStatus)
+    def gateway_status(account_id: str, p: CurrentUser) -> GatewayStatus:
+        guard.check(account_id, p, Perm.VIEW, "gateway.status")
+        return monitors.get(account_id).status(utcnow())
+
+    @r.get("/api/accounts/{account_id}/gateway/token", response_model=GatewayTokenInfo)
+    def gateway_token_info(account_id: str, p: CurrentUser) -> GatewayTokenInfo:
+        a = guard.check(account_id, p, Perm.VIEW, "gateway.token_info")
+        has = repo.has_gateway_tokens(account_id)
+        return GatewayTokenInfo(
+            has_token=has,
+            legacy_token_active=(
+                legacy_token_configured and account_id == "default" and not has
+            ),
+            price_feed=a.account.price_feed,
+        )
+
+    @r.post("/api/accounts/{account_id}/gateway/token", response_model=GatewayTokenIssued)
+    def rotate_gateway_token(account_id: str, p: CurrentUser, response: Response
+                             ) -> GatewayTokenIssued:
+        guard.check(account_id, p, Perm.ROTATE_TOKEN, "gateway.rotate_token")
+        raw = "gtk_" + secrets.token_urlsafe(32)
+        now = utcnow()
+        token_id = repo.rotate_gateway_token(account_id, raw, p.username, now)
+        # Không ghi token vào audit/log: chỉ token_id.
+        guard.audit(p, "gateway.rotate_token", "ACCEPTED", {"token_id": token_id}, None,
+                    account_id)
+        response.headers["Cache-Control"] = "no-store"
+        return GatewayTokenIssued(token_id=token_id, token=raw, created_at=now)
 
     # ---------- Quản trị hệ thống ----------
 

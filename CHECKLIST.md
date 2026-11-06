@@ -616,7 +616,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | MT-01 | Mô hình dữ liệu: `User` (khóa theo `sub` của Keycloak), `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[x]` | **GĐ0.** Bảng `users`, `trading_accounts`, `account_members` (migration 0004). ADMIN đầu tiên đăng nhập → OWNER tài khoản `default`. Test: `tests/test_repository_accounts.py` (bộ nhớ + SQLite) |
 | MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[x]` | **GĐ0.** `account_id` cho Safety/Mode/audit (+ `actor_sub`), dữ liệu cũ → `default` bằng `ADD COLUMN DEFAULT` (không UPDATE). Đã kiểm trên TimescaleDB thật: trigger append-only còn nguyên, schema khớp migration |
 | MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[x]` | **GĐ0.** Mọi API của tài khoản đi qua `Guard.check` (không thành viên → 404, thiếu quyền → 403, có audit). Dữ liệu thị trường dùng chung |
-| MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[ ]` | **GĐ0.** |
+| MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[~]` | **GĐ0.** Backend xong: token `gtk_…` lưu SHA-256, xoay thu hồi token cũ ngay, `GT_INGEST_TOKEN` cũ chỉ còn cho `default` tới lần xoay đầu; Gateway khai sai `account_id` → 403; chỉ tài khoản `price_feed` ghi nến. Còn: giao diện xoay token (cùng MT-10) |
 | MT-05 | Nguồn giá theo broker/server (một tài khoản ↔ một nguồn); analyst chạy theo từng nguồn | `[ ]` | **GĐ1.** ← ING-15, DEC-14 |
 | MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống cho quản trị | `[x]` | **GĐ0.** `accounts/runtime.py`: Safety/Mode riêng từng tài khoản, khôi phục cho mọi tài khoản, DB là nguồn sự thật (ghi có `expected_last`, đồng bộ 2 s), kill switch toàn hệ thống `POST /api/admin/kill-switch` |
 | MT-07 | Hồ sơ rủi ro, hạn mức, ledger, đối soát theo từng tài khoản | `[ ]` | **GĐ5.** |
@@ -628,7 +628,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
 | MT-C01 | Người A gọi API với id tài khoản của người B | 404/403, ghi audit | `[x]` `tests/test_rbac.py`: `test_user_cannot_see_or_touch_other_account` |
-| MT-C02 | Gateway của A gửi dữ liệu kèm tài khoản B | Từ chối | `[ ]` |
+| MT-C02 | Gateway của A gửi dữ liệu kèm tài khoản B | Từ chối | `[x]` `tests/test_gateway_tokens.py::test_gateway_of_a_cannot_write_into_b` |
 | MT-C03 | A bấm dừng khẩn cấp | Chỉ tài khoản A dừng; B không bị ảnh hưởng | `[x]` `tests/test_rbac.py`: `test_halt_of_one_account_does_not_affect_other` |
 | MT-C04 | Quản trị bấm kill switch toàn hệ thống | Mọi tài khoản HALTED | `[x]` `tests/test_rbac.py`: `test_global_kill_switch_halts_every_account_admin_only` |
 | MT-C05 | Hai tài khoản khác broker, giờ phiên khác nhau | Mỗi tài khoản dùng lịch và giá của broker mình | `[ ]` |

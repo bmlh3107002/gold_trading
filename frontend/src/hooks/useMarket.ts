@@ -22,9 +22,10 @@ export function useTechnical() {
 }
 
 /** Trạng thái MT5 Gateway: 10 giây/lần. */
-export function useGatewayStatus(enabled: boolean) {
+/** Trạng thái Gateway của tài khoản đang chọn (mỗi tài khoản một Gateway). */
+export function useGatewayStatus(accountId: string | null) {
   return usePolling(
-    useCallback(() => (enabled ? api.gatewayStatus() : Promise.resolve(null)), [enabled]),
+    useCallback(() => (accountId ? api.gatewayStatus(accountId) : Promise.resolve(null)), [accountId]),
     10_000,
     30_000,
   );

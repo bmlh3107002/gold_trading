@@ -143,10 +143,10 @@ HB = {
 
 def test_heartbeat_and_status():
     c, _ = client()
-    assert c.get("/api/gateway/status").json()["state"] == "NEVER"
+    assert c.get("/api/accounts/default/gateway/status").json()["state"] == "NEVER"
     assert c.post("/api/ingest/mt5/heartbeat", json=HB).status_code == 401
     assert c.post("/api/ingest/mt5/heartbeat", json=HB, headers=AUTH).status_code == 200
-    s = c.get("/api/gateway/status").json()
+    s = c.get("/api/accounts/default/gateway/status").json()
     assert s["state"] == "CONNECTED" and s["heartbeat"]["account_type"] == "DEMO"
     assert s["heartbeat"]["symbol"]["contract_size"] == 100
 

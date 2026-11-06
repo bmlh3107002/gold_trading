@@ -1,12 +1,15 @@
 """Cổng nhận dữ liệu từ MT5 Gateway (chỉ đọc). Xem docs/thiet-ke/09a-mt5-gateway-chi-doc.md.
 
-Bắt buộc token (GT_INGEST_TOKEN). Không đặt token thì cổng TẮT.
+Xác thực bằng token Gateway RIÊNG TỪNG TÀI KHOẢN (MT-04, lưu dạng băm trong DB, xoay trên giao
+diện). Token cũ ``GT_INGEST_TOKEN`` vẫn được nhận cho tài khoản mặc định tới khi tài khoản đó
+có token đầu tiên trong DB. Không có token nào → cổng TẮT (503).
 """
 
 from __future__ import annotations
 
 import hmac
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
@@ -20,6 +23,8 @@ from gold_trading.ingestion.candles import CandleIngestor, RawBar
 from gold_trading.ingestion.sources.csv_file import SESSION_MISMATCH_MAX, check_sessions
 from gold_trading.market.service import MarketDataService
 from gold_trading.storage.candles import InMemoryCandleStore
+from gold_trading.storage.repository import Repository
+from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
 
 MIN_TOKEN_LEN = 24
 MAX_BARS = 2000
@@ -37,6 +42,8 @@ class BarIn(BaseModel):
 
 
 class CandleBatch(BaseModel):
+    # Không bắt buộc. Nếu gửi thì phải đúng tài khoản của token (MT-C02).
+    account_id: str | None = Field(default=None, max_length=64)
     symbol: str
     timeframe: Literal["M15"]
     backfill: bool
@@ -68,6 +75,7 @@ class SymbolSpec(BaseModel):
 
 
 class Heartbeat(BaseModel):
+    account_id: str | None = Field(default=None, max_length=64)
     gateway_id: str = Field(min_length=1, max_length=64)
     gateway_version: str
     read_only: Literal[True]
@@ -121,27 +129,54 @@ class GatewayMonitor:
             )
 
 
+class GatewayMonitors:
+    """Trạng thái Gateway theo từng tài khoản."""
+
+    def __init__(self) -> None:
+        self._m: dict[str, GatewayMonitor] = {}
+        self._lock = threading.Lock()
+
+    def get(self, account_id: str) -> GatewayMonitor:
+        with self._lock:
+            return self._m.setdefault(account_id, GatewayMonitor())
+
+
 def ingest_router(
     market: MarketDataService,
     ingestor: CandleIngestor,
-    monitor: GatewayMonitor,
+    monitors: GatewayMonitors,
     token: str | None,
+    repo: Repository,
+    ingest_guard: Callable[[], str | None] | None = None,
 ) -> APIRouter:
+    """``ingest_guard()`` trả lý do nếu phải ngừng nhận nến (ví dụ đồng hồ lệch, OPS-12)."""
     r = APIRouter(tags=["ingest"])
+    legacy = token if token and len(token) >= MIN_TOKEN_LEN else None
 
-    def authorize(authorization: str | None) -> None:
-        if not token or len(token) < MIN_TOKEN_LEN:
-            raise HTTPException(
-                503, "Cổng nhận dữ liệu đang tắt: chưa đặt GT_INGEST_TOKEN (>= 24 ký tự)"
-            )
+    def authorize(authorization: str | None, claimed: str | None) -> str:
+        """Trả account_id của token. Không bao giờ tin account_id do Gateway tự khai."""
         prefix = "Bearer "
         given = (
             authorization[len(prefix) :]
             if authorization and authorization.startswith(prefix)
             else ""
         )
-        if not hmac.compare_digest(given.encode(), token.encode()):
+        account_id = repo.account_for_token(given) if given else None
+        if account_id is None and legacy and not repo.has_gateway_tokens(DEFAULT_ACCOUNT_ID):
+            if hmac.compare_digest(given.encode(), legacy.encode()):
+                account_id = DEFAULT_ACCOUNT_ID
+        if account_id is None:
+            if legacy is None and not any(
+                repo.has_gateway_tokens(a.account_id) for a in repo.accounts()
+            ):
+                raise HTTPException(
+                    503, "Cổng nhận dữ liệu đang tắt: chưa có token Gateway nào "
+                    "(tạo trên giao diện, hoặc đặt GT_INGEST_TOKEN >= 24 ký tự)"
+                )
             raise HTTPException(401, "Token không hợp lệ")
+        if claimed is not None and claimed != account_id:
+            raise HTTPException(403, "Token không thuộc tài khoản này")
+        return account_id
 
     @r.post("/api/ingest/mt5/candles", response_model=IngestReport)
     def ingest_candles(
@@ -149,7 +184,13 @@ def ingest_router(
         authorization: Annotated[str | None, Header()] = None,
         dry_run: Annotated[bool, Query()] = False,
     ) -> IngestReport:
-        authorize(authorization)
+        account_id = authorize(authorization, batch.account_id)
+        acc = repo.account(account_id)
+        if acc is None or not acc.price_feed:
+            # Tới MT-05 (GĐ1) chỉ tài khoản nguồn giá được ghi vào kho nến dùng chung.
+            raise HTTPException(403, "Tài khoản này chưa được phép ghi nến dùng chung")
+        if ingest_guard and (reason := ingest_guard()):
+            raise HTTPException(503, reason)
         if batch.symbol != market.symbol:
             raise HTTPException(422, f"Symbol phải là {market.symbol}")
         bars = [
@@ -203,14 +244,11 @@ def ingest_router(
     def heartbeat(
         hb: Heartbeat, authorization: Annotated[str | None, Header()] = None
     ) -> GatewayStatus:
-        authorize(authorization)
+        account_id = authorize(authorization, hb.account_id)
         now = utcnow()
+        monitor = monitors.get(account_id)
         monitor.record(hb, now)
         return monitor.status(now)
-
-    @r.get("/api/gateway/status", response_model=GatewayStatus)
-    def gateway_status() -> GatewayStatus:
-        return monitor.status(utcnow())
 
     return r
 

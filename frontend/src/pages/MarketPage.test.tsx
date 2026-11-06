@@ -146,7 +146,7 @@ describe("Trạng thái MT5 Gateway", () => {
   it("hiện ở sidebar khi nguồn dữ liệu là MT5", async () => {
     routes({
       "/api/status": makeSystem({ data_source: "MT5", data_is_sample: false }),
-      "/api/gateway/status": {
+      "/api/accounts/default/gateway/status": {
         state: "CONNECTED", last_seen_at: "2026-01-06T14:45:00Z", age_seconds: 3,
         heartbeat: { account_type: "DEMO" },
       },

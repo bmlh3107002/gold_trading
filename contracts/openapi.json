@@ -302,27 +302,6 @@
         }
       }
     },
-    "/api/gateway/status": {
-      "get": {
-        "tags": [
-          "ingest"
-        ],
-        "summary": "Gateway Status",
-        "operationId": "gateway_status_api_gateway_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GatewayStatus"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/accounts": {
       "get": {
         "tags": [
@@ -720,6 +699,130 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AccountStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/gateway/status": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Gateway Status",
+        "operationId": "gateway_status_api_accounts__account_id__gateway_status_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/gateway/token": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Gateway Token Info",
+        "operationId": "gateway_token_info_api_accounts__account_id__gateway_token_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTokenInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Rotate Gateway Token",
+        "operationId": "rotate_gateway_token_api_accounts__account_id__gateway_token_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTokenIssued"
                 }
               }
             }
@@ -1281,6 +1384,18 @@
       },
       "CandleBatch": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "symbol": {
             "type": "string",
             "title": "Symbol"
@@ -1647,6 +1762,57 @@
         ],
         "title": "GatewayStatus"
       },
+      "GatewayTokenInfo": {
+        "properties": {
+          "has_token": {
+            "type": "boolean",
+            "title": "Has Token",
+            "description": "Đã có token tạo trên giao diện"
+          },
+          "legacy_token_active": {
+            "type": "boolean",
+            "title": "Legacy Token Active",
+            "description": "Token cũ GT_INGEST_TOKEN còn được nhận (chỉ tài khoản mặc định)"
+          },
+          "price_feed": {
+            "type": "boolean",
+            "title": "Price Feed",
+            "description": "Gateway của tài khoản này được ghi nến dùng chung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "has_token",
+          "legacy_token_active",
+          "price_feed"
+        ],
+        "title": "GatewayTokenInfo"
+      },
+      "GatewayTokenIssued": {
+        "properties": {
+          "token_id": {
+            "type": "string",
+            "title": "Token Id"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token_id",
+          "token",
+          "created_at"
+        ],
+        "title": "GatewayTokenIssued"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1662,6 +1828,18 @@
       },
       "Heartbeat": {
         "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
           "gateway_id": {
             "type": "string",
             "maxLength": 64,

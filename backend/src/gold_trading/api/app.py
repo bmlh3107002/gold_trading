@@ -21,7 +21,7 @@ from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import accounts_router
 from gold_trading.api.analysts import analysts_router
-from gold_trading.api.ingest import GatewayMonitor, ingest_router
+from gold_trading.api.ingest import GatewayMonitors, ingest_router
 from gold_trading.api.market import market_router
 from gold_trading.auth.config import AuthConfig
 from gold_trading.auth.oidc import OidcClient
@@ -230,8 +230,9 @@ def create_app(
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
     token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
+    monitors = GatewayMonitors()
     app.include_router(
-        ingest_router(market, CandleIngestor(candle_store), GatewayMonitor(), token or None)
+        ingest_router(market, CandleIngestor(candle_store), monitors, token or None, repo)
     )
     # Chống DNS rebinding: chỉ nhận Host của địa chỉ công khai, localhost và tên nội bộ.
     app.add_middleware(
@@ -239,7 +240,15 @@ def create_app(
         allowed_hosts=sorted({auth_cfg.public_host, "localhost", "127.0.0.1", "backend"}),
     )
 
-    app.include_router(accounts_router(repo, registry, market_view=lambda: market_view))
+    app.include_router(
+        accounts_router(
+            repo,
+            registry,
+            market_view=lambda: market_view,
+            monitors=monitors,
+            legacy_token_configured=bool(token and len(token) >= 24),
+        )
+    )
     app.state.registry = registry
 
     @app.get("/api/health")

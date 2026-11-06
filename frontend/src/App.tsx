@@ -50,7 +50,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const system = usePolling(api.system, 15_000, 60_000);
   const market = useMarketSummary();
   const route = useRoute();
-  const gateway = useGatewayStatus(system.data?.data_source === "MT5");
+  const gateway = useGatewayStatus(system.data?.data_source === "MT5" ? accountId : null);
   const { theme, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);

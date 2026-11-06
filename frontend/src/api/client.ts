@@ -6,6 +6,8 @@ export type AccountSummary = components["schemas"]["AccountSummary"];
 export type Perm = components["schemas"]["Perm"];
 export type LiveRequest = components["schemas"]["LiveRequestOut"];
 export type KillSwitchResult = components["schemas"]["KillSwitchResult"];
+export type GatewayTokenInfo = components["schemas"]["GatewayTokenInfo"];
+export type GatewayTokenIssued = components["schemas"]["GatewayTokenIssued"];
 export type SafetyCommand = components["schemas"]["SafetyCommand"];
 export type ModeCommand = components["schemas"]["ModeCommand"];
 export type TradingMode = components["schemas"]["TradingMode"];
@@ -99,5 +101,7 @@ export const api = {
   candles: (limit = 300) => request<CandlesResponse>(`/api/market/candles?limit=${limit}`),
   dataQuality: () => request<DataQuality>("/api/market/quality"),
   technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
-  gatewayStatus: () => request<GatewayStatus>("/api/gateway/status"),
+  gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
+  gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
+  rotateGatewayToken: (id: string) => request<GatewayTokenIssued>(`${acc(id)}/gateway/token`, { method: "POST" }),
 };
