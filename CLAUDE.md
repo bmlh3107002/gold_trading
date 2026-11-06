@@ -18,7 +18,7 @@ Hệ thống này giao dịch bằng **tiền thật của người dùng**. M�
 ## Quy ước làm việc
 
 - **Đọc `PROGRESS.md` trước tiên.** Đó là trạng thái hiện tại của dự án. Chỉ đọc thêm code hoặc docs khi cần.
-- **`CHECKLIST.md`** là bản đồ việc theo mô hình, mỗi việc có mã (`ING-07`, `EVT-02`…). Khi làm xong một việc: đổi trạng thái trong `CHECKLIST.md`, ghi nhật ký ở `PROGRESS.md`, nhắc mã việc trong commit.
+- **`CHECKLIST.md`** là bản đồ việc theo **giai đoạn tuần tự** (GĐ0 → GĐ10) bám mô hình; mỗi việc có mã (`ING-07`, `EVT-02`…), mỗi giai đoạn có bảng case và Gate. **Đi sạch từng giai đoạn:** chỉ làm việc thuộc giai đoạn hiện tại; xong hết việc + case + Gate (và người dùng xác nhận) mới sang giai đoạn sau. Khi làm xong một việc: đổi trạng thái trong `CHECKLIST.md`, ghi nhật ký ở `PROGRESS.md`, nhắc mã việc trong commit.
 - Đặc tả chức năng ở `docs/huong-dan-chuc-nang/`. Code phải tuân thủ các bất biến trong đó: point-in-time, idempotent, UTC, LIVE khóa mặc định, Safety có quyền chặn cao nhất.
 - Push code lên nhánh **`develop`**. Không tạo PR nếu người dùng chưa yêu cầu.
 - **Sau mỗi đợt làm việc:** cập nhật `PROGRESS.md` (bảng trạng thái, kết quả test, nhật ký, việc tiếp theo), rồi commit và push lên `develop`.

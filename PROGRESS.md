@@ -186,9 +186,14 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - `.github/workflows/ci.yml`: chạy khi push `develop`/`main` và PR. Bốn job: backend (ruff, pytest, OpenAPI không lệch), mt5_gateway (pytest), frontend (type TS không lệch, `npm run check`, build), docker (build hai image). Lần chạy đầu tiên: **4/4 xanh**.
 - **CD (máy Windows tự cập nhật) — tạm hoãn theo yêu cầu người dùng.** Đã chốt cách làm: Task Scheduler mỗi 5 phút hỏi GitHub; chỉ deploy commit `develop` có CI xanh; build đúng commit đó (`GT_BRANCH=<sha>`); kiểm tra `/api/health`; không deploy khi mode LIVE; không thử lại commit lỗi; không dùng self-hosted runner (repo public). Script PowerShell phải chỉ dùng ký tự ASCII (Windows PowerShell 5.1) và được test trên runner `windows-latest` trong CI (sandbox không chạy được PowerShell).
 
+### 2026-11-06 — Checklist theo giai đoạn
+- Người dùng chốt cách làm **"đi sạch từng giai đoạn"**: xong hết một giai đoạn (mọi phần, mọi nguồn dữ liệu của mô hình, mọi case có test, Gate đạt) rồi mới sang giai đoạn sau.
+- Viết lại `CHECKLIST.md` thành 11 giai đoạn theo luồng mô hình (GĐ0 nền móng → GĐ1 dữ liệu vào đủ 4 nhóm nguồn → … → GĐ10 LIVE), ~200 mã việc, ~120 case, 10 quyết định `DEC-xx` chờ người dùng. Không mã cũ nào bị mất.
+- **Giai đoạn hiện tại: GĐ0** (còn: xác thực Dashboard/API, log, kiểm tra đồng hồ, sao lưu + diễn tập khôi phục, xác nhận đổi token). Sau đó GĐ1 cần người dùng chốt DEC-01..07 (nguồn lịch kinh tế, tin tức, DXY, kỳ vọng Fed, NHTW/ETF, ngân sách, khóa API).
+
 ## Việc tiếp theo (đề xuất)
 
-Lộ trình: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+**Theo giai đoạn trong `CHECKLIST.md` (hiện tại: GĐ0).** Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
 00. Theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Người dùng đổi token ingest (token đã lộ trong chat).
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
