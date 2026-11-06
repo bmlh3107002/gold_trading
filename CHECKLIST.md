@@ -14,6 +14,7 @@
 4. Chỉ qua giai đoạn khi đạt hết **Điều kiện qua giai đoạn (Gate)**, có kiểm chứng trên máy người dùng nếu Gate yêu cầu, và người dùng xác nhận.
 5. Việc mà người dùng **chủ động hoãn** được ghi `(hoãn)` và không chặn Gate. Chỉ người dùng mới được hoãn.
 6. Trong lúc làm phát hiện case mới → thêm vào bảng case của giai đoạn đó trước khi đóng giai đoạn.
+7. **Hiện tại chỉ một người dùng** (người dùng chốt 2026-11-06). Bảo mật/xác thực và đa người dùng để sau, xem phần **MT** cuối file.
 
 ## Cách đọc và cập nhật
 
@@ -73,10 +74,10 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | OPS-04 | Cấu hình qua `.env` (`GT_DATA_SOURCE`, `GT_INGEST_TOKEN`, `GT_BROKER_SESSIONS`, `GT_BROKER_SERVER_TZ`) | `[x]` | |
 | OPS-05 | CI GitHub Actions (backend, gateway, frontend, lệch contract, build Docker) | `[x]` | `.github/workflows/ci.yml` — 4/4 xanh |
 | OPS-06 | CD tự deploy lên máy Windows | `[!]` | **(hoãn — người dùng)**. Thiết kế đã chốt, xem `PROGRESS.md` 2026-11-06 |
-| OPS-07 | **Xác thực Dashboard + API** (đăng nhập, phiên hết hạn, chống dò mật khẩu) | `[ ]` | Bắt buộc vì đã mở qua Tailscale. Cổng ingest giữ token riêng |
+| OPS-07 | Xác thực Dashboard + API (đăng nhập, phiên hết hạn, chống dò mật khẩu) | `[!]` | **(hoãn — người dùng 2026-11-06: chỉ một người dùng, truy cập qua Tailscale).** Bắt buộc làm lại khi có người dùng thứ hai (xem phần **MT**) hoặc trước GĐ10. Trong lúc hoãn: **không** đặt `DASHBOARD_BIND=0.0.0.0` |
 | OPS-11 | Log có cấu trúc, xoay vòng log, không ghi token/mật khẩu vào log | `[ ]` | |
 | OPS-12 | Kiểm tra đồng hồ máy chủ (NTP): lệch > 2 giây → cảnh báo; > 30 giây → chặn nạp realtime | `[ ]` | `ingested_at` dùng đồng hồ backend nên đồng hồ sai = point-in-time sai |
-| GW-05 | Người dùng đổi token ingest (token cũ đã lộ trong chat) | `[!]` | Chờ xác nhận dòng "2. Token" ĐẠT |
+| GW-05 | Người dùng đổi token ingest (token cũ đã lộ trong chat) | `[!]` | **(hoãn — người dùng 2026-11-06).** Rủi ro thấp vì cổng chỉ mở trong máy/Tailscale. Làm cùng OPS-07 |
 
 **Case GĐ0**
 
@@ -89,11 +90,11 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C05 | Ổ đĩa đầy | Cảnh báo trước ở 85%; khi đầy, ingest báo lỗi rõ, không mất dữ liệu đã ghi | `[ ]` |
 | 0-C06 | Thiếu `GT_INGEST_TOKEN` hoặc token < 24 ký tự | Cổng ingest tắt (503) | `[x]` |
 | 0-C07 | Cấu hình `.env` sai cú pháp (lịch broker, múi giờ) | Backend không khởi động, báo lỗi rõ | `[x]` |
-| 0-C08 | Truy cập Dashboard không đăng nhập / sai mật khẩu nhiều lần | Từ chối; khóa tạm sau N lần; ghi audit | `[ ]` |
+| 0-C08 | Truy cập Dashboard không đăng nhập / sai mật khẩu nhiều lần | Từ chối; khóa tạm sau N lần; ghi audit | `[!]` (hoãn cùng OPS-07) |
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[ ]` |
 | 0-C10 | CI đỏ | Không deploy (khi có CD) | `[x]` (CI) |
 
-**Gate GĐ0:** OPS-07, OPS-11, OPS-12, DB-09 xong (đã diễn tập khôi phục trên máy người dùng); GW-05 xác nhận; case 0-C01..C10 có test.
+**Gate GĐ0:** OPS-11, OPS-12, DB-09 xong (đã diễn tập khôi phục trên máy người dùng); case 0-C01..C10 có test (trừ 0-C08 đang hoãn). OPS-07, GW-05, OPS-06 hoãn theo người dùng, không chặn Gate.
 
 ---
 
@@ -584,6 +585,43 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 **Gate GĐ10:** người dùng phê duyệt hai bước; mọi mục "Checklist trước LIVE" ở `docs/huong-dan-chuc-nang/12-van-hanh-kiem-thu.md` đạt.
 
 ---
+
+## MT — Đa người dùng, mỗi người một tài khoản riêng (để sau)
+
+**Trạng thái: hoãn — người dùng 2026-11-06.** Hiện chỉ một người dùng. Mục tiêu sau này: **mỗi người có vốn, MT5, hồ sơ rủi ro, lệnh riêng**. Không nằm trong chuỗi GĐ0 → GĐ10 hiện tại; khi bắt đầu thì làm **hết phần MT trước khi có người dùng thứ hai**, và nên làm trước GĐ8 (paper trading) để không phải sửa lại Ledger/Execution.
+
+Ảnh hưởng tới các giai đoạn: dữ liệu thị trường (giá, tin, lịch, vĩ mô) **dùng chung theo nguồn/broker**; còn tài khoản MT5, Gateway + token, hồ sơ rủi ro, chiến lược được bật, Safety, Mode, Ledger, lệnh, vị thế, hiệu suất, audit thì **riêng từng tài khoản**.
+
+| Mã | Câu hỏi cần chốt | TT |
+| --- | --- | --- |
+| DEC-11 | Người dùng là ai: người thân/bạn bè hay khách hàng bên ngoài? Hệ thống **tự giao dịch tiền của họ** hay chỉ đưa phân tích để họ tự quyết? | `[!]` |
+| DEC-12 | Rủi ro pháp lý khi quản lý/giao dịch tiền của người khác hoặc cung cấp khuyến nghị đầu tư (cần hỏi luật sư theo nơi cư trú) | `[!]` |
+| DEC-13 | Nơi chạy hệ thống: máy của người dùng hiện tại (Tailscale) hay máy chủ riêng; mỗi người tự chạy Gateway trên máy Windows của họ hay gom về một máy | `[!]` |
+| DEC-14 | Các broker khác nhau → lịch phiên, spread, giá khác nhau: chấp nhận nhiều nguồn giá song song? | `[!]` |
+
+| Mã | Việc | TT | Ghi chú |
+| --- | --- | --- | --- |
+| MT-01 | Mô hình dữ liệu: `User`, `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[ ]` | ← OPS-07 |
+| MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[ ]` | Không sửa migration cũ |
+| MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[ ]` | |
+| MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[ ]` | |
+| MT-05 | Nguồn giá theo broker/server (một tài khoản ↔ một nguồn); analyst chạy theo từng nguồn | `[ ]` | ← ING-15, DEC-14 |
+| MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống cho quản trị | `[ ]` | |
+| MT-07 | Hồ sơ rủi ro, hạn mức, ledger, đối soát theo từng tài khoản | `[ ]` | |
+| MT-08 | Duyệt LIVE theo từng tài khoản (approver khác actor, cùng quyền với tài khoản đó) | `[ ]` | |
+| MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[ ]` | |
+| MT-10 | Quản lý người dùng: mời, khóa, đổi vai trò, có audit | `[ ]` | |
+| MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[ ]` | |
+
+| Mã | Tình huống | Hành vi bắt buộc | TT |
+| --- | --- | --- | --- |
+| MT-C01 | Người A gọi API với id tài khoản của người B | 404/403, ghi audit | `[ ]` |
+| MT-C02 | Gateway của A gửi dữ liệu kèm tài khoản B | Từ chối | `[ ]` |
+| MT-C03 | A bấm dừng khẩn cấp | Chỉ tài khoản A dừng; B không bị ảnh hưởng | `[ ]` |
+| MT-C04 | Quản trị bấm kill switch toàn hệ thống | Mọi tài khoản HALTED | `[ ]` |
+| MT-C05 | Hai tài khoản khác broker, giờ phiên khác nhau | Mỗi tài khoản dùng lịch và giá của broker mình | `[ ]` |
+| MT-C06 | Người dùng bị khóa khi đang có lệnh mở | Không thao tác được nữa; vị thế vẫn được Safety/Guardian bảo vệ | `[ ]` |
+| MT-C07 | Lỗi/sự cố ở tài khoản A (ví dụ lệch đối soát) | Chỉ HALT tài khoản A | `[ ]` |
 
 ## Phụ lục — Mã cũ đã chuyển chỗ
 

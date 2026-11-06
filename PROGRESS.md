@@ -191,6 +191,11 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Viết lại `CHECKLIST.md` thành 11 giai đoạn theo luồng mô hình (GĐ0 nền móng → GĐ1 dữ liệu vào đủ 4 nhóm nguồn → … → GĐ10 LIVE), ~200 mã việc, ~120 case, 10 quyết định `DEC-xx` chờ người dùng. Không mã cũ nào bị mất.
 - **Giai đoạn hiện tại: GĐ0** (còn: xác thực Dashboard/API, log, kiểm tra đồng hồ, sao lưu + diễn tập khôi phục, xác nhận đổi token). Sau đó GĐ1 cần người dùng chốt DEC-01..07 (nguồn lịch kinh tế, tin tức, DXY, kỳ vọng Fed, NHTW/ETF, ngân sách, khóa API).
 
+### 2026-11-06 — Một người dùng, bảo mật để sau
+- Người dùng chốt: **hiện chỉ một người dùng**, chưa ưu tiên bảo mật. `OPS-07` (đăng nhập), `GW-05` (đổi token), case `0-C08` → **hoãn**, không chặn Gate GĐ0. Trong lúc hoãn vẫn không mở `0.0.0.0`; Tailscale là lớp bảo vệ duy nhất.
+- Mục tiêu sau này: **nhiều người, mỗi người một tài khoản riêng** (vốn, MT5, rủi ro, lệnh riêng). Ghi vào `CHECKLIST.md` phần **MT** (MT-01..11, MT-C01..C07, DEC-11..14), để sau; nên làm trước GĐ8 và trước khi có người dùng thứ hai.
+- GĐ0 còn: `OPS-11` (log), `OPS-12` (đồng hồ), `DB-09` (sao lưu + diễn tập khôi phục), case 0-C04/C05/C09.
+
 ## Việc tiếp theo (đề xuất)
 
 **Theo giai đoạn trong `CHECKLIST.md` (hiện tại: GĐ0).** Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
