@@ -25,7 +25,7 @@ Bạn tiếp tục dự án **Gold Trading AI**. Nhiệm vụ của phiên này:
 | MT-01 | Mô hình `User` (theo `sub`), `TradingAccount` (một tài khoản MT5), bảng thành viên tài khoản + vai trò |
 | MT-02 | Thêm `account_id` vào các bảng riêng hiện có (Safety, Mode, audit, analyst output nếu cần) bằng **migration mới** (không sửa migration cũ); dữ liệu hiện có gán cho một tài khoản mặc định; trigger append-only vẫn giữ |
 | MT-03 | Mọi API và truy vấn lọc theo tài khoản người dùng có quyền, **chặn ở tầng truy cập dữ liệu**, không chỉ ở giao diện |
-| MT-04 + GW-05 | Token Gateway **riêng từng tài khoản**, lưu dạng băm, xoay vòng được (giao diện cho OWNER/ADMIN), token cũ hết hiệu lực ngay; Gateway chỉ ghi được vào tài khoản của token. Giữ tương thích: `GT_INGEST_TOKEN` hiện tại vẫn chạy cho tài khoản mặc định tới khi người dùng xoay token |
+| MT-04 | Token Gateway **riêng từng tài khoản**, lưu dạng băm, xoay vòng được (giao diện cho OWNER/ADMIN), token cũ hết hiệu lực ngay; Gateway chỉ ghi được vào tài khoản của token. Giữ tương thích: `GT_INGEST_TOKEN` hiện tại vẫn chạy cho tài khoản mặc định tới khi người dùng xoay token |
 | MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống (chỉ ADMIN); quy tắc khôi phục khi khởi động (ACTIVE→PAUSED, LIVE→PAPER) áp dụng cho **mọi** tài khoản |
 | MT-09 | Dashboard: hiển thị người đang đăng nhập, chọn tài khoản, chỉ thấy tài khoản được cấp quyền; nút bị ẩn/khóa theo quyền (backend vẫn là nơi chặn thật) |
 | MT-10 | Quản lý người dùng của tài khoản: thêm theo email/username đã có trên Keycloak, đổi vai trò, gỡ; có audit |
@@ -33,6 +33,8 @@ Bạn tiếp tục dự án **Gold Trading AI**. Nhiệm vụ của phiên này:
 | OPS-12 | Kiểm tra đồng hồ: so đồng hồ backend với nguồn tin cậy (ví dụ header `Date` của vài máy chủ HTTPS lớn, lấy trung vị); lệch > 2 giây → cảnh báo trên Dashboard; > 30 giây → **ngừng nhận nến realtime** (trả lỗi rõ cho Gateway) cho tới khi hết lệch. Lưu ý: Docker Desktop trên Windows hay bị lệch giờ sau khi máy ngủ |
 | OPS-11 | Log JSON có cấu trúc, xoay vòng log (giới hạn dung lượng trong compose), có `correlationId`; **không bao giờ** ghi token, cookie, mật khẩu, client secret (có test quét) |
 | DB-09 | Sao lưu tự động DB ứng dụng **và DB Keycloak** (container chạy theo lịch, giữ ≥ 7 bản, ghi ra thư mục trên máy người dùng); script khôi phục; hướng dẫn diễn tập khôi phục trên Windows; cảnh báo khi ổ đĩa > 85% (case 0-C05) |
+
+**Đã xong, không hỏi lại:** GW-05 (người dùng đã đổi token ingest).
 
 **Không làm** trong phiên này: MT-05 (GĐ1), MT-07 (GĐ5), MT-08 (GĐ10), CD (OPS-06, người dùng hoãn), bất kỳ việc nào của GĐ1 trở đi.
 
@@ -46,7 +48,7 @@ Bạn tiếp tục dự án **Gold Trading AI**. Nhiệm vụ của phiên này:
 ## 3. Cách làm (bắt buộc)
 
 1. Viết thiết kế `docs/thiet-ke/00-xac-thuc-phan-quyen.md` (luồng đăng nhập, ma trận quyền, mô hình dữ liệu, xử lý khi Keycloak hỏng, lý do chọn BFF) → **gửi người dùng xem tóm tắt trước khi code**.
-2. Làm **từng mã việc một** theo thứ tự đề xuất: OPS-14 → OPS-07 → MT-01/02 → OPS-17 → MT-03 → MT-06 → OPS-15 → MT-04+GW-05 → MT-09/10/11 → OPS-16 → OPS-12 → OPS-11 → DB-09. Mỗi mã: code + test (gồm case xấu) + kịch bản kiểm chứng riêng → đổi trạng thái trong `CHECKLIST.md` → nhật ký `PROGRESS.md` → commit có mã việc → push `develop` → **CI xanh**.
+2. Làm **từng mã việc một** theo thứ tự đề xuất: OPS-14 → OPS-07 → MT-01/02 → OPS-17 → MT-03 → MT-06 → OPS-15 → MT-04 → MT-09/10/11 → OPS-16 → OPS-12 → OPS-11 → DB-09. Mỗi mã: code + test (gồm case xấu) + kịch bản kiểm chứng riêng → đổi trạng thái trong `CHECKLIST.md` → nhật ký `PROGRESS.md` → commit có mã việc → push `develop` → **CI xanh**.
 3. **Test không cần Keycloak thật:** giả lập OIDC bằng khóa ký tạo trong test (JWKS cục bộ). Thêm một kịch bản tích hợp chạy Keycloak thật bằng Docker (trong CI job docker hoặc chạy tay) cho luồng đăng nhập đầu-cuối.
 4. Phải có test cho mọi case: **0-C01..C18** và **MT-C01..C04, MT-C06**. Đặc biệt:
    - 0-C11: Keycloak tắt → HALT qua CLI vẫn được; Safety không bao giờ tự ACTIVE.

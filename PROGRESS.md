@@ -200,6 +200,7 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Người dùng chốt: GĐ0 làm **đầy đủ** đăng nhập (Keycloak, OIDC), phân quyền theo vai trò và nền móng đa người dùng (mỗi người một tài khoản giao dịch riêng). Thay cho quyết định "hoãn bảo mật" trước đó.
 - `CHECKLIST.md`: thêm OPS-14..17 (Keycloak trong compose, lối HALT khi Keycloak hỏng, HTTPS qua Tailscale Serve, RBAC), case 0-C11..C18; MT-01..04, 06, 09..11 làm trong GĐ0; MT-05 → GĐ1, MT-07 → GĐ5, MT-08 → GĐ10. Gate GĐ0 cập nhật.
 - Prompt cho phiên làm GĐ0: `docs/prompts/GD0-hoan-thien-nen-mong.md`.
+- `GW-05` xong: người dùng đã đổi token ingest trên máy Windows.
 
 ## Việc tiếp theo (đề xuất)
 

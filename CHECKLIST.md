@@ -81,7 +81,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | OPS-17 | **Phân quyền (RBAC):** vai trò hệ thống `ADMIN` (realm role Keycloak) + vai trò theo tài khoản giao dịch `OWNER`/`OPERATOR`/`VIEWER` (lưu trong DB ứng dụng, khóa theo `sub`); ma trận quyền ghi ở `docs/thiet-ke/`; kiểm quyền ở backend mỗi request | `[ ]` | ← MT-01 |
 | OPS-11 | Log có cấu trúc, xoay vòng log, không ghi token/mật khẩu vào log | `[ ]` | |
 | OPS-12 | Kiểm tra đồng hồ máy chủ (NTP): lệch > 2 giây → cảnh báo; > 30 giây → chặn nạp realtime | `[ ]` | `ingested_at` dùng đồng hồ backend nên đồng hồ sai = point-in-time sai |
-| GW-05 | Đổi token ingest (token cũ đã lộ trong chat); sau MT-04 token là của từng tài khoản, lưu dạng băm, xoay vòng được từ giao diện | `[!]` | Người dùng chạy lệnh trên máy Windows |
+| GW-05 | Đổi token ingest (token cũ đã lộ trong chat) | `[x]` | Người dùng đã đổi trên máy Windows (xác nhận 2026-11-06), không cần hỏi lại. Token theo từng tài khoản, lưu băm, xoay từ giao diện là việc MT-04 |
 
 **Case GĐ0**
 
@@ -106,7 +106,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[ ]` |
 | 0-C10 | CI đỏ | Không deploy (khi có CD) | `[x]` (CI) |
 
-**Gate GĐ0:** OPS-07, OPS-11, OPS-12, OPS-14..17, DB-09 và các việc MT ghi "GĐ0" xong; GW-05 xác nhận; mọi case 0-C01..C18 và MT-C01..C04, MT-C06 có test; người dùng đã đăng nhập bằng Keycloak qua HTTPS trên máy Windows và điện thoại, diễn tập HALT khi Keycloak tắt, diễn tập khôi phục DB (gồm DB Keycloak). OPS-06 (CD) vẫn hoãn, không chặn Gate.
+**Gate GĐ0:** OPS-07, OPS-11, OPS-12, OPS-14..17, DB-09 và các việc MT ghi "GĐ0" xong; mọi case 0-C01..C18 và MT-C01..C04, MT-C06 có test; người dùng đã đăng nhập bằng Keycloak qua HTTPS trên máy Windows và điện thoại, diễn tập HALT khi Keycloak tắt, diễn tập khôi phục DB (gồm DB Keycloak). OPS-06 (CD) vẫn hoãn, không chặn Gate.
 
 ---
 
