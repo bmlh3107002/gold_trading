@@ -76,3 +76,6 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -q -t gold_trading/backend:ci backend
       - run: docker build -q -t gold_trading/frontend:ci frontend
+      - run: docker build -q -t gold_trading/keycloak:ci ops/keycloak
+      - name: Realm JSON hợp lệ và không chứa bí mật
+        run: python3 ops/keycloak/check_realm.py ops/keycloak/realm/gold-trading-realm.json

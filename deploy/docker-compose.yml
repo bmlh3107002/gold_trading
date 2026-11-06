@@ -1,12 +1,20 @@
-# Chạy toàn bộ Gold Trading (giao diện + backend + database) mà KHÔNG cần clone code.
+# Chạy toàn bộ Gold Trading (giao diện + backend + database + đăng nhập) mà KHÔNG cần clone code.
 # Chỉ cần Docker Desktop. Docker tự tải code từ GitHub và build.
 #
 #   docker compose up -d --build     # chạy (và cập nhật bản mới nhất của nhánh develop)
 #   docker compose logs -f           # xem log
 #   docker compose down              # dừng (dữ liệu vẫn giữ trong volume)
 #
-# Mở dashboard: http://localhost:8080
+# Cần file .env cạnh file này, có các bí mật (xem README.md, mục "Đăng nhập").
+# Mở dashboard: địa chỉ trong GT_PUBLIC_URL (mặc định http://localhost:8080)
 name: gold_trading
+
+x-logging: &logging
+  # Giới hạn log để không đầy ổ đĩa (OPS-11): tối đa 5 file x 10 MB mỗi service.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
 
 services:
   db:
@@ -15,6 +23,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-gold}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gold-local-only}
       POSTGRES_DB: ${POSTGRES_DB:-gold_trading}
+    # Không mở cổng ra máy host: chỉ backend trong mạng nội bộ của compose truy cập được.
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,8 +31,58 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    logging: *logging
     restart: unless-stopped
-    # Không mở cổng ra máy host: chỉ backend trong mạng nội bộ của compose truy cập được.
+
+  # Database RIÊNG của Keycloak (tài khoản đăng nhập, phiên SSO). Không mở cổng ra máy host.
+  keycloak-db:
+    image: postgres:16.14-alpine
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:?Thiếu KC_DB_PASSWORD trong .env (xem README, mục Đăng nhập)}
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+    restart: unless-stopped
+
+  # Đăng nhập (OIDC). Chạy sau nginx ở đường dẫn /auth, cùng origin với dashboard.
+  keycloak:
+    image: gold_trading/keycloak:26.8.2
+    build:
+      context: https://github.com/bmlh3107002/gold_trading.git#${GT_BRANCH:-develop}:ops/keycloak
+    environment:
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD:?Thiếu KC_DB_PASSWORD trong .env}
+      # Địa chỉ người dùng mở trên trình duyệt, ví dụ https://may-nha.tail1234.ts.net
+      KC_HOSTNAME: ${GT_PUBLIC_URL:-http://localhost:8080}/auth
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USERNAME:-kcadmin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?Thiếu KC_ADMIN_PASSWORD trong .env}
+      # Dùng khi nhập realm lần đầu (ops/keycloak/realm/gold-trading-realm.json)
+      GT_PUBLIC_URL: ${GT_PUBLIC_URL:-http://localhost:8080}
+      GT_OIDC_CLIENT_SECRET: ${GT_OIDC_CLIENT_SECRET:?Thiếu GT_OIDC_CLIENT_SECRET trong .env}
+      GT_ADMIN_USERNAME: ${GT_ADMIN_USERNAME:-admin}
+      GT_ADMIN_INITIAL_PASSWORD: ${GT_ADMIN_INITIAL_PASSWORD:?Thiếu GT_ADMIN_INITIAL_PASSWORD trong .env}
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/opt/keycloak/bin/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 10
+    logging: *logging
+    restart: unless-stopped
 
   backend:
     image: gold_trading/backend:latest
@@ -33,16 +92,27 @@ services:
       GT_MODE: ${GT_MODE:-PAPER}
       # Nguồn nến: SAMPLE (dữ liệu mẫu, mặc định) | CSV | MT5 | NONE
       GT_DATA_SOURCE: ${GT_DATA_SOURCE:-SAMPLE}
-      # Token cho MT5 Gateway gửi dữ liệu vào (>= 24 ký tự). Để trống = cổng nhận dữ liệu TẮT.
+      # Token cũ cho MT5 Gateway (>= 24 ký tự): chỉ dùng cho tài khoản chính, hết hiệu lực
+      # khi xoay token trên giao diện lần đầu. Để trống = chỉ dùng token tạo trên giao diện.
       GT_INGEST_TOKEN: ${GT_INGEST_TOKEN:-}
       # Giờ báo giá của broker theo giờ server (MT5 → Specification → Sessions → Quotes)
       # và múi giờ server (IANA). Để trống = lịch tham chiếu chung. Ví dụ: "Mon-Fri 00:00-23:00"
       GT_BROKER_SESSIONS: ${GT_BROKER_SESSIONS:-}
       GT_BROKER_SERVER_TZ: ${GT_BROKER_SERVER_TZ:-}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-gold}:${POSTGRES_PASSWORD:-gold-local-only}@db:5432/${POSTGRES_DB:-gold_trading}
+      # Đăng nhập (BFF): backend đổi code lấy token qua mạng nội bộ, trình duyệt chỉ giữ cookie.
+      GT_PUBLIC_URL: ${GT_PUBLIC_URL:-http://localhost:8080}
+      GT_OIDC_INTERNAL_URL: http://keycloak:8080/auth/realms/gold-trading
+      GT_OIDC_CLIENT_ID: gold-trading-dashboard
+      GT_OIDC_CLIENT_SECRET: ${GT_OIDC_CLIENT_SECRET:?Thiếu GT_OIDC_CLIENT_SECRET trong .env}
+      GT_SESSION_MAX_HOURS: ${GT_SESSION_MAX_HOURS:-8}
+      GT_SESSION_IDLE_MINUTES: ${GT_SESSION_IDLE_MINUTES:-30}
+      # Chưa nhận người dùng thứ hai cho tới khi có ý kiến pháp lý (DEC-12)
+      GT_MULTI_USER_ENABLED: ${GT_MULTI_USER_ENABLED:-0}
     depends_on:
       db:
         condition: service_healthy
+    logging: *logging
     restart: unless-stopped
 
   frontend:
@@ -53,11 +123,14 @@ services:
       backend:
         condition: service_healthy
     ports:
-      # Mặc định chỉ mở ở localhost vì API CHƯA có xác thực.
-      # Truy cập qua Tailscale: đặt DASHBOARD_BIND=<IP Tailscale của máy này, dạng 100.x.y.z> trong .env.
-      # KHÔNG dùng 0.0.0.0: mọi máy cùng mạng (kể cả Wi-Fi công cộng) sẽ điều khiển được Safety/Mode.
+      # Chỉ mở ở localhost. Truy cập từ máy khác (điện thoại) dùng Tailscale Serve (HTTPS):
+      #   tailscale serve --bg http://127.0.0.1:8080
+      # rồi đặt GT_PUBLIC_URL=https://<tên máy>.<tailnet>.ts.net trong .env.
+      # KHÔNG dùng 0.0.0.0.
       - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8080}:80"
+    logging: *logging
     restart: unless-stopped
 
 volumes:
   db_data:
+  keycloak_db_data:

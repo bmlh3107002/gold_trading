@@ -26,3 +26,6 @@ frontend/dist/
 
 # Cấu hình Gateway chứa token bí mật
 gateway.env
+
+# Bản sao lưu DB (DB-09)
+backups/
