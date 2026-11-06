@@ -16,6 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from gold_trading.accounts.access import account_locked
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.time import utcnow
 from gold_trading.modes.manager import ModeManager
@@ -139,9 +140,11 @@ class AccountRegistry:
         return changed
 
     def allows_new_orders(self, account_id: str) -> bool:
-        """Chỉ True khi đọc được DB và tài khoản đang ACTIVE."""
+        """Chỉ True khi đọc được DB, Safety đang ACTIVE và chủ tài khoản không bị khóa (DEC-16)."""
         try:
             self.sync(account_id)
+            if account_locked(self.repo, account_id):
+                return False
         except Exception:
             log.exception("Không đọc được trạng thái Safety của %s: chặn lệnh mới", account_id)
             return False

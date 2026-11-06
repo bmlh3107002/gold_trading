@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
@@ -83,6 +83,10 @@ class UserRecord:
     # None = tài khoản do ADMIN tạo trên Dashboard (MT-20), người đó chưa đăng nhập lần nào
     first_login_at: datetime | None
     last_login_at: datetime | None
+    # DEC-16: chỉ hai vai trò (ADMIN quản lý tài khoản, USER giao dịch) và hai trạng thái
+    role: str = "USER"
+    status: str = "ACTIVE"
+    updated_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -129,16 +133,21 @@ class Repository(Protocol):
     def create_account(self, acc: TradingAccount) -> None: ...
     # Người dùng + thành viên
     def upsert_user(self, sub: str, username: str, email: str | None,
-                    display_name: str | None, at: datetime) -> None: ...
+                    display_name: str | None, at: datetime, role: str = "USER") -> None: ...
     def user(self, sub: str) -> UserRecord | None: ...
+    def list_users(self) -> list[UserRecord]: ...
+    def set_user_status(self, sub: str, status: str, at: datetime) -> bool: ...
     def find_user(self, username_or_email: str) -> UserRecord | None: ...
     def role(self, account_id: str, sub: str) -> str | None: ...
     def members(self, account_id: str) -> list[Member]: ...
     def memberships(self, sub: str) -> list[Member]: ...
     def set_member(self, m: Member) -> None: ...
     def remove_member(self, account_id: str, sub: str) -> bool: ...
-    def provision_user(self, user: UserRecord, acc: TradingAccount, owner: Member) -> None:
-        """MT-20: người dùng mới + tài khoản riêng + vai trò OWNER, trong MỘT giao dịch."""
+    def provision_user(self, user: UserRecord, acc: TradingAccount | None, owner: Member,
+                       token_raw: str, at: datetime) -> str:
+        """MT-20/DEC-16: người dùng mới + tài khoản riêng (``acc``; None = nhận tài khoản có sẵn
+        ``owner.account_id`` chưa có chủ) + quyền sở hữu + token Gateway, trong MỘT giao dịch.
+        Trả token_id."""
         ...
     # Token Gateway
     def rotate_gateway_token(self, account_id: str, raw: str, by: str, at: datetime) -> str: ...
@@ -152,6 +161,17 @@ _UNSET: Any = object()
 def _check_role(role: str) -> None:
     if role not in ACCOUNT_ROLES:
         raise ValueError(f"Vai trò không hợp lệ: {role}")
+
+
+USER_ROLES = ("ADMIN", "USER")
+USER_STATUSES = ("ACTIVE", "LOCKED")
+
+
+def _check_user(role: str, status: str) -> None:
+    if role not in USER_ROLES:
+        raise ValueError(f"Vai trò người dùng không hợp lệ: {role}")
+    if status not in USER_STATUSES:
+        raise ValueError(f"Trạng thái người dùng không hợp lệ: {status}")
 
 
 class InMemoryRepository:
@@ -241,14 +261,31 @@ class InMemoryRepository:
 
     # --- Người dùng + thành viên ---
 
-    def upsert_user(self, sub, username, email, display_name, at) -> None:
+    def upsert_user(self, sub, username, email, display_name, at, role="USER") -> None:
+        _check_user(role, "ACTIVE")
         with self._lock:
             old = self._users.get(sub)
             first = (old.first_login_at if old else None) or at
-            self._users[sub] = UserRecord(sub, username, email, display_name, first, at)
+            status = old.status if old else "ACTIVE"
+            updated = (old.updated_at if old else None) if old and old.role == role else at
+            self._users[sub] = UserRecord(sub, username, email, display_name, first, at,
+                                          role, status, updated)
 
     def user(self, sub: str) -> UserRecord | None:
         return self._users.get(sub)
+
+    def list_users(self) -> list[UserRecord]:
+        with self._lock:
+            return sorted(self._users.values(), key=lambda u: u.username.lower())
+
+    def set_user_status(self, sub: str, status: str, at: datetime) -> bool:
+        _check_user("USER", status)
+        with self._lock:
+            old = self._users.get(sub)
+            if old is None:
+                return False
+            self._users[sub] = replace(old, status=status, updated_at=at)
+            return True
 
     def find_user(self, username_or_email: str) -> UserRecord | None:
         q = username_or_email.strip().lower()
@@ -285,18 +322,37 @@ class InMemoryRepository:
         with self._lock:
             return self._members.pop((account_id, sub), None) is not None
 
-    def provision_user(self, user: UserRecord, acc: TradingAccount, owner: Member) -> None:
+    def provision_user(self, user: UserRecord, acc: TradingAccount | None, owner: Member,
+                       token_raw: str, at: datetime) -> str:
         _check_role(owner.role)
-        if owner.sub != user.sub or owner.account_id != acc.account_id:
+        _check_user(user.role, user.status)
+        if owner.sub != user.sub or (acc is not None and owner.account_id != acc.account_id):
             raise ValueError("owner phải là người dùng mới của tài khoản mới")
         with self._lock:
-            if acc.account_id in self._accounts:
+            if acc is not None and acc.account_id in self._accounts:
                 raise ConflictError(f"Tài khoản {acc.account_id} đã tồn tại")
+            if acc is None and (
+                owner.account_id not in self._accounts
+                or any(a == owner.account_id and m.role == "OWNER"
+                       for (a, _), m in self._members.items())
+            ):
+                raise ConflictError(f"Tài khoản {owner.account_id} không nhận chủ mới được")
             if user.sub in self._users:
                 raise ConflictError("Người dùng đã tồn tại")
             self._users[user.sub] = user
-            self._accounts[acc.account_id] = acc
-            self._members[(acc.account_id, user.sub)] = owner
+            if acc is not None:
+                self._accounts[acc.account_id] = acc
+            self._members[(owner.account_id, user.sub)] = owner
+            for t in self._tokens:
+                if t["account_id"] == owner.account_id and t["revoked_at"] is None:
+                    t["revoked_at"] = at
+            token_id = new_id("gtk")
+            self._tokens.append({
+                "token_id": token_id, "account_id": owner.account_id,
+                "token_sha256": token_hash(token_raw), "created_at": at,
+                "created_by": owner.granted_by, "revoked_at": None,
+            })
+            return token_id
 
     # --- Token Gateway ---
 
@@ -494,20 +550,37 @@ class SqlRepository:
 
     # --- Người dùng + thành viên ---
 
-    def upsert_user(self, sub, username, email, display_name, at) -> None:
+    def upsert_user(self, sub, username, email, display_name, at, role="USER") -> None:
+        _check_user(role, "ACTIVE")
         with self.engine.begin() as conn:
-            old = conn.execute(select(users.c.sub).where(users.c.sub == sub)).first()
+            old = conn.execute(select(users.c.role).where(users.c.sub == sub)).first()
             if old:
+                extra = {} if old.role == role else {"role": role, "updated_at": at}
                 conn.execute(update(users).where(users.c.sub == sub).values(
                     username=username, email=email, display_name=display_name, last_login_at=at,
                     # Tạo từ Dashboard (MT-20): lần đăng nhập đầu tiên mới có first_login_at
-                    first_login_at=func.coalesce(users.c.first_login_at, at),
+                    first_login_at=func.coalesce(users.c.first_login_at, at), **extra,
                 ))
             else:
+                # Người mới: luôn ACTIVE; trạng thái chỉ đổi qua set_user_status (ADMIN).
                 conn.execute(insert(users).values(
                     sub=sub, username=username, email=email, display_name=display_name,
-                    first_login_at=at, last_login_at=at,
+                    first_login_at=at, last_login_at=at, role=role, status="ACTIVE",
+                    updated_at=at,
                 ))
+
+    def list_users(self) -> list[UserRecord]:
+        with self.engine.connect() as conn:
+            rows = conn.execute(select(users).order_by(func.lower(users.c.username))
+                                ).mappings().all()
+        return [UserRecord(**_row(r)) for r in rows]
+
+    def set_user_status(self, sub: str, status: str, at: datetime) -> bool:
+        _check_user("USER", status)
+        with self.engine.begin() as conn:
+            res = conn.execute(update(users).where(users.c.sub == sub)
+                               .values(status=status, updated_at=at))
+        return res.rowcount > 0
 
     def user(self, sub: str) -> UserRecord | None:
         with self.engine.connect() as conn:
@@ -565,17 +638,42 @@ class SqlRepository:
             ))
         return res.rowcount > 0
 
-    def provision_user(self, user: UserRecord, acc: TradingAccount, owner: Member) -> None:
+    def provision_user(self, user: UserRecord, acc: TradingAccount | None, owner: Member,
+                       token_raw: str, at: datetime) -> str:
         _check_role(owner.role)
-        if owner.sub != user.sub or owner.account_id != acc.account_id:
+        _check_user(user.role, user.status)
+        if owner.sub != user.sub or (acc is not None and owner.account_id != acc.account_id):
             raise ValueError("owner phải là người dùng mới của tài khoản mới")
+        m, t = account_members.c, gateway_tokens.c
+        token_id = new_id("gtk")
         try:
             with self.engine.begin() as conn:
+                if acc is None:
+                    # Nhận tài khoản có sẵn: phải tồn tại và CHƯA có chủ (kiểm trong cùng tx).
+                    exists = conn.execute(select(trading_accounts.c.account_id).where(
+                        trading_accounts.c.account_id == owner.account_id)).first()
+                    has_owner = conn.execute(select(m.sub).where(and_(
+                        m.account_id == owner.account_id, m.role == "OWNER")).limit(1)).first()
+                    if exists is None or has_owner is not None:
+                        raise ConflictError(
+                            f"Tài khoản {owner.account_id} không nhận chủ mới được")
                 conn.execute(insert(users).values(**user.__dict__))
-                conn.execute(insert(trading_accounts).values(**acc.__dict__))
+                if acc is not None:
+                    conn.execute(insert(trading_accounts).values(**acc.__dict__))
                 conn.execute(insert(account_members).values(**owner.__dict__))
+                conn.execute(
+                    update(gateway_tokens)
+                    .where(and_(t.account_id == owner.account_id, t.revoked_at.is_(None)))
+                    .values(revoked_at=at)
+                )
+                conn.execute(insert(gateway_tokens).values(
+                    token_id=token_id, account_id=owner.account_id,
+                    token_sha256=token_hash(token_raw), created_at=at,
+                    created_by=owner.granted_by, revoked_at=None,
+                ))
         except IntegrityError as e:
             raise ConflictError("Người dùng hoặc tài khoản đã tồn tại") from e
+        return token_id
 
     # --- Token Gateway ---
 

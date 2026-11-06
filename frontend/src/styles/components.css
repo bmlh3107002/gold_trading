@@ -713,3 +713,17 @@
   gap: 8px;
   padding: 12px var(--page-pad) 0;
 }
+
+/* Trang Quản trị (DEC-16) */
+.admin-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

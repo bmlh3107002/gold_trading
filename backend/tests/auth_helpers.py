@@ -67,6 +67,8 @@ class FakeKeycloak:
     admin_requests: list[tuple[str, str]] = field(default_factory=list)
     admin_tokens: set[str] = field(default_factory=set)
     fail_admin_create: int | None = None  # ép mã lỗi khi tạo người dùng
+    fail_admin_ops: int | None = None  # ép mã lỗi cho bật/tắt, đăng xuất, đặt lại mật khẩu
+    logouts: list[str] = field(default_factory=list)
     down: bool = False
     clock_offset: int = 0
     issuer: str = PUBLIC_URL + "/auth/realms/gold-trading"
@@ -175,6 +177,34 @@ class FakeKeycloak:
             self.users[sub] = User(sub, name, [], body.get("email"))
             self.passwords[sub] = (cred["value"], bool(cred["temporary"]))
             return httpx.Response(201, headers={"Location": f"{ADMIN_API}/users/{sub}"})
+        rest = url[len(ADMIN_API + "/users/"):].split("/")
+        sub = rest[0]
+        if request.method in ("PUT", "POST") and self.fail_admin_ops:
+            return httpx.Response(self.fail_admin_ops, json={"errorMessage": "forced"})
+        if request.method == "PUT" and len(rest) == 1:
+            if sub not in self.users:
+                return httpx.Response(404)
+            body = json.loads(request.content)
+            if set(body) != {"enabled"}:
+                return httpx.Response(400, json={"errorMessage": "unexpected fields"})
+            self.users[sub].enabled = bool(body["enabled"])
+            return httpx.Response(204)
+        if request.method == "POST" and rest[1:] == ["logout"]:
+            if sub not in self.users:
+                return httpx.Response(404)
+            self.logouts.append(sub)
+            for t, s in list(self.refresh_tokens.items()):
+                if s == sub:
+                    del self.refresh_tokens[t]
+            return httpx.Response(204)
+        if request.method == "PUT" and rest[1:] == ["reset-password"]:
+            if sub not in self.users:
+                return httpx.Response(404)
+            body = json.loads(request.content)
+            if len(body["value"]) < 12:
+                return httpx.Response(400, json={"errorMessage": "Invalid password: min length."})
+            self.passwords[sub] = (body["value"], bool(body["temporary"]))
+            return httpx.Response(204)
         if request.method == "DELETE":
             sub = url.rsplit("/", 1)[-1]
             if self.users.pop(sub, None) is None:
@@ -240,6 +270,34 @@ def make_app(repo=None, kc: FakeKeycloak | None = None, **kw: Any):
     kc = kc or FakeKeycloak()
     cfg = kw.pop("auth_cfg", {})
     return create_app(repo or InMemoryRepository(), **kc.app_kwargs(**cfg), **kw), kc
+
+
+def login_owner(app, kc: FakeKeycloak, repo, username: str = "trader",
+                account: str = "default") -> TestClient:
+    """DEC-16: USER đăng nhập + là chủ ``account`` (thay cho admin-làm-chủ trước đây)."""
+    from gold_trading.common.time import utcnow
+    from gold_trading.storage.repository import Member
+
+    c = client(app)
+    u = kc.login(c, username)
+    if repo.account(account) is None:
+        from gold_trading.storage.repository import TradingAccount
+
+        repo.create_account(TradingAccount(account, account, utcnow(), "test", price_feed=False))
+        app.state.registry.add(account)
+    repo.set_member(Member(account, u.sub, "OWNER", utcnow(), "test"))
+    c.kc = kc  # type: ignore[attr-defined]
+    c.sub = u.sub  # type: ignore[attr-defined]
+    return c
+
+
+def user_client(repo=None, username: str = "trader", **kw: Any) -> TestClient:
+    """Client đã đăng nhập bằng USER là chủ tài khoản ``default``."""
+    from gold_trading.storage.repository import InMemoryRepository
+
+    repo = repo if repo is not None else InMemoryRepository()
+    app, kc = make_app(repo, **kw)
+    return login_owner(app, kc, repo, username)
 
 
 def admin_client(repo=None, username: str = "admin", **kw: Any) -> TestClient:

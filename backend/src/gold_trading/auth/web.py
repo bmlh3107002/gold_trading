@@ -41,7 +41,7 @@ PUBLIC_PATHS = frozenset(
 PUBLIC_PREFIXES = ("/api/ingest/mt5/",)
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 # Mã lỗi đăng nhập hiển thị trên giao diện (không đưa chi tiết kỹ thuật ra URL).
-AUTH_ERRORS = ("denied", "state", "expired", "clock", "unavailable", "invalid")
+AUTH_ERRORS = ("denied", "state", "expired", "clock", "unavailable", "invalid", "locked")
 
 
 @dataclass(frozen=True)
@@ -71,6 +71,8 @@ class LogoutResult(BaseModel):
 
 AuditFn = Callable[[str, str | None, str, str, dict[str, Any], str | None], None]
 LoginHook = Callable[[Principal], None]
+# DEC-16: True = người dùng bị ADMIN khóa (đọc DB mỗi request). Lỗi đọc DB → ném lỗi (chặn).
+LockedFn = Callable[[str], bool]
 
 
 def is_public(path: str) -> bool:
@@ -94,6 +96,7 @@ class AuthService:
         *,
         audit: AuditFn,
         on_login: LoginHook | None = None,
+        is_locked: LockedFn | None = None,
         store: SessionStore | None = None,
     ) -> None:
         self.config = config
@@ -101,6 +104,7 @@ class AuthService:
         self.store = store or SessionStore(max_age=config.session_max, idle=config.session_idle)
         self._audit = audit
         self._on_login = on_login
+        self._is_locked = is_locked
 
     # --- Kiểm tra mỗi request ---
 
@@ -120,6 +124,9 @@ class AuthService:
         session = self.store.get(request.cookies.get(SESSION_COOKIE), now)
         if session is None:
             raise HTTPException(401, "Chưa đăng nhập hoặc phiên đã hết hạn")
+        if self._is_locked and self._is_locked(session.sub):
+            # Khóa có hiệu lực ở request kế tiếp, không chờ Keycloak.
+            self._revoke(session, "tài khoản bị khóa")
         self._maybe_refresh(session, now)
         return Principal(
             sub=session.sub,
@@ -242,6 +249,8 @@ class AuthService:
                                   session.display_name, session.is_admin)
             if self._on_login:
                 self._on_login(principal)
+            if self._is_locked and self._is_locked(session.sub):
+                return self._fail("locked", f"Tài khoản bị khóa: {username}")
             raw = self.store.create(session)
             self._audit(username, session.sub, "auth.login", "ACCEPTED",
                         {"admin": session.is_admin}, None)

@@ -52,11 +52,9 @@ from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCa
 from gold_trading.storage.repository import (
     AuditEntry,
     InMemoryRepository,
-    Member,
     Repository,
     SqlRepository,
 )
-from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
 
 POLICY_VERSION = "policy-0.1.0"
 log = logging.getLogger("gold_trading.api")
@@ -263,18 +261,20 @@ def create_app(
         audit(actor, action, outcome, payload, detail, actor_sub=actor_sub)
 
     def on_login(p) -> None:
-        """MT-01: lưu hồ sơ người dùng; ADMIN đầu tiên thành OWNER của tài khoản mặc định."""
-        now = utcnow()
-        repo.upsert_user(p.sub, p.username, p.email, p.display_name, now)
-        if p.is_admin and not any(m.role == "OWNER" for m in repo.members(DEFAULT_ACCOUNT_ID)):
-            repo.set_member(Member(DEFAULT_ACCOUNT_ID, p.sub, "OWNER", now, "bootstrap"))
-            audit(p.username, "account.bootstrap_owner", "ACCEPTED", {"role": "OWNER"},
-                  "ADMIN đầu tiên đăng nhập được gán OWNER tài khoản mặc định",
-                  actor_sub=p.sub, account_id=DEFAULT_ACCOUNT_ID)
+        """MT-01: lưu hồ sơ người dùng + vai trò lấy từ Keycloak (DEC-16: ADMIN | USER).
+
+        ADMIN không được gán tài khoản giao dịch nào (khác trước DEC-16)."""
+        repo.upsert_user(p.sub, p.username, p.email, p.display_name, utcnow(),
+                         role="ADMIN" if p.is_admin else "USER")
+
+    def is_locked(sub: str) -> bool:
+        u = repo.user(sub)
+        return u is not None and u.status != "ACTIVE"
 
     auth_cfg = AuthConfig.from_env() if auth == "env" else auth
     auth_service = AuthService(
-        auth_cfg, oidc or OidcClient(auth_cfg), audit=auth_audit, on_login=on_login
+        auth_cfg, oidc or OidcClient(auth_cfg), audit=auth_audit, on_login=on_login,
+        is_locked=is_locked,
     )
 
     app = FastAPI(
@@ -324,7 +324,6 @@ def create_app(
             market_view=lambda: market_view,
             monitors=monitors,
             legacy_token_configured=bool(token and len(token) >= 24),
-            multi_user_enabled=auth_cfg.multi_user_enabled,
         )
     )
     app.include_router(
@@ -332,6 +331,8 @@ def create_app(
             repo,
             registry,
             kc_admin or KeycloakAdmin(auth_cfg),
+            monitors=monitors,
+            revoke_sessions=auth_service.store.delete_by_sub,
             multi_user_enabled=auth_cfg.multi_user_enabled,
         )
     )

@@ -1,81 +1,39 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccountPage } from "./AccountPage";
-import { json, makeAccount, makeMe } from "../test/fixtures";
+import { json, makeAccount } from "../test/fixtures";
 
 const ACC = "/api/accounts/default";
-const MEMBERS = [
-  { sub: "sub-admin", username: "admin", email: "a@x", display_name: null, role: "OWNER", granted_at: "2026-11-06T03:00:00Z", granted_by: "bootstrap" },
-];
 
-function mock(extra: (url: string, init?: RequestInit) => Response | null = () => null) {
-  const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    const r = extra(url, init);
-    if (r) return r;
-    if (url === `${ACC}/members`) return json(MEMBERS);
-    if (url === `${ACC}/gateway/token` && init?.method !== "POST")
-      return json({ has_token: false, legacy_token_active: true, price_feed: true });
-    return json({}, 404);
-  });
+function mock(info: unknown) {
+  const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) =>
+    String(input) === `${ACC}/gateway/token` && init?.method !== "POST" ? json(info) : json({}, 404),
+  );
   vi.stubGlobal("fetch", fn);
   return fn;
 }
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe("Trang Tài khoản", () => {
-  it("tạo token Gateway: cần xác nhận, token chỉ hiện trong hộp thoại", async () => {
-    const fn = mock((url, init) =>
-      url === `${ACC}/gateway/token` && init?.method === "POST"
-        ? json({ token_id: "gtk_1", token: "gtk_SECRETVALUE", created_at: "2026-11-06T03:00:00Z" })
-        : null,
-    );
-    render(<AccountPage account={makeAccount()} me={makeMe()} />);
-    expect(await screen.findByText(/Token cũ trong file .env/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Tạo token Gateway" }));
-    expect(fn).not.toHaveBeenCalledWith(`${ACC}/gateway/token`, expect.objectContaining({ method: "POST" }));
-    const confirm = screen.getByRole("dialog", { name: "Tạo token Gateway mới?" });
-    await userEvent.click(within(confirm).getByRole("button", { name: "Tạo token mới" }));
-    const dialog = await screen.findByRole("dialog", { name: "Token Gateway mới" });
-    expect(within(dialog).getByText("gtk_SECRETVALUE")).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Tôi đã lưu token" }));
-    await waitFor(() => expect(screen.queryByText("gtk_SECRETVALUE")).not.toBeInTheDocument());
+describe("Trang Tài khoản (USER, DEC-16)", () => {
+  it("chỉ xem trạng thái token; không có nút tạo/xoay token, không có mục thành viên", async () => {
+    const fn = mock({ has_token: true, legacy_token_active: false, price_feed: true });
+    render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText("Đã có token Gateway.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /token/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Thành viên")).not.toBeInTheDocument();
+    expect(fn.mock.calls.every(([, init]) => (init as RequestInit | undefined)?.method !== "POST")).toBe(true);
   });
 
-  it("VIEWER: không có nút thêm thành viên, đổi vai trò hay xoay token", async () => {
-    mock();
-    render(<AccountPage account={makeAccount({ role: "VIEWER", permissions: ["VIEW"] })} me={makeMe()} />);
-    expect(await screen.findByText("admin")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Thêm" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /token Gateway/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  it("chưa có token: nhắc nhờ quản trị cấp", async () => {
+    mock({ has_token: false, legacy_token_active: false, price_feed: false });
+    render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText(/Nhờ quản trị hệ thống cấp/)).toBeInTheDocument();
+    expect(screen.getByText(/chỉ gửi được nhịp tim/)).toBeInTheDocument();
   });
 
-  it("Quản trị không là thành viên (DEC-15): ẩn hẳn mục MT5 Gateway, không gọi API token", async () => {
-    const fn = mock();
-    render(
-      <AccountPage
-        account={makeAccount({ role: null, permissions: ["VIEW", "PAUSE_HALT", "APPROVE_LIVE", "MANAGE_MEMBERS"] })}
-        me={makeMe()}
-      />,
-    );
-    expect(await screen.findByText("admin")).toBeInTheDocument();
-    expect(screen.queryByText("MT5 Gateway")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /token Gateway/ })).not.toBeInTheDocument();
-    expect(fn).not.toHaveBeenCalledWith(`${ACC}/gateway/token`, expect.anything());
-    expect(fn.mock.calls.some(([u]) => String(u).includes("/gateway/token"))).toBe(false);
-  });
-
-  it("thêm thành viên bị từ chối (chưa nhận người thứ hai): hiện thông báo thân thiện", async () => {
-    mock((url, init) =>
-      url === `${ACC}/members` && init?.method === "POST" ? json({ detail: "raw DEC-12" }, 409) : null,
-    );
-    render(<AccountPage account={makeAccount()} me={makeMe()} />);
-    await userEvent.type(await screen.findByLabelText(/Thêm người dùng/), "bob");
-    await userEvent.click(screen.getByRole("button", { name: "Thêm" }));
-    expect(await screen.findByText(/chưa nhận người dùng thứ hai/)).toBeInTheDocument();
-    expect(screen.queryByText("raw DEC-12")).not.toBeInTheDocument();
+  it("không có tài khoản: thông báo", () => {
+    render(<AccountPage account={null} />);
+    expect(screen.getByText("Bạn chưa có tài khoản giao dịch nào")).toBeInTheDocument();
   });
 });

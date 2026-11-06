@@ -149,12 +149,11 @@ export interface paths {
         };
         /**
          * List Accounts
-         * @description Chỉ các tài khoản người dùng có quyền (ADMIN thấy tất cả để giám sát).
+         * @description Tài khoản giao dịch của chính USER. ADMIN không có tài khoản giao dịch → [].
          */
         get: operations["list_accounts_api_accounts_get"];
         put?: never;
-        /** Create Account */
-        post: operations["create_account_api_accounts_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -247,7 +246,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/accounts/{account_id}/mode/live-requests/{request_id}/approve": {
+    "/api/admin/live-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Pending Live */
+        get: operations["admin_pending_live_api_admin_live_requests_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/live-requests/{request_id}/approve": {
         parameters: {
             query?: never;
             header?: never;
@@ -257,32 +273,14 @@ export interface paths {
         get?: never;
         put?: never;
         /** Approve Live */
-        post: operations["approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post"];
+        post: operations["approve_live_api_admin_live_requests__request_id__approve_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/accounts/{account_id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Members */
-        get: operations["list_members_api_accounts__account_id__members_get"];
-        put?: never;
-        /** Add Member */
-        post: operations["add_member_api_accounts__account_id__members_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/accounts/{account_id}/members/{user_sub}": {
+    "/api/admin/live-requests/{request_id}/reject": {
         parameters: {
             query?: never;
             header?: never;
@@ -290,11 +288,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Change Role */
-        put: operations["change_role_api_accounts__account_id__members__user_sub__put"];
-        post?: never;
-        /** Remove Member */
-        delete: operations["remove_member_api_accounts__account_id__members__user_sub__delete"];
+        put?: never;
+        /** Reject Live */
+        post: operations["reject_live_api_admin_live_requests__request_id__reject_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -327,41 +324,6 @@ export interface paths {
         /** Gateway Token Info */
         get: operations["gateway_token_info_api_accounts__account_id__gateway_token_get"];
         put?: never;
-        /** Rotate Gateway Token */
-        post: operations["rotate_gateway_token_api_accounts__account_id__gateway_token_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/kill-switch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Kill Switch */
-        post: operations["kill_switch_api_admin_kill_switch_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** System Audit */
-        get: operations["system_audit_api_admin_audit_get"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -376,10 +338,79 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Users */
+        get: operations["list_users_api_admin_users_get"];
         put?: never;
         /** Create User */
         post: operations["create_user_api_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{sub}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Lock User */
+        post: operations["lock_user_api_admin_users__sub__lock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{sub}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unlock User */
+        post: operations["unlock_user_api_admin_users__sub__unlock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{sub}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset Password */
+        post: operations["reset_password_api_admin_users__sub__reset_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{sub}/accounts/{account_id}/gateway-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reissue Token */
+        post: operations["reissue_token_api_admin_users__sub__accounts__account_id__gateway_token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -441,12 +472,21 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AccountCreate */
-        AccountCreate: {
+        /** AccountAdminOut */
+        AccountAdminOut: {
             /** Account Id */
             account_id: string;
             /** Name */
             name: string;
+            /** Price Feed */
+            price_feed: boolean;
+            /**
+             * Gateway Status
+             * @enum {string}
+             */
+            gateway_status: "NO_TOKEN" | "WAITING" | "CONNECTED" | "DISCONNECTED" | "BLOCKED";
+            /** Gateway Last Seen At */
+            gateway_last_seen_at: string | null;
         };
         /** AccountStatus */
         AccountStatus: {
@@ -454,13 +494,6 @@ export interface components {
             account_id: string;
             /** Name */
             name: string;
-            /**
-             * Role
-             * @description Vai trò của người đang đăng nhập; None = ADMIN không là thành viên
-             */
-            role: ("OWNER" | "OPERATOR" | "VIEWER") | null;
-            /** Permissions */
-            permissions: components["schemas"]["Perm"][];
             safety_state: components["schemas"]["SafetyState"];
             mode: components["schemas"]["TradingMode"];
             /** Live Unlocked */
@@ -479,13 +512,6 @@ export interface components {
             account_id: string;
             /** Name */
             name: string;
-            /**
-             * Role
-             * @description Vai trò của người đang đăng nhập; None = ADMIN không là thành viên
-             */
-            role: ("OWNER" | "OPERATOR" | "VIEWER") | null;
-            /** Permissions */
-            permissions: components["schemas"]["Perm"][];
             safety_state: components["schemas"]["SafetyState"];
             mode: components["schemas"]["TradingMode"];
         };
@@ -767,6 +793,23 @@ export interface components {
          * @enum {string}
          */
         Freshness: "NO_DATA" | "FRESH" | "STALE" | "MARKET_CLOSED";
+        /**
+         * GatewayCredential
+         * @description Token gốc: CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN) của Gateway USER.
+         */
+        GatewayCredential: {
+            /** Account Id */
+            account_id: string;
+            /** Token Id */
+            token_id: string;
+            /** Token */
+            token: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** GatewayStatus */
         GatewayStatus: {
             /**
@@ -797,21 +840,6 @@ export interface components {
              * @description Gateway của tài khoản này được ghi nến dùng chung
              */
             price_feed: boolean;
-        };
-        /** GatewayTokenIssued */
-        GatewayTokenIssued: {
-            /** Token Id */
-            token_id: string;
-            /**
-             * Token
-             * @description CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN)
-             */
-            token: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -875,18 +903,6 @@ export interface components {
             /** Session Best Shift Hours */
             session_best_shift_hours?: number | null;
         };
-        /** KillSwitchCommand */
-        KillSwitchCommand: {
-            /** Reason Code */
-            reason_code: string;
-        };
-        /** KillSwitchResult */
-        KillSwitchResult: {
-            /** Halted */
-            halted: string[];
-            /** Already Halted */
-            already_halted: string[];
-        };
         /** LiveRequestCreate */
         LiveRequestCreate: {
             /** Checklist */
@@ -900,6 +916,8 @@ export interface components {
             request_id: string;
             /** Account Id */
             account_id: string;
+            /** Account Name */
+            account_name: string;
             /** Requested By */
             requested_by: string;
             /**
@@ -916,6 +934,23 @@ export interface components {
             checklist: {
                 [key: string]: boolean;
             };
+        };
+        /** LockResult */
+        LockResult: {
+            /** Sub */
+            sub: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ACTIVE" | "LOCKED";
+            /** Sessions Revoked */
+            sessions_revoked: number;
+            /**
+             * Keycloak Synced
+             * @description False = Keycloak chưa cập nhật (khóa vẫn có hiệu lực ở backend); bấm lại
+             */
+            keycloak_synced: boolean;
         };
         /** LogoutResult */
         LogoutResult: {
@@ -1020,50 +1055,6 @@ export interface components {
             /** Idle Timeout Seconds */
             idle_timeout_seconds: number;
         };
-        /** MemberAdd */
-        MemberAdd: {
-            /**
-             * User
-             * @description username hoặc email Keycloak
-             */
-            user: string;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "OWNER" | "OPERATOR" | "VIEWER";
-        };
-        /** MemberOut */
-        MemberOut: {
-            /** Sub */
-            sub: string;
-            /** Username */
-            username: string;
-            /** Email */
-            email: string | null;
-            /** Display Name */
-            display_name: string | null;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "OWNER" | "OPERATOR" | "VIEWER";
-            /**
-             * Granted At
-             * Format: date-time
-             */
-            granted_at: string;
-            /** Granted By */
-            granted_by: string;
-        };
-        /** MemberRole */
-        MemberRole: {
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "OWNER" | "OPERATOR" | "VIEWER";
-        };
         /** ModeCommand */
         ModeCommand: {
             mode: components["schemas"]["TradingMode"];
@@ -1082,11 +1073,18 @@ export interface components {
             disks: components["schemas"]["DiskOut"][];
             backup: components["schemas"]["BackupOut"];
         };
-        /**
-         * Perm
-         * @enum {string}
-         */
-        Perm: "VIEW" | "PAUSE_HALT" | "RESUME" | "EXIT_HALTED" | "SET_MODE" | "REQUEST_LIVE" | "APPROVE_LIVE" | "ROTATE_TOKEN" | "MANAGE_MEMBERS";
+        /** PasswordReset */
+        PasswordReset: {
+            /** Sub */
+            sub: string;
+            /**
+             * Temporary Password
+             * @description CHỈ HIỆN MỘT LẦN; USER phải đổi khi đăng nhập
+             */
+            temporary_password: string;
+            /** Sessions Revoked */
+            sessions_revoked: number;
+        };
         /** QuarantineOut */
         QuarantineOut: {
             /**
@@ -1211,6 +1209,33 @@ export interface components {
          * @enum {string}
          */
         TradingMode: "BACKTEST" | "PAPER" | "SHADOW" | "LIVE";
+        /**
+         * UserAdminOut
+         * @description Không có token hay mật khẩu.
+         */
+        UserAdminOut: {
+            /** Sub */
+            sub: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ACTIVE" | "LOCKED";
+            /** First Login At */
+            first_login_at: string | null;
+            /** Last Login At */
+            last_login_at: string | null;
+            /** Updated At */
+            updated_at: string | null;
+            /** Accounts */
+            accounts: components["schemas"]["AccountAdminOut"][];
+        };
         /** UserCreate */
         UserCreate: {
             /**
@@ -1226,9 +1251,9 @@ export interface components {
             last_name: string;
             /**
              * Password
-             * @description Mật khẩu tạm; người dùng phải đổi ở lần đăng nhập đầu
+             * @description Mật khẩu tạm; bỏ trống = hệ thống tự sinh. Phải đổi ở lần đăng nhập đầu
              */
-            password: string;
+            password?: string | null;
             /**
              * Account Name
              * @description Tên tài khoản giao dịch riêng
@@ -1245,10 +1270,27 @@ export interface components {
             email: string;
             /** Display Name */
             display_name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ACTIVE" | "LOCKED";
             /** Account Id */
             account_id: string;
             /** Account Name */
             account_name: string;
+            gateway: components["schemas"]["GatewayCredential"];
+            /**
+             * Gateway Status
+             * @description WAITING = token đã đăng ký ở backend, chờ Gateway gửi nhịp tim đầu tiên
+             * @enum {string}
+             */
+            gateway_status: "NO_TOKEN" | "WAITING" | "CONNECTED" | "DISCONNECTED" | "BLOCKED";
+            /**
+             * Temporary Password
+             * @description Chỉ có khi hệ thống tự sinh mật khẩu tạm. CHỈ HIỆN MỘT LẦN
+             */
+            temporary_password?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1497,39 +1539,6 @@ export interface operations {
             };
         };
     };
-    create_account_api_accounts_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AccountCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AccountSummary"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     account_status_api_accounts__account_id__status_get: {
         parameters: {
             query?: never;
@@ -1730,12 +1739,31 @@ export interface operations {
             };
         };
     };
-    approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post: {
+    admin_pending_live_api_admin_live_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveRequestOut"][];
+                };
+            };
+        };
+    };
+    approve_live_api_admin_live_requests__request_id__approve_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                account_id: string;
                 request_id: string;
             };
             cookie?: never;
@@ -1748,7 +1776,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccountStatus"];
+                    "application/json": components["schemas"]["LiveRequestOut"];
                 };
             };
             /** @description Validation Error */
@@ -1762,12 +1790,12 @@ export interface operations {
             };
         };
     };
-    list_members_api_accounts__account_id__members_get: {
+    reject_live_api_admin_live_requests__request_id__reject_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                account_id: string;
+                request_id: string;
             };
             cookie?: never;
         };
@@ -1779,109 +1807,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MemberOut"][];
+                    "application/json": components["schemas"]["LiveRequestOut"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    add_member_api_accounts__account_id__members_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                account_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberAdd"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    change_role_api_accounts__account_id__members__user_sub__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                account_id: string;
-                user_sub: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MemberRole"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remove_member_api_accounts__account_id__members__user_sub__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                account_id: string;
-                user_sub: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1956,75 +1883,9 @@ export interface operations {
             };
         };
     };
-    rotate_gateway_token_api_accounts__account_id__gateway_token_post: {
+    list_users_api_admin_users_get: {
         parameters: {
             query?: never;
-            header?: never;
-            path: {
-                account_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GatewayTokenIssued"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    kill_switch_api_admin_kill_switch_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["KillSwitchCommand"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KillSwitchResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    system_audit_api_admin_audit_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2037,16 +1898,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuditRecord"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["UserAdminOut"][];
                 };
             };
         };
@@ -2071,6 +1923,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lock_user_api_admin_users__sub__lock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_user_api_admin_users__sub__unlock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_api_admin_users__sub__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordReset"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reissue_token_api_admin_users__sub__accounts__account_id__gateway_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayCredential"];
                 };
             };
             /** @description Validation Error */

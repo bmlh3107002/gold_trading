@@ -1,66 +1,53 @@
-"""Ma trận quyền (OPS-17). Nguồn sự thật: docs/thiet-ke/00-xac-thuc-phan-quyen.md mục 5.
+"""Phân quyền tối giản (DEC-16, thay ma trận quyền OPS-17).
 
-Sửa bảng ở đây thì sửa cả tài liệu, và ngược lại (test so khớp hai nơi).
-Vai trò theo tài khoản đọc từ DB **mỗi request** → thu hồi có hiệu lực ngay.
+Chỉ hai vai trò:
+
+- **ADMIN** (realm role ``ADMIN`` trên Keycloak): chỉ quản lý tài khoản USER (tạo, khóa, mở khóa,
+  đặt lại mật khẩu, cấp lại token Gateway) và duyệt/từ chối yêu cầu bật LIVE. **Không** vào được
+  tài khoản giao dịch nào: không xem, không dừng, không đổi Mode, không lấy dữ liệu riêng.
+- **USER**: làm mọi việc giao dịch hiện có trên tài khoản giao dịch **của mình**, khi đang
+  ``ACTIVE``.
+
+"Của mình" = có dòng ``account_members`` với ``role = 'OWNER'``. Dòng OPERATOR/VIEWER cũ (trước
+DEC-16) bị bỏ qua — không cho quyền gì — để không vô tình mở rộng quyền khi bỏ vai trò trung gian.
+Backend kiểm tra mỗi request (đọc DB); giao diện chỉ ẩn nút.
 """
 
 from __future__ import annotations
 
-from enum import StrEnum
 from typing import Literal
 
-from gold_trading.storage.repository import ROLE_RANK
+from gold_trading.storage.repository import Repository
+
+OWNER = "OWNER"
+ACTIVE = "ACTIVE"
+LOCKED = "LOCKED"
+
+Decision = Literal["ok", "locked", "not_found"]
 
 
-class Perm(StrEnum):
-    VIEW = "VIEW"
-    PAUSE_HALT = "PAUSE_HALT"
-    RESUME = "RESUME"  # PAUSED → ACTIVE
-    EXIT_HALTED = "EXIT_HALTED"  # HALTED → ACTIVE (cần tick xác nhận)
-    SET_MODE = "SET_MODE"  # BACKTEST/PAPER/SHADOW
-    REQUEST_LIVE = "REQUEST_LIVE"
-    APPROVE_LIVE = "APPROVE_LIVE"
-    ROTATE_TOKEN = "ROTATE_TOKEN"
-    MANAGE_MEMBERS = "MANAGE_MEMBERS"
-
-
-# Vai trò tối thiểu trong tài khoản cho từng quyền.
-MIN_ROLE: dict[Perm, str] = {
-    Perm.VIEW: "VIEWER",
-    Perm.PAUSE_HALT: "OPERATOR",
-    Perm.RESUME: "OPERATOR",
-    Perm.EXIT_HALTED: "OWNER",
-    Perm.SET_MODE: "OWNER",
-    Perm.REQUEST_LIVE: "OWNER",
-    Perm.APPROVE_LIVE: "OWNER",
-    Perm.ROTATE_TOKEN: "OWNER",
-    Perm.MANAGE_MEMBERS: "OWNER",
-}
-
-# ADMIN (realm role) được làm gì trên tài khoản mà mình KHÔNG là thành viên:
-# chỉ giám sát, dừng (hướng an toàn), duyệt LIVE, quản lý thành viên.
-# Không được mở giao dịch hay đổi Mode thay chủ tài khoản.
-# Không xoay token Gateway (DEC-15): token là chìa khóa nối tài khoản với MT5, chỉ OWNER
-# cầm; ADMIN muốn cấp token thì tự thêm mình làm OWNER (có ghi audit).
-ADMIN_PERMS: frozenset[Perm] = frozenset(
-    {Perm.VIEW, Perm.PAUSE_HALT, Perm.APPROVE_LIVE, Perm.MANAGE_MEMBERS}
-)
-
-Decision = Literal["ok", "forbidden", "not_found"]
-
-
-def decide(perm: Perm, role: str | None, is_admin: bool) -> Decision:
-    """Kết quả kiểm quyền. Không là thành viên và không phải ADMIN → not_found (không lộ
-    tài khoản có tồn tại hay không)."""
-    if role is not None and ROLE_RANK[role] >= ROLE_RANK[MIN_ROLE[perm]]:
-        return "ok"
-    if is_admin and perm in ADMIN_PERMS:
-        return "ok"
-    if role is None and not is_admin:
+def decide(*, is_admin: bool, owns: bool, status: str | None) -> Decision:
+    """ADMIN hoặc không sở hữu → not_found (không lộ tài khoản có tồn tại hay không).
+    Sở hữu nhưng không ACTIVE (hoặc không có hồ sơ) → locked."""
+    if is_admin or not owns:
         return "not_found"
-    return "forbidden"
+    if status != ACTIVE:
+        return "locked"
+    return "ok"
 
 
-def permissions(role: str | None, is_admin: bool) -> list[Perm]:
-    """Danh sách quyền để giao diện ẩn/khóa nút (backend vẫn kiểm lại mỗi request)."""
-    return [p for p in Perm if decide(p, role, is_admin) == "ok"]
+def owns(repo: Repository, account_id: str, sub: str) -> bool:
+    return repo.role(account_id, sub) == OWNER
+
+
+def account_locked(repo: Repository, account_id: str) -> bool:
+    """True khi tài khoản giao dịch có chủ đang bị khóa (Gateway từ chối, không lệnh mới).
+
+    Tài khoản chưa có chủ (vd. tài khoản nguồn giá lúc mới cài) không bị coi là khóa."""
+    for m in repo.members(account_id):
+        if m.role != OWNER:
+            continue
+        u = repo.user(m.sub)
+        if u is None or u.status != ACTIVE:
+            return True
+    return False

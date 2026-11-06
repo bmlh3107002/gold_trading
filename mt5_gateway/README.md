@@ -21,7 +21,7 @@ Cần có: máy **Windows**, **Docker Desktop** đang chạy, **MetaTrader 5** �
 
 Token là "mật khẩu" để chỉ Gateway của bạn mới gửi được dữ liệu vào **đúng tài khoản giao dịch**.
 
-- **Cách mới (khuyên dùng):** đăng nhập Dashboard → trang **Tài khoản** → **MT5 Gateway** → **Tạo token Gateway** → bấm **Sao chép**. Token chỉ hiện **một lần**. Mỗi lần tạo token mới, token cũ hết hiệu lực ngay (kể cả `GT_INGEST_TOKEN` trong `.env` của Docker), nên phải dán token mới vào `gateway.env` (Bước 4) rồi chạy lại Gateway.
+- **Cách mới (khuyên dùng, DEC-16):** token được sinh tự động khi `admin` tạo người dùng trên Dashboard (**Quản trị → Tạo người dùng**) và hiện **một lần** ngay sau đó → bấm **Sao chép**. Mất token: `admin` bấm **Quản trị → Cấp lại token** ở dòng người dùng đó. Mỗi lần cấp token mới, token cũ hết hiệu lực ngay (kể cả `GT_INGEST_TOKEN` trong `.env` của Docker), nên phải dán token mới vào `gateway.env` (Bước 4) rồi chạy lại Gateway. Người dùng bị khóa → Gateway của họ nhận `HTTP 403`.
 - **Cách cũ (vẫn chạy được cho "Tài khoản chính" tới lần tạo token đầu tiên trên Dashboard):** tạo chuỗi ngẫu nhiên bằng PowerShell `[guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")`, dán vào `GT_INGEST_TOKEN` ở cả `.env` của Docker (Bước 3) và `gateway.env` (Bước 4).
 
 Không gửi token qua chat hay email.
@@ -130,6 +130,7 @@ uv run mt5-gateway run
 | `Không kết nối được backend` | Kiểm tra Docker đang chạy và mở được http://localhost:8080 |
 | `HTTP 503` / `chưa đặt GT_INGEST_TOKEN` | Thiếu file `.env` ở Bước 3, hoặc chưa chạy lại `docker compose up -d` |
 | `HTTP 401` / `Token không hợp lệ` | Token ở `gateway.env` sai, hoặc đã tạo token mới trên Dashboard (token cũ hết hiệu lực): dán token mới vào `gateway.env` |
+| `HTTP 403` / `đang bị khóa` | Người dùng của tài khoản này bị `admin` khóa: mở khóa trên **Quản trị**, token cũ dùng lại được |
 | `HTTP 403` / `chưa được phép ghi nến dùng chung` | Token thuộc tài khoản giao dịch không phải "Tài khoản chính". Tới GĐ1 chỉ tài khoản chính được ghi nến |
 | `HTTP 503` / `đồng hồ máy chủ lệch` | Đồng hồ máy chạy Docker lệch > 30 giây: khởi động lại Docker Desktop (hay gặp sau khi máy ngủ) |
 | `Múi giờ ... không khớp` | Làm theo gợi ý `Đặt GT_SERVER_TZ=...` rồi chạy lại `check` |

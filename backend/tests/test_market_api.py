@@ -6,13 +6,13 @@ from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.modes.manager import ModeChange
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
-from tests.auth_helpers import admin_client
+from tests.auth_helpers import user_client
 
 
 def sample_app(repo=None, days=5):
     store = InMemoryCandleStore()
     SampleFeed(store, history_days=days).tick()
-    c = admin_client(
+    c = user_client(
         repo or InMemoryRepository(),
         candle_store=store,
         data_source=DataSource.SAMPLE,
@@ -42,7 +42,7 @@ def test_summary_and_quality():
 
 
 def test_no_source_configured_returns_empty():
-    c = admin_client(InMemoryRepository(), data_source=None)
+    c = user_client(InMemoryRepository(), data_source=None)
     assert c.get("/api/market/candles").json()["candles"] == []
     s = c.get("/api/market/summary").json()
     assert s["freshness"] == "NO_DATA" and s["last_price"] is None

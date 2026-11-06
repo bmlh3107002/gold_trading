@@ -66,8 +66,9 @@ export function Sidebar({ open, onClose, connection, version, storage, route, ga
           )}
         </div>
         <nav className="nav" aria-label={t("nav.sectionMain")}>
-          <div className="nav__section">{t("nav.sectionMain")}</div>
-          {PAGES.map(({ key, icon: Icon }) => (
+          {/* DEC-16: ADMIN chỉ thấy Quản trị; USER không thấy Quản trị. Backend vẫn kiểm quyền. */}
+          {!isAdmin && <div className="nav__section">{t("nav.sectionMain")}</div>}
+          {!isAdmin && PAGES.map(({ key, icon: Icon }) => (
             <a
               key={key}
               className="nav__item"
@@ -93,8 +94,8 @@ export function Sidebar({ open, onClose, connection, version, storage, route, ga
               </a>
             </>
           )}
-          <div className="nav__section">{t("nav.sectionSoon")}</div>
-          {SOON.map(({ key, icon: Icon }) => (
+          {!isAdmin && <div className="nav__section">{t("nav.sectionSoon")}</div>}
+          {!isAdmin && SOON.map(({ key, icon: Icon }) => (
             <span
               key={key}
               className="nav__item"

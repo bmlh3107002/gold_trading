@@ -62,7 +62,7 @@ Lần đầu mất vài phút (Docker tải code từ GitHub và build; Keycloak
 1. Mở địa chỉ trong `GT_PUBLIC_URL` (mặc định http://localhost:8080), bấm **Đăng nhập**.
 2. Trang đăng nhập Keycloak: tên `admin` (hoặc `GT_ADMIN_USERNAME`), mật khẩu tạm ở bước 3.
 3. Keycloak yêu cầu **đặt mật khẩu mới** (ít nhất 12 ký tự), rồi **bổ sung email và họ tên**.
-4. Bạn được đưa về Dashboard. Người ADMIN đăng nhập đầu tiên tự trở thành **Chủ** của "Tài khoản chính".
+4. Bạn được đưa về Dashboard, trang **Quản trị**. Tài khoản `admin` **chỉ quản lý người dùng**, không giao dịch (DEC-16). Vào **Quản trị → Tạo người dùng** để tạo người giao dịch: người dùng đầu tiên nhận "Tài khoản chính" (nguồn giá). Hệ thống hiện **token Gateway** (và mật khẩu tạm nếu để trống) **một lần**: lưu lại ngay.
 
 - Sai mật khẩu nhiều lần, Keycloak sẽ **khóa tạm** (tối đa 15 phút).
 - Phiên đăng nhập tối đa 8 giờ; không thao tác 30 phút thì hết phiên. Khởi động lại backend thì phải đăng nhập lại.
@@ -201,6 +201,6 @@ docker compose down -v --rmi local
 - Dữ liệu lưu trong volume `db_data` (ứng dụng) và `keycloak_db_data` (đăng nhập), không mất khi restart hay `down`. Chỉ `down -v` mới xóa — khi đó khôi phục từ thư mục `backups\`.
 - Sau mỗi lần khởi động lại: nếu trước đó **ACTIVE** thì tự về **PAUSED** (phải bấm "Cho phép giao dịch" lại); **HALTED** được giữ nguyên; **LIVE** tự về **PAPER**.
 - Database không mở cổng ra máy. Mật khẩu mặc định `gold-local-only` chỉ dùng trong mạng nội bộ của Docker; muốn đổi thì tạo file `.env` cạnh `docker-compose.yml` với `POSTGRES_PASSWORD=...` **trước lần chạy đầu tiên** (đổi sau khi DB đã tạo sẽ không có tác dụng trừ khi `down -v`).
-- **MT5 Gateway không chạy trong Docker** (cần MetaTrader 5 trên Windows): xem `mt5_gateway/README.md`. Token của Gateway tạo trên Dashboard, trang **Tài khoản** → **MT5 Gateway**; token cũ `GT_INGEST_TOKEN` trong `.env` chỉ còn dùng được tới lần tạo token đầu tiên.
+- **MT5 Gateway không chạy trong Docker** (cần MetaTrader 5 trên Windows): xem `mt5_gateway/README.md`. Token của Gateway do hệ thống sinh khi `admin` tạo người dùng; mất token thì `admin` bấm **Quản trị → Cấp lại token** (token cũ chết ngay). Token cũ `GT_INGEST_TOKEN` trong `.env` chỉ còn dùng được tới khi "Tài khoản chính" có token đầu tiên.
 - Log mỗi container giới hạn 5 file × 10 MB, dạng JSON, đã che token/mật khẩu/cookie.
 - Nếu repo chuyển sang private, Docker sẽ không tự tải được code nữa. Khi đó cần cách khác (ví dụ image dựng sẵn trên GHCR).

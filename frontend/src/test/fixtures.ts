@@ -1,7 +1,6 @@
 import type {
   AccountStatus,
   AccountSummary,
-  Perm,
   Me,
   AnalystLatest,
   CandlesResponse,
@@ -12,11 +11,11 @@ import type {
 
 export function makeMe(over: Partial<Me> = {}): Me {
   return {
-    sub: "sub-admin",
-    username: "admin",
-    email: "admin@example.com",
+    sub: "sub-trader",
+    username: "trader",
+    email: "trader@example.com",
     display_name: null,
-    is_admin: true,
+    is_admin: false,
     session_expires_at: "2026-11-06T12:00:00Z",
     idle_timeout_seconds: 1800,
     ...over,
@@ -35,24 +34,10 @@ export function makeSystem(over: Partial<SystemStatus> = {}): SystemStatus {
   };
 }
 
-export const ALL_PERMS: Perm[] = [
-  "VIEW",
-  "PAUSE_HALT",
-  "RESUME",
-  "EXIT_HALTED",
-  "SET_MODE",
-  "REQUEST_LIVE",
-  "APPROVE_LIVE",
-  "ROTATE_TOKEN",
-  "MANAGE_MEMBERS",
-];
-
 export function makeAccount(over: Partial<AccountSummary> = {}): AccountSummary {
   return {
     account_id: "default",
     name: "Tài khoản chính",
-    role: "OWNER",
-    permissions: ALL_PERMS,
     safety_state: "PAUSED",
     mode: "PAPER",
     ...over,

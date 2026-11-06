@@ -5,7 +5,7 @@ from gold_trading.ingestion.sources import sample
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
-from tests.auth_helpers import admin_client
+from tests.auth_helpers import user_client
 
 TOKEN = "t" * 32
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
@@ -14,7 +14,7 @@ TF = Timeframe.M15
 
 def client(token=TOKEN):
     store = InMemoryCandleStore()
-    c = admin_client(
+    c = user_client(
         InMemoryRepository(),
         candle_store=store,
         data_source=DataSource.MT5,

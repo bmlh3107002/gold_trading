@@ -20,6 +20,7 @@ from tests.auth_helpers import (
     PUBLIC_URL,
     FakeKeycloak,
     client,
+    login_owner,
     make_app,
     make_config,
 )
@@ -51,7 +52,7 @@ def test_every_non_public_route_requires_session():
         if is_public(path):
             continue
         concrete = path
-        for name in ("account_id", "user_sub", "request_id"):
+        for name in ("account_id", "sub", "request_id"):
             concrete = concrete.replace("{" + name + "}", "x")
         assert "{" not in concrete, f"tham số đường dẫn chưa xử lý: {path}"
         for method in ops:
@@ -355,8 +356,8 @@ def test_logout_clears_session_and_returns_keycloak_url():
 
 
 def test_write_from_other_origin_is_blocked_and_audited():
-    _, kc, repo, c = setup()
-    kc.login(c, "kate", admin=True)
+    app, kc, repo, _ = setup()
+    c = login_owner(app, kc, repo, "kate")
     body = {"action": "halt", "reason_code": "X"}
     r = c.post("/api/accounts/default/safety", json=body, headers={"Origin": "https://evil.example"})
     assert r.status_code == 403
@@ -376,8 +377,8 @@ def test_unknown_host_rejected_dns_rebinding():
 
 
 def test_client_supplied_actor_is_rejected_and_audit_uses_session():
-    _, kc, repo, c = setup()
-    kc.login(c, "mia", admin=True)
+    app, kc, repo, _ = setup()
+    c = login_owner(app, kc, repo, "mia")
     r = c.post("/api/accounts/default/safety",
                json={"action": "halt", "reason_code": "X", "actor": "someone"})
     assert r.status_code == 422

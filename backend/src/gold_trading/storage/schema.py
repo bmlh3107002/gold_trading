@@ -93,6 +93,12 @@ users = Table(
     # NULL = do ADMIN tạo trên Dashboard (MT-20), chưa đăng nhập lần nào (migration 0005)
     Column("first_login_at", DateTime(timezone=True)),
     Column("last_login_at", DateTime(timezone=True)),
+    # DEC-16 (migration 0006): chỉ hai vai trò và hai trạng thái
+    Column("role", String(8), nullable=False, server_default="USER"),
+    Column("status", String(8), nullable=False, server_default="ACTIVE"),
+    Column("updated_at", DateTime(timezone=True)),
+    CheckConstraint("role IN ('ADMIN', 'USER')", name="ck_users_role"),
+    CheckConstraint("status IN ('ACTIVE', 'LOCKED')", name="ck_users_status"),
 )
 Index("ix_users_username", users.c.username)
 Index("ix_users_email", users.c.email)

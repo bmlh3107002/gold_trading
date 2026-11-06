@@ -53,7 +53,9 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const system = usePolling(api.system, 15_000, 60_000);
   const ops = usePolling(api.opsHealth, 30_000, 120_000);
   const market = useMarketSummary();
-  const route = useRoute();
+  const hashRoute = useRoute();
+  // DEC-16: ADMIN chỉ có trang Quản trị (không vào giao diện giao dịch); USER không có Quản trị.
+  const route = me.is_admin ? "admin" : hashRoute === "admin" ? "overview" : hashRoute;
   const gateway = useGatewayStatus(system.data?.data_source === "MT5" ? accountId : null);
   const { theme, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -79,7 +81,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
           onToggleTheme={toggle}
           onOpenMenu={() => setMenuOpen(true)}
           menuOpen={menuOpen}
-          market={market.data}
+          market={me.is_admin ? null : market.data}
           userName={me.display_name || me.username}
           isAdmin={me.is_admin}
           onLogout={onLogout}
@@ -92,15 +94,11 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
           {route === "market" ? (
             <MarketPage theme={theme} summary={market} />
           ) : route === "admin" ? (
-            <AdminPage
-              me={me}
-              multiUser={system.data?.multi_user_enabled ?? true}
-              onUserCreated={() => void accounts.refresh()}
-            />
+            <AdminPage me={me} multiUser={system.data?.multi_user_enabled ?? true} />
           ) : route === "account" ? (
-            <AccountPage account={accounts.selected} me={me} />
+            <AccountPage account={accounts.selected} />
           ) : (
-            <OverviewPage sys={sys} accountId={accounts.loading ? null : accountId} me={me} />
+            <OverviewPage sys={sys} accountId={accounts.loading ? null : accountId} />
           )}
         </main>
       </div>

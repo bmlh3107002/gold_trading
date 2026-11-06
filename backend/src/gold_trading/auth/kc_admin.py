@@ -129,6 +129,39 @@ class KeycloakAdmin:
             raise InvalidUser(reason)
         raise AdminApiError(f"Keycloak trả {r.status_code} khi tạo người dùng")
 
+    def _expect(self, r: httpx.Response, what: str, ok: tuple[int, ...] = (204,)) -> None:
+        if r.status_code in ok:
+            return
+        if r.status_code in (401, 403):
+            raise AdminNotConfigured(f"Service account thiếu quyền manage-users ({r.status_code})")
+        if r.status_code == 404:
+            raise AdminApiError(f"Keycloak không có người dùng này ({what})")
+        if r.status_code == 400:
+            msg = _error_text(r)
+            log.warning("Keycloak từ chối %s: %s", what, msg)
+            raise InvalidUser("password_policy" if "password" in msg.lower() else "invalid")
+        raise AdminApiError(f"Keycloak trả {r.status_code} khi {what}")
+
+    def set_enabled(self, sub: str, enabled: bool) -> None:
+        """DEC-16: khóa (enabled=False) chặn đăng nhập mới ngay trên Keycloak."""
+        r = self._call("PUT", f"{self._base}/users/{sub}", json={"enabled": enabled},
+                       headers=self._headers())
+        self._expect(r, "bật/tắt người dùng")
+
+    def logout(self, sub: str) -> None:
+        """Thu hồi mọi phiên SSO + refresh token của người dùng trên Keycloak."""
+        r = self._call("POST", f"{self._base}/users/{sub}/logout", headers=self._headers())
+        self._expect(r, "đăng xuất người dùng")
+
+    def reset_password(self, sub: str, password: str) -> None:
+        """Mật khẩu tạm: Keycloak bắt đổi ở lần đăng nhập kế tiếp. Không ghi mật khẩu vào log."""
+        r = self._call(
+            "PUT", f"{self._base}/users/{sub}/reset-password",
+            json={"type": "password", "value": password, "temporary": True},
+            headers=self._headers(),
+        )
+        self._expect(r, "đặt lại mật khẩu")
+
     def delete_user(self, sub: str) -> None:
         r = self._call("DELETE", f"{self._base}/users/{sub}", headers=self._headers())
         if r.status_code not in (204, 404):

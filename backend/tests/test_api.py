@@ -1,10 +1,10 @@
 from fastapi.testclient import TestClient
 
-from tests.auth_helpers import admin_client
+from tests.auth_helpers import user_client
 
 
 def client() -> TestClient:
-    return admin_client()
+    return user_client()
 
 
 def test_status_defaults_safe():

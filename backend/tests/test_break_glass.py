@@ -12,7 +12,7 @@ from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.safety import break_glass
 from gold_trading.storage.repository import SqlRepository, TradingAccount
-from tests.auth_helpers import client, make_app
+from tests.auth_helpers import client, login_owner, make_app
 
 
 @pytest.fixture
@@ -89,8 +89,7 @@ def test_halt_works_while_keycloak_is_down_and_running_app_sees_it(repo):
     """0-C11: Keycloak chết → không đăng nhập mới được, nhưng HALT qua CLI vẫn được; backend
     đang chạy nhận HALTED; khởi động lại vẫn HALTED (không bao giờ tự ACTIVE)."""
     app, kc = make_app(repo, data_source=DataSource.MT5, run_analysts=False)
-    c = client(app)
-    kc.login(c, "admin", admin=True)
+    c = login_owner(app, kc, repo)
     r = c.post("/api/accounts/default/safety", json={"action": "resume", "reason_code": "OK"})
     assert r.json()["safety_state"] == "ACTIVE"
 

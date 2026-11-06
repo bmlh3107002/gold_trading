@@ -90,15 +90,40 @@ describe("App", () => {
     render(<App />);
     expect(await screen.findByRole("button", { name: "Cho phép giao dịch" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/Người thao tác/)).not.toBeInTheDocument();
-    expect(screen.getByText("admin")).toBeInTheDocument();
+    expect(screen.getByText("trader")).toBeInTheDocument();
   });
 
-  it("VIEWER: nút điều khiển bị khóa, có thông báo chỉ xem", async () => {
-    mockFetch(() => json(makeStatus({ role: "VIEWER", permissions: ["VIEW"] })));
+  it("ADMIN (DEC-16): chỉ thấy trang Quản trị, không thấy giao diện giao dịch", async () => {
+    const fn = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/auth/me") return json(makeMe({ username: "admin", is_admin: true }));
+      if (url === "/api/accounts") return json([]);
+      if (url === "/api/status") return json(makeSystem({ multi_user_enabled: true }));
+      if (url === "/api/admin/users") return json([]);
+      if (url === "/api/admin/live-requests") return json([]);
+      if (url === "/api/system/health") return json(OK_HEALTH);
+      return json(makeSummary({ last_price: null, change: null, change_pct: null, is_sample: false }));
+    });
+    vi.stubGlobal("fetch", fn);
+    window.location.hash = "#overview";
     render(<App />);
-    expect(await screen.findByText("Bạn chỉ có quyền xem tài khoản này.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cho phép giao dịch" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Dừng khẩn cấp" })).toBeDisabled();
+    expect(await screen.findByRole("heading", { name: "Quản trị" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Tổng quan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Thị trường" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dừng khẩn cấp" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/TẤT CẢ tài khoản/)).not.toBeInTheDocument();
+    expect(fn).not.toHaveBeenCalledWith(expect.stringMatching(/^\/api\/accounts\//), expect.anything());
+    window.location.hash = "";
+  });
+
+  it("USER (DEC-16): không thấy menu Quản trị; #admin quay về Tổng quan", async () => {
+    mockFetch(() => json(makeStatus()));
+    window.location.hash = "#admin";
+    render(<App />);
+    expect((await screen.findAllByText("Tạm dừng")).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Quản trị" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Tổng quan" })).toHaveAttribute("aria-current", "page");
+    window.location.hash = "";
   });
 
   it("không có tài khoản nào: thông báo chưa được cấp quyền", async () => {
@@ -111,31 +136,27 @@ describe("App", () => {
     });
     vi.stubGlobal("fetch", fn);
     render(<App />);
-    expect(await screen.findByText("Bạn chưa được cấp quyền tài khoản nào")).toBeInTheDocument();
+    expect(await screen.findByText("Bạn chưa có tài khoản giao dịch nào")).toBeInTheDocument();
   });
 
-  it("yêu cầu LIVE của người khác: hiện nút duyệt; của chính mình: cần người khác", async () => {
+  it("yêu cầu LIVE đang chờ: USER chỉ thấy 'Chờ quản trị duyệt', không có nút duyệt", async () => {
     const reqs = [
-      { request_id: "lr1", account_id: "default", requested_by: "bob", requested_at: "2026-11-06T03:00:00Z",
-        expires_at: "2026-11-06T03:15:00Z", checklist: {} },
+      { request_id: "lr1", account_id: "default", account_name: "Tài khoản chính", requested_by: "trader",
+        requested_at: "2026-11-06T03:00:00Z", expires_at: "2026-11-06T03:15:00Z", checklist: {} },
     ];
-    const fn = mockFetch((url) => (url === `${ACC}/mode/live-requests` ? json(reqs) : json(makeStatus())));
-    // mockFetch trả [] cho GET live-requests; ghi đè để trả danh sách
-    fn.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const fn = mockFetch(() => json(makeStatus()));
+    fn.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/api/auth/me") return json(makeMe());
       if (url === "/api/status") return json(makeSystem());
       if (url === "/api/accounts") return json([makeAccount()]);
       if (url === `${ACC}/mode/live-requests`) return json(reqs);
       if (url.startsWith("/api/market/summary")) return json(makeSummary({ last_price: null, change: null, change_pct: null }));
-      if (url === `${ACC}/mode/live-requests/lr1/approve` && init?.method === "POST") return json(makeStatus({ mode: "LIVE" }));
       return json(makeStatus());
     });
     render(<App />);
-    await userEvent.click(await screen.findByRole("button", { name: "Duyệt bật LIVE" }));
-    await waitFor(() =>
-      expect(fn).toHaveBeenCalledWith(`${ACC}/mode/live-requests/lr1/approve`, expect.objectContaining({ method: "POST" })),
-    );
+    expect(await screen.findByText("Chờ quản trị duyệt")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Duyệt bật LIVE" })).not.toBeInTheDocument();
   });
 
   it("đồng hồ lệch quá 30 giây: banner báo đã ngừng nhận nến", async () => {

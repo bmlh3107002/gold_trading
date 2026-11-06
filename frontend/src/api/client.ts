@@ -3,13 +3,9 @@ import type { components } from "./schema";
 export type SystemStatus = components["schemas"]["SystemStatus"];
 export type AccountStatus = components["schemas"]["AccountStatus"];
 export type AccountSummary = components["schemas"]["AccountSummary"];
-export type Perm = components["schemas"]["Perm"];
 export type LiveRequest = components["schemas"]["LiveRequestOut"];
-export type KillSwitchResult = components["schemas"]["KillSwitchResult"];
 export type OpsHealth = components["schemas"]["OpsHealth"];
-export type MemberOut = components["schemas"]["MemberOut"];
 export type GatewayTokenInfo = components["schemas"]["GatewayTokenInfo"];
-export type GatewayTokenIssued = components["schemas"]["GatewayTokenIssued"];
 export type SafetyCommand = components["schemas"]["SafetyCommand"];
 export type ModeCommand = components["schemas"]["ModeCommand"];
 export type TradingMode = components["schemas"]["TradingMode"];
@@ -26,6 +22,10 @@ export type Me = components["schemas"]["Me"];
 export type LogoutResult = components["schemas"]["LogoutResult"];
 export type UserCreate = components["schemas"]["UserCreate"];
 export type UserCreated = components["schemas"]["UserCreated"];
+export type UserAdmin = components["schemas"]["UserAdminOut"];
+export type GatewayCredential = components["schemas"]["GatewayCredential"];
+export type LockResult = components["schemas"]["LockResult"];
+export type PasswordReset = components["schemas"]["PasswordReset"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
@@ -77,24 +77,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-/** Request không có body trả về (204). */
-async function requestEmpty(path: string, init?: RequestInit): Promise<void> {
-  let res: Response;
-  try {
-    res = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...init });
-  } catch {
-    throw new ApiError("network", null);
-  }
-  if (res.status === 401) unauthorizedListeners.forEach((fn) => fn());
-  if (!res.ok) throw new ApiError(kindFor(res.status), res.status);
-}
-
 /** Chuyển trình duyệt sang trang đăng nhập Keycloak (qua backend), quay lại đúng trang đang xem. */
 export function loginUrl(next: string): string {
   return `/api/auth/login?next=${encodeURIComponent(next)}`;
 }
 
 const acc = (id: string) => `/api/accounts/${encodeURIComponent(id)}`;
+const usr = (sub: string) => `/api/admin/users/${encodeURIComponent(sub)}`;
 const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
 
 export const api = {
@@ -109,27 +98,25 @@ export const api = {
   liveRequests: (id: string) => request<LiveRequest[]>(`${acc(id)}/mode/live-requests`),
   requestLive: (id: string, checklist: Record<string, boolean>) =>
     request<LiveRequest>(`${acc(id)}/mode/live-requests`, post({ checklist })),
-  approveLive: (id: string, requestId: string) =>
-    request<AccountStatus>(`${acc(id)}/mode/live-requests/${encodeURIComponent(requestId)}/approve`, {
-      method: "POST",
-    }),
-  killSwitch: (reason_code: string) => request<KillSwitchResult>("/api/admin/kill-switch", post({ reason_code })),
   marketSummary: () => request<MarketSummary>("/api/market/summary"),
   candles: (limit = 300) => request<CandlesResponse>(`/api/market/candles?limit=${limit}`),
   dataQuality: () => request<DataQuality>("/api/market/quality"),
   technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
-  members: (id: string) => request<MemberOut[]>(`${acc(id)}/members`),
-  addMember: (id: string, user: string, role: MemberOut["role"]) =>
-    request<MemberOut>(`${acc(id)}/members`, post({ user, role })),
-  setMemberRole: (id: string, sub: string, role: MemberOut["role"]) =>
-    request<MemberOut>(`${acc(id)}/members/${encodeURIComponent(sub)}`, {
-      method: "PUT",
-      body: JSON.stringify({ role }),
-    }),
-  removeMember: (id: string, sub: string) =>
-    requestEmpty(`${acc(id)}/members/${encodeURIComponent(sub)}`, { method: "DELETE" }),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
+  // --- Quản trị (DEC-16): chỉ ADMIN; backend kiểm lại ---
+  users: () => request<UserAdmin[]>("/api/admin/users"),
   createUser: (body: UserCreate) => request<UserCreated>("/api/admin/users", post(body)),
-  rotateGatewayToken: (id: string) => request<GatewayTokenIssued>(`${acc(id)}/gateway/token`, { method: "POST" }),
+  lockUser: (sub: string) => request<LockResult>(`${usr(sub)}/lock`, { method: "POST" }),
+  unlockUser: (sub: string) => request<LockResult>(`${usr(sub)}/unlock`, { method: "POST" }),
+  resetPassword: (sub: string) => request<PasswordReset>(`${usr(sub)}/reset-password`, { method: "POST" }),
+  reissueToken: (sub: string, accountId: string) =>
+    request<GatewayCredential>(`${usr(sub)}/accounts/${encodeURIComponent(accountId)}/gateway-token`, {
+      method: "POST",
+    }),
+  adminLiveRequests: () => request<LiveRequest[]>("/api/admin/live-requests"),
+  approveLive: (requestId: string) =>
+    request<LiveRequest>(`/api/admin/live-requests/${encodeURIComponent(requestId)}/approve`, { method: "POST" }),
+  rejectLive: (requestId: string) =>
+    request<LiveRequest>(`/api/admin/live-requests/${encodeURIComponent(requestId)}/reject`, { method: "POST" }),
 };

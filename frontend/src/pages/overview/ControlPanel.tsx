@@ -1,7 +1,7 @@
-import { Check, Lock, OctagonX, Pause, Play, X } from "lucide-react";
+import { Lock, OctagonX, Pause, Play, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { AccountStatus, ApiError, LiveRequest, Perm, SafetyCommand, TradingMode } from "../../api/client";
+import type { AccountStatus, ApiError, LiveRequest, SafetyCommand, TradingMode } from "../../api/client";
 import { Button, IconButton } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
@@ -17,23 +17,19 @@ type Pending = { kind: "halt" } | { kind: "resumeHalted" } | { kind: "live" } | 
 interface ControlPanelProps {
   status: AccountStatus;
   disabled: boolean;
-  me: string;
   liveRequests: LiveRequest[];
   onSafety: (cmd: SafetyCommand) => Promise<ApiError | null>;
   onMode: (mode: TradingMode) => Promise<ApiError | null>;
   onRequestLive: () => Promise<ApiError | null>;
-  onApproveLive: (requestId: string) => Promise<ApiError | null>;
 }
 
 export function ControlPanel({
   status,
   disabled,
-  me,
   liveRequests,
   onSafety,
   onMode,
   onRequestLive,
-  onApproveLive,
 }: ControlPanelProps) {
   const { t } = useTranslation();
   const [reason, setReason] = useState("");
@@ -44,9 +40,7 @@ export function ControlPanel({
 
   // Người thao tác lấy từ phiên đăng nhập ở backend, không nhập tay.
   const locked = disabled || busy;
-  // Giao diện chỉ ẩn/khóa nút cho dễ dùng; backend vẫn kiểm quyền mỗi request.
-  const can = (p: Perm) => status.permissions.includes(p);
-  const readOnly = !can("PAUSE_HALT") && !can("SET_MODE");
+  // DEC-16: chỉ chủ tài khoản (USER) tới được trang này; backend vẫn kiểm quyền mỗi request.
 
   async function exec(fn: () => Promise<ApiError | null>, context: "safety" | "mode") {
     setBusy(true);
@@ -122,11 +116,6 @@ export function ControlPanel({
         </div>
       )}
 
-      {readOnly && (
-        <div className="banner banner--info" style={{ marginBottom: 14 }} role="status">
-          <span className="banner__body">{t("controls.readOnly")}</span>
-        </div>
-      )}
 
       <div className="form-grid">
         <Field
@@ -145,7 +134,7 @@ export function ControlPanel({
           <Button
             variant="primary"
             icon={<Play size={14} aria-hidden="true" />}
-            disabled={locked || s === "ACTIVE" || !can(s === "HALTED" ? "EXIT_HALTED" : "RESUME")}
+            disabled={locked || s === "ACTIVE"}
             onClick={() => request("resume")}
           >
             {t("controls.resume")}
@@ -153,7 +142,7 @@ export function ControlPanel({
           <Button
             variant="secondary"
             icon={<Pause size={14} aria-hidden="true" />}
-            disabled={locked || s !== "ACTIVE" || !can("PAUSE_HALT")}
+            disabled={locked || s !== "ACTIVE"}
             onClick={() => request("pause")}
           >
             {t("controls.pause")}
@@ -161,7 +150,7 @@ export function ControlPanel({
           <Button
             variant="danger"
             icon={<OctagonX size={14} aria-hidden="true" />}
-            disabled={locked || s === "HALTED" || !can("PAUSE_HALT")}
+            disabled={locked || s === "HALTED"}
             onClick={() => request("halt")}
           >
             {t("controls.halt")}
@@ -182,7 +171,7 @@ export function ControlPanel({
                 type="button"
                 className="segmented__item"
                 aria-pressed={m === status.mode}
-                disabled={locked || m === status.mode || !can(m === "LIVE" ? "REQUEST_LIVE" : "SET_MODE")}
+                disabled={locked || m === status.mode}
                 onClick={() => requestMode(m)}
                 title={isLocked ? t("controls.locked") : undefined}
               >
@@ -206,18 +195,7 @@ export function ControlPanel({
                   time: formatTime(new Date(r.expires_at)),
                 })}
               </span>
-              {can("APPROVE_LIVE") && r.requested_by !== me ? (
-                <Button
-                  variant="danger"
-                  icon={<Check size={14} aria-hidden="true" />}
-                  disabled={locked}
-                  onClick={() => void exec(() => onApproveLive(r.request_id), "mode")}
-                >
-                  {t("controls.liveApprove")}
-                </Button>
-              ) : (
-                <span className="header__label">{t("controls.liveNeedsOther")}</span>
-              )}
+              <span className="header__label">{t("controls.liveNeedsAdmin")}</span>
             </div>
           ))}
         </div>

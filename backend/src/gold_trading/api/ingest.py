@@ -19,6 +19,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 
+from gold_trading.accounts.access import account_locked
 from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar
@@ -180,6 +181,9 @@ def ingest_router(
             raise HTTPException(401, "Token không hợp lệ")
         if claimed is not None and claimed != account_id:
             raise HTTPException(403, "Token không thuộc tài khoản này")
+        if account_locked(repo, account_id):
+            # DEC-16: USER bị khóa → Gateway của họ bị từ chối hoàn toàn (cả nhịp tim).
+            raise HTTPException(403, "Người dùng của tài khoản này đang bị khóa")
         return account_id
 
     @r.post("/api/ingest/mt5/candles", response_model=IngestReport)

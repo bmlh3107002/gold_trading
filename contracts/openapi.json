@@ -308,7 +308,7 @@
           "accounts"
         ],
         "summary": "List Accounts",
-        "description": "Chỉ các tài khoản người dùng có quyền (ADMIN thấy tất cả để giám sát).",
+        "description": "Tài khoản giao dịch của chính USER. ADMIN không có tài khoản giao dịch → [].",
         "operationId": "list_accounts_api_accounts_get",
         "responses": {
           "200": {
@@ -321,45 +321,6 @@
                   },
                   "type": "array",
                   "title": "Response List Accounts Api Accounts Get"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "Create Account",
-        "operationId": "create_account_api_accounts_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AccountCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountSummary"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -665,23 +626,39 @@
         }
       }
     },
-    "/api/accounts/{account_id}/mode/live-requests/{request_id}/approve": {
+    "/api/admin/live-requests": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Admin Pending Live",
+        "operationId": "admin_pending_live_api_admin_live_requests_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LiveRequestOut"
+                  },
+                  "type": "array",
+                  "title": "Response Admin Pending Live Api Admin Live Requests Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/live-requests/{request_id}/approve": {
       "post": {
         "tags": [
           "accounts"
         ],
         "summary": "Approve Live",
-        "operationId": "approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post",
+        "operationId": "approve_live_api_admin_live_requests__request_id__approve_post",
         "parameters": [
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
-            }
-          },
           {
             "name": "request_id",
             "in": "path",
@@ -698,7 +675,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountStatus"
+                  "$ref": "#/components/schemas/LiveRequestOut"
                 }
               }
             }
@@ -716,191 +693,34 @@
         }
       }
     },
-    "/api/accounts/{account_id}/members": {
-      "get": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "List Members",
-        "operationId": "list_members_api_accounts__account_id__members_get",
-        "parameters": [
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MemberOut"
-                  },
-                  "title": "Response List Members Api Accounts  Account Id  Members Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
+    "/api/admin/live-requests/{request_id}/reject": {
       "post": {
         "tags": [
           "accounts"
         ],
-        "summary": "Add Member",
-        "operationId": "add_member_api_accounts__account_id__members_post",
+        "summary": "Reject Live",
+        "operationId": "reject_live_api_admin_live_requests__request_id__reject_post",
         "parameters": [
           {
-            "name": "account_id",
+            "name": "request_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Account Id"
+              "title": "Request Id"
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MemberAdd"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/accounts/{account_id}/members/{user_sub}": {
-      "put": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "Change Role",
-        "operationId": "change_role_api_accounts__account_id__members__user_sub__put",
-        "parameters": [
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
-            }
-          },
-          {
-            "name": "user_sub",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Sub"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MemberRole"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MemberOut"
+                  "$ref": "#/components/schemas/LiveRequestOut"
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "Remove Member",
-        "operationId": "remove_member_api_accounts__account_id__members__user_sub__delete",
-        "parameters": [
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
-            }
-          },
-          {
-            "name": "user_sub",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "User Sub"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -997,137 +817,32 @@
             }
           }
         }
-      },
-      "post": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "Rotate Gateway Token",
-        "operationId": "rotate_gateway_token_api_accounts__account_id__gateway_token_post",
-        "parameters": [
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GatewayTokenIssued"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/kill-switch": {
-      "post": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "Kill Switch",
-        "operationId": "kill_switch_api_admin_kill_switch_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/KillSwitchCommand"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/KillSwitchResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/audit": {
-      "get": {
-        "tags": [
-          "accounts"
-        ],
-        "summary": "System Audit",
-        "operationId": "system_audit_api_admin_audit_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AuditRecord"
-                  },
-                  "title": "Response System Audit Api Admin Audit Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_admin_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UserAdminOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Users Api Admin Users Get"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "admin"
@@ -1151,6 +866,183 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{sub}/lock": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Lock User",
+        "operationId": "lock_user_api_admin_users__sub__lock_post",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{sub}/unlock": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Unlock User",
+        "operationId": "unlock_user_api_admin_users__sub__unlock_post",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LockResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{sub}/reset-password": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reset Password",
+        "operationId": "reset_password_api_admin_users__sub__reset_password_post",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordReset"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{sub}/accounts/{account_id}/gateway-token": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reissue Token",
+        "operationId": "reissue_token_api_admin_users__sub__accounts__account_id__gateway_token_post",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          },
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayCredential"
                 }
               }
             }
@@ -1223,27 +1115,53 @@
   },
   "components": {
     "schemas": {
-      "AccountCreate": {
+      "AccountAdminOut": {
         "properties": {
           "account_id": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9_-]{2,31}$",
             "title": "Account Id"
           },
           "name": {
             "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
             "title": "Name"
+          },
+          "price_feed": {
+            "type": "boolean",
+            "title": "Price Feed"
+          },
+          "gateway_status": {
+            "type": "string",
+            "enum": [
+              "NO_TOKEN",
+              "WAITING",
+              "CONNECTED",
+              "DISCONNECTED",
+              "BLOCKED"
+            ],
+            "title": "Gateway Status"
+          },
+          "gateway_last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Last Seen At"
           }
         },
-        "additionalProperties": false,
         "type": "object",
         "required": [
           "account_id",
-          "name"
+          "name",
+          "price_feed",
+          "gateway_status",
+          "gateway_last_seen_at"
         ],
-        "title": "AccountCreate"
+        "title": "AccountAdminOut"
       },
       "AccountStatus": {
         "properties": {
@@ -1254,30 +1172,6 @@
           "name": {
             "type": "string",
             "title": "Name"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "OWNER",
-                  "OPERATOR",
-                  "VIEWER"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role",
-            "description": "Vai trò của người đang đăng nhập; None = ADMIN không là thành viên"
-          },
-          "permissions": {
-            "items": {
-              "$ref": "#/components/schemas/Perm"
-            },
-            "type": "array",
-            "title": "Permissions"
           },
           "safety_state": {
             "$ref": "#/components/schemas/SafetyState"
@@ -1322,8 +1216,6 @@
         "required": [
           "account_id",
           "name",
-          "role",
-          "permissions",
           "safety_state",
           "mode",
           "live_unlocked",
@@ -1344,30 +1236,6 @@
             "type": "string",
             "title": "Name"
           },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "OWNER",
-                  "OPERATOR",
-                  "VIEWER"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role",
-            "description": "Vai trò của người đang đăng nhập; None = ADMIN không là thành viên"
-          },
-          "permissions": {
-            "items": {
-              "$ref": "#/components/schemas/Perm"
-            },
-            "type": "array",
-            "title": "Permissions"
-          },
           "safety_state": {
             "$ref": "#/components/schemas/SafetyState"
           },
@@ -1379,8 +1247,6 @@
         "required": [
           "account_id",
           "name",
-          "role",
-          "permissions",
           "safety_state",
           "mode"
         ],
@@ -2157,6 +2023,36 @@
         ],
         "title": "Freshness"
       },
+      "GatewayCredential": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "token_id": {
+            "type": "string",
+            "title": "Token Id"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "token_id",
+          "token",
+          "created_at"
+        ],
+        "title": "GatewayCredential",
+        "description": "Token gốc: CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN) của Gateway USER."
+      },
       "GatewayStatus": {
         "properties": {
           "state": {
@@ -2236,31 +2132,6 @@
           "price_feed"
         ],
         "title": "GatewayTokenInfo"
-      },
-      "GatewayTokenIssued": {
-        "properties": {
-          "token_id": {
-            "type": "string",
-            "title": "Token Id"
-          },
-          "token": {
-            "type": "string",
-            "title": "Token",
-            "description": "CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN)"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "token_id",
-          "token",
-          "created_at"
-        ],
-        "title": "GatewayTokenIssued"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2469,46 +2340,6 @@
         ],
         "title": "IngestReport"
       },
-      "KillSwitchCommand": {
-        "properties": {
-          "reason_code": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Reason Code"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "reason_code"
-        ],
-        "title": "KillSwitchCommand"
-      },
-      "KillSwitchResult": {
-        "properties": {
-          "halted": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Halted"
-          },
-          "already_halted": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Already Halted"
-          }
-        },
-        "type": "object",
-        "required": [
-          "halted",
-          "already_halted"
-        ],
-        "title": "KillSwitchResult"
-      },
       "LiveRequestCreate": {
         "properties": {
           "checklist": {
@@ -2532,6 +2363,10 @@
           "account_id": {
             "type": "string",
             "title": "Account Id"
+          },
+          "account_name": {
+            "type": "string",
+            "title": "Account Name"
           },
           "requested_by": {
             "type": "string",
@@ -2559,12 +2394,46 @@
         "required": [
           "request_id",
           "account_id",
+          "account_name",
           "requested_by",
           "requested_at",
           "expires_at",
           "checklist"
         ],
         "title": "LiveRequestOut"
+      },
+      "LockResult": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "LOCKED"
+            ],
+            "title": "Status"
+          },
+          "sessions_revoked": {
+            "type": "integer",
+            "title": "Sessions Revoked"
+          },
+          "keycloak_synced": {
+            "type": "boolean",
+            "title": "Keycloak Synced",
+            "description": "False = Keycloak chưa cập nhật (khóa vẫn có hiệu lực ở backend); bấm lại"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "status",
+          "sessions_revoked",
+          "keycloak_synced"
+        ],
+        "title": "LockResult"
       },
       "LogoutResult": {
         "properties": {
@@ -2844,115 +2713,6 @@
         ],
         "title": "Me"
       },
-      "MemberAdd": {
-        "properties": {
-          "user": {
-            "type": "string",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "User",
-            "description": "username hoặc email Keycloak"
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "OWNER",
-              "OPERATOR",
-              "VIEWER"
-            ],
-            "title": "Role"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "user",
-          "role"
-        ],
-        "title": "MemberAdd"
-      },
-      "MemberOut": {
-        "properties": {
-          "sub": {
-            "type": "string",
-            "title": "Sub"
-          },
-          "username": {
-            "type": "string",
-            "title": "Username"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name"
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "OWNER",
-              "OPERATOR",
-              "VIEWER"
-            ],
-            "title": "Role"
-          },
-          "granted_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Granted At"
-          },
-          "granted_by": {
-            "type": "string",
-            "title": "Granted By"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sub",
-          "username",
-          "email",
-          "display_name",
-          "role",
-          "granted_at",
-          "granted_by"
-        ],
-        "title": "MemberOut"
-      },
-      "MemberRole": {
-        "properties": {
-          "role": {
-            "type": "string",
-            "enum": [
-              "OWNER",
-              "OPERATOR",
-              "VIEWER"
-            ],
-            "title": "Role"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "role"
-        ],
-        "title": "MemberRole"
-      },
       "ModeCommand": {
         "properties": {
           "mode": {
@@ -2998,20 +2758,29 @@
         "title": "OpsHealth",
         "description": "Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu)."
       },
-      "Perm": {
-        "type": "string",
-        "enum": [
-          "VIEW",
-          "PAUSE_HALT",
-          "RESUME",
-          "EXIT_HALTED",
-          "SET_MODE",
-          "REQUEST_LIVE",
-          "APPROVE_LIVE",
-          "ROTATE_TOKEN",
-          "MANAGE_MEMBERS"
+      "PasswordReset": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "temporary_password": {
+            "type": "string",
+            "title": "Temporary Password",
+            "description": "CHỈ HIỆN MỘT LẦN; USER phải đổi khi đăng nhập"
+          },
+          "sessions_revoked": {
+            "type": "integer",
+            "title": "Sessions Revoked"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "temporary_password",
+          "sessions_revoked"
         ],
-        "title": "Perm"
+        "title": "PasswordReset"
       },
       "QuarantineOut": {
         "properties": {
@@ -3279,6 +3048,105 @@
         ],
         "title": "TradingMode"
       },
+      "UserAdminOut": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "LOCKED"
+            ],
+            "title": "Status"
+          },
+          "first_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Login At"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/AccountAdminOut"
+            },
+            "type": "array",
+            "title": "Accounts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "username",
+          "email",
+          "display_name",
+          "status",
+          "first_login_at",
+          "last_login_at",
+          "updated_at",
+          "accounts"
+        ],
+        "title": "UserAdminOut",
+        "description": "Không có token hay mật khẩu."
+      },
       "UserCreate": {
         "properties": {
           "username": {
@@ -3307,11 +3175,18 @@
             "title": "Last Name"
           },
           "password": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 12,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 12
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Password",
-            "description": "Mật khẩu tạm; người dùng phải đổi ở lần đăng nhập đầu"
+            "description": "Mật khẩu tạm; bỏ trống = hệ thống tự sinh. Phải đổi ở lần đăng nhập đầu"
           },
           "account_name": {
             "anyOf": [
@@ -3334,8 +3209,7 @@
           "username",
           "email",
           "first_name",
-          "last_name",
-          "password"
+          "last_name"
         ],
         "title": "UserCreate"
       },
@@ -3357,6 +3231,14 @@
             "type": "string",
             "title": "Display Name"
           },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "LOCKED"
+            ],
+            "title": "Status"
+          },
           "account_id": {
             "type": "string",
             "title": "Account Id"
@@ -3364,6 +3246,33 @@
           "account_name": {
             "type": "string",
             "title": "Account Name"
+          },
+          "gateway": {
+            "$ref": "#/components/schemas/GatewayCredential"
+          },
+          "gateway_status": {
+            "type": "string",
+            "enum": [
+              "NO_TOKEN",
+              "WAITING",
+              "CONNECTED",
+              "DISCONNECTED",
+              "BLOCKED"
+            ],
+            "title": "Gateway Status",
+            "description": "WAITING = token đã đăng ký ở backend, chờ Gateway gửi nhịp tim đầu tiên"
+          },
+          "temporary_password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temporary Password",
+            "description": "Chỉ có khi hệ thống tự sinh mật khẩu tạm. CHỈ HIỆN MỘT LẦN"
           }
         },
         "type": "object",
@@ -3372,8 +3281,11 @@
           "username",
           "email",
           "display_name",
+          "status",
           "account_id",
-          "account_name"
+          "account_name",
+          "gateway",
+          "gateway_status"
         ],
         "title": "UserCreated"
       },

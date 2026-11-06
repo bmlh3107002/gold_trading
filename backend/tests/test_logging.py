@@ -70,7 +70,7 @@ def test_no_secret_in_logs_after_full_flow(captured, caplog):
     """0-C18: đăng nhập, callback, làm mới, ingest có token, xoay token, đăng xuất, lỗi cố ý."""
     repo = InMemoryRepository()
     app, kc = make_app(repo, data_source=DataSource.MT5, run_analysts=False,
-                       ingest_token=LEGACY)
+                       ingest_token=LEGACY, auth_cfg={"multi_user_enabled": True})
     c = client(app)
     secrets: set[str] = {CLIENT_SECRET, LEGACY}
 
@@ -91,8 +91,14 @@ def test_no_secret_in_logs_after_full_flow(captured, caplog):
     # Ingest có token, xoay token, dùng token mới, token sai
     auth = {"Authorization": f"Bearer {LEGACY}"}
     c.post("/api/ingest/mt5/heartbeat", json=HB, headers=auth)
-    tok = c.post("/api/accounts/default/gateway/token").json()["token"]
-    secrets.add(tok)
+    # DEC-16: token do hệ thống sinh khi ADMIN tạo USER (kèm mật khẩu tạm tự sinh)
+    created = c.post("/api/admin/users", json={
+        "username": "bob", "email": "bob@example.com", "first_name": "B", "last_name": "C",
+    }).json()
+    tok = created["gateway"]["token"]
+    secrets |= {tok, created["temporary_password"]}
+    reset = c.post(f"/api/admin/users/{created['sub']}/reset-password").json()
+    secrets.add(reset["temporary_password"])
     c.post("/api/ingest/mt5/candles", json=batch(bars(10)),
            headers={"Authorization": f"Bearer {tok}"})
     c.post("/api/ingest/mt5/heartbeat", json=HB, headers={"Authorization": "Bearer wrongtoken"})

@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from gold_trading.auth.web import LOGIN_COOKIE, SESSION_COOKIE
 from gold_trading.contracts.candle import DataSource
 from gold_trading.storage.repository import InMemoryRepository
-from tests.auth_helpers import PUBLIC_URL, client, make_app
+from tests.auth_helpers import PUBLIC_URL, client, login_owner, make_app
 
 
 def world():
@@ -23,7 +23,7 @@ def world():
 
 def test_path_tricks_on_account_id_do_not_bypass_guard():
     repo, app, kc, admin = world()
-    admin.post("/api/accounts", json={"account_id": "acc_b", "name": "B"})
+    login_owner(app, kc, repo, "bob", account="acc_b")
     eve = client(app)
     kc.login(eve, "eve")
     for path in ("/api/accounts/acc_b%2F..%2Fdefault/status", "/api/accounts/ACC_B/status",
@@ -89,33 +89,35 @@ def test_open_redirect_variants():
         assert loc.startswith("/") and not loc.startswith("//") and "evil" not in loc, (nxt, loc)
 
 
-def test_live_request_id_from_other_account_cannot_be_approved():
+def test_live_request_of_other_account_cannot_be_reached_by_a_user():
+    """USER A không xem/duyệt được yêu cầu LIVE của tài khoản B; chỉ ADMIN duyệt."""
     repo, app, kc, admin = world()
-    admin.post("/api/accounts", json={"account_id": "acc_b", "name": "B"})
-    admin.post("/api/accounts/acc_b/members", json={"user": "admin", "role": "OWNER"})
-    o2 = client(app)
-    kc.login(o2, "o2")
-    admin.post("/api/accounts/default/members", json={"user": "o2", "role": "OWNER"})
-    req = admin.post("/api/accounts/acc_b/mode/live-requests", json={"checklist": {}}).json()
-    # o2 là OWNER của default, không phải acc_b: dùng request_id của acc_b qua đường default
-    r = o2.post(f"/api/accounts/default/mode/live-requests/{req['request_id']}/approve")
-    assert r.status_code == 409
-    assert o2.post(
-        f"/api/accounts/acc_b/mode/live-requests/{req['request_id']}/approve"
-    ).status_code == 404
+    a = login_owner(app, kc, repo, "alice")
+    b = login_owner(app, kc, repo, "bob", account="acc_b")
+    req = b.post("/api/accounts/acc_b/mode/live-requests", json={"checklist": {}}).json()
+    assert a.get("/api/accounts/acc_b/mode/live-requests").status_code == 404
+    assert a.post(f"/api/admin/live-requests/{req['request_id']}/approve").status_code == 403
+    assert a.post(f"/api/admin/live-requests/{req['request_id']}/reject").status_code == 403
+    assert [x["request_id"] for x in admin.get("/api/admin/live-requests").json()] == [
+        req["request_id"]]
 
 
-def test_owner_of_a_cannot_manage_members_or_tokens_of_b():
+def test_user_cannot_use_any_admin_endpoint():
     repo, app, kc, admin = world()
-    admin.post("/api/accounts", json={"account_id": "acc_b", "name": "B"})
-    a = client(app)
-    kc.login(a, "alice")
-    admin.post("/api/accounts/default/members", json={"user": "alice", "role": "OWNER"})
-    assert a.post("/api/accounts/acc_b/members",
-                  json={"user": "alice", "role": "OWNER"}).status_code == 404
-    assert a.post("/api/accounts/acc_b/gateway/token").status_code == 404
-    assert a.post("/api/admin/kill-switch", json={"reason_code": "X"}).status_code == 403
-    assert a.get("/api/admin/audit").status_code == 403
+    a = login_owner(app, kc, repo, "alice")
+    login_owner(app, kc, repo, "bob", account="acc_b")
+    for method, path in [
+        ("GET", "/api/admin/users"),
+        ("POST", "/api/admin/users/sub-bob/lock"),
+        ("POST", "/api/admin/users/sub-bob/unlock"),
+        ("POST", "/api/admin/users/sub-bob/reset-password"),
+        ("POST", "/api/admin/users/sub-bob/accounts/acc_b/gateway-token"),
+        ("GET", "/api/admin/live-requests"),
+    ]:
+        assert a.request(method, path, json={}).status_code == 403, path
+    assert a.post("/api/accounts/acc_b/gateway/token").status_code == 405
+    assert repo.user("sub-bob").status == "ACTIVE"
+    assert not repo.has_gateway_tokens("acc_b")
 
 
 def test_bad_request_id_header_is_not_reflected():
@@ -128,7 +130,8 @@ def test_bad_request_id_header_is_not_reflected():
 
 def test_lowercase_bearer_and_token_whitespace_rejected():
     repo, app, kc, admin = world()
-    tok = admin.post("/api/accounts/default/gateway/token").json()["token"]
+    login_owner(app, kc, repo, "trader")
+    tok = admin.post("/api/admin/users/sub-trader/accounts/default/gateway-token").json()["token"]
     hb = {"gateway_id": "g", "gateway_version": "1", "read_only": True,
           "terminal_connected": True, "account_type": "DEMO", "server_tz": "Europe/Athens"}
     anon = TestClient(app, base_url=PUBLIC_URL)

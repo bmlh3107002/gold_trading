@@ -11,6 +11,7 @@
 | DEC-12 | **Chưa trả lời** (cần hỏi luật sư) | `GT_MULTI_USER_ENABLED=0` mặc định: backend **từ chối** thêm người thứ hai vào bất kỳ tài khoản nào. Chỉ bật khi DEC-12 có câu trả lời |
 | DEC-13 | Chạy trên **máy Windows của người dùng**; **gom mọi Gateway/MT5 về máy này** | Mỗi tài khoản giao dịch có token Gateway riêng. Nhiều terminal MT5 trên một máy là việc của GĐ1 (MT-05) |
 | DEC-15 (2026-11-06) | Tài khoản `admin` **chỉ để quản trị, không giao dịch**; giao dịch bằng người dùng khác là Chủ tài khoản. Mỗi tài khoản giao dịch ↔ một token ↔ một MT5. **Ẩn token Gateway với admin** | ADMIN (không là thành viên) **không** xoay/cấp token Gateway và Dashboard ẩn hẳn mục MT5 Gateway. Lý do: token là chìa khóa nối tài khoản với MT5; admin bị lộ mật khẩu thì không lấy được token để gửi dữ liệu giả hay (sau này) lệnh vào MT5 của người khác. Admin vẫn xem, dừng khẩn cấp, quản lý thành viên; muốn cấp token hộ thì phải tự thêm mình làm Chủ (có audit). Hướng chặt hơn = an toàn hơn |
+| DEC-16 (2026-11-06, **thay DEC-15 và ma trận OPS-17**) | Chỉ hai vai trò: **ADMIN** (chỉ quản lý tài khoản USER, không giao dịch) và **USER** (giao dịch trên tài khoản của mình). Token Gateway do hệ thống sinh khi ADMIN tạo USER, **hiện cho ADMIN một lần** để ADMIN cấu hình Gateway trên máy chung. Bỏ kill switch trên Dashboard. Bật LIVE: USER xin, **ADMIN duyệt hoặc từ chối** | Xem **mục 16**. Mục 4 (khởi tạo chủ), 5 (ma trận), 6 (kill switch), 8 (ai cấp token), 15 (chưa có) đã sửa theo |
 | Phiên | Tối đa **8 giờ**, không hoạt động **30 phút** thì hết | `GT_SESSION_MAX_HOURS=8`, `GT_SESSION_IDLE_MINUTES=30`; Keycloak cấu hình cùng giá trị |
 | Tailscale | Hiện truy cập bằng `http://100.x.y.z:8080` (chưa HTTPS) | Chuyển sang **Tailscale Serve** (HTTPS `*.ts.net`), địa chỉ đặt qua `GT_PUBLIC_URL`; nginx quay về chỉ mở `127.0.0.1` |
 | 2 lớp (OTP) | **Chưa bật** | Realm không bắt buộc OTP. Bật sau bằng một thao tác trong Keycloak (Authentication → Required actions → Configure OTP), không cần đổi code |
@@ -104,41 +105,36 @@ Bỏ các trường `actor`/`approver` trong body request. Actor = `username` c�
 - Dữ liệu cũ gán cho tài khoản `default` ("Tài khoản chính", `price_feed=true`). Cột mới thêm bằng `ADD COLUMN ... DEFAULT 'default'`. Postgres điền giá trị cho hàng cũ **mà không chạy UPDATE**, nên trigger append-only vẫn giữ nguyên. Sau đó bỏ DEFAULT, để code bắt buộc phải truyền `account_id`.
 - `gateway_tokens` có trigger: chỉ cho phép UPDATE đổi `revoked_at` từ NULL sang có giá trị; không cho DELETE.
 - Dữ liệu thị trường (`candles`, `analyst_outputs`) **dùng chung**, không thêm `account_id` (theo nguồn/broker là việc MT-05, GĐ1).
-- **Khởi tạo chủ sở hữu:** khi có người đăng nhập mang role `ADMIN` mà tài khoản `default` chưa có OWNER, người đó được gán OWNER (audit `account.bootstrap_owner`). Đây là cách duy nhất để có OWNER đầu tiên.
+- ~~Khởi tạo chủ sở hữu: ADMIN đầu tiên đăng nhập được gán OWNER tài khoản `default`.~~ **Bỏ từ DEC-16:** ADMIN không bao giờ được gán tài khoản giao dịch. Tài khoản `default` (nguồn giá) chưa có chủ → **USER đầu tiên ADMIN tạo** nhận nó (mục 16).
+- **Migration `0006` (DEC-16):** `users.role` ∈ ADMIN/USER (mặc định USER, cập nhật từ realm role mỗi lần đăng nhập), `users.status` ∈ ACTIVE/LOCKED (mặc định ACTIVE), `users.updated_at`. Chỉ thêm cột, không xóa/sửa dòng nào; `account_members` giữ nguyên.
 
-## 5. Ma trận quyền (OPS-17)
+## 5. Phân quyền (DEC-16, thay ma trận OPS-17)
 
-Vai trò theo tài khoản giao dịch (DB ứng dụng): **VIEWER < OPERATOR < OWNER**. Vai trò hệ thống: **ADMIN** (realm role Keycloak). Kiểm tra ở backend **mỗi request**; giao diện chỉ ẩn hoặc khóa nút cho dễ dùng.
+Chỉ hai vai trò. **ADMIN** = realm role `ADMIN` trên Keycloak. **USER** = mọi người dùng còn lại. Code: `accounts/access.py` (vài hàm, không còn enum quyền). Kiểm tra ở backend **mỗi request** (đọc DB); giao diện chỉ ẩn nút.
 
-| Hành động | VIEWER | OPERATOR | OWNER | ADMIN (không là thành viên) |
-| --- | :-: | :-: | :-: | :-: |
-| Xem dữ liệu thị trường, analyst (dùng chung) | ✓ | ✓ | ✓ | ✓ |
-| Xem trạng thái, lịch sử Safety/Mode, audit, Gateway **của tài khoản** | ✓ | ✓ | ✓ | ✓ (giám sát) |
-| PAUSE / HALT tài khoản | ✗ | ✓ | ✓ | ✓ (hướng an toàn) |
-| Resume PAUSED → ACTIVE | ✗ | ✓ | ✓ | ✗ |
-| Thoát HALTED (cần tick xác nhận) | ✗ | ✗ | ✓ | ✗ |
-| Đổi Mode BACKTEST/PAPER/SHADOW | ✗ | ✗ | ✓ | ✗ |
-| Yêu cầu bật LIVE | ✗ | ✗ | ✓ | ✗ |
-| **Duyệt** LIVE (người khác người yêu cầu) | ✗ | ✗ | ✓ | ✓ |
-| Xoay token Gateway | ✗ | ✗ | ✓ | ✗ (DEC-15) |
-| Thêm/đổi vai trò/gỡ thành viên | ✗ | ✗ | ✓ | ✓ |
-| Tạo tài khoản giao dịch mới | — | — | — | ✓ |
-| Kill switch **toàn hệ thống** (HALT mọi tài khoản) | ✗ | ✗ | ✗ | ✓ |
-| Xem audit hệ thống (account = NULL) | ✗ | ✗ | ✗ | ✓ |
-| HALT qua CLI break-glass (OPS-15) | — | — | — | Ai có quyền chạy `docker compose exec` trên máy |
+| Hành động | USER (chủ tài khoản, đang ACTIVE) | ADMIN |
+| --- | :-: | :-: |
+| Xem dữ liệu thị trường, analyst (dùng chung) | ✓ | ✓ (API; giao diện ADMIN không hiện) |
+| Xem trạng thái, Safety/Mode, audit, trạng thái Gateway **của tài khoản mình** | ✓ | ✗ |
+| PAUSE / HALT / mở lại (thoát HALTED cần tick xác nhận) / đổi Mode BACKTEST·PAPER·SHADOW | ✓ | ✗ |
+| Xin bật LIVE | ✓ | ✗ |
+| **Duyệt / từ chối** bật LIVE | ✗ | ✓ |
+| Danh sách USER, tạo, khóa, mở khóa, đặt lại mật khẩu, cấp lại token Gateway | ✗ | ✓ |
+| HALT qua CLI break-glass (OPS-15) | Ai có quyền chạy `docker compose exec` trên máy | |
 
 Quy tắc:
-- Không phải thành viên và không phải ADMIN → **404** (không lộ tài khoản có tồn tại hay không) + audit `access.denied` (MT-C01). Là thành viên nhưng thiếu quyền → **403** + audit (0-C15).
-- Không ai được tự gỡ OWNER cuối cùng của một tài khoản.
-- Người dùng mất hết vai trò (bị gỡ hoặc bị vô hiệu hóa) không thao tác được nữa. Safety và Guardian vẫn bảo vệ vị thế, vì chúng không phụ thuộc người dùng (MT-C06).
-- **Bật LIVE hai bước (0-C16):** OWNER tạo yêu cầu (`POST .../mode/live-requests`, hết hạn sau 15 phút) → **người khác** (so theo `sub` đã xác thực) có quyền duyệt bấm duyệt → lúc này mới gọi `ModeManager` (vẫn kiểm `live_unlocked` và `LIVE_CHECKLIST`). `GT_LIVE_UNLOCKED` vẫn mặc định khóa. Chi tiết duyệt LIVE theo từng tài khoản là MT-08 (GĐ10).
+- **"Tài khoản của mình"** = có dòng `account_members` với `role='OWNER'`. Dòng OPERATOR/VIEWER cũ **không cho quyền gì** (bỏ vai trò trung gian không được vô tình mở rộng quyền). ADMIN **không vào được tài khoản giao dịch nào**, kể cả khi còn dòng OWNER cũ.
+- Không phải chủ, hoặc là ADMIN → **404** (không lộ tài khoản có tồn tại hay không) + audit `access.denied` (MT-C01). Chủ nhưng bị khóa → **403** + audit (thực tế phiên đã bị thu hồi trước đó → 401).
+- Thu hồi quyền sở hữu có hiệu lực ở request kế tiếp (0-C13).
+- **Bật LIVE (0-C16):** USER tạo yêu cầu (`POST /api/accounts/{id}/mode/live-requests`, hết hạn sau 15 phút) → ADMIN duyệt (`POST /api/admin/live-requests/{id}/approve`) hoặc từ chối (`.../reject`). Lúc duyệt backend kiểm lại: người xin vẫn là chủ và ACTIVE, người duyệt khác người xin (theo `sub`), rồi mới gọi `ModeManager` (vẫn kiểm `live_unlocked`, `LIVE_CHECKLIST`, chặn dữ liệu SAMPLE). `GT_LIVE_UNLOCKED` vẫn mặc định khóa. Chi tiết theo tài khoản: MT-08 (GĐ10).
 
 ## 6. Safety và Mode theo tài khoản (MT-06)
 
 - Mỗi tài khoản có một `SafetySupervisor` và một `ModeManager` riêng. Quy tắc khôi phục khi khởi động (ACTIVE→PAUSED, HALTED giữ, LIVE→PAPER, SAMPLE chặn SHADOW/LIVE) áp dụng cho **từng** tài khoản.
 - **DB là nguồn sự thật:** trước mỗi lần đổi trạng thái, backend khóa theo tài khoản (Postgres `pg_advisory_xact_lock`), đọc trạng thái mới nhất trong DB rồi mới ghi. Một vòng nền mỗi **2 giây** đồng bộ trạng thái từ DB. Nhờ vậy lệnh HALT ghi thẳng vào DB bằng CLI (OPS-15) có hiệu lực với backend đang chạy, và backend không thể ghi đè một HALT bằng ACTIVE cũ.
 - Đọc DB lỗi → `allows_new_orders()` trả `False` (mặc định an toàn).
-- Kill switch toàn hệ thống: HALT **từng** tài khoản với lý do `GLOBAL_KILL_SWITCH` (audit hệ thống + audit từng tài khoản). Không có lệnh "mở lại toàn bộ": OWNER mở lại từng tài khoản.
+- ~~Kill switch toàn hệ thống trên Dashboard~~ **bỏ từ DEC-16** (ADMIN không điều khiển giao dịch). Dừng mọi tài khoản: `gt-break-glass halt --all` (mục 7). Không có lệnh "mở lại toàn bộ": USER mở lại từng tài khoản của mình.
+- **USER bị khóa** → `allows_new_orders()` = False cho mọi tài khoản của người đó (Trading Engine), không đổi Safety/Mode, không đóng vị thế.
 
 ## 7. Lối dừng khẩn cấp khi Keycloak hỏng (OPS-15)
 
@@ -155,7 +151,8 @@ docker compose exec backend gt-break-glass status
 ## 8. Token Gateway theo tài khoản (MT-04, MT-11)
 
 - Định dạng `gtk_` + 43 ký tự (32 byte ngẫu nhiên). DB chỉ lưu SHA-256. Token có độ ngẫu nhiên cao nên SHA-256 là đủ, không cần bcrypt.
-- `POST /api/accounts/{id}/gateway/token` (OWNER/ADMIN): tạo token mới, **thu hồi mọi token cũ của tài khoản trong cùng transaction**, rồi trả token **đúng một lần**. Giao diện hiện token trong hộp thoại có nút sao chép và cảnh báo "chỉ hiện một lần".
+- **DEC-16:** token sinh tự động khi ADMIN tạo USER (cùng transaction với USER + tài khoản) và trả cho ADMIN **đúng một lần**. Cấp lại: `POST /api/admin/users/{sub}/accounts/{account_id}/gateway-token` (chỉ ADMIN, chỉ tài khoản của đúng USER đó): **thu hồi mọi token cũ của tài khoản trong cùng transaction**, trả token mới đúng một lần. USER chỉ xem trạng thái (`GET .../gateway/token`: có token chưa, có ghi nến dùng chung không). Endpoint cũ `POST /api/accounts/{id}/gateway/token` đã bỏ.
+- Chủ tài khoản bị khóa → ingest trả **403** cho mọi request mang token của tài khoản đó (cả nhịp tim). Mở khóa → token cũ dùng lại được.
 - Ingest: tìm tài khoản theo băm của token. Nếu body có `account_id` khác tài khoản của token → **403** (MT-C02).
 - **Cho tới MT-05 (GĐ1)**, chỉ tài khoản có `price_feed=true` (tài khoản `default`) được ghi **nến** vào kho dùng chung. Gateway của tài khoản khác chỉ gửi được nhịp tim. Lý do: broker khác cho giá khác, ghi lẫn sẽ làm hỏng dữ liệu phân tích.
 - **Tương thích ngược:** `GT_INGEST_TOKEN` trong `.env` vẫn được chấp nhận cho tài khoản `default`, cho tới khi tài khoản này có token đầu tiên trong DB. Sau đó token cũ bị từ chối dù vẫn còn trong `.env`.
@@ -285,4 +282,33 @@ ACTIVE ──OWNER gỡ──► REVOKED
 
 **Kiểm thử:** `tests/test_admin_users.py` (20 test: quyền, DEC-12, trùng, dữ liệu sai, Keycloak hỏng/chưa cấp quyền, bù trừ khi DB lỗi, SQL, không giới hạn số người, không lộ mật khẩu); Keycloak 26.8.2 thật (realm cũ + `sync-client.sh`, cài mới); `ops/scripts/ci_stack.sh` (ADMIN tạo → người mới đăng nhập, bị bắt đổi mật khẩu, chỉ thấy tài khoản riêng, không vào được Tài khoản chính, không tạo được người dùng; mật khẩu không có trong log). Frontend: `AdminPage.test.tsx`.
 
-**Chưa có:** danh sách/khóa/xóa người dùng trên Dashboard (vẫn làm trên trang quản trị Keycloak); tài khoản giao dịch mới chưa nhận dữ liệu giá và chưa liên kết MT5 (MT-05, MT-12..15, GĐ1).
+**Cập nhật DEC-16:** đã có danh sách / khóa / mở khóa / đặt lại mật khẩu / cấp lại token (mục 16). Mật khẩu tạm bỏ trống → hệ thống tự sinh. **Còn chưa có:** xóa người dùng (làm trên trang quản trị Keycloak); tài khoản giao dịch mới chưa ghi nến dùng chung và chưa liên kết MT5 (MT-05, MT-12..15, GĐ1).
+
+## 16. Đơn giản hóa phân quyền: chỉ ADMIN và USER (DEC-16, người dùng chốt 2026-11-06)
+
+**Yêu cầu:** chỉ hai vai trò; ADMIN chỉ quản lý tài khoản (xem danh sách, tạo, khóa, mở khóa, đặt lại mật khẩu), không giao dịch; USER giao dịch trên tài khoản của mình bằng token Gateway riêng; bỏ OWNER/OPERATOR/VIEWER, ma trận quyền, kill switch trên Dashboard. Người dùng chọn thêm: token **hiện cho ADMIN** lúc tạo (ADMIN tự cấu hình Gateway trên máy chung); **bỏ** nút dừng khẩn cấp của ADMIN; bật LIVE phải được **ADMIN đồng ý**.
+
+**Giữ, không tự viết lại:** Keycloak lưu mật khẩu (băm theo chính sách của Keycloak 26), khóa đăng nhập (`enabled=false`), thu hồi phiên SSO (`/users/{id}/logout`), mật khẩu tạm (`temporary=true`). Đăng nhập vẫn qua `/api/auth/login` → Keycloak (BFF). Kiến trúc Gateway (đọc token từ `gateway.env`) giữ nguyên: backend **không** đẩy token vào máy Windows được, nên "đăng ký Gateway" = token đã lưu (băm) và gắn đúng tài khoản ở backend; trạng thái `WAITING` cho tới nhịp tim đầu tiên → `CONNECTED`.
+
+**API quản trị** (`api/users.py`, chỉ ADMIN; người khác 403 + audit; không thao tác lên chính mình hay lên ADMIN → 404):
+
+| Endpoint | Làm gì |
+| --- | --- |
+| `GET /api/admin/users` | USER: trạng thái, lần đăng nhập, tài khoản + trạng thái Gateway (`NO_TOKEN`/`WAITING`/`CONNECTED`/`DISCONNECTED`/`BLOCKED`). Không có token, mật khẩu |
+| `POST /api/admin/users` | Keycloak → một transaction DB: USER (ACTIVE) + tài khoản + OWNER + token. Lỗi DB → xóa người dùng trên Keycloak, báo lỗi (gọi lại an toàn, không có USER thiếu token hay token mồ côi). Trả token (và mật khẩu tạm nếu tự sinh) **một lần**, `Cache-Control: no-store` |
+| `POST /api/admin/users/{sub}/lock` | **DB trước** (backend chặn ngay: phiên bị thu hồi ở request kế tiếp, đăng nhập mới bị chặn ở callback, Gateway 403, không lệnh mới) → xóa phiên backend → Keycloak `enabled=false` + logout. Keycloak lỗi → khóa **vẫn có hiệu lực**, trả `keycloak_synced=false` để bấm lại (idempotent). Không đóng vị thế, không đổi Safety/Mode |
+| `POST /api/admin/users/{sub}/unlock` | Keycloak `enabled=true` **trước**, DB sau (Keycloak lỗi → vẫn khóa, 503). Không tự bật bot |
+| `POST /api/admin/users/{sub}/reset-password` | Mật khẩu tạm ngẫu nhiên (≥ 120 bit) → Keycloak `temporary=true` → logout + xóa phiên. Token Gateway giữ nguyên |
+| `POST /api/admin/users/{sub}/accounts/{account_id}/gateway-token` | Cấp lại token (làm mất / nghi lộ); token cũ chết ngay |
+| `GET /api/admin/live-requests`, `POST .../{id}/approve`, `POST .../{id}/reject` | Duyệt / từ chối bật LIVE |
+
+**USER đầu tiên nhận tài khoản nguồn giá:** khi `default` chưa có chủ (mới cài), USER đầu tiên ADMIN tạo nhận `default` (để Gateway của họ ghi được nến dùng chung); USER sau nhận `u-<username>` (`price_feed=false`). Kiểm "chưa có chủ" trong cùng transaction.
+
+**Khóa có hiệu lực ở đâu (không chỉ giao diện):** `AuthService.authenticate` (mọi request: đọc `users.status`, LOCKED → thu hồi phiên, 401), callback đăng nhập (`auth_error=locked`), `Guard.check` (403), ingest (`account_locked` → 403), `AccountRegistry.allows_new_orders` (False). Đọc DB lỗi → ném lỗi / False (chặn).
+
+**Dữ liệu hiện có (máy người dùng):** migration 0006 chỉ thêm cột. Dòng của ADMIN ghi `USER` tới lần đăng nhập kế tiếp (backend khởi động lại thì mọi phiên mất → ADMIN phải đăng nhập lại → cột cập nhật); trong lúc đó backend vẫn chặn ADMIN thao tác lên chính mình. Dòng OWNER cũ của ADMIN (nếu còn) bị bỏ qua.
+
+**Đánh đổi đã chấp nhận:** ADMIN thấy token của USER (một lần) và đặt lại được mật khẩu USER (thấy mật khẩu tạm) → về lý thuyết ADMIN có thể đăng nhập thay USER. Đây là hệ quả của "ADMIN cấu hình máy chung" mà người dùng chọn; mọi thao tác đều có audit. Muốn tách hẳn: chuyển sang hiện token cho USER (một lựa chọn đã đưa ra, người dùng chưa chọn).
+
+**Kiểm thử:** `tests/test_rbac.py` (ADMIN không vào tài khoản giao dịch kể cả có dòng OWNER cũ; dòng OPERATOR/VIEWER không cho quyền; cách ly; khóa thu hồi phiên + chặn đăng nhập + chặn lệnh mới; duyệt/từ chối LIVE), `tests/test_admin_users.py` (tạo + token + mật khẩu tự sinh, danh sách không lộ bí mật, khóa/mở khóa khi Keycloak lỗi, đặt lại mật khẩu giữ token, không tự khóa mình), `tests/test_gateway_tokens.py` (USER bị khóa → Gateway 403, mở khóa dùng lại token), migration 0006 thử trên PostgreSQL 16 thật (không mất dòng, CHECK chặn giá trị sai). Frontend: `AdminPage.test.tsx`, `AccountPage.test.tsx`, `App.test.tsx`. E2E với Keycloak thật: `ops/scripts/e2e_auth.py` (chạy trong CI).
+

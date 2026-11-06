@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from gold_trading.common.enums import SafetyState
 from gold_trading.safety.supervisor import SafetySupervisor
 from gold_trading.storage.repository import SqlRepository
-from tests.auth_helpers import admin_client
+from tests.auth_helpers import user_client
 
 KW = {"trigger_source": "t", "actor": "t"}
 
@@ -23,10 +23,10 @@ def post(c: TestClient, action: str, **extra):
 
 
 def test_halted_survives_restart(repo):
-    c = admin_client(repo)
+    c = user_client(repo)
     post(c, "halt")
     # "Restart": app mới, cùng database
-    c2 = admin_client(repo)
+    c2 = user_client(repo)
     body = c2.get("/api/accounts/default/status").json()
     assert body["safety_state"] == "HALTED"
     assert c2.get("/api/status").json()["storage"] == "sqlite"
@@ -34,9 +34,9 @@ def test_halted_survives_restart(repo):
 
 
 def test_active_downgraded_to_paused_on_restart(repo):
-    c = admin_client(repo)
+    c = user_client(repo)
     post(c, "resume")
-    body = admin_client(repo).get("/api/accounts/default/status").json()
+    body = user_client(repo).get("/api/accounts/default/status").json()
     assert body["safety_state"] == "PAUSED"
     last = body["safety_history"][-1]
     assert last["reason_code"] == "STARTUP_REQUIRES_REVIEW"
@@ -44,19 +44,19 @@ def test_active_downgraded_to_paused_on_restart(repo):
 
 
 def test_mode_persisted_and_live_never_restored(repo):
-    c = admin_client(repo)
+    c = user_client(repo)
     c.post("/api/accounts/default/mode", json={"mode": "SHADOW"})
-    assert admin_client(repo).get("/api/accounts/default/status").json()["mode"] == "SHADOW"
+    assert user_client(repo).get("/api/accounts/default/status").json()["mode"] == "SHADOW"
 
     from gold_trading.modes.manager import ModeChange
 
     # giả lập lần chạy trước ở LIVE
     repo.append_mode("default", ModeChange("SHADOW", "LIVE", "a", "b"))
-    assert admin_client(repo).get("/api/accounts/default/status").json()["mode"] == "PAPER"
+    assert user_client(repo).get("/api/accounts/default/status").json()["mode"] == "PAPER"
 
 
 def test_audit_records_accepted_and_rejected(repo):
-    c = admin_client(repo)
+    c = user_client(repo)
     post(c, "halt")
     assert post(c, "resume").status_code == 409
     c.post("/api/accounts/default/mode", json={"mode": "LIVE"})
@@ -65,9 +65,9 @@ def test_audit_records_accepted_and_rejected(repo):
         if e["action"] in ("mode.set", "safety.resume", "safety.halt")
     ]
     assert [(e["action"], e["outcome"], e["actor"]) for e in entries] == [
-        ("mode.set", "REJECTED", "admin"),
-        ("safety.resume", "REJECTED", "admin"),
-        ("safety.halt", "ACCEPTED", "admin"),
+        ("mode.set", "REJECTED", "trader"),
+        ("safety.resume", "REJECTED", "trader"),
+        ("safety.halt", "ACCEPTED", "trader"),
     ]
 
 
@@ -83,7 +83,7 @@ def test_persist_failure_keeps_state():
 
 
 def test_health_reports_storage(repo):
-    assert admin_client(repo).get("/api/health").json() == {
+    assert user_client(repo).get("/api/health").json() == {
         "status": "ok",
         "storage": "sqlite",
     }

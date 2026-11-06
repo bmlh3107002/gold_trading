@@ -114,7 +114,7 @@ export function Header({
             >
               {accounts.map((a) => (
                 <option key={a.account_id} value={a.account_id}>
-                  {a.name} · {t(`accounts.role.${a.role ?? "ADMIN"}`)}
+                  {a.name}
                 </option>
               ))}
             </select>

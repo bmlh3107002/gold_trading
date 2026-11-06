@@ -153,76 +153,123 @@ def main() -> int:
     s, me = b.api("GET", "/api/auth/me")
     check("/api/auth/me trả đúng người, có ADMIN", s == 200 and me["username"] == a.user
           and me["is_admin"] is True)
+    # DEC-16: ADMIN chỉ quản lý tài khoản, không có / không vào tài khoản giao dịch nào
     s, accs = b.api("GET", "/api/accounts")
-    check("ADMIN đầu tiên là OWNER tài khoản default",
-          s == 200 and any(x["account_id"] == "default" and x["role"] == "OWNER" for x in accs))
+    check("ADMIN không có tài khoản giao dịch nào", s == 200 and accs == [])
+    s, _ = b.api("GET", "/api/accounts/default/status")
+    check("ADMIN không xem được tài khoản giao dịch → 404", s == 404)
+    s, _ = b.api("POST", "/api/admin/kill-switch", {"reason_code": "E2E"})
+    check("Kill switch trên Dashboard đã bỏ (chỉ còn break-glass CLI)", s in (404, 405))
+    s, users = b.api("GET", "/api/admin/users")
+    check("ADMIN xem danh sách USER", s == 200 and isinstance(users, list))
+    default_owned = s == 200 and any(x["account_id"] == "default"
+                                     for u in users for x in u["accounts"])
 
-    s, _ = b.api("POST", "/api/accounts/default/safety",
-                 {"action": "halt", "reason_code": "E2E"}, origin="https://evil.example")
-    check("Request ghi từ origin lạ → 403", s == 403)
-    s, _ = b.api("POST", "/api/accounts/default/safety", {"action": "halt", "reason_code": "E2E"},
-                 origin=None)
-    check("Request ghi thiếu Origin → 403", s == 403)
-    s, st = b.api("POST", "/api/accounts/default/safety",
-                  {"action": "resume", "reason_code": "E2E", "operator_approved": True})
-    check("OWNER mở lại (có xác nhận), cùng origin → ACTIVE",
-          s == 200 and st["safety_state"] == "ACTIVE")
-    s, aud = b.api("GET", "/api/accounts/default/audit")
-    check("Audit ghi actor theo phiên", s == 200 and any(
-        e["action"] == "safety.resume" and e["actor"] == a.user for e in aud))
-
-    # Token Gateway: token cũ chạy tới khi xoay
     hb = {"gateway_id": "e2e", "gateway_version": "e2e", "read_only": True,
           "terminal_connected": True, "account_type": "DEMO", "server_tz": "Europe/Athens"}
-    _, info = b.api("GET", "/api/accounts/default/gateway/token")
     s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=a.legacy_token)
-    if info["legacy_token_active"]:
-        check("Token cũ GT_INGEST_TOKEN còn chạy trước lần xoay đầu tiên", s == 200)
+    if default_owned:
+        check("Token cũ đã bị thay (đã có USER nhận Tài khoản chính) → 401", s == 401)
     else:
-        check("Token cũ đã bị vô hiệu (đã xoay ở lần trước) → 401", s == 401)
-    s, issued = b.api("POST", "/api/accounts/default/gateway/token")
-    tok = issued["token"] if s == 200 else ""
-    check("Xoay token Gateway", s == 200 and tok.startswith("gtk_"))
-    s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=a.legacy_token)
-    check("Token cũ hết hiệu lực ngay sau khi xoay", s == 401)
-    s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
-    check("Token mới dùng được", s == 200)
+        check("Token cũ GT_INGEST_TOKEN còn chạy trước khi có USER đầu tiên", s == 200)
 
-    # MT-20: ADMIN tạo người dùng trên Dashboard → Keycloak + tài khoản giao dịch riêng
+    temp_passwords: list[str] = []
     if a.member_password:
         uname = f"e2e{int(time.time()) % 1000000}"
         new_user = {"username": uname, "email": f"{uname}@example.invalid", "first_name": "E2E",
                     "last_name": "Member", "password": a.member_password}
         s, cu = b.api("POST", "/api/admin/users", new_user)
-        check("ADMIN tạo người dùng trên Dashboard (MT-20)",
-              s == 201 and cu["account_id"] == f"u-{uname}")
+        acc = cu.get("account_id") if s == 201 else ""
+        expected = f"u-{uname}" if default_owned else "default"
+        check("ADMIN tạo USER: tài khoản giao dịch riêng + token Gateway tự sinh",
+              s == 201 and acc == expected and cu["gateway"]["token"].startswith("gtk_")
+              and cu["gateway_status"] == "WAITING")
+        tok = cu["gateway"]["token"] if s == 201 else ""
         s, _ = b.api("POST", "/api/admin/users", new_user)
         check("Tạo trùng tên đăng nhập → 409", s == 409)
+        s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
+        check("Token Gateway của USER dùng được ngay", s == 200)
+        if acc == "default":
+            s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None,
+                         token=a.legacy_token)
+            check("Token cũ hết hiệu lực khi USER nhận Tài khoản chính", s == 401)
+        s, users = b.api("GET", "/api/admin/users")
+        row = next((u for u in users if u["username"] == uname), None) if s == 200 else None
+        check("Danh sách: USER ACTIVE, Gateway CONNECTED, không lộ token",
+              row is not None and row["status"] == "ACTIVE"
+              and row["accounts"][0]["gateway_status"] == "CONNECTED" and tok not in str(users))
+
         m = Browser(a.base)
         status, page, url = login(m, uname, a.member_password, a.member_password + "N2")
-        check("Người dùng mới đăng nhập (bắt đổi mật khẩu tạm) → về Dashboard",
+        check("USER đăng nhập (bắt đổi mật khẩu tạm) → về Dashboard",
               urllib.parse.urlsplit(url).path == "/" and "auth_error" not in url)
         s, me2 = m.api("GET", "/api/auth/me")
-        check("Người dùng mới không phải ADMIN", s == 200 and me2["is_admin"] is False)
+        check("USER không phải ADMIN", s == 200 and me2["is_admin"] is False)
         s, accs2 = m.api("GET", "/api/accounts")
-        check("Người dùng mới chỉ thấy tài khoản riêng, là OWNER",
-              s == 200 and [(x["account_id"], x["role"]) for x in accs2]
-              == [(f"u-{uname}", "OWNER")])
-        s, _ = m.api("GET", "/api/accounts/default/status")
-        check("Người dùng mới không xem được Tài khoản chính → 404", s == 404)
-        s, _ = m.api("POST", "/api/admin/users", {**new_user, "username": uname + "x",
-                                                  "email": f"x{uname}@example.invalid"})
-        check("Người không phải ADMIN tạo người dùng → 403", s == 403)
+        check("USER chỉ thấy tài khoản của mình",
+              s == 200 and [x["account_id"] for x in accs2] == [acc])
+        s, _ = m.api("POST", f"/api/accounts/{acc}/safety",
+                     {"action": "halt", "reason_code": "E2E"}, origin="https://evil.example")
+        check("Request ghi từ origin lạ → 403", s == 403)
+        s, _ = m.api("POST", f"/api/accounts/{acc}/safety",
+                     {"action": "halt", "reason_code": "E2E"}, origin=None)
+        check("Request ghi thiếu Origin → 403", s == 403)
+        s, st = m.api("POST", f"/api/accounts/{acc}/safety",
+                      {"action": "resume", "reason_code": "E2E", "operator_approved": True})
+        check("USER mở lại (có xác nhận), cùng origin → ACTIVE",
+              s == 200 and st["safety_state"] == "ACTIVE")
+        s, aud = m.api("GET", f"/api/accounts/{acc}/audit")
+        check("Audit ghi actor theo phiên", s == 200 and any(
+            e["action"] == "safety.resume" and e["actor"] == uname for e in aud))
+        s, _ = m.api("GET", "/api/admin/users")
+        check("USER không vào được trang quản trị → 403", s == 403)
 
-    # Break-glass: HALT bằng CLI, backend đang chạy nhận trạng thái
-    if a.compose:
-        cmd = a.compose.split() + ["exec", "-T", "backend", "gt-break-glass", "halt", "--all",
-                                   "--reason", "E2E"]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        check("gt-break-glass halt --all chạy được", r.returncode == 0)
-        time.sleep(3)
-        s, st = b.api("GET", "/api/accounts/default/status")
-        check("Backend đang chạy thấy HALTED từ CLI", s == 200 and st["safety_state"] == "HALTED")
+        # Khóa: Keycloak + backend + Gateway
+        sub = cu["sub"]
+        s, lk = b.api("POST", f"/api/admin/users/{sub}/lock")
+        check("ADMIN khóa USER (Keycloak đã cập nhật)",
+              s == 200 and lk["status"] == "LOCKED" and lk["keycloak_synced"] is True)
+        s, _ = m.api("GET", "/api/auth/me")
+        check("USER bị khóa: phiên cũ bị thu hồi → 401", s == 401)
+        s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
+        check("USER bị khóa: Gateway bị từ chối → 403", s == 403)
+        m2 = Browser(a.base)
+        status, page, url = login(m2, uname, a.member_password + "N2")
+        check("USER bị khóa không đăng nhập được",
+              urllib.parse.urlsplit(url).path != "/" or "auth_error" in url)
+        s, ul = b.api("POST", f"/api/admin/users/{sub}/unlock")
+        check("ADMIN mở khóa USER", s == 200 and ul["status"] == "ACTIVE")
+        s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
+        check("Mở khóa: token cũ dùng lại được", s == 200)
+        # Đặt lại mật khẩu: mật khẩu tạm mới, bắt đổi, token giữ nguyên
+        s, rp = b.api("POST", f"/api/admin/users/{sub}/reset-password")
+        pw = rp.get("temporary_password", "") if s == 200 else ""
+        temp_passwords.append(pw)
+        check("ADMIN đặt lại mật khẩu (mật khẩu tạm ≥ 12 ký tự)", s == 200 and len(pw) >= 12)
+        m3 = Browser(a.base)
+        status, page, url = login(m3, uname, pw, a.member_password + "N2")
+        check("USER đăng nhập bằng mật khẩu tạm (bắt đổi) → về Dashboard",
+              urllib.parse.urlsplit(url).path == "/" and "auth_error" not in url)
+        s, st = m3.api("GET", f"/api/accounts/{acc}/status")
+        check("Sau mở khóa + đặt lại mật khẩu: bot không tự chạy (Mode vẫn PAPER)",
+              s == 200 and st["mode"] == "PAPER")
+        s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
+        check("Đặt lại mật khẩu không đổi token Gateway", s == 200)
+
+        # Break-glass: HALT bằng CLI, backend đang chạy nhận trạng thái
+        if a.compose:
+            cmd = a.compose.split() + ["exec", "-T", "backend", "gt-break-glass", "halt",
+                                       "--all", "--reason", "E2E"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            check("gt-break-glass halt --all chạy được", r.returncode == 0)
+            time.sleep(3)
+            s, st = m3.api("GET", f"/api/accounts/{acc}/status")
+            check("Backend đang chạy thấy HALTED từ CLI",
+                  s == 200 and st["safety_state"] == "HALTED")
+            logs = subprocess.run(a.compose.split() + ["logs", "--no-color"],
+                                  capture_output=True, text=True, timeout=120).stdout
+            check("Mật khẩu tạm không xuất hiện trong log",
+                  all(p and p not in logs for p in temp_passwords))
 
     # Đăng xuất cả phía Keycloak
     s, lo = b.api("POST", "/api/auth/logout")
