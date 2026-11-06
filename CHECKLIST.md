@@ -14,7 +14,7 @@
 4. Chỉ qua giai đoạn khi đạt hết **Điều kiện qua giai đoạn (Gate)**, có kiểm chứng trên máy người dùng nếu Gate yêu cầu, và người dùng xác nhận.
 5. Việc mà người dùng **chủ động hoãn** được ghi `(hoãn)` và không chặn Gate. Chỉ người dùng mới được hoãn.
 6. Trong lúc làm phát hiện case mới → thêm vào bảng case của giai đoạn đó trước khi đóng giai đoạn.
-7. **Hiện tại chỉ một người dùng** (người dùng chốt 2026-11-06). Bảo mật/xác thực và đa người dùng để sau, xem phần **MT** cuối file.
+7. **Bảo mật và phân quyền làm ngay trong GĐ0** (người dùng chốt 2026-11-06, đổi quyết định trước đó): đăng nhập bằng **Keycloak**, phân quyền theo vai trò, nền móng đa người dùng (phần **MT**: các việc ghi "GĐ0" làm ngay, phần còn lại làm trong giai đoạn tương ứng). Prompt thực hiện: `docs/prompts/GD0-hoan-thien-nen-mong.md`.
 
 ## Cách đọc và cập nhật
 
@@ -74,10 +74,14 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | OPS-04 | Cấu hình qua `.env` (`GT_DATA_SOURCE`, `GT_INGEST_TOKEN`, `GT_BROKER_SESSIONS`, `GT_BROKER_SERVER_TZ`) | `[x]` | |
 | OPS-05 | CI GitHub Actions (backend, gateway, frontend, lệch contract, build Docker) | `[x]` | `.github/workflows/ci.yml` — 4/4 xanh |
 | OPS-06 | CD tự deploy lên máy Windows | `[!]` | **(hoãn — người dùng)**. Thiết kế đã chốt, xem `PROGRESS.md` 2026-11-06 |
-| OPS-07 | Xác thực Dashboard + API (đăng nhập, phiên hết hạn, chống dò mật khẩu) | `[!]` | **(hoãn — người dùng 2026-11-06: chỉ một người dùng, truy cập qua Tailscale).** Bắt buộc làm lại khi có người dùng thứ hai (xem phần **MT**) hoặc trước GĐ10. Trong lúc hoãn: **không** đặt `DASHBOARD_BIND=0.0.0.0` |
+| OPS-07 | Đăng nhập Dashboard + API bằng **Keycloak (OIDC)**: backend làm BFF (Authorization Code + PKCE, client confidential), trình duyệt chỉ giữ cookie phiên `HttpOnly; Secure; SameSite=Strict`, không giữ token; mọi API bắt buộc đăng nhập trừ `/api/health` và cổng ingest (token riêng); actor trong audit lấy từ phiên, không lấy từ request | `[ ]` | Đổi contract API → export OpenAPI + gen:api |
+| OPS-14 | Keycloak trong docker compose: phiên bản ghim cụ thể, realm + client nhập từ file JSON trong repo (không chứa bí mật), DB riêng, chạy sau reverse proxy cùng origin, sao lưu cùng DB-09 | `[ ]` | |
+| OPS-15 | **Lối dừng khẩn cấp khi Keycloak hỏng:** lệnh CLI trong container backend chỉ cho phép HALT (không cho ACTIVE/LIVE), có audit `actor=break-glass` | `[ ]` | Kill switch không được phụ thuộc vào việc đăng nhập được |
+| OPS-16 | HTTPS cho truy cập từ máy khác qua **Tailscale Serve** (tên `*.ts.net`), cookie `Secure`, redirect URI đúng; `localhost` dùng cho phát triển | `[ ]` | Thay cho `DASHBOARD_BIND=<IP Tailscale>` |
+| OPS-17 | **Phân quyền (RBAC):** vai trò hệ thống `ADMIN` (realm role Keycloak) + vai trò theo tài khoản giao dịch `OWNER`/`OPERATOR`/`VIEWER` (lưu trong DB ứng dụng, khóa theo `sub`); ma trận quyền ghi ở `docs/thiet-ke/`; kiểm quyền ở backend mỗi request | `[ ]` | ← MT-01 |
 | OPS-11 | Log có cấu trúc, xoay vòng log, không ghi token/mật khẩu vào log | `[ ]` | |
 | OPS-12 | Kiểm tra đồng hồ máy chủ (NTP): lệch > 2 giây → cảnh báo; > 30 giây → chặn nạp realtime | `[ ]` | `ingested_at` dùng đồng hồ backend nên đồng hồ sai = point-in-time sai |
-| GW-05 | Người dùng đổi token ingest (token cũ đã lộ trong chat) | `[!]` | **(hoãn — người dùng 2026-11-06).** Rủi ro thấp vì cổng chỉ mở trong máy/Tailscale. Làm cùng OPS-07 |
+| GW-05 | Đổi token ingest (token cũ đã lộ trong chat); sau MT-04 token là của từng tài khoản, lưu dạng băm, xoay vòng được từ giao diện | `[!]` | Người dùng chạy lệnh trên máy Windows |
 
 **Case GĐ0**
 
@@ -90,11 +94,19 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C05 | Ổ đĩa đầy | Cảnh báo trước ở 85%; khi đầy, ingest báo lỗi rõ, không mất dữ liệu đã ghi | `[ ]` |
 | 0-C06 | Thiếu `GT_INGEST_TOKEN` hoặc token < 24 ký tự | Cổng ingest tắt (503) | `[x]` |
 | 0-C07 | Cấu hình `.env` sai cú pháp (lịch broker, múi giờ) | Backend không khởi động, báo lỗi rõ | `[x]` |
-| 0-C08 | Truy cập Dashboard không đăng nhập / sai mật khẩu nhiều lần | Từ chối; khóa tạm sau N lần; ghi audit | `[!]` (hoãn cùng OPS-07) |
+| 0-C08 | Truy cập không đăng nhập / sai mật khẩu nhiều lần | 401 + chuyển tới đăng nhập; Keycloak khóa tạm (brute force detection); audit | `[ ]` |
+| 0-C11 | Keycloak chết / không truy cập được | Không đăng nhập mới được; phiên đang có chạy tới hết hạn; **HALT vẫn làm được qua OPS-15**; Safety không bao giờ tự sang ACTIVE | `[ ]` |
+| 0-C12 | Phiên hết hạn / làm mới thất bại / người dùng bị vô hiệu hóa trên Keycloak | 401, đăng nhập lại; người bị vô hiệu không thao tác được nữa | `[ ]` |
+| 0-C13 | Bị thu hồi vai trò khi đang đăng nhập | Request sau bị 403 ngay (quyền kiểm ở DB mỗi request) | `[ ]` |
+| 0-C14 | Request từ trang web khác (CSRF), Origin lạ, DNS rebinding | Từ chối (SameSite=Strict + kiểm Origin/Host) | `[ ]` |
+| 0-C15 | `VIEWER` gọi API ghi (Safety/Mode) | 403 + audit lần bị từ chối | `[ ]` |
+| 0-C16 | Mở khóa LIVE: người duyệt trùng người yêu cầu hoặc không đủ quyền | Từ chối (dựa trên danh tính đã xác thực, không dựa vào tên gõ tay) | `[ ]` |
+| 0-C17 | Đồng hồ lệch làm JWT bị coi là hết hạn/chưa hiệu lực | Cho lệch tối đa vài giây; quá thì từ chối + cảnh báo (liên quan OPS-12) | `[ ]` |
+| 0-C18 | Token/mật khẩu xuất hiện trong log | Không bao giờ: test quét log | `[ ]` |
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[ ]` |
 | 0-C10 | CI đỏ | Không deploy (khi có CD) | `[x]` (CI) |
 
-**Gate GĐ0:** OPS-11, OPS-12, DB-09 xong (đã diễn tập khôi phục trên máy người dùng); case 0-C01..C10 có test (trừ 0-C08 đang hoãn). OPS-07, GW-05, OPS-06 hoãn theo người dùng, không chặn Gate.
+**Gate GĐ0:** OPS-07, OPS-11, OPS-12, OPS-14..17, DB-09 và các việc MT ghi "GĐ0" xong; GW-05 xác nhận; mọi case 0-C01..C18 và MT-C01..C04, MT-C06 có test; người dùng đã đăng nhập bằng Keycloak qua HTTPS trên máy Windows và điện thoại, diễn tập HALT khi Keycloak tắt, diễn tập khôi phục DB (gồm DB Keycloak). OPS-06 (CD) vẫn hoãn, không chặn Gate.
 
 ---
 
@@ -588,7 +600,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 
 ## MT — Đa người dùng, mỗi người một tài khoản riêng (để sau)
 
-**Trạng thái: hoãn — người dùng 2026-11-06.** Hiện chỉ một người dùng. Mục tiêu sau này: **mỗi người có vốn, MT5, hồ sơ rủi ro, lệnh riêng**. Không nằm trong chuỗi GĐ0 → GĐ10 hiện tại; khi bắt đầu thì làm **hết phần MT trước khi có người dùng thứ hai**, và nên làm trước GĐ8 (paper trading) để không phải sửa lại Ledger/Execution.
+**Trạng thái: nền móng làm trong GĐ0 (người dùng chốt 2026-11-06).** Mục tiêu: **mỗi người có vốn, MT5, hồ sơ rủi ro, lệnh riêng**. Việc ghi "GĐ0" làm ngay; việc khác làm ở giai đoạn ghi bên cạnh. Chưa nhận người dùng thứ hai trước khi DEC-11, DEC-12 được trả lời.
 
 Ảnh hưởng tới các giai đoạn: dữ liệu thị trường (giá, tin, lịch, vĩ mô) **dùng chung theo nguồn/broker**; còn tài khoản MT5, Gateway + token, hồ sơ rủi ro, chiến lược được bật, Safety, Mode, Ledger, lệnh, vị thế, hiệu suất, audit thì **riêng từng tài khoản**.
 
@@ -601,17 +613,17 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 
 | Mã | Việc | TT | Ghi chú |
 | --- | --- | --- | --- |
-| MT-01 | Mô hình dữ liệu: `User`, `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[ ]` | ← OPS-07 |
-| MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[ ]` | Không sửa migration cũ |
-| MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[ ]` | |
-| MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[ ]` | |
-| MT-05 | Nguồn giá theo broker/server (một tài khoản ↔ một nguồn); analyst chạy theo từng nguồn | `[ ]` | ← ING-15, DEC-14 |
-| MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống cho quản trị | `[ ]` | |
-| MT-07 | Hồ sơ rủi ro, hạn mức, ledger, đối soát theo từng tài khoản | `[ ]` | |
-| MT-08 | Duyệt LIVE theo từng tài khoản (approver khác actor, cùng quyền với tài khoản đó) | `[ ]` | |
-| MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[ ]` | |
-| MT-10 | Quản lý người dùng: mời, khóa, đổi vai trò, có audit | `[ ]` | |
-| MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[ ]` | |
+| MT-01 | Mô hình dữ liệu: `User` (khóa theo `sub` của Keycloak), `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[ ]` | **GĐ0.** ← OPS-07 |
+| MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[ ]` | **GĐ0.** Không sửa migration cũ |
+| MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[ ]` | **GĐ0.** |
+| MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[ ]` | **GĐ0.** |
+| MT-05 | Nguồn giá theo broker/server (một tài khoản ↔ một nguồn); analyst chạy theo từng nguồn | `[ ]` | **GĐ1.** ← ING-15, DEC-14 |
+| MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống cho quản trị | `[ ]` | **GĐ0.** |
+| MT-07 | Hồ sơ rủi ro, hạn mức, ledger, đối soát theo từng tài khoản | `[ ]` | **GĐ5.** |
+| MT-08 | Duyệt LIVE theo từng tài khoản (approver khác actor, cùng quyền với tài khoản đó) | `[ ]` | **GĐ10.** |
+| MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[ ]` | **GĐ0.** |
+| MT-10 | Quản lý người dùng: mời, khóa, đổi vai trò, có audit | `[ ]` | **GĐ0.** |
+| MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[ ]` | **GĐ0.** |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |

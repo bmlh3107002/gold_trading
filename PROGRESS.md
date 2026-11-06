@@ -196,9 +196,14 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Mục tiêu sau này: **nhiều người, mỗi người một tài khoản riêng** (vốn, MT5, rủi ro, lệnh riêng). Ghi vào `CHECKLIST.md` phần **MT** (MT-01..11, MT-C01..C07, DEC-11..14), để sau; nên làm trước GĐ8 và trước khi có người dùng thứ hai.
 - GĐ0 còn: `OPS-11` (log), `OPS-12` (đồng hồ), `DB-09` (sao lưu + diễn tập khôi phục), case 0-C04/C05/C09.
 
+### 2026-11-06 — Đổi quyết định: làm bảo mật + phân quyền ngay trong GĐ0, dùng Keycloak
+- Người dùng chốt: GĐ0 làm **đầy đủ** đăng nhập (Keycloak, OIDC), phân quyền theo vai trò và nền móng đa người dùng (mỗi người một tài khoản giao dịch riêng). Thay cho quyết định "hoãn bảo mật" trước đó.
+- `CHECKLIST.md`: thêm OPS-14..17 (Keycloak trong compose, lối HALT khi Keycloak hỏng, HTTPS qua Tailscale Serve, RBAC), case 0-C11..C18; MT-01..04, 06, 09..11 làm trong GĐ0; MT-05 → GĐ1, MT-07 → GĐ5, MT-08 → GĐ10. Gate GĐ0 cập nhật.
+- Prompt cho phiên làm GĐ0: `docs/prompts/GD0-hoan-thien-nen-mong.md`.
+
 ## Việc tiếp theo (đề xuất)
 
-**Theo giai đoạn trong `CHECKLIST.md` (hiện tại: GĐ0).** Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+**Theo giai đoạn trong `CHECKLIST.md` (hiện tại: GĐ0 — làm theo `docs/prompts/GD0-hoan-thien-nen-mong.md`).** Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
 00. Theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Người dùng đổi token ingest (token đã lộ trong chat).
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
