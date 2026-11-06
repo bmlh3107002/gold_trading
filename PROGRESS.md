@@ -51,9 +51,11 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
 | 11 | Training / registry | ⬜ | | |
 | 12 | Mode Manager | ✅ | `modes/manager.py` | LIVE khóa, cần approver khác actor và đủ `LIVE_CHECKLIST` |
 | 12 | Dashboard | 🟡 | `frontend/` | Theme AurumDesk. **Tổng quan**: metric, điều khiển Safety/Mode, MarketView, lịch sử. **Thị trường** (`#market`): nến M15 + EMA 20/50 + RSI 14 + đường hỗ trợ/kháng cự (chỉ khi kết quả analyst còn hiệu lực và HEALTHY), legend theo con trỏ, banner dữ liệu mẫu/giá cũ, thẻ Phân tích kỹ thuật, chất lượng dữ liệu. Header: giá, thay đổi 24h, phiên, nhãn "Dữ liệu mẫu". Lệnh, Rủi ro, Nhật ký: "Sắp có" |
-| 12 | API | 🟡 | `backend/src/gold_trading/api/app.py` | `/api/health` (kiểm tra DB, 503 nếu lỗi), `/api/status` (có `storage`, `data_source`, `data_is_sample`), `/api/audit`, `/api/market/summary`, `/api/market/candles` (kèm EMA/RSI, warm-up 200 nến), `/api/market/quality`, `/api/analysts/technical/latest`, `POST /api/safety`, `POST /api/mode`. Mọi lệnh ghi đều vào audit, kể cả lệnh bị từ chối. **Chưa có xác thực** |
+| 12 | API | ✅ | `backend/src/gold_trading/api/` | Mọi route cần đăng nhập trừ `/api/health`, `/api/auth/*`, `/api/ingest/mt5/*` (token Gateway). `/api/status` (thông tin hệ thống), `/api/system/health` (đồng hồ, ổ đĩa, sao lưu), `/api/accounts[/{id}/status|audit|safety|mode|mode/live-requests|members|gateway/*]`, `/api/admin/kill-switch|audit`, `/api/market/*`, `/api/analysts/technical/latest`. Mọi lệnh ghi vào audit kèm `actor_sub`, kể cả lệnh bị từ chối |
+| — | Xác thực + phân quyền | ✅ | `auth/`, `accounts/`, `api/accounts.py`, `ops/keycloak/` | Thiết kế: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`. Keycloak 26.8.2 (OIDC, BFF, PKCE), phiên trong bộ nhớ 8 giờ/30 phút, RBAC VIEWER/OPERATOR/OWNER + ADMIN, đa tài khoản giao dịch, LIVE hai người, break-glass `gt-break-glass`. **Chưa nhận người dùng thứ hai** (DEC-12) |
+| — | Vận hành | ✅ | `ops/clock.py`, `ops/logging.py`, `ops/backup/` | Kiểm đồng hồ (> 30 s ngừng nhận nến), log JSON che bí mật, sao lưu 2 DB mỗi 24 giờ giữ 14 bản + khôi phục |
 | 12 | Backtest | ⬜ | | |
-| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `deploy/` | Một lệnh `docker compose up -d --build` chạy db + backend + frontend. Backend chạy `alembic upgrade head` rồi mới start (`scripts/entrypoint.sh`). DB không mở cổng ra host ở bản `deploy/`. Dashboard ở `127.0.0.1:8080`; `DASHBOARD_BIND=<IP Tailscale>` để mở cho máy trong VPN (không dùng `0.0.0.0` vì API chưa có xác thực) |
+| — | Docker | ✅ | `backend/Dockerfile`, `frontend/Dockerfile`, `ops/keycloak/`, `ops/backup/`, `docker-compose.yml`, `deploy/` | `docker compose up -d --build` chạy db + keycloak-db + keycloak + backend + frontend + backup. Bí mật bắt buộc trong `.env` (thiếu → compose báo lỗi). Dashboard ở `127.0.0.1:8080`; máy khác dùng **Tailscale Serve** (HTTPS, `GT_PUBLIC_URL=https://….ts.net`). Kiểm thử cả hệ thống: `ops/scripts/ci_stack.sh` (chạy trong CI) |
 
 ## Lệnh kiểm tra nhanh
 
@@ -71,7 +73,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sửa), frontend 35 passed + tsc/eslint sạch + build OK, ruff sạch.
+Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sửa code), frontend 45 passed + tsc/eslint sạch + build OK, ruff sạch, `ops/scripts/ci_stack.sh` đạt (e2e 20/20 + khôi phục + 18/18 + không có bí mật trong log).
 
 ## Lưu ý kỹ thuật
 
@@ -79,7 +81,18 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Quy tắc khôi phục khi khởi động (`storage/repository.py`): ACTIVE → PAUSED (ghi event `STARTUP_REQUIRES_REVIEW`, actor `system`, nguồn `startup`), HALTED giữ nguyên, LIVE → PAPER (ghi audit).
 - `SafetySupervisor(persist=...)` và `ModeManager(on_change=...)` ghi **trước** khi đổi state; ghi lỗi thì state giữ nguyên.
 - Đổi schema: sửa `storage/schema.py` **và** thêm migration mới trong `backend/migrations/versions/` (không sửa `0001`). Test dùng SQLite với `create_all()`.
-- CORS chỉ mở cho `http://localhost:5173`. Vite proxy `/api` sang `localhost:8000`.
+- Không còn CORS. Dev frontend: Vite proxy `/api` → `localhost:8000`, `/auth` → `localhost:8080`; đặt `GT_PUBLIC_URL=http://localhost:5173` cho backend dev.
+- **Xác thực / phân quyền (GĐ0):**
+  - Đọc `docs/thiet-ke/00-xac-thuc-phan-quyen.md` trước khi sửa. Ma trận quyền ở `accounts/access.py`; test `test_permission_matrix_matches_design_doc` so khớp với bảng mục 5 của tài liệu: sửa một nơi thì sửa cả hai.
+  - Mọi route mặc định cần đăng nhập (dependency toàn cục trong `auth/web.py`). Thêm route công khai phải sửa `PUBLIC_PATHS`/`PUBLIC_PREFIXES` và test `test_public_paths_are_exactly_the_allowed_ones`.
+  - Endpoint có `{account_id}` phải gọi `Guard.check(...)` **trước** khi đọc/ghi gì. Actor = `Principal` từ phiên; contract request có `extra="forbid"`.
+  - FastAPI 0.162: router include thành `_IncludedRouter`, không thấy trong `app.routes` → liệt kê route qua `app.openapi()`.
+  - Test không cần Keycloak: `tests/auth_helpers.py` (`FakeKeycloak`, `make_app`, `admin_client`, client HTTPS + Origin). `conftest.py` đặt biến auth giả và `GT_CLOCK_CHECK=0`.
+  - Safety theo tài khoản: DB là nguồn sự thật (`append_safety(..., expected_last=...)`, đồng bộ 2 s). Đừng đổi `SafetySupervisor` mà bỏ `persist` có `expected_last`.
+  - Keycloak chỉ nhập realm **một lần**; đổi `GT_PUBLIC_URL`/client secret sau đó → `sync-client.sh`. Lần đăng nhập đầu Keycloak yêu cầu đổi mật khẩu + bổ sung hồ sơ (VERIFY_PROFILE).
+  - Phiên + refresh token chỉ trong bộ nhớ backend (một tiến trình uvicorn). Chạy nhiều worker phải chuyển phiên sang kho dùng chung.
+  - Token Gateway: `gtk_` + 32 byte, DB lưu SHA-256. `GT_INGEST_TOKEN` cũ chỉ còn cho `default` tới lần xoay đầu. Chỉ tài khoản `price_feed` (default) ghi nến tới MT-05.
+- **Vận hành:** log JSON khi `GT_LOG_FORMAT=json` (đặt sẵn trong image); access log do `CorrelationMiddleware` ghi (không query string). Thêm loại bí mật mới → thêm mẫu vào `ops/logging.py::_PATTERNS` + test. Sao lưu: image `ops/backup` là Alpine/busybox (không có `sha256sum --status`); khôi phục TimescaleDB cần `timescaledb_pre_restore/post_restore` và `DROP DATABASE ... WITH (FORCE)` (worker nền giữ kết nối).
 - Risk Engine giữ `ledger.lock` khi tính headroom và reserve, để tránh over-allocation khi chạy đồng thời.
 - Khi Docker chạy, CORS không cần vì nginx phục vụ dashboard và `/api` cùng origin.
 - Backend Dockerfile cài uv bằng pip (không `COPY --from=ghcr.io/...`) để chỉ phụ thuộc Docker Hub và PyPI.
@@ -202,7 +215,7 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Prompt cho phiên làm GĐ0: `docs/prompts/GD0-hoan-thien-nen-mong.md`.
 - `GW-05` xong: người dùng đã đổi token ingest trên máy Windows.
 
-### 2026-11-06 — GĐ0: Keycloak + đăng nhập + phân quyền + đa tài khoản (đang làm)
+### 2026-11-06 — GĐ0: Keycloak + đăng nhập + phân quyền + đa tài khoản + log + đồng hồ + sao lưu
 - Người dùng chốt: DEC-11 người thân/bạn bè, hệ thống tự giao dịch; DEC-12 **chưa trả lời** → `GT_MULTI_USER_ENABLED=0` (chưa nhận người thứ hai); DEC-13 chạy trên máy Windows, gom mọi Gateway về một máy; phiên 8 giờ / 30 phút; **chưa bật OTP**; đang truy cập bằng `http://100.x.y.z:8080` → chuyển sang Tailscale Serve (HTTPS); push `develop` như trước, CD để sau.
 - Thiết kế đã duyệt: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`.
 - **OPS-14:** Keycloak 26.8.2 (`ops/keycloak/`), DB riêng, realm JSON không bí mật (CI kiểm bằng `check_realm.py`), nginx `/auth/`. Đã chạy thật trong sandbox: realm nhập, secret khớp `.env`, admin có role ADMIN + bắt đổi mật khẩu.
@@ -216,7 +229,7 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 
 ## Việc tiếp theo (đề xuất)
 
-**Theo giai đoạn trong `CHECKLIST.md` (hiện tại: GĐ0 — làm theo `docs/prompts/GD0-hoan-thien-nen-mong.md`).** Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+**GĐ0: code xong, chờ người dùng làm các bước trên máy Windows để đạt Gate** (mỗi lần một bước, theo `deploy/README.md`): (1) cập nhật compose + `.env` bí mật + `docker compose up -d --build`; (2) bật Tailscale Serve, đặt `GT_PUBLIC_URL`, đăng nhập Keycloak lần đầu; (3) đăng nhập trên máy tính và điện thoại qua `https://….ts.net`; (4) tạo token Gateway trên Dashboard, cập nhật `gateway.env`, chạy lại Gateway, xác nhận dữ liệu về; (5) diễn tập tắt Keycloak → `gt-break-glass halt` → bật lại; (6) diễn tập khôi phục cả hai DB. Sau khi người dùng xác nhận đóng GĐ0 → GĐ1 (cần chốt DEC-01..07). Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
 
 00. Theo dõi vài ngày ngưỡng R3 (spike 8× trung vị) và R5 trên dữ liệu MetaQuotes-Demo. Người dùng đổi token ingest (token đã lộ trong chat).
 0. **Hồ sơ rủi ro + Kế hoạch giao dịch** (làm cùng ③): người dùng nhập vốn, mục tiêu lãi, lỗ tối đa, thông số broker → hệ thống đề xuất SL theo ATR, TP theo R:R, lot, thời gian giữ lệnh ước tính, kết luận khả thi. Hồ sơ lưu có phiên bản. Khi dùng dữ liệu mẫu thì ghi "chỉ minh họa". Mục tiêu người dùng: lãi nhỏ nhưng ổn định (ví dụ 4–5%, chưa chốt theo ngày/tuần/tháng), vốn ví dụ 100$; với lot tối thiểu 0,01 thì 100$ không đủ để rủi ro 1% theo ATR M15, phải báo rõ.
@@ -224,7 +237,7 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 2. **Event Orchestrator đầy đủ:** hiện `TechnicalRunner` polling 15s là bản tối thiểu; cần jobKey, deadline, retry giới hạn, dead-letter.
 3. **Fusion đơn giản → `MarketView`** đầu tiên, hiển thị trên Tổng quan. MarketView sinh từ dữ liệu mẫu phải mang cờ để Risk chặn ở SHADOW/LIVE.
 4. Strategy Engine và Backtest (replay theo `available_at`, có spread/slippage/phí). Backtest trên dữ liệu mẫu phải đánh dấu "không có giá trị đánh giá".
-5. Xác thực API trước khi chạy ngoài localhost.
+5. ~~Xác thực API~~ — xong ở GĐ0 (Keycloak).
 6. **Giá sống (bid/ask/spread)** từ Gateway sang backend: để hiển thị và để Risk kiểm tra ngay trước khi vào lệnh (bỏ lệnh nếu spread giãn hoặc giá đã chạy xa so với lúc nến đóng). Phân tích vẫn chỉ dùng nến đã đóng. Phải có trước Strategy/đặt lệnh.
 7. **CD tự deploy lên máy Windows** (đã chốt thiết kế ở nhật ký 2026-11-06, chưa làm).
 8. Gateway: chạy như dịch vụ Windows, đóng gói `.exe` (build trên runner Windows), hàng đợi bền vững; lịch giao dịch từ MT5 (R12). Đặt lệnh: thành phần riêng, làm sau cùng.

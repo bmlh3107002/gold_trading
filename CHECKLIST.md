@@ -4,7 +4,7 @@
 > (`docs/mo-hinh/gold-bot-1-tong-the.png`, `docs/mo-hinh/gold-bot-2-market-intelligence.png`) và đặc tả `docs/huong-dan-chuc-nang/01–12`.
 > Trạng thái chi tiết, nhật ký, lý do quyết định: `PROGRESS.md`. Hai file mâu thuẫn thì kiểm tra code rồi sửa cả hai.
 >
-> **Cập nhật lần cuối:** 2026-11-06 · **Giai đoạn hiện tại: GĐ0 (hoàn thiện nền móng) → GĐ1 (Dữ liệu vào)**
+> **Cập nhật lần cuối:** 2026-11-06 · **Giai đoạn hiện tại: GĐ0** — code + test xong, **chờ người dùng làm các bước trên Windows** (đăng nhập HTTPS máy tính + điện thoại, xoay token Gateway, diễn tập HALT khi Keycloak tắt, diễn tập khôi phục) rồi xác nhận đóng GĐ0
 
 ## Nguyên tắc "đi sạch từng giai đoạn" (người dùng chốt 2026-11-06)
 
@@ -103,6 +103,9 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C16 | Mở khóa LIVE: người duyệt trùng người yêu cầu hoặc không đủ quyền | Từ chối (dựa trên danh tính đã xác thực, không dựa vào tên gõ tay) | `[x]` `tests/test_rbac.py`: `test_live_request_same_person_cannot_approve, test_live_approval_rules` |
 | 0-C17 | Đồng hồ lệch làm JWT bị coi là hết hạn/chưa hiệu lực | Cho lệch tối đa vài giây; quá thì từ chối + cảnh báo (liên quan OPS-12) | `[x]` `test_clock_skew_within_leeway_accepted_beyond_rejected` (lệch ≤ 5 s) |
 | 0-C18 | Token/mật khẩu xuất hiện trong log | Không bao giờ: test quét log | `[x]` `tests/test_logging.py::test_no_secret_in_logs_after_full_flow` (đăng nhập, callback, làm mới, ingest, xoay token, đăng xuất, log cố ý chứa bí mật); thử đột biến tắt che → 11 test đỏ |
+| 0-C19 | Sao lưu chạy khi dịch vụ chưa khởi tạo xong (DB Keycloak còn trống) | Chờ 5 phút sau khởi động mới sao lưu lần đầu (phát hiện khi diễn tập) | `[x]` `ops/backup/backup.sh` (`GT_BACKUP_START_DELAY_S`) |
+| 0-C20 | Khôi phục từ file hỏng, hoặc khi backend/Keycloak còn chạy | Từ chối, báo rõ, không đụng DB | `[x]` diễn tập trong sandbox (file sửa 1 byte → "SHA-256 KHÔNG KHỚP"; backend chạy → "Còn 2 kết nối") |
+| 0-C21 | Mode lưu dạng chuỗi `"LIVE"` (không phải enum) khi khởi động | Vẫn về PAPER (lỗi tìm được khi soát) | `[x]` `tests/test_storage.py::test_restore_mode_normalizes_string_live` |
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[x]` `tests/test_clock.py` (OK/WARN/BLOCKED, nguồn sai, thiếu nguồn, chặn rồi mở lại ingest) |
 | 0-C10 | CI đỏ | Không deploy (khi có CD) | `[x]` (CI) |
 
