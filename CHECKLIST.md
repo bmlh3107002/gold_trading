@@ -79,7 +79,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | OPS-15 | **Lối dừng khẩn cấp khi Keycloak hỏng:** lệnh CLI trong container backend chỉ cho phép HALT (không cho ACTIVE/LIVE), có audit `actor=break-glass` | `[x]` | `gt-break-glass status|halt --account X|--all` (`safety/break_glass.py`): chỉ HALT, ghi thẳng DB, `actor=break-glass`; backend nhận trong ~2 s. Test quét AST: không resume/mode/ACTIVE |
 | OPS-16 | HTTPS cho truy cập từ máy khác qua **Tailscale Serve** (tên `*.ts.net`), cookie `Secure`, redirect URI đúng; `localhost` dùng cho phát triển | `[ ]` | Thay cho `DASHBOARD_BIND=<IP Tailscale>` |
 | OPS-17 | **Phân quyền (RBAC):** vai trò hệ thống `ADMIN` (realm role Keycloak) + vai trò theo tài khoản giao dịch `OWNER`/`OPERATOR`/`VIEWER` (lưu trong DB ứng dụng, khóa theo `sub`); ma trận quyền ghi ở `docs/thiet-ke/`; kiểm quyền ở backend mỗi request | `[x]` | Ma trận quyền: `accounts/access.py` (test so khớp bảng trong `docs/thiet-ke/00-xac-thuc-phan-quyen.md`), kiểm ở `api/accounts.py` mỗi request. LIVE hai bước (yêu cầu + người khác duyệt) |
-| OPS-11 | Log có cấu trúc, xoay vòng log, không ghi token/mật khẩu vào log | `[ ]` | |
+| OPS-11 | Log có cấu trúc, xoay vòng log, không ghi token/mật khẩu vào log | `[x]` | `ops/logging.py`: JSON một dòng (`GT_LOG_FORMAT=json` trong image), `correlation_id` từ `X-Request-ID` của nginx, access log tự ghi không có query string, che bí mật cho mọi logger; compose giới hạn 5 × 10 MB mỗi service; nginx log không query/header |
 | OPS-12 | Kiểm tra đồng hồ máy chủ (NTP): lệch > 2 giây → cảnh báo; > 30 giây → chặn nạp realtime | `[x]` | `ops/clock.py`: trung vị header `Date` của 5 máy chủ HTTPS (≥ 3 nguồn), mỗi 5 phút (1 phút khi lệch). > 2 s cảnh báo, > 30 s ingest nến 503 (nhịp tim vẫn nhận); không đo được → cảnh báo, không chặn (`GT_CLOCK_UNKNOWN_BLOCKS=1` để chặn). `GET /api/system/health`, banner trên Dashboard |
 | GW-05 | Đổi token ingest (token cũ đã lộ trong chat) | `[x]` | Người dùng đã đổi trên máy Windows (xác nhận 2026-11-06), không cần hỏi lại. Token theo từng tài khoản, lưu băm, xoay từ giao diện là việc MT-04 |
 
@@ -102,7 +102,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C15 | `VIEWER` gọi API ghi (Safety/Mode) | 403 + audit lần bị từ chối | `[x]` `tests/test_rbac.py`: `test_viewer_write_is_forbidden_and_audited` |
 | 0-C16 | Mở khóa LIVE: người duyệt trùng người yêu cầu hoặc không đủ quyền | Từ chối (dựa trên danh tính đã xác thực, không dựa vào tên gõ tay) | `[x]` `tests/test_rbac.py`: `test_live_request_same_person_cannot_approve, test_live_approval_rules` |
 | 0-C17 | Đồng hồ lệch làm JWT bị coi là hết hạn/chưa hiệu lực | Cho lệch tối đa vài giây; quá thì từ chối + cảnh báo (liên quan OPS-12) | `[x]` `test_clock_skew_within_leeway_accepted_beyond_rejected` (lệch ≤ 5 s) |
-| 0-C18 | Token/mật khẩu xuất hiện trong log | Không bao giờ: test quét log | `[ ]` |
+| 0-C18 | Token/mật khẩu xuất hiện trong log | Không bao giờ: test quét log | `[x]` `tests/test_logging.py::test_no_secret_in_logs_after_full_flow` (đăng nhập, callback, làm mới, ingest, xoay token, đăng xuất, log cố ý chứa bí mật); thử đột biến tắt che → 11 test đỏ |
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[x]` `tests/test_clock.py` (OK/WARN/BLOCKED, nguồn sai, thiếu nguồn, chặn rồi mở lại ingest) |
 | 0-C10 | CI đỏ | Không deploy (khi có CD) | `[x]` (CI) |
 
@@ -623,7 +623,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | MT-08 | Duyệt LIVE theo từng tài khoản (approver khác actor, cùng quyền với tài khoản đó) | `[ ]` | **GĐ10.** |
 | MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[x]` | **GĐ0.** Header: người đăng nhập, chọn tài khoản (chỉ tài khoản có quyền), đăng xuất; nút khóa theo `permissions` từ backend; duyệt LIVE; kill switch ADMIN; trang `#account` |
 | MT-10 | Quản lý người dùng: mời, khóa, đổi vai trò, có audit | `[x]` | **GĐ0.** `/api/accounts/{id}/members` thêm (username/email của người đã đăng nhập), đổi vai trò, gỡ; không gỡ/hạ OWNER cuối; audit; `GT_MULTI_USER_ENABLED=0` chặn người thứ hai (DEC-12). Test: `tests/test_members.py`. Khóa người dùng toàn hệ thống: vô hiệu hóa trên Keycloak (≤ 60 s) |
-| MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[ ]` | **GĐ0.** |
+| MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[x]` | **GĐ0.** Bí mật chỉ ở `.env`/`gateway.env` (gitignore, compose bắt buộc biến), realm JSON chỉ có placeholder (CI kiểm), token Gateway lưu băm + chỉ trả một lần (`Cache-Control: no-store`), phiên/refresh token chỉ trong bộ nhớ, log che bí mật. Backend không lưu thông tin đăng nhập MT5 |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |

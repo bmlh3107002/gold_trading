@@ -37,6 +37,7 @@ from gold_trading.market.hours import REFERENCE, BrokerSessions, MarketCalendar
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST
 from gold_trading.ops.clock import ClockMonitor
+from gold_trading.ops.logging import CorrelationMiddleware, configure_logging
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -139,6 +140,8 @@ def create_app(
     clock: ClockMonitor | None = None,
     run_clock: bool | None = None,
 ) -> FastAPI:
+    if os.environ.get("GT_LOG_FORMAT", "").lower() == "json":
+        configure_logging(os.environ.get("GT_LOG_LEVEL", "INFO").upper())
     repo = repo or repository_from_env()
     if candle_store is None:
         engine = getattr(repo, "engine", None)
@@ -279,6 +282,7 @@ def create_app(
         TrustedHostMiddleware,
         allowed_hosts=sorted({auth_cfg.public_host, "localhost", "127.0.0.1", "backend"}),
     )
+    app.add_middleware(CorrelationMiddleware)  # ngoài cùng: mọi request đều có correlation id
 
     app.include_router(
         accounts_router(
