@@ -53,9 +53,9 @@ def test_no_source_configured_returns_empty():
 def test_sample_data_blocks_shadow_and_live():
     c, _ = sample_app()
     assert c.get("/api/status").json()["data_is_sample"] is True
-    r = c.post("/api/mode", json={"mode": "SHADOW"})
+    r = c.post("/api/accounts/default/mode", json={"mode": "SHADOW"})
     assert r.status_code == 409
-    assert c.post("/api/mode", json={"mode": "BACKTEST"}).status_code == 200
+    assert c.post("/api/accounts/default/mode", json={"mode": "BACKTEST"}).status_code == 200
 
 
 def test_restored_shadow_downgraded_when_sample():
@@ -64,7 +64,7 @@ def test_restored_shadow_downgraded_when_sample():
         "default", ModeChange(TradingMode.PAPER, TradingMode.SHADOW, "op", None)
     )
     c, _ = sample_app(repo)
-    assert c.get("/api/status").json()["mode"] == "PAPER"
+    assert c.get("/api/accounts/default/status").json()["mode"] == "PAPER"
     assert any(e.action == "mode.startup" for e in repo.audit())
 
 

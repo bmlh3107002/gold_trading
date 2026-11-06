@@ -157,6 +157,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Accounts
+         * @description Chỉ các tài khoản người dùng có quyền (ADMIN thấy tất cả để giám sát).
+         */
+        get: operations["list_accounts_api_accounts_get"];
+        put?: never;
+        /** Create Account */
+        post: operations["create_account_api_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Account Status */
+        get: operations["account_status_api_accounts__account_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Account Audit */
+        get: operations["account_audit_api_accounts__account_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/safety": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Safety Command */
+        post: operations["safety_command_api_accounts__account_id__safety_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mode Command */
+        post: operations["mode_command_api_accounts__account_id__mode_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/mode/live-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending Live */
+        get: operations["pending_live_api_accounts__account_id__mode_live_requests_get"];
+        put?: never;
+        /** Request Live */
+        post: operations["request_live_api_accounts__account_id__mode_live_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/mode/live-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Live */
+        post: operations["approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/kill-switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Kill Switch */
+        post: operations["kill_switch_api_admin_kill_switch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** System Audit */
+        get: operations["system_audit_api_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -191,61 +349,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/audit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Audit */
-        get: operations["get_audit_api_audit_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/safety": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Safety Command */
-        post: operations["safety_command_api_safety_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/mode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mode Command */
-        post: operations["mode_command_api_mode_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountCreate */
+        AccountCreate: {
+            /** Account Id */
+            account_id: string;
+            /** Name */
+            name: string;
+        };
+        /** AccountStatus */
+        AccountStatus: {
+            /** Account Id */
+            account_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @description Vai trò của người đang đăng nhập; None = ADMIN không là thành viên
+             */
+            role: ("OWNER" | "OPERATOR" | "VIEWER") | null;
+            /** Permissions */
+            permissions: components["schemas"]["Perm"][];
+            safety_state: components["schemas"]["SafetyState"];
+            mode: components["schemas"]["TradingMode"];
+            /** Live Unlocked */
+            live_unlocked: boolean;
+            /** Live Checklist */
+            live_checklist: string[];
+            /** Allows New Orders */
+            allows_new_orders: boolean;
+            /** Safety History */
+            safety_history: components["schemas"]["SafetyTransition"][];
+            market_view: components["schemas"]["MarketView"] | null;
+        };
+        /** AccountSummary */
+        AccountSummary: {
+            /** Account Id */
+            account_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @description Vai trò của người đang đăng nhập; None = ADMIN không là thành viên
+             */
+            role: ("OWNER" | "OPERATOR" | "VIEWER") | null;
+            /** Permissions */
+            permissions: components["schemas"]["Perm"][];
+            safety_state: components["schemas"]["SafetyState"];
+            mode: components["schemas"]["TradingMode"];
+        };
         /** AnalystLatest */
         AnalystLatest: {
             output: components["schemas"]["AnalystOutput"] | null;
@@ -333,6 +488,8 @@ export interface components {
             };
             /** Detail */
             detail?: string | null;
+            /** Account Id */
+            account_id?: string | null;
         };
         /** BarIn */
         BarIn: {
@@ -538,6 +695,48 @@ export interface components {
             /** Session Best Shift Hours */
             session_best_shift_hours?: number | null;
         };
+        /** KillSwitchCommand */
+        KillSwitchCommand: {
+            /** Reason Code */
+            reason_code: string;
+        };
+        /** KillSwitchResult */
+        KillSwitchResult: {
+            /** Halted */
+            halted: string[];
+            /** Already Halted */
+            already_halted: string[];
+        };
+        /** LiveRequestCreate */
+        LiveRequestCreate: {
+            /** Checklist */
+            checklist?: {
+                [key: string]: boolean;
+            };
+        };
+        /** LiveRequestOut */
+        LiveRequestOut: {
+            /** Request Id */
+            request_id: string;
+            /** Account Id */
+            account_id: string;
+            /** Requested By */
+            requested_by: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Checklist */
+            checklist: {
+                [key: string]: boolean;
+            };
+        };
         /** LogoutResult */
         LogoutResult: {
             /** Logout Url */
@@ -649,6 +848,11 @@ export interface components {
                 [key: string]: boolean;
             };
         };
+        /**
+         * Perm
+         * @enum {string}
+         */
+        Perm: "VIEW" | "PAUSE_HALT" | "RESUME" | "EXIT_HALTED" | "SET_MODE" | "REQUEST_LIVE" | "APPROVE_LIVE" | "ROTATE_TOKEN" | "MANAGE_MEMBERS";
         /** QuarantineOut */
         QuarantineOut: {
             /**
@@ -736,7 +940,10 @@ export interface components {
             /** Currency Profit */
             currency_profit?: string | null;
         };
-        /** SystemStatus */
+        /**
+         * SystemStatus
+         * @description Thông tin chung của hệ thống. Trạng thái Safety/Mode nằm ở /api/accounts/{id}/status.
+         */
         SystemStatus: {
             /** Version */
             version: string;
@@ -752,17 +959,13 @@ export interface components {
              * @description True: đang dùng dữ liệu mẫu, không phải giá thật
              */
             data_is_sample: boolean;
-            mode: components["schemas"]["TradingMode"];
-            /** Live Unlocked */
-            live_unlocked: boolean;
             /** Live Checklist */
             live_checklist: string[];
-            safety_state: components["schemas"]["SafetyState"];
-            /** Allows New Orders */
-            allows_new_orders: boolean;
-            /** Safety History */
-            safety_history: components["schemas"]["SafetyTransition"][];
-            market_view: components["schemas"]["MarketView"] | null;
+            /**
+             * Multi User Enabled
+             * @description False: chưa nhận người dùng thứ hai (chờ ý kiến pháp lý, DEC-12)
+             */
+            multi_user_enabled: boolean;
         };
         /**
          * Timeframe
@@ -1021,6 +1224,355 @@ export interface operations {
             };
         };
     };
+    list_accounts_api_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSummary"][];
+                };
+            };
+        };
+    };
+    create_account_api_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    account_status_api_accounts__account_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    account_audit_api_accounts__account_id__audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditRecord"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    safety_command_api_accounts__account_id__safety_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SafetyCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mode_command_api_accounts__account_id__mode_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModeCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pending_live_api_accounts__account_id__mode_live_requests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveRequestOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_live_api_accounts__account_id__mode_live_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiveRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveRequestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kill_switch_api_admin_kill_switch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KillSwitchCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KillSwitchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    system_audit_api_admin_audit_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditRecord"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -1057,103 +1609,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
-                };
-            };
-        };
-    };
-    get_audit_api_audit_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditRecord"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    safety_command_api_safety_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SafetyCommand"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SystemStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    mode_command_api_mode_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ModeCommand"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SystemStatus"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

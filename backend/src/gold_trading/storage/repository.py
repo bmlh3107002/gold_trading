@@ -186,7 +186,7 @@ class InMemoryRepository:
     def last_mode(self, account_id: str) -> TradingMode | None:
         with self._lock:
             m = self._modes.get(account_id)
-            return m[-1].to_mode if m else None
+            return TradingMode(m[-1].to_mode) if m else None
 
     def append_mode(self, account_id: str, change: ModeChange) -> None:
         with self._lock:
@@ -599,6 +599,7 @@ def restore_mode(last: TradingMode | None, default: TradingMode) -> tuple[Tradin
     """Mode khởi động. LIVE không bao giờ được khôi phục tự động -> PAPER."""
     if last is None:
         return default, False
+    last = TradingMode(last)  # chuẩn hóa: so sánh bằng `is` với chuỗi "LIVE" sẽ sai
     if last is TradingMode.LIVE:
         return TradingMode.PAPER, True
     return last, False

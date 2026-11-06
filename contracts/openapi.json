@@ -323,6 +323,508 @@
         }
       }
     },
+    "/api/accounts": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "List Accounts",
+        "description": "Chỉ các tài khoản người dùng có quyền (ADMIN thấy tất cả để giám sát).",
+        "operationId": "list_accounts_api_accounts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AccountSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Accounts Api Accounts Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Create Account",
+        "operationId": "create_account_api_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/status": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Account Status",
+        "operationId": "account_status_api_accounts__account_id__status_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/audit": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Account Audit",
+        "operationId": "account_audit_api_accounts__account_id__audit_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditRecord"
+                  },
+                  "title": "Response Account Audit Api Accounts  Account Id  Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/safety": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Safety Command",
+        "operationId": "safety_command_api_accounts__account_id__safety_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SafetyCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/mode": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Mode Command",
+        "operationId": "mode_command_api_accounts__account_id__mode_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/mode/live-requests": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Pending Live",
+        "operationId": "pending_live_api_accounts__account_id__mode_live_requests_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LiveRequestOut"
+                  },
+                  "title": "Response Pending Live Api Accounts  Account Id  Mode Live Requests Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Request Live",
+        "operationId": "request_live_api_accounts__account_id__mode_live_requests_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiveRequestCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveRequestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/mode/live-requests/{request_id}/approve": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Approve Live",
+        "operationId": "approve_live_api_accounts__account_id__mode_live_requests__request_id__approve_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/kill-switch": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Kill Switch",
+        "operationId": "kill_switch_api_admin_kill_switch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KillSwitchCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KillSwitchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/audit": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "System Audit",
+        "operationId": "system_audit_api_admin_audit_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditRecord"
+                  },
+                  "title": "Response System Audit Api Admin Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -356,130 +858,173 @@
           }
         }
       }
-    },
-    "/api/audit": {
-      "get": {
-        "summary": "Get Audit",
-        "operationId": "get_audit_api_audit_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 100,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AuditRecord"
-                  },
-                  "title": "Response Get Audit Api Audit Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/safety": {
-      "post": {
-        "summary": "Safety Command",
-        "operationId": "safety_command_api_safety_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SafetyCommand"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SystemStatus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/mode": {
-      "post": {
-        "summary": "Mode Command",
-        "operationId": "mode_command_api_mode_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ModeCommand"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SystemStatus"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
     "schemas": {
+      "AccountCreate": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{2,31}$",
+            "title": "Account Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "account_id",
+          "name"
+        ],
+        "title": "AccountCreate"
+      },
+      "AccountStatus": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "OWNER",
+                  "OPERATOR",
+                  "VIEWER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role",
+            "description": "Vai trò của người đang đăng nhập; None = ADMIN không là thành viên"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Perm"
+            },
+            "type": "array",
+            "title": "Permissions"
+          },
+          "safety_state": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/TradingMode"
+          },
+          "live_unlocked": {
+            "type": "boolean",
+            "title": "Live Unlocked"
+          },
+          "live_checklist": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Live Checklist"
+          },
+          "allows_new_orders": {
+            "type": "boolean",
+            "title": "Allows New Orders"
+          },
+          "safety_history": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyTransition"
+            },
+            "type": "array",
+            "title": "Safety History"
+          },
+          "market_view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarketView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "name",
+          "role",
+          "permissions",
+          "safety_state",
+          "mode",
+          "live_unlocked",
+          "live_checklist",
+          "allows_new_orders",
+          "safety_history",
+          "market_view"
+        ],
+        "title": "AccountStatus"
+      },
+      "AccountSummary": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "OWNER",
+                  "OPERATOR",
+                  "VIEWER"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role",
+            "description": "Vai trò của người đang đăng nhập; None = ADMIN không là thành viên"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/Perm"
+            },
+            "type": "array",
+            "title": "Permissions"
+          },
+          "safety_state": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/TradingMode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "name",
+          "role",
+          "permissions",
+          "safety_state",
+          "mode"
+        ],
+        "title": "AccountSummary"
+      },
       "AnalystLatest": {
         "properties": {
           "output": {
@@ -652,6 +1197,17 @@
               }
             ],
             "title": "Detail"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
           }
         },
         "type": "object",
@@ -1286,6 +1842,103 @@
         ],
         "title": "IngestReport"
       },
+      "KillSwitchCommand": {
+        "properties": {
+          "reason_code": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Reason Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason_code"
+        ],
+        "title": "KillSwitchCommand"
+      },
+      "KillSwitchResult": {
+        "properties": {
+          "halted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Halted"
+          },
+          "already_halted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Already Halted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "halted",
+          "already_halted"
+        ],
+        "title": "KillSwitchResult"
+      },
+      "LiveRequestCreate": {
+        "properties": {
+          "checklist": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Checklist"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LiveRequestCreate"
+      },
+      "LiveRequestOut": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "requested_by": {
+            "type": "string",
+            "title": "Requested By"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "checklist": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Checklist"
+          }
+        },
+        "type": "object",
+        "required": [
+          "request_id",
+          "account_id",
+          "requested_by",
+          "requested_at",
+          "expires_at",
+          "checklist"
+        ],
+        "title": "LiveRequestOut"
+      },
       "LogoutResult": {
         "properties": {
           "logout_url": {
@@ -1584,6 +2237,21 @@
         ],
         "title": "ModeCommand"
       },
+      "Perm": {
+        "type": "string",
+        "enum": [
+          "VIEW",
+          "PAUSE_HALT",
+          "RESUME",
+          "EXIT_HALTED",
+          "SET_MODE",
+          "REQUEST_LIVE",
+          "APPROVE_LIVE",
+          "ROTATE_TOKEN",
+          "MANAGE_MEMBERS"
+        ],
+        "title": "Perm"
+      },
       "QuarantineOut": {
         "properties": {
           "received_at": {
@@ -1803,13 +2471,6 @@
             "title": "Data Is Sample",
             "description": "True: đang dùng dữ liệu mẫu, không phải giá thật"
           },
-          "mode": {
-            "$ref": "#/components/schemas/TradingMode"
-          },
-          "live_unlocked": {
-            "type": "boolean",
-            "title": "Live Unlocked"
-          },
           "live_checklist": {
             "items": {
               "type": "string"
@@ -1817,29 +2478,10 @@
             "type": "array",
             "title": "Live Checklist"
           },
-          "safety_state": {
-            "$ref": "#/components/schemas/SafetyState"
-          },
-          "allows_new_orders": {
+          "multi_user_enabled": {
             "type": "boolean",
-            "title": "Allows New Orders"
-          },
-          "safety_history": {
-            "items": {
-              "$ref": "#/components/schemas/SafetyTransition"
-            },
-            "type": "array",
-            "title": "Safety History"
-          },
-          "market_view": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MarketView"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "title": "Multi User Enabled",
+            "description": "False: chưa nhận người dùng thứ hai (chờ ý kiến pháp lý, DEC-12)"
           }
         },
         "type": "object",
@@ -1848,15 +2490,11 @@
           "storage",
           "data_source",
           "data_is_sample",
-          "mode",
-          "live_unlocked",
           "live_checklist",
-          "safety_state",
-          "allows_new_orders",
-          "safety_history",
-          "market_view"
+          "multi_user_enabled"
         ],
-        "title": "SystemStatus"
+        "title": "SystemStatus",
+        "description": "Thông tin chung của hệ thống. Trạng thái Safety/Mode nằm ở /api/accounts/{id}/status."
       },
       "Timeframe": {
         "type": "string",

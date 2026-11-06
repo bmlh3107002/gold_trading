@@ -1,4 +1,7 @@
 import type {
+  AccountStatus,
+  AccountSummary,
+  Perm,
   Me,
   AnalystLatest,
   CandlesResponse,
@@ -20,16 +23,48 @@ export function makeMe(over: Partial<Me> = {}): Me {
   };
 }
 
-export function makeStatus(over: Partial<SystemStatus> = {}): SystemStatus {
+export function makeSystem(over: Partial<SystemStatus> = {}): SystemStatus {
   return {
     version: "0.1.0",
     storage: "postgres",
     data_source: "SAMPLE",
     data_is_sample: true,
+    live_checklist: [],
+    multi_user_enabled: false,
+    ...over,
+  };
+}
+
+export const ALL_PERMS: Perm[] = [
+  "VIEW",
+  "PAUSE_HALT",
+  "RESUME",
+  "EXIT_HALTED",
+  "SET_MODE",
+  "REQUEST_LIVE",
+  "APPROVE_LIVE",
+  "ROTATE_TOKEN",
+  "MANAGE_MEMBERS",
+];
+
+export function makeAccount(over: Partial<AccountSummary> = {}): AccountSummary {
+  return {
+    account_id: "default",
+    name: "Tài khoản chính",
+    role: "OWNER",
+    permissions: ALL_PERMS,
+    safety_state: "PAUSED",
     mode: "PAPER",
+    ...over,
+  };
+}
+
+/** Trạng thái của tài khoản "default" (GET /api/accounts/default/status). */
+export function makeStatus(over: Partial<AccountStatus> = {}): AccountStatus {
+  return {
+    ...makeAccount(),
     live_unlocked: false,
     live_checklist: [],
-    safety_state: "PAUSED",
     allows_new_orders: false,
     safety_history: [],
     market_view: null,

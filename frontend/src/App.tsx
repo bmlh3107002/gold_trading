@@ -6,7 +6,9 @@ import { useRoute } from "./hooks/useRoute";
 import { useSystemStatus } from "./hooks/useSystemStatus";
 import { useTheme } from "./hooks/useTheme";
 import { useAuth } from "./hooks/useAuth";
-import type { Me } from "./api/client";
+import { useAccounts } from "./hooks/useAccounts";
+import { usePolling } from "./hooks/usePolling";
+import { api, type Me } from "./api/client";
 import { ErrorState, LoadingState } from "./components/ui/StateView";
 import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
@@ -42,10 +44,13 @@ export default function App() {
 
 /** Chỉ dựng (và bắt đầu polling) khi đã đăng nhập. */
 function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
-  const sys = useSystemStatus();
+  const accounts = useAccounts();
+  const accountId = accounts.selected?.account_id ?? null;
+  const sys = useSystemStatus(accounts.loading ? null : accountId);
+  const system = usePolling(api.system, 15_000, 60_000);
   const market = useMarketSummary();
   const route = useRoute();
-  const gateway = useGatewayStatus(sys.status?.data_source === "MT5");
+  const gateway = useGatewayStatus(system.data?.data_source === "MT5");
   const { theme, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -56,10 +61,10 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         open={menuOpen}
         onClose={closeMenu}
         connection={sys.connection}
-        version={sys.status?.version ?? null}
-        storage={sys.status?.storage ?? null}
+        version={system.data?.version ?? null}
+        storage={system.data?.storage ?? null}
         route={route}
-        gateway={sys.status?.data_source === "MT5" ? gateway.data : null}
+        gateway={system.data?.data_source === "MT5" ? gateway.data : null}
       />
       <div className="main">
         <Header
@@ -73,12 +78,15 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
           userName={me.display_name || me.username}
           isAdmin={me.is_admin}
           onLogout={onLogout}
+          accounts={accounts.list}
+          selectedAccount={accountId}
+          onSelectAccount={accounts.select}
         />
         <main>
           {route === "market" ? (
             <MarketPage theme={theme} summary={market} />
           ) : (
-            <OverviewPage sys={sys} />
+            <OverviewPage sys={sys} accountId={accounts.loading ? null : accountId} me={me} />
           )}
         </main>
       </div>

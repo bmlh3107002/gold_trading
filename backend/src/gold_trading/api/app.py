@@ -9,33 +9,32 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from gold_trading import __version__
+from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.runner import TechnicalRunner
+from gold_trading.api.accounts import accounts_router
 from gold_trading.api.analysts import analysts_router
 from gold_trading.api.ingest import GatewayMonitor, ingest_router
 from gold_trading.api.market import market_router
 from gold_trading.auth.config import AuthConfig
 from gold_trading.auth.oidc import OidcClient
-from gold_trading.auth.web import AuthService, CurrentUser
-from gold_trading.common.enums import SafetyState, TradingMode
+from gold_trading.auth.web import AuthService
+from gold_trading.common.enums import TradingMode
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.contracts.market_view import MarketView
-from gold_trading.contracts.safety import SafetyTransition
 from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.hours import REFERENCE, BrokerSessions, MarketCalendar
 from gold_trading.market.service import MarketDataService
-from gold_trading.modes.manager import LIVE_CHECKLIST, ModeChangeError, ModeManager
-from gold_trading.safety.supervisor import SafetySupervisor, SafetyTransitionError
+from gold_trading.modes.manager import LIVE_CHECKLIST
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -48,8 +47,6 @@ from gold_trading.storage.repository import (
     Member,
     Repository,
     SqlRepository,
-    restore_mode,
-    restore_safety_state,
 )
 from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
 
@@ -58,43 +55,16 @@ log = logging.getLogger("gold_trading.api")
 
 
 class SystemStatus(BaseModel):
+    """Thông tin chung của hệ thống. Trạng thái Safety/Mode nằm ở /api/accounts/{id}/status."""
+
     version: str
     storage: str = Field(description="memory | postgres — nơi lưu trạng thái vận hành")
     data_source: DataSource | None = Field(description="Nguồn nến đang dùng; None = chưa cấu hình")
     data_is_sample: bool = Field(description="True: đang dùng dữ liệu mẫu, không phải giá thật")
-    mode: TradingMode
-    live_unlocked: bool
     live_checklist: list[str]
-    safety_state: SafetyState
-    allows_new_orders: bool
-    safety_history: list[SafetyTransition]
-    market_view: MarketView | None
-
-
-class SafetyCommand(BaseModel):
-    """Người thực hiện lấy từ phiên đăng nhập; gửi thêm trường lạ (vd. actor) → 422."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    action: Literal["pause", "halt", "resume"]
-    reason_code: str = Field(min_length=1, max_length=128)
-    operator_approved: bool = False
-
-
-class ModeCommand(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    mode: TradingMode
-    checklist: dict[str, bool] = Field(default_factory=dict)
-
-
-class AuditRecord(BaseModel):
-    at: datetime
-    actor: str
-    action: str
-    outcome: Literal["ACCEPTED", "REJECTED", "NOOP"]
-    payload: dict[str, Any]
-    detail: str | None = None
+    multi_user_enabled: bool = Field(
+        description="False: chưa nhận người dùng thứ hai (chờ ý kiến pháp lý, DEC-12)"
+    )
 
 
 def repository_from_env() -> Repository:
@@ -172,54 +142,14 @@ def create_app(
         return None
 
     repo.ensure_default_account()
-    acc = DEFAULT_ACCOUNT_ID  # TODO(MT-06): Safety/Mode cho từng tài khoản
-
-    # --- Dựng lại trạng thái từ lịch sử append-only ---
-    history = repo.safety_history(acc)
-    start_state, downgrade_reason = restore_safety_state(history)
-    safety = SafetySupervisor(
-        POLICY_VERSION,
-        initial_state=start_state,
-        history=history,
-        persist=lambda t: repo.append_safety(acc, t),
-    )
-    if downgrade_reason:
-        safety.pause(downgrade_reason, trigger_source="startup", actor="system")
-
     default_mode = TradingMode(os.environ.get("GT_MODE", "PAPER"))
-    if default_mode is TradingMode.LIVE or mode_guard(default_mode):
-        default_mode = TradingMode.PAPER
-    start_mode, relocked = restore_mode(repo.last_mode(acc), default_mode)
-    if relocked:
-        repo.append_audit(
-            AuditEntry(
-                utcnow(),
-                "system",
-                "mode.startup",
-                "ACCEPTED",
-                {"from": "LIVE", "to": "PAPER"},
-                "LIVE không được khôi phục tự động sau restart",
-                account_id=acc,
-            )
-        )
-    if (reason := mode_guard(start_mode)) is not None:
-        repo.append_audit(
-            AuditEntry(
-                utcnow(),
-                "system",
-                "mode.startup",
-                "ACCEPTED",
-                {"from": start_mode.value, "to": "PAPER"},
-                reason,
-                account_id=acc,
-            )
-        )
-        start_mode = TradingMode.PAPER
-    modes = ModeManager(
-        start_mode,
+    # Dựng Safety/Mode cho MỌI tài khoản từ lịch sử append-only (quy tắc khôi phục ở runtime.py)
+    registry = AccountRegistry(
+        repo,
+        policy_version=POLICY_VERSION,
+        default_mode=default_mode,
         live_unlocked=live_unlocked,
-        on_change=lambda ch: repo.append_mode(acc, ch),
-        guard=mode_guard,
+        mode_guard=mode_guard,
     )
 
     feed: SampleFeed | None = None
@@ -240,6 +170,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        registry.start()
         if feed:
             feed.start()
         if runner:
@@ -249,6 +180,7 @@ def create_app(
             runner.stop()
         if feed:
             feed.stop()
+        registry.stop()
 
     market_view: MarketView | None = None  # TODO: lấy từ Market Intelligence
 
@@ -307,20 +239,8 @@ def create_app(
         allowed_hosts=sorted({auth_cfg.public_host, "localhost", "127.0.0.1", "backend"}),
     )
 
-    def status() -> SystemStatus:
-        return SystemStatus(
-            version=__version__,
-            storage=repo.kind,
-            data_source=market.source,
-            data_is_sample=market.is_sample,
-            mode=modes.mode,
-            live_unlocked=modes.live_unlocked,
-            live_checklist=list(LIVE_CHECKLIST),
-            safety_state=safety.state,
-            allows_new_orders=safety.allows_new_orders(),
-            safety_history=list(safety.history)[-200:],
-            market_view=market_view,
-        )
+    app.include_router(accounts_router(repo, registry, market_view=lambda: market_view))
+    app.state.registry = registry
 
     @app.get("/api/health")
     def health():
@@ -330,51 +250,13 @@ def create_app(
 
     @app.get("/api/status", response_model=SystemStatus)
     def get_status() -> SystemStatus:
-        return status()
-
-    @app.get("/api/audit", response_model=list[AuditRecord])
-    def get_audit(limit: int = 100) -> list[AuditRecord]:
-        rows = repo.audit(min(max(limit, 1), 500), account_id=acc)
-        return [
-            AuditRecord(at=e.at, actor=e.actor, action=e.action, outcome=e.outcome,
-                        payload=e.payload, detail=e.detail)
-            for e in rows
-        ]
-
-    @app.post("/api/safety", response_model=SystemStatus)
-    def safety_command(cmd: SafetyCommand, p: CurrentUser) -> SystemStatus:
-        kwargs = {"trigger_source": "dashboard", "actor": p.username}
-        payload = cmd.model_dump()
-        try:
-            if cmd.action == "pause":
-                event = safety.pause(cmd.reason_code, **kwargs)
-            elif cmd.action == "halt":
-                event = safety.halt(cmd.reason_code, **kwargs)
-            else:
-                event = safety.resume(
-                    cmd.reason_code, operator_approved=cmd.operator_approved, **kwargs
-                )
-        except SafetyTransitionError as e:
-            audit(p.username, f"safety.{cmd.action}", "REJECTED", payload, str(e),
-                  actor_sub=p.sub, account_id=acc)
-            raise HTTPException(status_code=409, detail=str(e)) from e
-        audit(p.username, f"safety.{cmd.action}", "ACCEPTED" if event else "NOOP", payload,
-              actor_sub=p.sub, account_id=acc)
-        return status()
-
-    @app.post("/api/mode", response_model=SystemStatus)
-    def mode_command(cmd: ModeCommand, p: CurrentUser) -> SystemStatus:
-        payload = cmd.model_dump(mode="json")
-        try:
-            # LIVE cần người duyệt thứ hai đã xác thực: luồng hai bước (OPS-17). Ở đây không có
-            # người duyệt nên LIVE luôn bị từ chối.
-            change = modes.set_mode(cmd.mode, actor=p.username, checklist=cmd.checklist)
-        except ModeChangeError as e:
-            audit(p.username, "mode.set", "REJECTED", payload, str(e), actor_sub=p.sub,
-                  account_id=acc)
-            raise HTTPException(status_code=409, detail=str(e)) from e
-        audit(p.username, "mode.set", "ACCEPTED" if change else "NOOP", payload,
-              actor_sub=p.sub, account_id=acc)
-        return status()
+        return SystemStatus(
+            version=__version__,
+            storage=repo.kind,
+            data_source=market.source,
+            data_is_sample=market.is_sample,
+            live_checklist=list(LIVE_CHECKLIST),
+            multi_user_enabled=auth_cfg.multi_user_enabled,
+        )
 
     return app

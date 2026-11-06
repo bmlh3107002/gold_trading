@@ -408,6 +408,10 @@
   background: var(--gold-bg);
   border-color: color-mix(in srgb, var(--gold) 40%, transparent);
 }
+.banner--info {
+  background: var(--info-bg);
+  border-color: color-mix(in srgb, var(--info) 40%, transparent);
+}
 .banner__body {
   flex: 1;
   min-width: 0;
@@ -663,4 +667,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.header__select {
+  height: 32px;
+  max-width: 220px;
+  padding: 0 8px;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-ctl);
+  font: inherit;
+  font-size: var(--fs-label);
+}
+@media (max-width: 480px) {
+  .header__select {
+    max-width: 120px;
+  }
 }

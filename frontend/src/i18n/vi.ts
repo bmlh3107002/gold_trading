@@ -53,6 +53,17 @@ const vi = {
       invalid: "Không xác minh được đăng nhập. Vui lòng thử lại.",
     },
   },
+  accounts: {
+    label: "Tài khoản giao dịch",
+    role: { OWNER: "Chủ", OPERATOR: "Vận hành", VIEWER: "Chỉ xem", ADMIN: "Quản trị" },
+    noneTitle: "Bạn chưa được cấp quyền tài khoản nào",
+    noneDesc: "Nhờ chủ tài khoản hoặc quản trị hệ thống thêm bạn vào một tài khoản giao dịch.",
+    killAll: "Dừng khẩn cấp TẤT CẢ tài khoản",
+    killAllTitle: "Dừng khẩn cấp toàn hệ thống?",
+    killAllDesc:
+      "Mọi tài khoản giao dịch sẽ chuyển sang HALTED. Không có nút mở lại hàng loạt: chủ từng tài khoản phải tự mở lại sau khi kiểm tra.",
+    killAllConfirm: "Dừng tất cả",
+  },
   connection: {
     live: "Trực tiếp",
     connecting: "Đang kết nối",
@@ -242,6 +253,11 @@ const vi = {
     modeGroup: "Chế độ vận hành",
     locked: "Đã khóa",
     disconnected: "Không thể thao tác khi mất kết nối backend",
+    readOnly: "Bạn chỉ có quyền xem tài khoản này.",
+    livePending: "Yêu cầu bật LIVE đang chờ duyệt",
+    livePendingItem: "{{name}} yêu cầu bật LIVE · hết hạn lúc {{time}}",
+    liveApprove: "Duyệt bật LIVE",
+    liveNeedsOther: "Cần người khác duyệt",
   },
   dialog: {
     close: "Đóng",
@@ -257,7 +273,7 @@ const vi = {
     resumeConfirm: "Phê duyệt và mở lại",
     liveTitle: "Chuyển sang LIVE?",
     liveDesc:
-      "LIVE sẽ gửi lệnh thật tới broker. Yêu cầu cần người phê duyệt thứ hai và checklist trước LIVE đầy đủ; backend sẽ từ chối nếu chưa đạt.",
+      "LIVE sẽ gửi lệnh thật tới broker. Yêu cầu chỉ có hiệu lực khi một người KHÁC có quyền đăng nhập và duyệt trong 15 phút, và checklist trước LIVE đầy đủ; backend sẽ từ chối nếu chưa đạt.",
     liveConfirm: "Gửi yêu cầu LIVE",
   },
   history: {

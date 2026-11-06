@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { json, makeCandles, makeMe, makeQuality, makeStatus, makeSummary, makeTechnical } from "../test/fixtures";
+import { json, makeAccount, makeCandles, makeMe, makeQuality, makeStatus, makeSummary, makeSystem, makeTechnical } from "../test/fixtures";
 
 // jsdom không có canvas: thay biểu đồ bằng stub, chỉ kiểm tra dữ liệu được đưa vào.
 const setData = vi.fn();
@@ -29,7 +29,10 @@ vi.mock("lightweight-charts", () => {
 function routes(over: Record<string, unknown> = {}) {
   const table: Record<string, unknown> = {
     "/api/auth/me": makeMe(),
-    "/api/status": makeStatus(),
+    "/api/status": makeSystem(),
+    "/api/accounts": [makeAccount()],
+    "/api/accounts/default/status": makeStatus(),
+    "/api/accounts/default/mode/live-requests": [],
     "/api/market/summary": makeSummary(),
     "/api/market/candles": makeCandles(),
     "/api/market/quality": makeQuality(),
@@ -142,7 +145,7 @@ describe("Thẻ Phân tích kỹ thuật", () => {
 describe("Trạng thái MT5 Gateway", () => {
   it("hiện ở sidebar khi nguồn dữ liệu là MT5", async () => {
     routes({
-      "/api/status": makeStatus({ data_source: "MT5", data_is_sample: false }),
+      "/api/status": makeSystem({ data_source: "MT5", data_is_sample: false }),
       "/api/gateway/status": {
         state: "CONNECTED", last_seen_at: "2026-01-06T14:45:00Z", age_seconds: 3,
         heartbeat: { account_type: "DEMO" },

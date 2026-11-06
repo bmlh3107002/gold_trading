@@ -1,11 +1,12 @@
-import { Lock, OctagonX, Pause, Play, X } from "lucide-react";
+import { Check, Lock, OctagonX, Pause, Play, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ApiError, SafetyCommand, SystemStatus, TradingMode } from "../../api/client";
+import type { AccountStatus, ApiError, LiveRequest, Perm, SafetyCommand, TradingMode } from "../../api/client";
 import { Button, IconButton } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { formatTime } from "../../lib/format";
 import { modeLabel } from "../../lib/labels";
 
 const MODES: TradingMode[] = ["BACKTEST", "PAPER", "SHADOW", "LIVE"];
@@ -14,13 +15,26 @@ type Action = SafetyCommand["action"];
 type Pending = { kind: "halt" } | { kind: "resumeHalted" } | { kind: "live" } | null;
 
 interface ControlPanelProps {
-  status: SystemStatus;
+  status: AccountStatus;
   disabled: boolean;
+  me: string;
+  liveRequests: LiveRequest[];
   onSafety: (cmd: SafetyCommand) => Promise<ApiError | null>;
   onMode: (mode: TradingMode) => Promise<ApiError | null>;
+  onRequestLive: () => Promise<ApiError | null>;
+  onApproveLive: (requestId: string) => Promise<ApiError | null>;
 }
 
-export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPanelProps) {
+export function ControlPanel({
+  status,
+  disabled,
+  me,
+  liveRequests,
+  onSafety,
+  onMode,
+  onRequestLive,
+  onApproveLive,
+}: ControlPanelProps) {
   const { t } = useTranslation();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,6 +44,9 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
 
   // Người thao tác lấy từ phiên đăng nhập ở backend, không nhập tay.
   const locked = disabled || busy;
+  // Giao diện chỉ ẩn/khóa nút cho dễ dùng; backend vẫn kiểm quyền mỗi request.
+  const can = (p: Perm) => status.permissions.includes(p);
+  const readOnly = !can("PAUSE_HALT") && !can("SET_MODE");
 
   async function exec(fn: () => Promise<ApiError | null>, context: "safety" | "mode") {
     setBusy(true);
@@ -71,7 +88,7 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
     setPending(null);
     if (p?.kind === "halt") await sendSafety("halt");
     else if (p?.kind === "resumeHalted") await sendSafety("resume", true);
-    else if (p?.kind === "live") await exec(() => onMode("LIVE"), "mode");
+    else if (p?.kind === "live") await exec(onRequestLive, "mode");
   }
 
   const s = status.safety_state;
@@ -105,6 +122,12 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
         </div>
       )}
 
+      {readOnly && (
+        <div className="banner banner--info" style={{ marginBottom: 14 }} role="status">
+          <span className="banner__body">{t("controls.readOnly")}</span>
+        </div>
+      )}
+
       <div className="form-grid">
         <Field
           label={t("controls.reason")}
@@ -122,7 +145,7 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
           <Button
             variant="primary"
             icon={<Play size={14} aria-hidden="true" />}
-            disabled={locked || s === "ACTIVE"}
+            disabled={locked || s === "ACTIVE" || !can(s === "HALTED" ? "EXIT_HALTED" : "RESUME")}
             onClick={() => request("resume")}
           >
             {t("controls.resume")}
@@ -130,7 +153,7 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
           <Button
             variant="secondary"
             icon={<Pause size={14} aria-hidden="true" />}
-            disabled={locked || s !== "ACTIVE"}
+            disabled={locked || s !== "ACTIVE" || !can("PAUSE_HALT")}
             onClick={() => request("pause")}
           >
             {t("controls.pause")}
@@ -138,7 +161,7 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
           <Button
             variant="danger"
             icon={<OctagonX size={14} aria-hidden="true" />}
-            disabled={locked || s === "HALTED"}
+            disabled={locked || s === "HALTED" || !can("PAUSE_HALT")}
             onClick={() => request("halt")}
           >
             {t("controls.halt")}
@@ -159,7 +182,7 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
                 type="button"
                 className="segmented__item"
                 aria-pressed={m === status.mode}
-                disabled={locked || m === status.mode}
+                disabled={locked || m === status.mode || !can(m === "LIVE" ? "REQUEST_LIVE" : "SET_MODE")}
                 onClick={() => requestMode(m)}
                 title={isLocked ? t("controls.locked") : undefined}
               >
@@ -171,6 +194,34 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
           })}
         </div>
       </div>
+
+      {liveRequests.length > 0 && (
+        <div className="control-group">
+          <span className="control-group__label">{t("controls.livePending")}</span>
+          {liveRequests.map((r) => (
+            <div key={r.request_id} className="banner banner--warn" role="status">
+              <span className="banner__body">
+                {t("controls.livePendingItem", {
+                  name: r.requested_by,
+                  time: formatTime(new Date(r.expires_at)),
+                })}
+              </span>
+              {can("APPROVE_LIVE") && r.requested_by !== me ? (
+                <Button
+                  variant="danger"
+                  icon={<Check size={14} aria-hidden="true" />}
+                  disabled={locked}
+                  onClick={() => void exec(() => onApproveLive(r.request_id), "mode")}
+                >
+                  {t("controls.liveApprove")}
+                </Button>
+              ) : (
+                <span className="header__label">{t("controls.liveNeedsOther")}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <Dialog
         open={dialog !== null}

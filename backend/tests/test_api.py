@@ -8,7 +8,7 @@ def client() -> TestClient:
 
 
 def test_status_defaults_safe():
-    body = client().get("/api/status").json()
+    body = client().get("/api/accounts/default/status").json()
     assert body["mode"] == "PAPER"
     assert body["live_unlocked"] is False
     assert body["safety_state"] == "PAUSED"
@@ -17,11 +17,11 @@ def test_status_defaults_safe():
 
 def test_kill_switch_and_resume_flow():
     c = client()
-    c.post("/api/safety", json={"action": "halt", "reason_code": "KILL"})
-    r = c.post("/api/safety", json={"action": "resume", "reason_code": "X"})
+    c.post("/api/accounts/default/safety", json={"action": "halt", "reason_code": "KILL"})
+    r = c.post("/api/accounts/default/safety", json={"action": "resume", "reason_code": "X"})
     assert r.status_code == 409
     r = c.post(
-        "/api/safety",
+        "/api/accounts/default/safety",
         json={
             "action": "resume",
             "reason_code": "REVIEWED",
@@ -32,5 +32,5 @@ def test_kill_switch_and_resume_flow():
 
 
 def test_live_mode_refused():
-    r = client().post("/api/mode", json={"mode": "LIVE"})
+    r = client().post("/api/accounts/default/mode", json={"mode": "LIVE"})
     assert r.status_code == 409

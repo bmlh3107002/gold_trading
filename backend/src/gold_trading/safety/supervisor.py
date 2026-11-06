@@ -45,6 +45,25 @@ class SafetySupervisor:
     def history(self) -> tuple[SafetyTransition, ...]:
         return tuple(self._history)
 
+    @property
+    def last_transition_id(self) -> str | None:
+        return self._history[-1].transition_id if self._history else None
+
+    def adopt(self, history: Iterable[SafetyTransition]) -> bool:
+        """Nhận trạng thái từ nguồn sự thật (DB), ví dụ khi CLI break-glass ghi HALT trực tiếp.
+
+        Trả True nếu trạng thái thay đổi. Không ghi gì (sự kiện đã nằm trong DB).
+        """
+        hist = list(history)
+        with self._lock:
+            new_last = hist[-1].transition_id if hist else None
+            if new_last == self.last_transition_id:
+                return False
+            self._history = hist
+            if hist:
+                self._state = hist[-1].to_state
+            return True
+
     def allows_new_orders(self) -> bool:
         return self._state is SafetyState.ACTIVE
 

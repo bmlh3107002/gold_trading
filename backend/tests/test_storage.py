@@ -18,7 +18,7 @@ def repo(tmp_path) -> SqlRepository:
 
 def post(c: TestClient, action: str, **extra):
     return c.post(
-        "/api/safety", json={"action": action, "reason_code": "R", **extra}
+        "/api/accounts/default/safety", json={"action": action, "reason_code": "R", **extra}
     )
 
 
@@ -26,16 +26,17 @@ def test_halted_survives_restart(repo):
     c = admin_client(repo)
     post(c, "halt")
     # "Restart": app mới, cùng database
-    body = admin_client(repo).get("/api/status").json()
+    c2 = admin_client(repo)
+    body = c2.get("/api/accounts/default/status").json()
     assert body["safety_state"] == "HALTED"
-    assert body["storage"] == "sqlite"
+    assert c2.get("/api/status").json()["storage"] == "sqlite"
     assert [t["to_state"] for t in body["safety_history"]] == ["HALTED"]
 
 
 def test_active_downgraded_to_paused_on_restart(repo):
     c = admin_client(repo)
     post(c, "resume")
-    body = admin_client(repo).get("/api/status").json()
+    body = admin_client(repo).get("/api/accounts/default/status").json()
     assert body["safety_state"] == "PAUSED"
     last = body["safety_history"][-1]
     assert last["reason_code"] == "STARTUP_REQUIRES_REVIEW"
@@ -44,23 +45,23 @@ def test_active_downgraded_to_paused_on_restart(repo):
 
 def test_mode_persisted_and_live_never_restored(repo):
     c = admin_client(repo)
-    c.post("/api/mode", json={"mode": "SHADOW"})
-    assert admin_client(repo).get("/api/status").json()["mode"] == "SHADOW"
+    c.post("/api/accounts/default/mode", json={"mode": "SHADOW"})
+    assert admin_client(repo).get("/api/accounts/default/status").json()["mode"] == "SHADOW"
 
     from gold_trading.modes.manager import ModeChange
 
     # giả lập lần chạy trước ở LIVE
     repo.append_mode("default", ModeChange("SHADOW", "LIVE", "a", "b"))
-    assert admin_client(repo).get("/api/status").json()["mode"] == "PAPER"
+    assert admin_client(repo).get("/api/accounts/default/status").json()["mode"] == "PAPER"
 
 
 def test_audit_records_accepted_and_rejected(repo):
     c = admin_client(repo)
     post(c, "halt")
     assert post(c, "resume").status_code == 409
-    c.post("/api/mode", json={"mode": "LIVE"})
+    c.post("/api/accounts/default/mode", json={"mode": "LIVE"})
     entries = [
-        e for e in c.get("/api/audit").json()
+        e for e in c.get("/api/accounts/default/audit").json()
         if e["action"] in ("mode.set", "safety.resume", "safety.halt")
     ]
     assert [(e["action"], e["outcome"], e["actor"]) for e in entries] == [
@@ -86,3 +87,16 @@ def test_health_reports_storage(repo):
         "status": "ok",
         "storage": "sqlite",
     }
+
+
+def test_restore_mode_normalizes_string_live():
+    """Lỗi tìm được khi soát: chuỗi "LIVE" từng lọt qua phép so sánh `is TradingMode.LIVE`."""
+    from gold_trading.common.enums import TradingMode
+    from gold_trading.storage.repository import InMemoryRepository, restore_mode
+
+    assert restore_mode("LIVE", TradingMode.PAPER) == (TradingMode.PAPER, True)  # type: ignore[arg-type]
+    r = InMemoryRepository()
+    from gold_trading.modes.manager import ModeChange
+
+    r.append_mode("default", ModeChange("PAPER", "LIVE", "a", "b"))  # type: ignore[arg-type]
+    assert r.last_mode("default") is TradingMode.LIVE

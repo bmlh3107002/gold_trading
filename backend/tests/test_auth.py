@@ -358,14 +358,14 @@ def test_write_from_other_origin_is_blocked_and_audited():
     _, kc, repo, c = setup()
     kc.login(c, "kate", admin=True)
     body = {"action": "halt", "reason_code": "X"}
-    r = c.post("/api/safety", json=body, headers={"Origin": "https://evil.example"})
+    r = c.post("/api/accounts/default/safety", json=body, headers={"Origin": "https://evil.example"})
     assert r.status_code == 403
-    r = c.post("/api/safety", json=body, headers={"Origin": ""})
+    r = c.post("/api/accounts/default/safety", json=body, headers={"Origin": ""})
     assert r.status_code == 403
     assert ("access.csrf_blocked", "REJECTED") in audit_actions(repo)
-    assert c.get("/api/status").json()["safety_state"] == "PAUSED"
+    assert c.get("/api/accounts/default/status").json()["safety_state"] == "PAUSED"
     # Cùng origin thì được
-    assert c.post("/api/safety", json=body).status_code == 200
+    assert c.post("/api/accounts/default/safety", json=body).status_code == 200
 
 
 def test_unknown_host_rejected_dns_rebinding():
@@ -378,11 +378,12 @@ def test_unknown_host_rejected_dns_rebinding():
 def test_client_supplied_actor_is_rejected_and_audit_uses_session():
     _, kc, repo, c = setup()
     kc.login(c, "mia", admin=True)
-    r = c.post("/api/safety", json={"action": "halt", "reason_code": "X", "actor": "someone"})
+    r = c.post("/api/accounts/default/safety",
+               json={"action": "halt", "reason_code": "X", "actor": "someone"})
     assert r.status_code == 422
-    r = c.post("/api/mode", json={"mode": "SHADOW", "approver": "x"})
+    r = c.post("/api/accounts/default/mode", json={"mode": "SHADOW", "approver": "x"})
     assert r.status_code == 422
-    c.post("/api/safety", json={"action": "halt", "reason_code": "X"})
+    c.post("/api/accounts/default/safety", json={"action": "halt", "reason_code": "X"})
     halt = next(e for e in repo.audit(50) if e.action == "safety.halt")
     assert halt.actor == "mia"
 

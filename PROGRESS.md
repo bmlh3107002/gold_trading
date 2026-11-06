@@ -207,6 +207,9 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Thiết kế đã duyệt: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`.
 - **OPS-14:** Keycloak 26.8.2 (`ops/keycloak/`), DB riêng, realm JSON không bí mật (CI kiểm bằng `check_realm.py`), nginx `/auth/`. Đã chạy thật trong sandbox: realm nhập, secret khớp `.env`, admin có role ADMIN + bắt đổi mật khẩu.
 - **OPS-07:** BFF (`backend/src/gold_trading/auth/`), mọi route bắt buộc đăng nhập (test duyệt mọi route trong OpenAPI), bỏ `actor`/`approver` khỏi request (gửi lên → 422). Frontend: trang đăng nhập, nút đăng xuất, bỏ ô "Người thao tác". Lưu ý FastAPI 0.162 gói router được include thành `_IncludedRouter` (không thấy trong `app.routes`): liệt kê route qua `app.openapi()`.
+- **MT-01/02:** migration `0004` (users, trading_accounts, account_members, gateway_tokens; `account_id` cho Safety/Mode/audit). Kiểm trên TimescaleDB thật: dữ liệu cũ → `default`, trigger append-only còn, schema khớp migration.
+- **OPS-17/MT-03/MT-06:** ma trận quyền `accounts/access.py`, API `/api/accounts/{id}/...`, Safety/Mode riêng từng tài khoản (DB là nguồn sự thật, đồng bộ 2 s), LIVE hai bước, kill switch toàn hệ thống. Frontend: chọn tài khoản, nút khóa theo quyền, duyệt LIVE. Thử đột biến (bỏ kiểm quyền) → 10 test đỏ.
+- **Lỗi tìm được khi soát:** `InMemoryRepository.last_mode` trả chuỗi, `restore_mode` so `is TradingMode.LIVE` → LIVE có thể được khôi phục sau restart ở bản bộ nhớ (bản SQL không bị). Đã sửa cả hai chỗ + test.
 
 ## Việc tiếp theo (đề xuất)
 

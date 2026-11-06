@@ -1,6 +1,6 @@
 import { LogOut, Menu, Moon, Sun, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { MarketSummary } from "../../api/client";
+import type { AccountSummary, MarketSummary } from "../../api/client";
 import type { Theme } from "../../hooks/useTheme";
 import type { ConnectionState } from "../../lib/connection";
 import { formatNumber, formatSignedPercent, formatTime, pnlTone } from "../../lib/format";
@@ -20,6 +20,9 @@ interface HeaderProps {
   userName: string;
   isAdmin: boolean;
   onLogout: () => void;
+  accounts: AccountSummary[];
+  selectedAccount: string | null;
+  onSelectAccount: (id: string) => void;
 }
 
 export function Header({
@@ -33,6 +36,9 @@ export function Header({
   userName,
   isAdmin,
   onLogout,
+  accounts,
+  selectedAccount,
+  onSelectAccount,
 }: HeaderProps) {
   const { t } = useTranslation();
   return (
@@ -95,6 +101,23 @@ export function Header({
           <span className="header__label header__hide-sm num">
             {t("connection.updatedAt", { time: formatTime(new Date(lastSuccessAt)) })}
           </span>
+        )}
+        {accounts.length > 0 && (
+          <label className="header__account">
+            <span className="sr-only">{t("accounts.label")}</span>
+            <select
+              className="header__select"
+              value={selectedAccount ?? ""}
+              onChange={(e) => onSelectAccount(e.target.value)}
+              aria-label={t("accounts.label")}
+            >
+              {accounts.map((a) => (
+                <option key={a.account_id} value={a.account_id}>
+                  {a.name} · {t(`accounts.role.${a.role ?? "ADMIN"}`)}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         <ConnectionBadge state={connection} />
         <span className="header__user header__hide-sm" title={t("auth.signedInAs", { name: userName })}>

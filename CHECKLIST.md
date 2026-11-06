@@ -78,7 +78,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | OPS-14 | Keycloak trong docker compose: phiên bản ghim cụ thể, realm + client nhập từ file JSON trong repo (không chứa bí mật), DB riêng, chạy sau reverse proxy cùng origin, sao lưu cùng DB-09 | `[~]` | Keycloak 26.8.2 (`ops/keycloak/`), DB riêng `keycloak-db` (postgres 16.14), nginx `/auth/`, brute force bật, `check_realm.py` trong CI, `sync-client.sh`. Đã chạy thật: realm nhập đúng, secret khớp `.env`. Còn: sao lưu (DB-09) |
 | OPS-15 | **Lối dừng khẩn cấp khi Keycloak hỏng:** lệnh CLI trong container backend chỉ cho phép HALT (không cho ACTIVE/LIVE), có audit `actor=break-glass` | `[ ]` | Kill switch không được phụ thuộc vào việc đăng nhập được |
 | OPS-16 | HTTPS cho truy cập từ máy khác qua **Tailscale Serve** (tên `*.ts.net`), cookie `Secure`, redirect URI đúng; `localhost` dùng cho phát triển | `[ ]` | Thay cho `DASHBOARD_BIND=<IP Tailscale>` |
-| OPS-17 | **Phân quyền (RBAC):** vai trò hệ thống `ADMIN` (realm role Keycloak) + vai trò theo tài khoản giao dịch `OWNER`/`OPERATOR`/`VIEWER` (lưu trong DB ứng dụng, khóa theo `sub`); ma trận quyền ghi ở `docs/thiet-ke/`; kiểm quyền ở backend mỗi request | `[ ]` | ← MT-01 |
+| OPS-17 | **Phân quyền (RBAC):** vai trò hệ thống `ADMIN` (realm role Keycloak) + vai trò theo tài khoản giao dịch `OWNER`/`OPERATOR`/`VIEWER` (lưu trong DB ứng dụng, khóa theo `sub`); ma trận quyền ghi ở `docs/thiet-ke/`; kiểm quyền ở backend mỗi request | `[x]` | Ma trận quyền: `accounts/access.py` (test so khớp bảng trong `docs/thiet-ke/00-xac-thuc-phan-quyen.md`), kiểm ở `api/accounts.py` mỗi request. LIVE hai bước (yêu cầu + người khác duyệt) |
 | OPS-11 | Log có cấu trúc, xoay vòng log, không ghi token/mật khẩu vào log | `[ ]` | |
 | OPS-12 | Kiểm tra đồng hồ máy chủ (NTP): lệch > 2 giây → cảnh báo; > 30 giây → chặn nạp realtime | `[ ]` | `ingested_at` dùng đồng hồ backend nên đồng hồ sai = point-in-time sai |
 | GW-05 | Đổi token ingest (token cũ đã lộ trong chat) | `[x]` | Người dùng đã đổi trên máy Windows (xác nhận 2026-11-06), không cần hỏi lại. Token theo từng tài khoản, lưu băm, xoay từ giao diện là việc MT-04 |
@@ -97,10 +97,10 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C08 | Truy cập không đăng nhập / sai mật khẩu nhiều lần | 401 + chuyển tới đăng nhập; Keycloak khóa tạm (brute force detection); audit | `[~]` 401: `test_every_non_public_route_requires_session`. Còn: brute force trên Keycloak thật (e2e) |
 | 0-C11 | Keycloak chết / không truy cập được | Không đăng nhập mới được; phiên đang có chạy tới hết hạn; **HALT vẫn làm được qua OPS-15**; Safety không bao giờ tự sang ACTIVE | `[~]` Phiên giữ khi Keycloak chết: `test_keycloak_down_keeps_existing_session_until_expiry`. Còn: HALT qua CLI (OPS-15) |
 | 0-C12 | Phiên hết hạn / làm mới thất bại / người dùng bị vô hiệu hóa trên Keycloak | 401, đăng nhập lại; người bị vô hiệu không thao tác được nữa | `[x]` `test_disabled_user_loses_access_at_next_refresh`, `test_idle_timeout_and_max_lifetime` |
-| 0-C13 | Bị thu hồi vai trò khi đang đăng nhập | Request sau bị 403 ngay (quyền kiểm ở DB mỗi request) | `[ ]` |
+| 0-C13 | Bị thu hồi vai trò khi đang đăng nhập | Request sau bị 403 ngay (quyền kiểm ở DB mỗi request) | `[x]` `tests/test_rbac.py`: `test_role_revocation_takes_effect_on_next_request` |
 | 0-C14 | Request từ trang web khác (CSRF), Origin lạ, DNS rebinding | Từ chối (SameSite=Strict + kiểm Origin/Host) | `[x]` `test_write_from_other_origin_is_blocked_and_audited`, `test_unknown_host_rejected_dns_rebinding`, `test_callback_without_login_cookie_is_rejected` |
-| 0-C15 | `VIEWER` gọi API ghi (Safety/Mode) | 403 + audit lần bị từ chối | `[ ]` |
-| 0-C16 | Mở khóa LIVE: người duyệt trùng người yêu cầu hoặc không đủ quyền | Từ chối (dựa trên danh tính đã xác thực, không dựa vào tên gõ tay) | `[ ]` |
+| 0-C15 | `VIEWER` gọi API ghi (Safety/Mode) | 403 + audit lần bị từ chối | `[x]` `tests/test_rbac.py`: `test_viewer_write_is_forbidden_and_audited` |
+| 0-C16 | Mở khóa LIVE: người duyệt trùng người yêu cầu hoặc không đủ quyền | Từ chối (dựa trên danh tính đã xác thực, không dựa vào tên gõ tay) | `[x]` `tests/test_rbac.py`: `test_live_request_same_person_cannot_approve, test_live_approval_rules` |
 | 0-C17 | Đồng hồ lệch làm JWT bị coi là hết hạn/chưa hiệu lực | Cho lệch tối đa vài giây; quá thì từ chối + cảnh báo (liên quan OPS-12) | `[x]` `test_clock_skew_within_leeway_accepted_beyond_rejected` (lệch ≤ 5 s) |
 | 0-C18 | Token/mật khẩu xuất hiện trong log | Không bao giờ: test quét log | `[ ]` |
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[ ]` |
@@ -615,24 +615,24 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | --- | --- | --- | --- |
 | MT-01 | Mô hình dữ liệu: `User` (khóa theo `sub` của Keycloak), `TradingAccount` (một tài khoản MT5), vai trò theo tài khoản (`OWNER`/`OPERATOR`/`VIEWER`) + quản trị hệ thống | `[x]` | **GĐ0.** Bảng `users`, `trading_accounts`, `account_members` (migration 0004). ADMIN đầu tiên đăng nhập → OWNER tài khoản `default`. Test: `tests/test_repository_accounts.py` (bộ nhớ + SQLite) |
 | MT-02 | Thêm `account_id` vào mọi bảng riêng (Safety, Mode, audit, hồ sơ rủi ro, ledger, lệnh, vị thế, analyst output dùng dữ liệu riêng) bằng migration mới; dữ liệu hiện có gán cho tài khoản đầu tiên | `[x]` | **GĐ0.** `account_id` cho Safety/Mode/audit (+ `actor_sub`), dữ liệu cũ → `default` bằng `ADD COLUMN DEFAULT` (không UPDATE). Đã kiểm trên TimescaleDB thật: trigger append-only còn nguyên, schema khớp migration |
-| MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[ ]` | **GĐ0.** |
+| MT-03 | Mọi API/truy vấn lọc theo tài khoản của người đang đăng nhập (chặn ở tầng truy cập dữ liệu, không chỉ ở giao diện) | `[x]` | **GĐ0.** Mọi API của tài khoản đi qua `Guard.check` (không thành viên → 404, thiếu quyền → 403, có audit). Dữ liệu thị trường dùng chung |
 | MT-04 | Token Gateway riêng từng tài khoản; Gateway chỉ ghi được vào tài khoản của mình | `[ ]` | **GĐ0.** |
 | MT-05 | Nguồn giá theo broker/server (một tài khoản ↔ một nguồn); analyst chạy theo từng nguồn | `[ ]` | **GĐ1.** ← ING-15, DEC-14 |
-| MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống cho quản trị | `[ ]` | **GĐ0.** |
+| MT-06 | Safety và Mode theo từng tài khoản + kill switch toàn hệ thống cho quản trị | `[x]` | **GĐ0.** `accounts/runtime.py`: Safety/Mode riêng từng tài khoản, khôi phục cho mọi tài khoản, DB là nguồn sự thật (ghi có `expected_last`, đồng bộ 2 s), kill switch toàn hệ thống `POST /api/admin/kill-switch` |
 | MT-07 | Hồ sơ rủi ro, hạn mức, ledger, đối soát theo từng tài khoản | `[ ]` | **GĐ5.** |
 | MT-08 | Duyệt LIVE theo từng tài khoản (approver khác actor, cùng quyền với tài khoản đó) | `[ ]` | **GĐ10.** |
-| MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[ ]` | **GĐ0.** |
+| MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[~]` | **GĐ0.** Có: người đang đăng nhập, chọn tài khoản, nút khóa theo quyền, duyệt LIVE, kill switch ADMIN. Còn: quản lý thành viên, xoay token (MT-10, MT-04) |
 | MT-10 | Quản lý người dùng: mời, khóa, đổi vai trò, có audit | `[ ]` | **GĐ0.** |
 | MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[ ]` | **GĐ0.** |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
-| MT-C01 | Người A gọi API với id tài khoản của người B | 404/403, ghi audit | `[ ]` |
+| MT-C01 | Người A gọi API với id tài khoản của người B | 404/403, ghi audit | `[x]` `tests/test_rbac.py`: `test_user_cannot_see_or_touch_other_account` |
 | MT-C02 | Gateway của A gửi dữ liệu kèm tài khoản B | Từ chối | `[ ]` |
-| MT-C03 | A bấm dừng khẩn cấp | Chỉ tài khoản A dừng; B không bị ảnh hưởng | `[ ]` |
-| MT-C04 | Quản trị bấm kill switch toàn hệ thống | Mọi tài khoản HALTED | `[ ]` |
+| MT-C03 | A bấm dừng khẩn cấp | Chỉ tài khoản A dừng; B không bị ảnh hưởng | `[x]` `tests/test_rbac.py`: `test_halt_of_one_account_does_not_affect_other` |
+| MT-C04 | Quản trị bấm kill switch toàn hệ thống | Mọi tài khoản HALTED | `[x]` `tests/test_rbac.py`: `test_global_kill_switch_halts_every_account_admin_only` |
 | MT-C05 | Hai tài khoản khác broker, giờ phiên khác nhau | Mỗi tài khoản dùng lịch và giá của broker mình | `[ ]` |
-| MT-C06 | Người dùng bị khóa khi đang có lệnh mở | Không thao tác được nữa; vị thế vẫn được Safety/Guardian bảo vệ | `[ ]` |
+| MT-C06 | Người dùng bị khóa khi đang có lệnh mở | Không thao tác được nữa; vị thế vẫn được Safety/Guardian bảo vệ | `[x]` `tests/test_rbac.py`: `test_removed_user_cannot_act_but_safety_state_is_kept` |
 | MT-C07 | Lỗi/sự cố ở tài khoản A (ví dụ lệch đối soát) | Chỉ HALT tài khoản A | `[ ]` |
 
 ## Phụ lục — Mã cũ đã chuyển chỗ

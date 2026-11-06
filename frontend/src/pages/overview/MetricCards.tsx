@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { SystemStatus } from "../../api/client";
+import type { AccountStatus } from "../../api/client";
 import { InfoTip } from "../../components/ui/InfoTip";
 import { SkeletonMetric } from "../../components/ui/StateView";
 import { biasLabel, biasTone, modeLabel, safetyLabel, safetyTone } from "../../lib/labels";
@@ -27,7 +27,7 @@ function Metric({
   );
 }
 
-export function MetricCards({ status }: { status: SystemStatus | null }) {
+export function MetricCards({ status }: { status: AccountStatus | null }) {
   const { t } = useTranslation();
   if (!status) {
     return (

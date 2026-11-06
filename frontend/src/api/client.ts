@@ -1,6 +1,11 @@
 import type { components } from "./schema";
 
 export type SystemStatus = components["schemas"]["SystemStatus"];
+export type AccountStatus = components["schemas"]["AccountStatus"];
+export type AccountSummary = components["schemas"]["AccountSummary"];
+export type Perm = components["schemas"]["Perm"];
+export type LiveRequest = components["schemas"]["LiveRequestOut"];
+export type KillSwitchResult = components["schemas"]["KillSwitchResult"];
 export type SafetyCommand = components["schemas"]["SafetyCommand"];
 export type ModeCommand = components["schemas"]["ModeCommand"];
 export type TradingMode = components["schemas"]["TradingMode"];
@@ -71,17 +76,28 @@ export function loginUrl(next: string): string {
   return `/api/auth/login?next=${encodeURIComponent(next)}`;
 }
 
+const acc = (id: string) => `/api/accounts/${encodeURIComponent(id)}`;
+const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+
 export const api = {
   me: () => request<Me>("/api/auth/me"),
   logout: () => request<LogoutResult>("/api/auth/logout", { method: "POST" }),
-  status: () => request<SystemStatus>("/api/status"),
-  safety: (cmd: SafetyCommand) =>
-    request<SystemStatus>("/api/safety", { method: "POST", body: JSON.stringify(cmd) }),
+  system: () => request<SystemStatus>("/api/status"),
+  accounts: () => request<AccountSummary[]>("/api/accounts"),
+  accountStatus: (id: string) => request<AccountStatus>(`${acc(id)}/status`),
+  safety: (id: string, cmd: SafetyCommand) => request<AccountStatus>(`${acc(id)}/safety`, post(cmd)),
+  mode: (id: string, cmd: ModeCommand) => request<AccountStatus>(`${acc(id)}/mode`, post(cmd)),
+  liveRequests: (id: string) => request<LiveRequest[]>(`${acc(id)}/mode/live-requests`),
+  requestLive: (id: string, checklist: Record<string, boolean>) =>
+    request<LiveRequest>(`${acc(id)}/mode/live-requests`, post({ checklist })),
+  approveLive: (id: string, requestId: string) =>
+    request<AccountStatus>(`${acc(id)}/mode/live-requests/${encodeURIComponent(requestId)}/approve`, {
+      method: "POST",
+    }),
+  killSwitch: (reason_code: string) => request<KillSwitchResult>("/api/admin/kill-switch", post({ reason_code })),
   marketSummary: () => request<MarketSummary>("/api/market/summary"),
   candles: (limit = 300) => request<CandlesResponse>(`/api/market/candles?limit=${limit}`),
   dataQuality: () => request<DataQuality>("/api/market/quality"),
   technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
   gatewayStatus: () => request<GatewayStatus>("/api/gateway/status"),
-  mode: (cmd: ModeCommand) =>
-    request<SystemStatus>("/api/mode", { method: "POST", body: JSON.stringify(cmd) }),
 };
