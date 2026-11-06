@@ -8,7 +8,7 @@
 ## Trạng thái hiện tại
 
 - **Giai đoạn hiện tại: GĐ0 — Nền móng** → [`docs/giai-doan/GD0-nen-mong.md`](docs/giai-doan/GD0-nen-mong.md)
-- Code + test GĐ0 xong. Trên máy Windows người dùng đã đạt: Docker, đăng nhập, MT5 Gateway 9/9, Tailscale HTTPS máy tính + iPhone, break-glass, MT-20. **DEC-16 (mới):** chỉ ADMIN (quản lý tài khoản, duyệt LIVE) / USER (giao dịch); khóa/mở khóa/đặt lại mật khẩu/cấp lại token trên trang Quản trị — thiết kế mục 16. **Còn:** người dùng build lại + kiểm trang Quản trị; diễn tập sao lưu + khôi phục (DB-09) → xác nhận đóng GĐ0.
+- **GĐ0: đủ điều kiện Gate, chờ người dùng xác nhận đóng.** Trên máy Windows đã đạt: Docker, đăng nhập Keycloak qua HTTPS (máy tính + iPhone), MT5 Gateway 9/9 có nến, break-glass, MT-20, DEC-16 (chỉ ADMIN/USER), **diễn tập sao lưu + khôi phục cả hai DB (DB-09)**. Ghi cho GĐ1: nến cuối tuần chỉ gửi khi thị trường mở lại.
 - Sau GĐ0: GĐ1 cần người dùng chốt DEC-01..07 (xem `docs/giai-doan/GD1-du-lieu-vao.md`).
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
