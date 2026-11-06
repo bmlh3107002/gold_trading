@@ -3,7 +3,7 @@
 > File này cập nhật sau **mỗi** đợt làm việc. Phiên sau đọc file này trước, không cần đọc lại toàn bộ repo.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`.
 
-**Cập nhật lần cuối:** 2026-11-05 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-06 · **Nhánh làm việc:** `develop`
 
 ## Quyết định đã chốt
 
@@ -11,6 +11,7 @@
 | --- | --- |
 | Ngôn ngữ | Python cho backend, AI, MT5 Gateway và backtest (không dùng Java) |
 | Giao diện | React 18 + TypeScript + Vite, nằm chung repo (`frontend/`). Theme **AurumDesk** (terminal tối), i18next tiếng Việt, icon Lucide, font Inter tự host |
+| Truy cập | **Chỉ dùng web** (giao diện responsive, mở trên trình duyệt điện thoại qua Tailscale). Không làm app mobile/PWA; thông báo đẩy xét lại khi có đặt lệnh (người dùng chốt 2026-11-06) |
 | Guardian EA | MQL5 |
 | Cấu trúc | Monorepo: `backend/`, `mt5_gateway/`, `guardian_ea/`, `frontend/`, `contracts/` |
 | Contract | Pydantic ở backend là nguồn sự thật → `contracts/openapi.json` → type TS (`npm run gen:api`) |
