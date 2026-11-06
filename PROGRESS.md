@@ -1,7 +1,7 @@
 # Tiến độ dự án — Gold Trading AI
 
 > File này cập nhật sau **mỗi** đợt làm việc. Phiên sau đọc file này trước, không cần đọc lại toàn bộ repo.
-> Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`.
+> Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Danh sách việc có mã theo mô hình: `CHECKLIST.md`.
 
 **Cập nhật lần cuối:** 2026-11-06 · **Nhánh làm việc:** `develop`
 
