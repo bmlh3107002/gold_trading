@@ -1,4 +1,12 @@
-import { Check, KeyRound, Lock, LockOpen, RotateCcw, UserPlus, X } from "lucide-react";
+import {
+  Check,
+  KeyRound,
+  Lock,
+  LockOpen,
+  RotateCcw,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -44,7 +52,10 @@ export function AdminPage({ me, multiUser }: Props) {
     return (
       <div className="page">
         <Card>
-          <EmptyState title={t("adminPage.forbiddenTitle")} description={t("adminPage.forbiddenDesc")} />
+          <EmptyState
+            title={t("adminPage.forbiddenTitle")}
+            description={t("adminPage.forbiddenDesc")}
+          />
         </Card>
       </div>
     );
@@ -67,8 +78,15 @@ function AdminBody({ multiUser }: { multiUser: boolean }) {
   return (
     <>
       <LiveRequests />
-      <UserList users={users.data} loading={users.loading} onChanged={() => void users.refresh()} />
-      <CreateUser multiUser={multiUser} onCreated={() => void users.refresh()} />
+      <UserList
+        users={users.data}
+        loading={users.loading}
+        onChanged={() => void users.refresh()}
+      />
+      <CreateUser
+        multiUser={multiUser}
+        onCreated={() => void users.refresh()}
+      />
     </>
   );
 }
@@ -85,7 +103,11 @@ function errorKey(e: unknown) {
 function ErrorBanner({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <div className="banner banner--error" role="alert" style={{ marginBottom: 14 }}>
+    <div
+      className="banner banner--error"
+      role="alert"
+      style={{ marginBottom: 14 }}
+    >
       <span className="banner__body">{text}</span>
     </div>
   );
@@ -134,7 +156,11 @@ function UserList({
         await api.unlockUser(p.user.sub);
       } else if (p.kind === "reset") {
         const r = await api.resetPassword(p.user.sub);
-        setSecret({ kind: "password", username: p.user.username, value: r.temporary_password });
+        setSecret({
+          kind: "password",
+          username: p.user.username,
+          value: r.temporary_password,
+        });
       } else if (p.kind === "token") {
         const r = await api.reissueToken(p.user.sub, p.accountId);
         setSecret({ kind: "token", username: p.user.username, value: r });
@@ -147,11 +173,22 @@ function UserList({
     }
   }
 
+  // Mỗi tài khoản giao dịch một dòng; tài khoản nguồn giá lên đầu.
+  const rows = (users ?? [])
+    .flatMap((u) => u.accounts.map((a) => ({ u, a })))
+    .sort(
+      (x, y) =>
+        Number(y.a.price_feed) - Number(x.a.price_feed) ||
+        x.a.name.localeCompare(y.a.name),
+    );
+
   const dialog = pending && {
     title:
       pending.kind === "token"
         ? t("adminPage.tokenTitle", { account: pending.accountName })
-        : t(`adminPage.${pending.kind}Title`, { username: pending.user.username }),
+        : t(`adminPage.${pending.kind}Title`, {
+            username: pending.user.username,
+          }),
     desc:
       pending.kind === "lock" && pending.user.accounts.some((a) => a.price_feed)
         ? `${t("adminPage.lockDesc")} ${t("adminPage.lockPriceFeedWarn")}`
@@ -161,152 +198,274 @@ function UserList({
   };
 
   return (
-    <Card title={t("adminPage.usersTitle")} description={t("adminPage.usersDesc")} labelledBy="users-title">
-      <ErrorBanner text={error} />
-      {warn && (
-        <div className="banner banner--warn" role="status" style={{ marginBottom: 14 }}>
-          <span className="banner__body">{warn}</span>
-        </div>
-      )}
-      {!users && loading && <LoadingState label={t("accountPage.loading")} />}
-      {users && users.length === 0 && <EmptyState title={t("adminPage.noUsers")} description={t("adminPage.noUsersDesc")} />}
-      {users && users.length > 0 && (
-        <div className="table-wrap" tabIndex={0} role="region" aria-labelledby="users-title">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">{t("adminPage.colUser")}</th>
-                <th scope="col">{t("adminPage.colStatus")}</th>
-                <th scope="col">{t("adminPage.colGateway")}</th>
-                <th scope="col">{t("adminPage.colLastLogin")}</th>
-                <th scope="col">{t("adminPage.colActions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const locked = u.status === "LOCKED";
-                return (
-                  <tr key={u.sub}>
-                    <td>
-                      {u.display_name || u.username}
-                      <div className="header__label">
-                        {u.username}
-                        {u.email ? ` · ${u.email}` : ""}
-                      </div>
-                    </td>
-                    <td>
-                      <Badge tone={locked ? "loss" : "profit"} dot>
-                        {t(`adminPage.status.${u.status}`)}
-                      </Badge>
-                    </td>
-                    <td>
-                      {u.accounts.map((a) => (
-                        <div key={a.account_id} className="admin-account">
-                          <span>{a.name}</span>{" "}
-                          <Badge tone={GATEWAY_TONE[a.gateway_status]}>
-                            {t(`adminPage.gateway.${a.gateway_status}`)}
-                          </Badge>{" "}
+    <>
+      <Card
+        title={t("adminPage.usersTitle")}
+        description={t("adminPage.usersDesc")}
+        labelledBy="users-title"
+      >
+        <ErrorBanner text={error} />
+        {warn && (
+          <div
+            className="banner banner--warn"
+            role="status"
+            style={{ marginBottom: 14 }}
+          >
+            <span className="banner__body">{warn}</span>
+          </div>
+        )}
+        {!users && loading && <LoadingState label={t("accountPage.loading")} />}
+        {users && users.length === 0 && (
+          <EmptyState
+            title={t("adminPage.noUsers")}
+            description={t("adminPage.noUsersDesc")}
+          />
+        )}
+        {users && users.length > 0 && (
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="region"
+            aria-labelledby="users-title"
+          >
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("adminPage.colUser")}</th>
+                  <th scope="col">{t("adminPage.colStatus")}</th>
+                  <th scope="col">{t("adminPage.colAccounts")}</th>
+                  <th scope="col">{t("adminPage.colLastLogin")}</th>
+                  <th scope="col">{t("adminPage.colActions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u) => {
+                  const locked = u.status === "LOCKED";
+                  return (
+                    <tr key={u.sub}>
+                      <td>
+                        {u.display_name || u.username}
+                        <div className="header__label">
+                          {u.username}
+                          {u.email ? ` · ${u.email}` : ""}
+                        </div>
+                      </td>
+                      <td>
+                        <Badge tone={locked ? "loss" : "profit"} dot>
+                          {t(`adminPage.status.${u.status}`)}
+                        </Badge>
+                      </td>
+                      <td className="num">{u.accounts.length}</td>
+                      <td className="num">
+                        {u.last_login_at
+                          ? formatDateTime(u.last_login_at)
+                          : t("adminPage.neverLoggedIn")}
+                      </td>
+                      <td>
+                        <div className="admin-actions">
+                          {locked ? (
+                            <Button
+                              variant="secondary"
+                              icon={<LockOpen size={14} aria-hidden="true" />}
+                              disabled={busy}
+                              onClick={() =>
+                                setPending({ kind: "unlock", user: u })
+                              }
+                            >
+                              {t("adminPage.unlockAction")}
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="danger"
+                              icon={<Lock size={14} aria-hidden="true" />}
+                              disabled={busy}
+                              onClick={() =>
+                                setPending({ kind: "lock", user: u })
+                              }
+                            >
+                              {t("adminPage.lockAction")}
+                            </Button>
+                          )}
                           <Button
                             variant="secondary"
-                            icon={<KeyRound size={14} aria-hidden="true" />}
+                            icon={<RotateCcw size={14} aria-hidden="true" />}
                             disabled={busy}
                             onClick={() =>
-                              setPending({ kind: "token", user: u, accountId: a.account_id, accountName: a.name })
+                              setPending({ kind: "reset", user: u })
                             }
                           >
-                            {t("adminPage.tokenAction")}
+                            {t("adminPage.resetAction")}
                           </Button>
                         </div>
-                      ))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Card
+        title={t("adminPage.accountsTitle")}
+        description={t("adminPage.accountsDesc")}
+        labelledBy="accounts-title"
+      >
+        {rows.length === 0 && users && (
+          <EmptyState
+            title={t("adminPage.noAccounts")}
+            description={t("adminPage.noUsersDesc")}
+          />
+        )}
+        {rows.length > 0 && (
+          <div
+            className="table-wrap"
+            tabIndex={0}
+            role="region"
+            aria-labelledby="accounts-title"
+          >
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("adminPage.colAccount")}</th>
+                  <th scope="col">{t("adminPage.colUser")}</th>
+                  <th scope="col">{t("adminPage.colGateway")}</th>
+                  <th scope="col">{t("adminPage.colLastSeen")}</th>
+                  <th scope="col">{t("adminPage.colActions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ u, a }) => (
+                  <tr key={a.account_id}>
+                    <td>
+                      {a.name}
+                      {a.price_feed && (
+                        <>
+                          {" "}
+                          <Badge tone="info">{t("adminPage.priceFeed")}</Badge>
+                        </>
+                      )}
+                      <div className="header__label">{a.account_id}</div>
+                    </td>
+                    <td>{u.display_name || u.username}</td>
+                    <td>
+                      <Badge tone={GATEWAY_TONE[a.gateway_status]} dot>
+                        {t(`adminPage.gateway.${a.gateway_status}`)}
+                      </Badge>
                     </td>
                     <td className="num">
-                      {u.last_login_at ? formatDateTime(u.last_login_at) : t("adminPage.neverLoggedIn")}
+                      {a.gateway_last_seen_at
+                        ? formatDateTime(a.gateway_last_seen_at)
+                        : "—"}
                     </td>
                     <td>
-                      <div className="admin-actions">
-                        {locked ? (
-                          <Button
-                            variant="secondary"
-                            icon={<LockOpen size={14} aria-hidden="true" />}
-                            disabled={busy}
-                            onClick={() => setPending({ kind: "unlock", user: u })}
-                          >
-                            {t("adminPage.unlockAction")}
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="danger"
-                            icon={<Lock size={14} aria-hidden="true" />}
-                            disabled={busy}
-                            onClick={() => setPending({ kind: "lock", user: u })}
-                          >
-                            {t("adminPage.lockAction")}
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          icon={<RotateCcw size={14} aria-hidden="true" />}
-                          disabled={busy}
-                          onClick={() => setPending({ kind: "reset", user: u })}
-                        >
-                          {t("adminPage.resetAction")}
-                        </Button>
-                      </div>
+                      <Button
+                        variant="secondary"
+                        icon={<KeyRound size={14} aria-hidden="true" />}
+                        disabled={busy}
+                        onClick={() =>
+                          setPending({
+                            kind: "token",
+                            user: u,
+                            accountId: a.account_id,
+                            accountName: a.name,
+                          })
+                        }
+                      >
+                        {t("adminPage.tokenAction")}
+                      </Button>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      <Dialog
-        open={dialog !== null}
-        title={dialog?.title ?? ""}
-        description={dialog?.desc}
-        closeLabel={t("dialog.close")}
-        onClose={() => setPending(null)}
-        actions={
-          <>
-            <Button variant="secondary" data-autofocus onClick={() => setPending(null)}>
-              {t("dialog.cancel")}
-            </Button>
-            <Button variant={dialog?.danger ? "danger" : "primary"} onClick={() => void confirm()}>
-              {dialog?.confirm}
-            </Button>
-          </>
-        }
-      />
+        <Dialog
+          open={dialog !== null}
+          title={dialog?.title ?? ""}
+          description={dialog?.desc}
+          closeLabel={t("dialog.close")}
+          onClose={() => setPending(null)}
+          actions={
+            <>
+              <Button
+                variant="secondary"
+                data-autofocus
+                onClick={() => setPending(null)}
+              >
+                {t("dialog.cancel")}
+              </Button>
+              <Button
+                variant={dialog?.danger ? "danger" : "primary"}
+                onClick={() => void confirm()}
+              >
+                {dialog?.confirm}
+              </Button>
+            </>
+          }
+        />
 
-      <Dialog
-        open={secret !== null}
-        title={
-          secret?.kind === "token"
-            ? t("adminPage.tokenIssuedTitle", { username: secret.username })
-            : t("adminPage.passwordIssuedTitle", { username: secret?.username ?? "" })
-        }
-        description={secret?.kind === "token" ? t("adminPage.tokenIssuedDesc") : t("adminPage.passwordIssuedDesc")}
-        closeLabel={t("dialog.close")}
-        onClose={() => setSecret(null)}
-        actions={
-          <Button variant="primary" data-autofocus onClick={() => setSecret(null)}>
-            {t("accountPage.issuedDone")}
-          </Button>
-        }
-      >
-        {secret?.kind === "token" && <SecretBox label={t("accountPage.tokenLabel")} value={secret.value.token} />}
-        {secret?.kind === "password" && <SecretBox label={t("adminPage.password")} value={secret.value} />}
-      </Dialog>
-    </Card>
+        <Dialog
+          open={secret !== null}
+          title={
+            secret?.kind === "token"
+              ? t("adminPage.tokenIssuedTitle", { username: secret.username })
+              : t("adminPage.passwordIssuedTitle", {
+                  username: secret?.username ?? "",
+                })
+          }
+          description={
+            secret?.kind === "token"
+              ? t("adminPage.tokenIssuedDesc")
+              : t("adminPage.passwordIssuedDesc")
+          }
+          closeLabel={t("dialog.close")}
+          onClose={() => setSecret(null)}
+          actions={
+            <Button
+              variant="primary"
+              data-autofocus
+              onClick={() => setSecret(null)}
+            >
+              {t("accountPage.issuedDone")}
+            </Button>
+          }
+        >
+          {secret?.kind === "token" && (
+            <SecretBox
+              label={t("accountPage.tokenLabel")}
+              value={secret.value.token}
+            />
+          )}
+          {secret?.kind === "password" && (
+            <SecretBox label={t("adminPage.password")} value={secret.value} />
+          )}
+        </Dialog>
+      </Card>
+    </>
   );
 }
 
 // ---------- Tạo USER ----------
 
-const EMPTY = { username: "", email: "", first_name: "", last_name: "", account_name: "" };
+const EMPTY = {
+  username: "",
+  email: "",
+  first_name: "",
+  last_name: "",
+  account_name: "",
+};
 
-function CreateUser({ multiUser, onCreated }: { multiUser: boolean; onCreated: () => void }) {
+function CreateUser({
+  multiUser,
+  onCreated,
+}: {
+  multiUser: boolean;
+  onCreated: () => void;
+}) {
   const { t } = useTranslation();
   const [form, setForm] = useState(EMPTY);
   const [password, setPassword] = useState("");
@@ -321,16 +480,31 @@ function CreateUser({ multiUser, onCreated }: { multiUser: boolean; onCreated: (
 
   const username = form.username.trim();
   // Mật khẩu tạm không bắt buộc: bỏ trống → hệ thống tự sinh và hiện một lần.
-  const usernameError = touched && !USERNAME_RE.test(username) ? t("adminPage.usernameInvalid") : null;
+  const usernameError =
+    touched && !USERNAME_RE.test(username)
+      ? t("adminPage.usernameInvalid")
+      : null;
   const passwordError =
-    touched && password.length > 0 && password.length < MIN_PASSWORD ? t("adminPage.passwordShort") : null;
-  const confirmError = touched && confirm !== password ? t("adminPage.passwordMismatch") : null;
-  const filled = username && form.email.trim() && form.first_name.trim() && form.last_name.trim();
+    touched && password.length > 0 && password.length < MIN_PASSWORD
+      ? t("adminPage.passwordShort")
+      : null;
+  const confirmError =
+    touched && confirm !== password ? t("adminPage.passwordMismatch") : null;
+  const filled =
+    username &&
+    form.email.trim() &&
+    form.first_name.trim() &&
+    form.last_name.trim();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setTouched(true);
-    if (!USERNAME_RE.test(username) || (password && password.length < MIN_PASSWORD) || confirm !== password) return;
+    if (
+      !USERNAME_RE.test(username) ||
+      (password && password.length < MIN_PASSWORD) ||
+      confirm !== password
+    )
+      return;
     setBusy(true);
     setError(null);
     try {
@@ -357,9 +531,16 @@ function CreateUser({ multiUser, onCreated }: { multiUser: boolean; onCreated: (
   }
 
   return (
-    <Card title={t("adminPage.createTitle")} description={t("adminPage.createDesc")}>
+    <Card
+      title={t("adminPage.createTitle")}
+      description={t("adminPage.createDesc")}
+    >
       {!multiUser && (
-        <div className="banner banner--warn" role="status" style={{ marginBottom: 14 }}>
+        <div
+          className="banner banner--warn"
+          role="status"
+          style={{ marginBottom: 14 }}
+        >
           <span className="banner__body">{t("adminPage.errDisabled")}</span>
         </div>
       )}
@@ -386,8 +567,20 @@ function CreateUser({ multiUser, onCreated }: { multiUser: boolean; onCreated: (
           autoComplete="off"
           onChange={set("email")}
         />
-        <Field label={t("adminPage.lastName")} required value={form.last_name} maxLength={64} onChange={set("last_name")} />
-        <Field label={t("adminPage.firstName")} required value={form.first_name} maxLength={64} onChange={set("first_name")} />
+        <Field
+          label={t("adminPage.lastName")}
+          required
+          value={form.last_name}
+          maxLength={64}
+          onChange={set("last_name")}
+        />
+        <Field
+          label={t("adminPage.firstName")}
+          required
+          value={form.first_name}
+          maxLength={64}
+          onChange={set("first_name")}
+        />
         <Field
           label={t("adminPage.password")}
           hint={t("adminPage.passwordHint")}
@@ -428,22 +621,38 @@ function CreateUser({ multiUser, onCreated }: { multiUser: boolean; onCreated: (
 
       <Dialog
         open={created !== null}
-        title={t("adminPage.createdTitle", { username: created?.username ?? "" })}
-        description={t("adminPage.createdDesc", { account: created?.account_name ?? "" })}
+        title={t("adminPage.createdTitle", {
+          username: created?.username ?? "",
+        })}
+        description={t("adminPage.createdDesc", {
+          account: created?.account_name ?? "",
+        })}
         closeLabel={t("dialog.close")}
         onClose={() => setCreated(null)}
         actions={
-          <Button variant="primary" data-autofocus onClick={() => setCreated(null)}>
+          <Button
+            variant="primary"
+            data-autofocus
+            onClick={() => setCreated(null)}
+          >
             {t("accountPage.issuedDone")}
           </Button>
         }
       >
         {created && (
           <>
-            <p className="header__label">{t(`adminPage.gateway.${created.gateway_status}`)}</p>
-            <SecretBox label={t("accountPage.tokenLabel")} value={created.gateway.token} />
+            <p className="header__label">
+              {t(`adminPage.gateway.${created.gateway_status}`)}
+            </p>
+            <SecretBox
+              label={t("accountPage.tokenLabel")}
+              value={created.gateway.token}
+            />
             {created.temporary_password && (
-              <SecretBox label={t("adminPage.password")} value={created.temporary_password} />
+              <SecretBox
+                label={t("adminPage.password")}
+                value={created.temporary_password}
+              />
             )}
           </>
         )}
@@ -457,7 +666,10 @@ function CreateUser({ multiUser, onCreated }: { multiUser: boolean; onCreated: (
 function LiveRequests() {
   const { t } = useTranslation();
   const live = usePolling(api.adminLiveRequests, 10_000, 30_000);
-  const [pending, setPending] = useState<{ kind: "approve" | "reject"; req: LiveRequest } | null>(null);
+  const [pending, setPending] = useState<{
+    kind: "approve" | "reject";
+    req: LiveRequest;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const items = live.data ?? [];
   if (items.length === 0 && !error) return null;
@@ -471,16 +683,28 @@ function LiveRequests() {
       if (p.kind === "approve") await api.approveLive(p.req.request_id);
       else await api.rejectLive(p.req.request_id);
     } catch (e) {
-      setError(e instanceof ApiError && e.kind === "conflict" ? t("adminPage.liveConflict") : t(errorKey(e)));
+      setError(
+        e instanceof ApiError && e.kind === "conflict"
+          ? t("adminPage.liveConflict")
+          : t(errorKey(e)),
+      );
     }
     await live.refresh();
   }
 
   return (
-    <Card title={t("adminPage.liveTitle")} description={t("adminPage.liveDesc")}>
+    <Card
+      title={t("adminPage.liveTitle")}
+      description={t("adminPage.liveDesc")}
+    >
       <ErrorBanner text={error} />
       {items.map((r) => (
-        <div key={r.request_id} className="banner banner--warn" role="status" style={{ marginBottom: 10 }}>
+        <div
+          key={r.request_id}
+          className="banner banner--warn"
+          role="status"
+          style={{ marginBottom: 10 }}
+        >
           <span className="banner__body">
             {t("adminPage.liveItem", {
               name: r.requested_by,
@@ -508,19 +732,34 @@ function LiveRequests() {
         open={pending !== null}
         title={
           pending?.kind === "approve"
-            ? t("adminPage.liveApproveTitle", { account: pending.req.account_name })
+            ? t("adminPage.liveApproveTitle", {
+                account: pending.req.account_name,
+              })
             : t("adminPage.liveRejectTitle")
         }
-        description={pending?.kind === "approve" ? t("adminPage.liveApproveDesc") : undefined}
+        description={
+          pending?.kind === "approve"
+            ? t("adminPage.liveApproveDesc")
+            : undefined
+        }
         closeLabel={t("dialog.close")}
         onClose={() => setPending(null)}
         actions={
           <>
-            <Button variant="secondary" data-autofocus onClick={() => setPending(null)}>
+            <Button
+              variant="secondary"
+              data-autofocus
+              onClick={() => setPending(null)}
+            >
               {t("dialog.cancel")}
             </Button>
-            <Button variant={pending?.kind === "approve" ? "danger" : "primary"} onClick={() => void confirm()}>
-              {pending?.kind === "approve" ? t("adminPage.liveApprove") : t("adminPage.liveReject")}
+            <Button
+              variant={pending?.kind === "approve" ? "danger" : "primary"}
+              onClick={() => void confirm()}
+            >
+              {pending?.kind === "approve"
+                ? t("adminPage.liveApprove")
+                : t("adminPage.liveReject")}
             </Button>
           </>
         }

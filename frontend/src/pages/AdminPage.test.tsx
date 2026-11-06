@@ -142,9 +142,18 @@ describe("Trang Quản trị", () => {
       [LAN],
     );
     render(<AdminPage me={ADMIN} multiUser />);
-    expect(await screen.findByText("Lan Nguyen")).toBeInTheDocument();
-    expect(screen.getByText("Đang hoạt động")).toBeInTheDocument();
-    expect(screen.getByText("Đã cấp token · chờ Gateway kết nối")).toBeInTheDocument();
+    // Hai bảng riêng: người dùng (trạng thái, thao tác tài khoản) và tài khoản giao dịch (Gateway, token)
+    await screen.findAllByText("Lan Nguyen");
+    const [uTable, aTable] = screen.getAllByRole("table");
+    const usersTable = within(uTable);
+    expect(usersTable.getByText("Lan Nguyen")).toBeInTheDocument();
+    expect(usersTable.getByText("Đang hoạt động")).toBeInTheDocument();
+    expect(usersTable.queryByRole("button", { name: "Cấp lại token" })).not.toBeInTheDocument();
+    const accTable = within(aTable);
+    expect(screen.getByRole("heading", { name: "Tài khoản giao dịch · MT5 Gateway" })).toBeInTheDocument();
+    expect(accTable.getByText("Tài khoản của Lan")).toBeInTheDocument();
+    expect(accTable.getByText("Đã cấp token · chờ Gateway kết nối")).toBeInTheDocument();
+    expect(accTable.getAllByRole("button", { name: "Cấp lại token" })).toHaveLength(1);
     await userEvent.click(screen.getByRole("button", { name: "Khóa" }));
     expect(posts(fn)).toEqual([]); // chưa gửi khi chưa xác nhận
     const dialog = screen.getByRole("dialog", { name: "Khóa người dùng lanng?" });
