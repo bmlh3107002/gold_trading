@@ -233,6 +233,12 @@ Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sử
 - **Rõ ràng:** token Gateway theo tài khoản (MT-04) chỉ xác thực chương trình gửi, **không** phải xác minh MT5. Luồng giao dịch riêng từng người **chưa hoàn thành**. `mt5_gateway` vẫn chỉ đọc; thực thi lệnh là package riêng (GW-10, GĐ9).
 - **MT-19 (GĐ0, xong):** chỉ có một tài khoản giao dịch thì không hiện bộ chọn, tự dùng tài khoản của mình. Frontend 46 passed.
 
+### 2026-11-06 — Cài GĐ0 trên máy Windows mới + theme đăng nhập + đổi tên
+- Người dùng làm xong trên máy Windows mới: `.env` bí mật, Docker 6/6 healthy, đăng nhập lần đầu (Chủ "Tài khoản chính"), MT5 Gateway check 9/9 + run (5.000 nến, 0 cách ly), Tailscale Serve `https://k.….ts.net` + `sync-client.sh`, đăng nhập trên máy tính và iPhone (OPS-16), diễn tập break-glass khi tắt Keycloak (HALTED, lịch sử ghi `break-glass`).
+- Theme đăng nhập Keycloak kế thừa `keycloak.v2` (`ops/keycloak/themes/cutlotdesk`, CI `check_theme.py` so màu với `tokens.css`). Đổi tên AurumDesk → **CutlotDesk** (đọc dự phòng khóa localStorage cũ). Realm còn tên theme cũ thì Keycloak dùng theme mặc định; `sync-client.sh` đặt lại.
+- **DEC-12 chốt:** người dùng chấp nhận rủi ro pháp lý, chỉ dùng nội bộ cho mình và một người thân → bật `GT_MULTI_USER_ENABLED=1` trên máy người dùng (mặc định trong code vẫn `0`).
+- Còn lại của Gate GĐ0: diễn tập sao lưu + khôi phục trên máy người dùng (DB-09).
+
 ## Việc tiếp theo (đề xuất)
 
 **GĐ0: code xong, chờ người dùng làm các bước trên máy Windows để đạt Gate** (mỗi lần một bước, theo `deploy/README.md`): (1) cập nhật compose + `.env` bí mật + `docker compose up -d --build`; (2) bật Tailscale Serve, đặt `GT_PUBLIC_URL`, đăng nhập Keycloak lần đầu; (3) đăng nhập trên máy tính và điện thoại qua `https://….ts.net`; (4) tạo token Gateway trên Dashboard, cập nhật `gateway.env`, chạy lại Gateway, xác nhận dữ liệu về; (5) diễn tập tắt Keycloak → `gt-break-glass halt` → bật lại; (6) diễn tập khôi phục cả hai DB. Sau khi người dùng xác nhận đóng GĐ0 → GĐ1 (cần chốt DEC-01..07). Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
