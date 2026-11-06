@@ -5,6 +5,48 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me",
+        "operationId": "me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/market/summary": {
       "get": {
         "tags": [
@@ -1244,6 +1286,19 @@
         ],
         "title": "IngestReport"
       },
+      "LogoutResult": {
+        "properties": {
+          "logout_url": {
+            "type": "string",
+            "title": "Logout Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "logout_url"
+        ],
+        "title": "LogoutResult"
+      },
       "MarketSession": {
         "type": "string",
         "enum": [
@@ -1451,28 +1506,68 @@
         ],
         "title": "MarketView"
       },
-      "ModeCommand": {
+      "Me": {
         "properties": {
-          "mode": {
-            "$ref": "#/components/schemas/TradingMode"
-          },
-          "actor": {
+          "sub": {
             "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Actor"
+            "title": "Sub"
           },
-          "approver": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "email": {
             "anyOf": [
               {
-                "type": "string",
-                "maxLength": 128
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Approver"
+            "title": "Email"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "title": "Is Admin"
+          },
+          "session_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Session Expires At"
+          },
+          "idle_timeout_seconds": {
+            "type": "integer",
+            "title": "Idle Timeout Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "username",
+          "email",
+          "display_name",
+          "is_admin",
+          "session_expires_at",
+          "idle_timeout_seconds"
+        ],
+        "title": "Me"
+      },
+      "ModeCommand": {
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TradingMode"
           },
           "checklist": {
             "additionalProperties": {
@@ -1482,10 +1577,10 @@
             "title": "Checklist"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "mode",
-          "actor"
+          "mode"
         ],
         "title": "ModeCommand"
       },
@@ -1545,25 +1640,20 @@
             "minLength": 1,
             "title": "Reason Code"
           },
-          "actor": {
-            "type": "string",
-            "maxLength": 128,
-            "minLength": 1,
-            "title": "Actor"
-          },
           "operator_approved": {
             "type": "boolean",
             "title": "Operator Approved",
             "default": false
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "action",
-          "reason_code",
-          "actor"
+          "reason_code"
         ],
-        "title": "SafetyCommand"
+        "title": "SafetyCommand",
+        "description": "Người thực hiện lấy từ phiên đăng nhập; gửi thêm trường lạ (vd. actor) → 422."
       },
       "SafetyState": {
         "type": "string",

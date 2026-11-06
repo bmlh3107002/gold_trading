@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/market/summary": {
         parameters: {
             query?: never;
@@ -504,6 +538,11 @@ export interface components {
             /** Session Best Shift Hours */
             session_best_shift_hours?: number | null;
         };
+        /** LogoutResult */
+        LogoutResult: {
+            /** Logout Url */
+            logout_url: string;
+        };
         /**
          * MarketSession
          * @enum {string}
@@ -582,13 +621,29 @@ export interface components {
             /** Model Version */
             model_version: string;
         };
+        /** Me */
+        Me: {
+            /** Sub */
+            sub: string;
+            /** Username */
+            username: string;
+            /** Email */
+            email: string | null;
+            /** Display Name */
+            display_name: string | null;
+            /** Is Admin */
+            is_admin: boolean;
+            /**
+             * Session Expires At
+             * Format: date-time
+             */
+            session_expires_at: string;
+            /** Idle Timeout Seconds */
+            idle_timeout_seconds: number;
+        };
         /** ModeCommand */
         ModeCommand: {
             mode: components["schemas"]["TradingMode"];
-            /** Actor */
-            actor: string;
-            /** Approver */
-            approver?: string | null;
             /** Checklist */
             checklist?: {
                 [key: string]: boolean;
@@ -614,7 +669,10 @@ export interface components {
          * @enum {string}
          */
         Regime: "TREND" | "RANGE" | "RISK_OFF" | "HIGH_VOL";
-        /** SafetyCommand */
+        /**
+         * SafetyCommand
+         * @description Người thực hiện lấy từ phiên đăng nhập; gửi thêm trường lạ (vd. actor) → 422.
+         */
         SafetyCommand: {
             /**
              * Action
@@ -623,8 +681,6 @@ export interface components {
             action: "pause" | "halt" | "resume";
             /** Reason Code */
             reason_code: string;
-            /** Actor */
-            actor: string;
             /**
              * Operator Approved
              * @default false
@@ -740,6 +796,46 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    me_api_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoutResult"];
+                };
+            };
+        };
+    };
     summary_api_market_summary_get: {
         parameters: {
             query?: never;

@@ -202,6 +202,12 @@ Kết quả lần cuối: backend 164 passed, mt5_gateway 26 passed (không sử
 - Prompt cho phiên làm GĐ0: `docs/prompts/GD0-hoan-thien-nen-mong.md`.
 - `GW-05` xong: người dùng đã đổi token ingest trên máy Windows.
 
+### 2026-11-06 — GĐ0: Keycloak + đăng nhập + phân quyền + đa tài khoản (đang làm)
+- Người dùng chốt: DEC-11 người thân/bạn bè, hệ thống tự giao dịch; DEC-12 **chưa trả lời** → `GT_MULTI_USER_ENABLED=0` (chưa nhận người thứ hai); DEC-13 chạy trên máy Windows, gom mọi Gateway về một máy; phiên 8 giờ / 30 phút; **chưa bật OTP**; đang truy cập bằng `http://100.x.y.z:8080` → chuyển sang Tailscale Serve (HTTPS); push `develop` như trước, CD để sau.
+- Thiết kế đã duyệt: `docs/thiet-ke/00-xac-thuc-phan-quyen.md`.
+- **OPS-14:** Keycloak 26.8.2 (`ops/keycloak/`), DB riêng, realm JSON không bí mật (CI kiểm bằng `check_realm.py`), nginx `/auth/`. Đã chạy thật trong sandbox: realm nhập, secret khớp `.env`, admin có role ADMIN + bắt đổi mật khẩu.
+- **OPS-07:** BFF (`backend/src/gold_trading/auth/`), mọi route bắt buộc đăng nhập (test duyệt mọi route trong OpenAPI), bỏ `actor`/`approver` khỏi request (gửi lên → 422). Frontend: trang đăng nhập, nút đăng xuất, bỏ ô "Người thao tác". Lưu ý FastAPI 0.162 gói router được include thành `_IncludedRouter` (không thấy trong `app.routes`): liệt kê route qua `app.openapi()`.
+
 ## Việc tiếp theo (đề xuất)
 
 **Theo giai đoạn trong `CHECKLIST.md` (hiện tại: GĐ0 — làm theo `docs/prompts/GD0-hoan-thien-nen-mong.md`).** Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).

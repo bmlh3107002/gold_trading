@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: { "/api": "http://localhost:8000" },
+    // Dev: đặt GT_PUBLIC_URL=http://localhost:5173 cho backend để cookie/redirect khớp origin này.
+    proxy: { "/api": "http://localhost:8000", "/auth": "http://localhost:8080" },
   },
 });

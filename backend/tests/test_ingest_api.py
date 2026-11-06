@@ -1,13 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
-from fastapi.testclient import TestClient
-
-from gold_trading.api.app import create_app
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.sources import sample
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
+from tests.auth_helpers import admin_client
 
 TOKEN = "t" * 32
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
@@ -16,7 +14,7 @@ TF = Timeframe.M15
 
 def client(token=TOKEN):
     store = InMemoryCandleStore()
-    app = create_app(
+    c = admin_client(
         InMemoryRepository(),
         candle_store=store,
         data_source=DataSource.MT5,
@@ -24,7 +22,7 @@ def client(token=TOKEN):
         run_analysts=False,
         ingest_token=token,
     )
-    return TestClient(app), store
+    return c, store
 
 
 def bars(n=300, shift_hours=0, end=datetime(2026, 1, 16, 12, 0, tzinfo=UTC)):

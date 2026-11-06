@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { json, makeCandles, makeQuality, makeStatus, makeSummary, makeTechnical } from "../test/fixtures";
+import { json, makeCandles, makeMe, makeQuality, makeStatus, makeSummary, makeTechnical } from "../test/fixtures";
 
 // jsdom không có canvas: thay biểu đồ bằng stub, chỉ kiểm tra dữ liệu được đưa vào.
 const setData = vi.fn();
@@ -28,6 +28,7 @@ vi.mock("lightweight-charts", () => {
 
 function routes(over: Record<string, unknown> = {}) {
   const table: Record<string, unknown> = {
+    "/api/auth/me": makeMe(),
     "/api/status": makeStatus(),
     "/api/market/summary": makeSummary(),
     "/api/market/candles": makeCandles(),

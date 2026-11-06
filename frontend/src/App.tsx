@@ -5,10 +5,43 @@ import { useGatewayStatus, useMarketSummary } from "./hooks/useMarket";
 import { useRoute } from "./hooks/useRoute";
 import { useSystemStatus } from "./hooks/useSystemStatus";
 import { useTheme } from "./hooks/useTheme";
+import { useAuth } from "./hooks/useAuth";
+import type { Me } from "./api/client";
+import { ErrorState, LoadingState } from "./components/ui/StateView";
+import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { useTranslation } from "react-i18next";
 
 export default function App() {
+  const { t } = useTranslation();
+  const auth = useAuth();
+  const s = auth.state;
+  if (s.status === "loading") {
+    return (
+      <div className="login">
+        <LoadingState label={t("auth.loading")} />
+      </div>
+    );
+  }
+  if (s.status === "error") {
+    return (
+      <div className="login">
+        <ErrorState
+          title={t("auth.loadError")}
+          description={t("auth.loadErrorDesc")}
+          retryLabel={t("overview.retry")}
+          onRetry={() => void auth.reload()}
+        />
+      </div>
+    );
+  }
+  if (s.status === "anonymous") return <LoginPage />;
+  return <AuthedApp me={s.me} onLogout={() => void auth.logout()} />;
+}
+
+/** Chỉ dựng (và bắt đầu polling) khi đã đăng nhập. */
+function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const sys = useSystemStatus();
   const market = useMarketSummary();
   const route = useRoute();
@@ -37,6 +70,9 @@ export default function App() {
           onOpenMenu={() => setMenuOpen(true)}
           menuOpen={menuOpen}
           market={market.data}
+          userName={me.display_name || me.username}
+          isAdmin={me.is_admin}
+          onLogout={onLogout}
         />
         <main>
           {route === "market" ? (

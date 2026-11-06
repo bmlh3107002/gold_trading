@@ -1,7 +1,7 @@
 """FastAPI cho Dashboard: trạng thái hệ thống, Safety (kill switch), Mode, audit.
 
-TODO: xác thực cho mọi endpoint ghi (docs/08 yêu cầu kill switch có xác thực).
-Cho tới khi có xác thực, chỉ chạy API ở localhost.
+Mọi route bắt buộc đăng nhập (BFF, Keycloak) trừ /api/health, /api/auth/* và cổng Gateway.
+Người thực hiện (actor) luôn lấy từ phiên đã xác thực. Xem docs/thiet-ke/00-xac-thuc-phan-quyen.md.
 """
 
 from __future__ import annotations
@@ -12,16 +12,19 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from gold_trading import __version__
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.analysts import analysts_router
 from gold_trading.api.ingest import GatewayMonitor, ingest_router
 from gold_trading.api.market import market_router
+from gold_trading.auth.config import AuthConfig
+from gold_trading.auth.oidc import OidcClient
+from gold_trading.auth.web import AuthService, CurrentUser
 from gold_trading.common.enums import SafetyState, TradingMode
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
@@ -67,16 +70,19 @@ class SystemStatus(BaseModel):
 
 
 class SafetyCommand(BaseModel):
+    """Người thực hiện lấy từ phiên đăng nhập; gửi thêm trường lạ (vd. actor) → 422."""
+
+    model_config = ConfigDict(extra="forbid")
+
     action: Literal["pause", "halt", "resume"]
     reason_code: str = Field(min_length=1, max_length=128)
-    actor: str = Field(min_length=1, max_length=128)
     operator_approved: bool = False
 
 
 class ModeCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     mode: TradingMode
-    actor: str = Field(min_length=1, max_length=128)
-    approver: str | None = Field(default=None, max_length=128)
     checklist: dict[str, bool] = Field(default_factory=dict)
 
 
@@ -139,6 +145,8 @@ def create_app(
     ingest_token: str | None | Literal["env"] = "env",
     live_unlocked: bool = False,
     calendar: MarketCalendar | Literal["env"] = "env",
+    auth: AuthConfig | Literal["env"] = "env",
+    oidc: OidcClient | None = None,
 ) -> FastAPI:
     repo = repo or repository_from_env()
     if candle_store is None:
@@ -231,18 +239,44 @@ def create_app(
 
     market_view: MarketView | None = None  # TODO: lấy từ Market Intelligence
 
-    app = FastAPI(title="Gold Trading AI", version=__version__, lifespan=lifespan)
+    def audit(
+        actor: str,
+        action: str,
+        outcome: str,
+        payload: dict[str, Any],
+        detail: str | None = None,
+        *,
+        actor_sub: str | None = None,
+    ):
+        repo.append_audit(AuditEntry(utcnow(), actor, action, outcome, payload, detail))
+
+    def auth_audit(actor, actor_sub, action, outcome, payload, detail):
+        audit(actor, action, outcome, payload, detail, actor_sub=actor_sub)
+
+    auth_cfg = AuthConfig.from_env() if auth == "env" else auth
+    auth_service = AuthService(auth_cfg, oidc or OidcClient(auth_cfg), audit=auth_audit)
+
+    app = FastAPI(
+        title="Gold Trading AI",
+        version=__version__,
+        lifespan=lifespan,
+        dependencies=[Depends(auth_service.dependency())],
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+    app.state.auth = auth_service
+    app.include_router(auth_service.router())
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
     token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
     app.include_router(
         ingest_router(market, CandleIngestor(candle_store), GatewayMonitor(), token or None)
     )
+    # Chống DNS rebinding: chỉ nhận Host của địa chỉ công khai, localhost và tên nội bộ.
     app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["http://localhost:5173"],
-        allow_methods=["GET", "POST"],
-        allow_headers=["*"],
+        TrustedHostMiddleware,
+        allowed_hosts=sorted({auth_cfg.public_host, "localhost", "127.0.0.1", "backend"}),
     )
 
     def status() -> SystemStatus:
@@ -260,11 +294,6 @@ def create_app(
             market_view=market_view,
         )
 
-    def audit(
-        actor: str, action: str, outcome: str, payload: dict[str, Any], detail: str | None = None
-    ):
-        repo.append_audit(AuditEntry(utcnow(), actor, action, outcome, payload, detail))
-
     @app.get("/api/health")
     def health():
         ok = repo.healthy()
@@ -280,8 +309,8 @@ def create_app(
         return [AuditRecord(**e.__dict__) for e in repo.audit(min(max(limit, 1), 500))]
 
     @app.post("/api/safety", response_model=SystemStatus)
-    def safety_command(cmd: SafetyCommand) -> SystemStatus:
-        kwargs = {"trigger_source": "dashboard", "actor": cmd.actor}
+    def safety_command(cmd: SafetyCommand, p: CurrentUser) -> SystemStatus:
+        kwargs = {"trigger_source": "dashboard", "actor": p.username}
         payload = cmd.model_dump()
         try:
             if cmd.action == "pause":
@@ -293,22 +322,25 @@ def create_app(
                     cmd.reason_code, operator_approved=cmd.operator_approved, **kwargs
                 )
         except SafetyTransitionError as e:
-            audit(cmd.actor, f"safety.{cmd.action}", "REJECTED", payload, str(e))
+            audit(p.username, f"safety.{cmd.action}", "REJECTED", payload, str(e),
+                  actor_sub=p.sub)
             raise HTTPException(status_code=409, detail=str(e)) from e
-        audit(cmd.actor, f"safety.{cmd.action}", "ACCEPTED" if event else "NOOP", payload)
+        audit(p.username, f"safety.{cmd.action}", "ACCEPTED" if event else "NOOP", payload,
+              actor_sub=p.sub)
         return status()
 
     @app.post("/api/mode", response_model=SystemStatus)
-    def mode_command(cmd: ModeCommand) -> SystemStatus:
+    def mode_command(cmd: ModeCommand, p: CurrentUser) -> SystemStatus:
         payload = cmd.model_dump(mode="json")
         try:
-            change = modes.set_mode(
-                cmd.mode, actor=cmd.actor, approver=cmd.approver, checklist=cmd.checklist
-            )
+            # LIVE cần người duyệt thứ hai đã xác thực: luồng hai bước (OPS-17). Ở đây không có
+            # người duyệt nên LIVE luôn bị từ chối.
+            change = modes.set_mode(cmd.mode, actor=p.username, checklist=cmd.checklist)
         except ModeChangeError as e:
-            audit(cmd.actor, "mode.set", "REJECTED", payload, str(e))
+            audit(p.username, "mode.set", "REJECTED", payload, str(e), actor_sub=p.sub)
             raise HTTPException(status_code=409, detail=str(e)) from e
-        audit(cmd.actor, "mode.set", "ACCEPTED" if change else "NOOP", payload)
+        audit(p.username, "mode.set", "ACCEPTED" if change else "NOOP", payload,
+              actor_sub=p.sub)
         return status()
 
     return app

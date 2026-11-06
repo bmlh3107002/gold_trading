@@ -82,7 +82,7 @@ function OverviewBody({
           status={status}
           disabled={connection === "disconnected"}
           onSafety={(cmd) => mutate(() => api.safety(cmd))}
-          onMode={(mode, actor) => mutate(() => api.mode({ mode, actor, checklist: {} }))}
+          onMode={(mode) => mutate(() => api.mode({ mode, checklist: {} }))}
         />
         <MarketViewCard view={status.market_view} />
       </div>

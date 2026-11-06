@@ -1,4 +1,4 @@
-import { Menu, Moon, Sun } from "lucide-react";
+import { LogOut, Menu, Moon, Sun, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MarketSummary } from "../../api/client";
 import type { Theme } from "../../hooks/useTheme";
@@ -17,6 +17,9 @@ interface HeaderProps {
   onOpenMenu: () => void;
   menuOpen: boolean;
   market: MarketSummary | null;
+  userName: string;
+  isAdmin: boolean;
+  onLogout: () => void;
 }
 
 export function Header({
@@ -27,6 +30,9 @@ export function Header({
   onOpenMenu,
   menuOpen,
   market,
+  userName,
+  isAdmin,
+  onLogout,
 }: HeaderProps) {
   const { t } = useTranslation();
   return (
@@ -91,6 +97,14 @@ export function Header({
           </span>
         )}
         <ConnectionBadge state={connection} />
+        <span className="header__user header__hide-sm" title={t("auth.signedInAs", { name: userName })}>
+          <User size={14} aria-hidden="true" />
+          {userName}
+          {isAdmin && <Badge tone="gold">{t("auth.admin")}</Badge>}
+        </span>
+        <IconButton label={t("auth.logout")} onClick={onLogout}>
+          <LogOut size={17} aria-hidden="true" />
+        </IconButton>
         <IconButton
           tone="gold"
           label={theme === "dark" ? t("header.toLight") : t("header.toDark")}

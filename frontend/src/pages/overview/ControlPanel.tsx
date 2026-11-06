@@ -17,26 +17,19 @@ interface ControlPanelProps {
   status: SystemStatus;
   disabled: boolean;
   onSafety: (cmd: SafetyCommand) => Promise<ApiError | null>;
-  onMode: (mode: TradingMode, actor: string) => Promise<ApiError | null>;
+  onMode: (mode: TradingMode) => Promise<ApiError | null>;
 }
 
 export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPanelProps) {
   const { t } = useTranslation();
-  const [actor, setActor] = useState("operator");
   const [reason, setReason] = useState("");
-  const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
   const [approved, setApproved] = useState(false);
 
-  const actorError = touched && !actor.trim() ? t("controls.actorRequired") : null;
+  // Người thao tác lấy từ phiên đăng nhập ở backend, không nhập tay.
   const locked = disabled || busy;
-
-  function validate(): boolean {
-    setTouched(true);
-    return actor.trim().length > 0;
-  }
 
   async function exec(fn: () => Promise<ApiError | null>, context: "safety" | "mode") {
     setBusy(true);
@@ -56,11 +49,10 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
   function sendSafety(action: Action, operator_approved = false) {
     // Giữ nguyên quy ước cũ: để trống lý do -> MANUAL_<ACTION>.
     const reason_code = reason.trim() || `MANUAL_${action.toUpperCase()}`;
-    return exec(() => onSafety({ action, reason_code, actor: actor.trim(), operator_approved }), "safety");
+    return exec(() => onSafety({ action, reason_code, operator_approved }), "safety");
   }
 
   function request(action: Action) {
-    if (!validate()) return;
     if (action === "halt") return setPending({ kind: "halt" });
     if (action === "resume" && status.safety_state === "HALTED") {
       setApproved(false);
@@ -70,9 +62,8 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
   }
 
   function requestMode(mode: TradingMode) {
-    if (!validate()) return;
     if (mode === "LIVE") return setPending({ kind: "live" });
-    void exec(() => onMode(mode, actor.trim()), "mode");
+    void exec(() => onMode(mode), "mode");
   }
 
   async function confirm() {
@@ -80,7 +71,7 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
     setPending(null);
     if (p?.kind === "halt") await sendSafety("halt");
     else if (p?.kind === "resumeHalted") await sendSafety("resume", true);
-    else if (p?.kind === "live") await exec(() => onMode("LIVE", actor.trim()), "mode");
+    else if (p?.kind === "live") await exec(() => onMode("LIVE"), "mode");
   }
 
   const s = status.safety_state;
@@ -115,15 +106,6 @@ export function ControlPanel({ status, disabled, onSafety, onMode }: ControlPane
       )}
 
       <div className="form-grid">
-        <Field
-          label={t("controls.actor")}
-          required
-          value={actor}
-          error={actorError}
-          autoComplete="username"
-          onChange={(e) => setActor(e.target.value)}
-          onBlur={() => setTouched(true)}
-        />
         <Field
           label={t("controls.reason")}
           hint={t("controls.reasonHint")}

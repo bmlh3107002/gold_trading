@@ -34,6 +34,25 @@ const vi = {
     toLight: "Chuyển sang giao diện sáng",
     toDark: "Chuyển sang giao diện tối",
   },
+  auth: {
+    title: "Đăng nhập",
+    desc: "Đăng nhập để xem và điều khiển hệ thống. Mật khẩu chỉ nhập trên trang đăng nhập bảo mật (Keycloak).",
+    login: "Đăng nhập",
+    logout: "Đăng xuất",
+    loading: "Đang kiểm tra đăng nhập…",
+    loadError: "Không kiểm tra được đăng nhập",
+    loadErrorDesc: "Backend không phản hồi. Kiểm tra Docker đang chạy rồi thử lại.",
+    signedInAs: "Đang đăng nhập: {{name}}",
+    admin: "Quản trị",
+    error: {
+      denied: "Đăng nhập bị hủy hoặc bị từ chối.",
+      state: "Phiên đăng nhập không hợp lệ (có thể do mở từ liên kết lạ). Vui lòng đăng nhập lại.",
+      expired: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+      clock: "Đồng hồ máy chủ bị lệch nên không xác minh được đăng nhập. Khởi động lại Docker Desktop rồi thử lại.",
+      unavailable: "Không kết nối được máy chủ đăng nhập (Keycloak). Thử lại sau ít phút.",
+      invalid: "Không xác minh được đăng nhập. Vui lòng thử lại.",
+    },
+  },
   connection: {
     live: "Trực tiếp",
     connecting: "Đang kết nối",
@@ -213,8 +232,6 @@ const vi = {
   controls: {
     title: "Điều khiển an toàn",
     desc: "Mọi thao tác được ghi lại kèm người thao tác và lý do.",
-    actor: "Người thao tác",
-    actorRequired: "Vui lòng nhập người thao tác",
     reason: "Mã lý do",
     reasonHint: "Để trống sẽ dùng MANUAL_<HÀNH ĐỘNG>",
     reasonPlaceholder: "VD: NEWS_SHOCK",
@@ -291,6 +308,8 @@ const vi = {
       "Không thể chuyển chế độ. LIVE đang khóa, thiếu người phê duyệt thứ hai hoặc checklist chưa đạt.",
     validation: "Dữ liệu gửi lên không hợp lệ.",
     server: "Backend gặp lỗi khi xử lý yêu cầu.",
+    unauthorized: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+    forbidden: "Bạn không có quyền thực hiện thao tác này.",
     dismiss: "Ẩn thông báo lỗi",
   },
 } as const;

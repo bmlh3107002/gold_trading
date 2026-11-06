@@ -1,10 +1,24 @@
 import type {
+  Me,
   AnalystLatest,
   CandlesResponse,
   DataQuality,
   MarketSummary,
   SystemStatus,
 } from "../api/client";
+
+export function makeMe(over: Partial<Me> = {}): Me {
+  return {
+    sub: "sub-admin",
+    username: "admin",
+    email: "admin@example.com",
+    display_name: null,
+    is_admin: true,
+    session_expires_at: "2026-11-06T12:00:00Z",
+    idle_timeout_seconds: 1800,
+    ...over,
+  };
+}
 
 export function makeStatus(over: Partial<SystemStatus> = {}): SystemStatus {
   return {

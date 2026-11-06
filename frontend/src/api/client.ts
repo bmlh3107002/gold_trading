@@ -13,8 +13,10 @@ export type DataQuality = components["schemas"]["DataQuality"];
 export type AnalystLatest = components["schemas"]["AnalystLatest"];
 export type GatewayStatus = components["schemas"]["GatewayStatus"];
 export type AnalystOutputDto = components["schemas"]["AnalystOutput"];
+export type Me = components["schemas"]["Me"];
+export type LogoutResult = components["schemas"]["LogoutResult"];
 
-export type ApiErrorKind = "network" | "conflict" | "validation" | "server";
+export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
 /** Lỗi đã phân loại. UI chỉ hiển thị thông báo theo `kind`, không hiện chi tiết thô từ API. */
 export class ApiError extends Error {
@@ -27,7 +29,17 @@ export class ApiError extends Error {
   }
 }
 
+/** Gọi khi API trả 401 (phiên hết hạn / bị thu hồi): App chuyển về màn hình đăng nhập. */
+type UnauthorizedListener = () => void;
+const unauthorizedListeners = new Set<UnauthorizedListener>();
+export function onUnauthorized(fn: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(fn);
+  return () => unauthorizedListeners.delete(fn);
+}
+
 function kindFor(status: number): ApiErrorKind {
+  if (status === 401) return "unauthorized";
+  if (status === 403 || status === 404) return "forbidden";
   if (status === 409) return "conflict";
   if (status === 400 || status === 422) return "validation";
   return "server";
@@ -36,13 +48,16 @@ function kindFor(status: number): ApiErrorKind {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
+    // Cookie phiên HttpOnly do trình duyệt tự gửi (cùng origin); JS không đọc/giữ token.
     res = await fetch(path, {
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       ...init,
     });
   } catch {
     throw new ApiError("network", null);
   }
+  if (res.status === 401) unauthorizedListeners.forEach((fn) => fn());
   if (!res.ok) throw new ApiError(kindFor(res.status), res.status);
   try {
     return (await res.json()) as T;
@@ -51,7 +66,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/** Chuyển trình duyệt sang trang đăng nhập Keycloak (qua backend), quay lại đúng trang đang xem. */
+export function loginUrl(next: string): string {
+  return `/api/auth/login?next=${encodeURIComponent(next)}`;
+}
+
 export const api = {
+  me: () => request<Me>("/api/auth/me"),
+  logout: () => request<LogoutResult>("/api/auth/logout", { method: "POST" }),
   status: () => request<SystemStatus>("/api/status"),
   safety: (cmd: SafetyCommand) =>
     request<SystemStatus>("/api/safety", { method: "POST", body: JSON.stringify(cmd) }),

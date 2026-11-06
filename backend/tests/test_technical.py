@@ -1,12 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 
 from gold_trading.analysts import technical
 from gold_trading.analysts.indicators import atr, true_range
 from gold_trading.analysts.runner import TechnicalRunner
-from gold_trading.api.app import create_app
 from gold_trading.contracts.candle import Candle, DataSource
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.ingestion.sources import sample
@@ -16,6 +14,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.analyst_outputs import InMemoryAnalystOutputStore, SqlAnalystOutputStore
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository, SqlRepository
+from tests.auth_helpers import admin_client
 
 TF = Timeframe.M15
 NOW = datetime(2026, 1, 16, 12, 1, tzinfo=UTC)  # thứ Sáu, thị trường mở
@@ -226,7 +225,7 @@ def test_api_technical_latest():
     candles = InMemoryCandleStore()
     SampleFeed(candles, history_days=10).tick()
     store = InMemoryAnalystOutputStore()
-    app = create_app(
+    c = admin_client(
         InMemoryRepository(),
         candle_store=candles,
         analyst_store=store,
@@ -234,7 +233,6 @@ def test_api_technical_latest():
         run_sample_feed=False,
         run_analysts=False,
     )
-    c = TestClient(app)
     assert c.get("/api/analysts/technical/latest").json()["output"] is None
     TechnicalRunner(MarketDataService(candles, source=DataSource.SAMPLE), store).tick()
     body = c.get("/api/analysts/technical/latest").json()

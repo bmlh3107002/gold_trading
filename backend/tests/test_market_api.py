@@ -1,26 +1,24 @@
 from datetime import UTC, datetime, timedelta
 
-from fastapi.testclient import TestClient
-
-from gold_trading.api.app import create_app
 from gold_trading.common.enums import TradingMode
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.modes.manager import ModeChange
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
+from tests.auth_helpers import admin_client
 
 
 def sample_app(repo=None, days=5):
     store = InMemoryCandleStore()
     SampleFeed(store, history_days=days).tick()
-    app = create_app(
+    c = admin_client(
         repo or InMemoryRepository(),
         candle_store=store,
         data_source=DataSource.SAMPLE,
         run_sample_feed=False,
     )
-    return TestClient(app), store
+    return c, store
 
 
 def test_candles_endpoint_with_indicators():
@@ -44,7 +42,7 @@ def test_summary_and_quality():
 
 
 def test_no_source_configured_returns_empty():
-    c = TestClient(create_app(InMemoryRepository(), data_source=None))
+    c = admin_client(InMemoryRepository(), data_source=None)
     assert c.get("/api/market/candles").json()["candles"] == []
     s = c.get("/api/market/summary").json()
     assert s["freshness"] == "NO_DATA" and s["last_price"] is None
@@ -55,9 +53,9 @@ def test_no_source_configured_returns_empty():
 def test_sample_data_blocks_shadow_and_live():
     c, _ = sample_app()
     assert c.get("/api/status").json()["data_is_sample"] is True
-    r = c.post("/api/mode", json={"mode": "SHADOW", "actor": "op"})
+    r = c.post("/api/mode", json={"mode": "SHADOW"})
     assert r.status_code == 409
-    assert c.post("/api/mode", json={"mode": "BACKTEST", "actor": "op"}).status_code == 200
+    assert c.post("/api/mode", json={"mode": "BACKTEST"}).status_code == 200
 
 
 def test_restored_shadow_downgraded_when_sample():
