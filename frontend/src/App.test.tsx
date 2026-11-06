@@ -44,7 +44,8 @@ describe("App", () => {
     expect(screen.getAllByText("Chưa có MarketView hợp lệ").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Tổng quan" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByText("Lưu trữ: PostgreSQL")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Tài khoản giao dịch" })).toHaveValue("default");
+    // Chỉ một tài khoản giao dịch: tự dùng, không hiện bộ chọn (MT-19)
+    expect(screen.queryByRole("combobox", { name: "Tài khoản giao dịch" })).not.toBeInTheDocument();
   });
 
   it("hiển thị lỗi kèm nút thử lại khi backend không phản hồi", async () => {
@@ -154,6 +155,31 @@ describe("App", () => {
     expect(await screen.findByText(/lệch -41.5 giây: ĐÃ NGỪNG nhận nến/)).toBeInTheDocument();
     expect(screen.getByText(/Ổ đĩa của Docker đã dùng 91%/)).toBeInTheDocument();
     expect(screen.getByText(/Lần sao lưu gần nhất THẤT BẠI/)).toBeInTheDocument();
+  });
+
+  it("có từ 2 tài khoản giao dịch: hiện bộ chọn, đổi tài khoản thì đọc trạng thái tài khoản mới", async () => {
+    const fn = mockFetch((url) =>
+      url === "/api/accounts/acc_b/status"
+        ? json(makeStatus({ account_id: "acc_b", name: "MT5 thứ hai", safety_state: "HALTED" }))
+        : json(makeStatus()),
+    );
+    fn.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/auth/me") return json(makeMe());
+      if (url === "/api/status") return json(makeSystem());
+      if (url === "/api/system/health") return json(OK_HEALTH);
+      if (url === "/api/accounts")
+        return json([makeAccount(), makeAccount({ account_id: "acc_b", name: "MT5 thứ hai" })]);
+      if (url.endsWith("/mode/live-requests") && init?.method !== "POST") return json([]);
+      if (url.startsWith("/api/market/summary")) return json(makeSummary({ last_price: null, change: null, change_pct: null }));
+      if (url === "/api/accounts/acc_b/status")
+        return json(makeStatus({ account_id: "acc_b", name: "MT5 thứ hai", safety_state: "HALTED" }));
+      return json(makeStatus());
+    });
+    render(<App />);
+    const select = await screen.findByRole("combobox", { name: "Tài khoản giao dịch" });
+    await userEvent.selectOptions(select, "acc_b");
+    await waitFor(() => expect(fn).toHaveBeenCalledWith("/api/accounts/acc_b/status", expect.anything()));
   });
 
   it("chưa đăng nhập: hiện trang đăng nhập, không gọi API trạng thái", async () => {

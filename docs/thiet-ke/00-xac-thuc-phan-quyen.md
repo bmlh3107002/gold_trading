@@ -159,7 +159,8 @@ docker compose exec backend gt-break-glass status
 - **Cho tới MT-05 (GĐ1)**, chỉ tài khoản có `price_feed=true` (tài khoản `default`) được ghi **nến** vào kho dùng chung. Gateway của tài khoản khác chỉ gửi được nhịp tim. Lý do: broker khác cho giá khác, ghi lẫn sẽ làm hỏng dữ liệu phân tích.
 - **Tương thích ngược:** `GT_INGEST_TOKEN` trong `.env` vẫn được chấp nhận cho tài khoản `default`, cho tới khi tài khoản này có token đầu tiên trong DB. Sau đó token cũ bị từ chối dù vẫn còn trong `.env`.
 - Trạng thái Gateway (`GatewayMonitor`) tách theo tài khoản.
-- Bí mật (client secret, token, mật khẩu, cookie) không có trong repo, không bao giờ trả về API (trừ token mới đúng một lần), không ghi log (OPS-11). Thông tin đăng nhập MT5 chỉ nằm trong `gateway.env` trên máy Windows; backend không lưu.
+- Bí mật (client secret, token, mật khẩu, cookie) không có trong repo, không bao giờ trả về API (trừ token mới đúng một lần), không ghi log (OPS-11). **Mật khẩu MT5** chỉ nằm trong terminal MT5 trên máy Windows; backend không bao giờ nhận hay lưu mật khẩu MT5. (Số login + server MT5 không phải bí mật và **sẽ** được lưu làm liên kết — mục 14.)
+- **Giới hạn quan trọng:** token Gateway chỉ chứng minh "chương trình đang gửi có token của tài khoản giao dịch X". Nó **không** chứng minh terminal đang đăng nhập đúng MT5 nào. Việc liên kết và xác minh danh tính MT5 là mục 14, **chưa làm trong GĐ0**.
 
 ## 9. Kiểm tra đồng hồ (OPS-12, 0-C09, 0-C17)
 
@@ -200,3 +201,68 @@ docker compose exec backend gt-break-glass status
 - Thêm thành viên chỉ theo username/email của người **đã đăng nhập ít nhất một lần** (backend không cần quyền đọc danh sách người dùng của Keycloak, nên ít quyền hơn).
 - HALT bằng CLI cần DB còn chạy. DB chết thì không ghi được trạng thái nào (hiện chưa có lệnh thật; Guardian EA ở GĐ9 sẽ là lớp bảo vệ độc lập).
 - Trang quản trị Keycloak (`/auth/admin`) truy cập được trong tailnet, được bảo vệ bằng mật khẩu mạnh và brute force detection.
+
+## 14. Luồng người dùng → liên kết MT5 → giao dịch đúng MT5 (yêu cầu chính thức, người dùng chốt 2026-11-06)
+
+### 14.1 Yêu cầu
+
+1. Người dùng đăng nhập website bằng tài khoản riêng (Keycloak).
+2. Trong trang cấu hình, người dùng **liên kết** tài khoản website với tài khoản MT5 của mình thông qua Gateway chạy trên Windows.
+3. Gateway kết nối **đúng terminal MT5 đã cấu hình** và đọc danh tính tài khoản đang đăng nhập trong terminal. Backend lưu liên kết gồm **MT5 login, broker/server và Gateway**. Không chỉ dựa vào tên hiển thị hay token.
+4. Khi hệ thống tạo lệnh cho người dùng đó, backend gửi yêu cầu tới **đúng Gateway đã liên kết**. Thành phần thực thi tại Gateway đặt lệnh bằng tài khoản đang đăng nhập trên terminal tương ứng.
+5. Lệnh, vị thế, vốn, hạn mức rủi ro, Safety, Mode và lịch sử **tách riêng theo tài khoản**. Thiếu liên kết thì **không bao giờ** tự dùng MT5 chính hay Gateway của người khác.
+6. **Trước mỗi lần đặt/sửa/hủy/đóng lệnh**, thành phần thực thi kiểm tra tài khoản thực tế trong terminal có khớp `MT5 login + server` đã liên kết hay không. Người dùng đổi tài khoản trên terminal, mất kết nối hoặc liên kết sai → **chặn thao tác, cảnh báo, yêu cầu xác minh lại**. Không âm thầm chuyển sang tài khoản mới.
+
+Ví dụ: website A liên kết MT5 `111111` trên server `Broker X` → mọi lệnh của A chỉ vào MT5 đó. Website B liên kết `222222` trên `Broker Y` → mọi lệnh của B chỉ vào MT5 đó.
+
+**Giao diện giai đoạn đầu:** mỗi người một MT5 mặc định. Đăng nhập xong tự dùng liên kết của mình. Bên trong vẫn giữ `TradingAccount` để tổ chức dữ liệu và phân quyền, nhưng người chỉ có một tài khoản giao dịch thì **không** phải chọn tài khoản (bộ chọn chỉ hiện khi có từ 2 tài khoản trở lên — MT-19, làm trong GĐ0).
+
+### 14.2 Đã có (GĐ0) và còn thiếu
+
+| Phần | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| Đăng nhập riêng từng người, phân quyền theo tài khoản giao dịch | Có (GĐ0) | OPS-07, OPS-17, MT-01..03 |
+| Safety, Mode, audit riêng từng tài khoản | Có (GĐ0) | MT-02, MT-06 |
+| Token Gateway riêng từng tài khoản; Gateway khai sai `account_id` → 403 | Có (GĐ0) | MT-04. **Không phải** xác minh danh tính MT5 |
+| Tài khoản không phải nguồn giá thì không ghi được nến dùng chung | Có (GĐ0) | Không có đường nào để một tài khoản dùng dữ liệu/MT5 của tài khoản khác |
+| Gateway đọc MT5 login + server + company + loại tài khoản của terminal | **Thiếu** | Heartbeat hiện chỉ có server/company/loại, chưa có login → MT-12 (GĐ1) |
+| Gateway kết nối đúng terminal đã cấu hình (nhiều terminal trên một máy) | **Thiếu** | → MT-15 (GĐ1) |
+| Bảng liên kết + luồng xác minh có người xác nhận | **Thiếu** | → MT-13 (GĐ1) |
+| Phát hiện terminal đổi tài khoản / sai liên kết → chặn + cảnh báo | **Thiếu** | → MT-14 (GĐ1) |
+| Lệnh, vị thế, vốn, hạn mức, ledger theo tài khoản | **Thiếu** | → MT-07 (GĐ5), MT-16 (GĐ8) |
+| Định tuyến lệnh tới đúng Gateway đã liên kết | **Thiếu** | → MT-17 (GĐ9) |
+| Kiểm tra login + server ngay trước mọi thao tác lệnh | **Thiếu** | → MT-18 (GĐ9) |
+
+**Luồng giao dịch riêng từng người chưa hoàn thành.** Không được đánh dấu xong chỉ vì đã có token Gateway theo tài khoản.
+
+### 14.3 Thiết kế dự kiến (làm ở giai đoạn ghi bên cạnh, sẽ có thiết kế chi tiết riêng)
+
+**Danh tính MT5** = `(login, server)`. `company` dùng để hiển thị và đối chiếu thêm. Không dùng tên hiển thị, tên terminal hay token làm danh tính.
+
+**Liên kết** (bảng `mt5_links`, chỉ thêm và đổi trạng thái, có audit) gồm: `account_id`, `mt5_login`, `mt5_server`, `mt5_company`, `gateway_id`, `token_id`, `trade_mode` (DEMO/REAL), `status`, `verified_at`, `verified_by`. Mỗi tài khoản giao dịch có tối đa **một** liên kết ACTIVE.
+
+**Trạng thái liên kết:**
+
+```
+UNLINKED ──Gateway báo danh tính──► PENDING_CONFIRM ──OWNER xác nhận "login 111111 / Broker X"──► ACTIVE
+ACTIVE ──danh tính terminal khác liên kết──► MISMATCH   (chặn ghi + chặn lệnh, cảnh báo; KHÔNG tự đổi)
+ACTIVE ──mất nhịp tim / terminal đăng xuất──► DISCONNECTED (chặn lệnh mới; tự về ACTIVE chỉ khi danh tính ĐÚNG như cũ)
+MISMATCH ──OWNER xác minh lại (chọn: quay về MT5 cũ, hoặc liên kết MT5 mới = liên kết mới)──► ACTIVE
+ACTIVE ──OWNER gỡ──► REVOKED
+```
+
+- Liên kết MT5 mới luôn tạo **liên kết mới**, cần xác nhận lại. Lịch sử lệnh/vị thế cũ vẫn thuộc liên kết cũ, không trộn.
+- Cùng một `(login, server)` không được ACTIVE ở hai tài khoản giao dịch khác nhau.
+- Tài khoản REAL: xác nhận liên kết cần thêm bước cảnh báo rõ. Mode vẫn theo quy tắc LIVE hai người (MT-08, GĐ10).
+
+**Thực thi (GĐ9):**
+- Thành phần thực thi là **package riêng** (GW-10), tách khỏi `mt5_gateway` (vẫn chỉ đọc). Hai thành phần có thể chạy trên cùng máy Windows, cùng terminal.
+- Backend chỉ giao lệnh của tài khoản X cho thành phần thực thi đã xác thực bằng thông tin của **liên kết ACTIVE của X**. Không có liên kết ACTIVE thì không giao lệnh và không có đường dự phòng.
+- Mỗi lệnh mang `expected_login`, `expected_server`, `link_id`. Ngay trước `order_send` / sửa / hủy / đóng, thành phần thực thi gọi `account_info()` + `terminal_info()`: không khớp, không kết nối, hoặc không đọc được thì **từ chối** với mã lý do `MT5_IDENTITY_MISMATCH` / `MT5_DISCONNECTED`. Backend chuyển liên kết sang MISMATCH/DISCONNECTED, PAUSE/HALT tài khoản đó (chỉ tài khoản đó), ghi audit và cảnh báo.
+- Thao tác bảo vệ (đóng/hạn chế vị thế) khi đổi tài khoản cũng phải nhắm đúng MT5 đã liên kết. Nếu terminal đang đăng nhập MT5 khác thì không thao tác trên MT5 khác đó. Guardian EA trên MT5 cũ là lớp bảo vệ.
+
+### 14.4 Bất biến (áp dụng từ bây giờ cho mọi code mới)
+
+- Không code nào được chọn MT5/Gateway "mặc định" cho một tài khoản không có liên kết của chính nó.
+- Danh tính MT5 so khớp theo `(login, server)` do terminal báo, không theo dữ liệu người dùng gõ tay.
+- Mọi bảng lệnh/vị thế/ledger/vốn/hạn mức mới đều có `account_id` (và `link_id` khi liên quan MT5), lọc ở tầng truy cập dữ liệu như MT-03.

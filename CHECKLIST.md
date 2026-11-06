@@ -109,7 +109,7 @@ Dashboard và vận hành của từng thành phần được làm **trong giai 
 | 0-C09 | Đồng hồ máy lệch | Cảnh báo / chặn nạp realtime (OPS-12) | `[x]` `tests/test_clock.py` (OK/WARN/BLOCKED, nguồn sai, thiếu nguồn, chặn rồi mở lại ingest) |
 | 0-C10 | CI đỏ | Không deploy (khi có CD) | `[x]` (CI) |
 
-**Gate GĐ0:** OPS-07, OPS-11, OPS-12, OPS-14..17, DB-09 và các việc MT ghi "GĐ0" xong; mọi case 0-C01..C18 và MT-C01..C04, MT-C06 có test; người dùng đã đăng nhập bằng Keycloak qua HTTPS trên máy Windows và điện thoại, diễn tập HALT khi Keycloak tắt, diễn tập khôi phục DB (gồm DB Keycloak). OPS-06 (CD) vẫn hoãn, không chặn Gate.
+**Gate GĐ0:** OPS-07, OPS-11, OPS-12, OPS-14..17, DB-09 và các việc MT ghi "GĐ0" xong; mọi case 0-C01..C21 và MT-C01..C04, MT-C06, MT-C15 có test; người dùng đã đăng nhập bằng Keycloak qua HTTPS trên máy Windows và điện thoại, diễn tập HALT khi Keycloak tắt, diễn tập khôi phục DB (gồm DB Keycloak). OPS-06 (CD) vẫn hoãn, không chặn Gate.
 
 ---
 
@@ -279,7 +279,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | DSH-03 | Trang Thị trường (nến, EMA/RSI, S/R, thẻ Technical, chất lượng dữ liệu, trạng thái MT5) | `[x]` | |
 | DSH-07 | Hiển thị giá sống bid/ask/spread | `[ ]` | ← GW-08 |
 
-**Gate GĐ1:** mọi việc 1A–1G xong (trừ việc người dùng hoãn); mọi case 1A–1G có test; chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục**, trong đó bắt được **ít nhất một lần công bố lớn** (CPI hoặc NFP) với giờ, actual (và forecast nếu có) đúng; trang Nguồn dữ liệu hiển thị đủ; bản sao lưu có dữ liệu mới.
+**Gate GĐ1:** mọi việc 1A–1G xong (trừ việc người dùng hoãn); mọi case 1A–1G có test; chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục**, trong đó bắt được **ít nhất một lần công bố lớn** (CPI hoặc NFP) với giờ, actual (và forecast nếu có) đúng; trang Nguồn dữ liệu hiển thị đủ; bản sao lưu có dữ liệu mới. Bao gồm MT-12..MT-15 (liên kết + xác minh danh tính MT5) và case MT-C08, MT-C11, MT-C14 (phần dữ liệu).
 
 ---
 
@@ -549,7 +549,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | 8-C05 | Time-stop, trailing, BE | Đúng quy tắc chiến lược | `[ ]` |
 | 8-C06 | Command trùng | Idempotent | `[ ]` |
 
-**Gate GĐ8:** paper chạy ≥ 4 tuần (người dùng có thể đổi số tuần) trên dữ liệu thật; chênh lệch so backtest trong ngưỡng đã đặt; không có sự cố chưa xử lý.
+**Gate GĐ8:** paper chạy ≥ 4 tuần (người dùng có thể đổi số tuần) trên dữ liệu thật; chênh lệch so backtest trong ngưỡng đã đặt; không có sự cố chưa xử lý. Bao gồm MT-16 (paper theo tài khoản, không lệnh khi thiếu liên kết, MT-C09).
 
 ---
 
@@ -557,7 +557,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
-| GW-10 | **Thành phần đặt lệnh riêng** (gửi/sửa/hủy, map request–ticket, reason code chuẩn, magic number) | `[ ]` | Package mới, tách `mt5_gateway`; review riêng; mTLS/token |
+| GW-10 | **Thành phần đặt lệnh riêng** (gửi/sửa/hủy, map request–ticket, reason code chuẩn, magic number) | `[ ]` | Package mới, tách `mt5_gateway`; bắt buộc MT-17, MT-18 (định tuyến theo liên kết + kiểm login/server trước mọi thao tác); review riêng; mTLS/token |
 | EXE-05 | `UNKNOWN` → truy vấn MT5 trước, không retry mù | `[ ]` | |
 | LED-03 | Đối soát định kỳ order/deal/position/equity/margin với MT5 | `[ ]` | Lệch nghiêm trọng → HALT + incident |
 | SAF-07 | Hành động Safety thật: hủy lệnh chờ, giảm/đóng vị thế, xác nhận từ MT5 | `[ ]` | |
@@ -578,7 +578,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | 9-C06 | Ledger lệch MT5 | HALT, khóa lệnh mới, incident | `[ ]` |
 | 9-C07 | Backend chết khi đang có vị thế | Guardian EA bảo vệ | `[ ]` |
 
-**Gate GĐ9:** ≥ 2 tuần trên MT5 demo với đối soát sạch; diễn tập kill switch và Guardian đạt.
+**Gate GĐ9:** ≥ 2 tuần trên MT5 demo với đối soát sạch; diễn tập kill switch và Guardian đạt. Bao gồm MT-17, MT-18 và case MT-C08..C14: diễn tập đổi tài khoản trên terminal giữa chừng → mọi thao tác bị chặn, không lệnh nào vào MT5 khác; hai người khác login cùng broker không lẫn lệnh.
 
 ---
 
@@ -603,7 +603,7 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 
 ## MT — Đa người dùng, mỗi người một tài khoản riêng (để sau)
 
-**Trạng thái: nền móng làm trong GĐ0 (người dùng chốt 2026-11-06).** Mục tiêu: **mỗi người có vốn, MT5, hồ sơ rủi ro, lệnh riêng**. Việc ghi "GĐ0" làm ngay; việc khác làm ở giai đoạn ghi bên cạnh. Chưa nhận người dùng thứ hai trước khi DEC-11, DEC-12 được trả lời.
+**Trạng thái: nền móng làm trong GĐ0 (người dùng chốt 2026-11-06).** **Luồng giao dịch riêng từng người (đăng nhập → liên kết MT5 → lệnh vào đúng MT5) là yêu cầu chính thức (người dùng chốt 2026-11-06), thiết kế ở `docs/thiet-ke/00-xac-thuc-phan-quyen.md` mục 14: MT-12..MT-18 (GĐ1/GĐ8/GĐ9) — CHƯA làm; token Gateway theo tài khoản (MT-04) KHÔNG phải xác minh danh tính MT5.** Mục tiêu: **mỗi người có vốn, MT5, hồ sơ rủi ro, lệnh riêng**. Việc ghi "GĐ0" làm ngay; việc khác làm ở giai đoạn ghi bên cạnh. Chưa nhận người dùng thứ hai trước khi DEC-11, DEC-12 được trả lời.
 
 Ảnh hưởng tới các giai đoạn: dữ liệu thị trường (giá, tin, lịch, vĩ mô) **dùng chung theo nguồn/broker**; còn tài khoản MT5, Gateway + token, hồ sơ rủi ro, chiến lược được bật, Safety, Mode, Ledger, lệnh, vị thế, hiệu suất, audit thì **riêng từng tài khoản**.
 
@@ -627,6 +627,14 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | MT-09 | Dashboard: chọn tài khoản, chỉ thấy tài khoản được cấp quyền | `[x]` | **GĐ0.** Header: người đăng nhập, chọn tài khoản (chỉ tài khoản có quyền), đăng xuất; nút khóa theo `permissions` từ backend; duyệt LIVE; kill switch ADMIN; trang `#account` |
 | MT-10 | Quản lý người dùng: mời, khóa, đổi vai trò, có audit | `[x]` | **GĐ0.** `/api/accounts/{id}/members` thêm (username/email của người đã đăng nhập), đổi vai trò, gỡ; không gỡ/hạ OWNER cuối; audit; `GT_MULTI_USER_ENABLED=0` chặn người thứ hai (DEC-12). Test: `tests/test_members.py`. Khóa người dùng toàn hệ thống: vô hiệu hóa trên Keycloak (≤ 60 s) |
 | MT-11 | Mã hóa/bảo vệ thông tin tài khoản MT5 và token | `[x]` | **GĐ0.** Bí mật chỉ ở `.env`/`gateway.env` (gitignore, compose bắt buộc biến), realm JSON chỉ có placeholder (CI kiểm), token Gateway lưu băm + chỉ trả một lần (`Cache-Control: no-store`), phiên/refresh token chỉ trong bộ nhớ, log che bí mật. Backend không lưu thông tin đăng nhập MT5 |
+| MT-12 | Gateway (vẫn **chỉ đọc**) đọc danh tính terminal: MT5 **login**, server, company, loại tài khoản (DEMO/REAL), đường dẫn terminal; gửi trong nhịp tim | `[ ]` | **GĐ1** (cùng GW-09). Hiện nhịp tim chưa có login |
+| MT-13 | **Liên kết MT5** (`mt5_links`: account_id, login, server, company, gateway_id, token_id, trạng thái, người/giờ xác minh); luồng: Gateway báo danh tính → OWNER xác nhận "login X / server Y" → ACTIVE; một `(login, server)` không ACTIVE ở 2 tài khoản; có audit | `[ ]` | **GĐ1.** Thiết kế: `docs/thiet-ke/00-xac-thuc-phan-quyen.md` mục 14 |
+| MT-14 | Phát hiện terminal đổi tài khoản / sai liên kết / mất kết nối → liên kết MISMATCH/DISCONNECTED, chặn ghi dữ liệu của tài khoản, cảnh báo, yêu cầu xác minh lại; **không tự chuyển** sang MT5 mới | `[ ]` | **GĐ1** (chặn + cảnh báo); nối Safety tự động ở GĐ8 (SAF-04) |
+| MT-15 | Gateway kết nối **đúng terminal đã cấu hình** (đường dẫn terminal), nhiều terminal MT5 trên một máy Windows (DEC-13) | `[ ]` | **GĐ1** (cùng MT-05) |
+| MT-16 | Paper trading theo tài khoản: lệnh/vị thế/vốn/ledger có `account_id` + `link_id`; không có liên kết ACTIVE → không tạo lệnh | `[ ]` | **GĐ8** |
+| MT-17 | Định tuyến lệnh: backend chỉ giao lệnh của tài khoản X cho thành phần thực thi của **liên kết ACTIVE của X**; không có đường dự phòng sang MT5/Gateway khác | `[ ]` | **GĐ9** (← GW-10) |
+| MT-18 | **Kiểm tra danh tính trước MỌI thao tác lệnh** (đặt/sửa/hủy/đóng): lệnh mang `expected_login/server/link_id`; thành phần thực thi đọc `account_info()` ngay trước khi gửi; lệch/không đọc được → từ chối `MT5_IDENTITY_MISMATCH`/`MT5_DISCONNECTED`, PAUSE/HALT tài khoản đó, audit, cảnh báo | `[ ]` | **GĐ9** |
+| MT-19 | Giao diện: người chỉ có **một** tài khoản giao dịch không phải chọn tài khoản (bộ chọn chỉ hiện khi ≥ 2), đăng nhập xong tự dùng tài khoản của mình | `[x]` | **GĐ0.** `Header.tsx`; test `App.test.tsx` (1 tài khoản: không có bộ chọn; 2 tài khoản: có, đổi được) |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
@@ -637,6 +645,14 @@ Mục tiêu: thêm mô hình (LightGBM `pUp/pDown`, Regime HMM/classifier, Fusio
 | MT-C05 | Hai tài khoản khác broker, giờ phiên khác nhau | Mỗi tài khoản dùng lịch và giá của broker mình | `[ ]` |
 | MT-C06 | Người dùng bị khóa khi đang có lệnh mở | Không thao tác được nữa; vị thế vẫn được Safety/Guardian bảo vệ | `[x]` `tests/test_rbac.py`: `test_removed_user_cannot_act_but_safety_state_is_kept` |
 | MT-C07 | Lỗi/sự cố ở tài khoản A (ví dụ lệch đối soát) | Chỉ HALT tài khoản A | `[ ]` |
+| MT-C08 | Người dùng đổi sang MT5 khác trên terminal đã liên kết | Liên kết MISMATCH; chặn ghi + chặn lệnh; cảnh báo; phải xác minh lại; không tự đổi liên kết | `[ ]` (GĐ1; lệnh: GĐ9) |
+| MT-C09 | Tài khoản giao dịch **chưa có liên kết** MT5 | Không dữ liệu riêng, không lệnh; **không** dùng MT5 chính hay Gateway người khác | `[~]` GĐ0: tài khoản không phải nguồn giá không ghi được nến (`test_gateway_of_a_cannot_write_into_b`); phần lệnh: GĐ8/GĐ9 |
+| MT-C10 | Hai người cùng broker, khác login (111111 / 222222) | Mỗi lệnh chỉ vào đúng login đã liên kết | `[ ]` (GĐ9) |
+| MT-C11 | Cùng một `(login, server)` bị liên kết ở tài khoản giao dịch thứ hai | Từ chối liên kết thứ hai | `[ ]` (GĐ1) |
+| MT-C12 | Terminal mất kết nối / đăng xuất ngay trước khi gửi lệnh | Từ chối `MT5_DISCONNECTED`, không thử MT5 khác | `[ ]` (GĐ9) |
+| MT-C13 | Gateway của B cố nhận lệnh của A | Từ chối (xác thực theo liên kết ACTIVE của A) | `[ ]` (GĐ9) |
+| MT-C14 | Liên kết lại sang MT5 mới | Tạo liên kết mới cần xác nhận; lịch sử lệnh/vị thế cũ không trộn | `[ ]` (GĐ1/GĐ9) |
+| MT-C15 | Người chỉ có một tài khoản giao dịch đăng nhập | Tự dùng tài khoản đó, không hiện bộ chọn | `[x]` `App.test.tsx` |
 
 ## Phụ lục — Mã cũ đã chuyển chỗ
 

@@ -102,7 +102,8 @@ export function Header({
             {t("connection.updatedAt", { time: formatTime(new Date(lastSuccessAt)) })}
           </span>
         )}
-        {accounts.length > 0 && (
+        {/* MT-19: chỉ có một tài khoản giao dịch thì tự dùng, không bắt chọn. */}
+        {accounts.length > 1 && (
           <label className="header__account">
             <span className="sr-only">{t("accounts.label")}</span>
             <select

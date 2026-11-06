@@ -73,7 +73,7 @@ cd frontend && npm install && npm run check && npm run build
 
 `npm run check` = `tsc -b` + `eslint .` + `vitest run`.
 
-Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sửa code), frontend 45 passed + tsc/eslint sạch + build OK, ruff sạch, `ops/scripts/ci_stack.sh` đạt (e2e 20/20 + khôi phục + 18/18 + không có bí mật trong log).
+Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sửa code), frontend 46 passed + tsc/eslint sạch + build OK, ruff sạch, `ops/scripts/ci_stack.sh` đạt (e2e 20/20 + khôi phục + 18/18 + không có bí mật trong log).
 
 ## Lưu ý kỹ thuật
 
@@ -226,6 +226,12 @@ Kết quả lần cuối: backend 308 passed, mt5_gateway 26 passed (không sử
 - **Kiểm chứng bằng Docker thật (sandbox):** `ops/scripts/ci_stack.sh` — đăng nhập Keycloak thật 20/20, break-glass khi Keycloak tắt, sao lưu → phá bảng → khôi phục cả hai DB → dữ liệu khớp + đăng nhập lại 18/18, quét log không thấy bí mật. Chạy trong CI (job docker).
 - **Lỗi tìm được khi diễn tập sao lưu:** (1) bản sao lưu đầu chạy ngay lúc khởi động, khi Keycloak chưa tạo bảng → thêm chờ 5 phút; (2) `sha256sum --status` không có trên busybox (image Alpine) → khôi phục luôn từ chối (an toàn nhưng không dùng được) → so sánh băm trực tiếp; (3) worker nền TimescaleDB bị đếm là "kết nối còn mở" → chỉ đếm `client backend`, `DROP DATABASE ... WITH (FORCE)`; (4) file dump quyền 666 → `umask 077`. Lần đăng nhập đầu Keycloak yêu cầu thêm bước bổ sung email/họ tên (VERIFY_PROFILE).
 - **Lỗi tìm được khi soát:** `InMemoryRepository.last_mode` trả chuỗi, `restore_mode` so `is TradingMode.LIVE` → LIVE có thể được khôi phục sau restart ở bản bộ nhớ (bản SQL không bị). Đã sửa cả hai chỗ + test.
+
+### 2026-11-06 — Yêu cầu chính thức: luồng đăng nhập → liên kết MT5 → giao dịch đúng MT5
+- Người dùng chốt yêu cầu: mỗi người đăng nhập riêng → liên kết với MT5 của mình qua Gateway → backend lưu liên kết `(MT5 login, server, Gateway)` → lệnh chỉ đi tới đúng Gateway/MT5 đã liên kết → trước mọi đặt/sửa/hủy/đóng lệnh kiểm tra login + server thực tế trong terminal; lệch, mất kết nối hay sai liên kết thì chặn, cảnh báo, xác minh lại, không tự chuyển. Lệnh, vị thế, vốn, hạn mức, Safety, Mode, lịch sử tách theo tài khoản; thiếu liên kết thì không dùng MT5 chính hay Gateway người khác.
+- Ghi vào `docs/thiet-ke/00-xac-thuc-phan-quyen.md` mục 14 (yêu cầu, đã có/còn thiếu, trạng thái liên kết, thực thi, bất biến). `CHECKLIST.md`: MT-12..MT-15 (GĐ1: đọc danh tính terminal, bảng liên kết + xác nhận, phát hiện lệch, đúng terminal), MT-16 (GĐ8), MT-17/18 (GĐ9: định tuyến + kiểm danh tính trước mọi thao tác), case MT-C08..C15, bổ sung Gate GĐ1/GĐ8/GĐ9.
+- **Rõ ràng:** token Gateway theo tài khoản (MT-04) chỉ xác thực chương trình gửi, **không** phải xác minh MT5. Luồng giao dịch riêng từng người **chưa hoàn thành**. `mt5_gateway` vẫn chỉ đọc; thực thi lệnh là package riêng (GW-10, GĐ9).
+- **MT-19 (GĐ0, xong):** chỉ có một tài khoản giao dịch thì không hiện bộ chọn, tự dùng tài khoản của mình. Frontend 46 passed.
 
 ## Việc tiếp theo (đề xuất)
 
