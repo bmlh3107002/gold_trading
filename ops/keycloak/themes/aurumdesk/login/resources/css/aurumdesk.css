@@ -1,0 +1,231 @@
+/*
+ * AurumDesk cho trang đăng nhập Keycloak (theme cha: keycloak.v2 / PatternFly 5).
+ * Màu chép từ frontend/src/styles/tokens.css. Sửa màu ở đó thì sửa cả ở đây;
+ * ops/keycloak/check_theme.py (chạy trong CI) so khớp hai file.
+ */
+
+/* ---- Token: tối (mặc định) ---- */
+html.login-pf,
+html.login-pf[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-app: #0b0f19;
+  --bg-surface: #151b2b;
+  --bg-input: #0f1522;
+  --bg-elevated: #202c42;
+  --bg-hover: #1b2335;
+  --border: #263148;
+  --border-strong: #34415a;
+  --border-input: #2d3a52;
+  --text: #e7edf8;
+  --text-secondary: #9ca8bc;
+  --text-muted: #8290a8;
+  --text-on-gold: #14110a;
+  --gold: #f0b90b;
+  --gold-hover: #f3c53a;
+  --gold-text: #f0b90b;
+  --profit: #0ecb81;
+  --loss: #f6465d;
+  --info: #5d8ef7;
+  --focus-ring: rgba(240, 185, 11, 0.35);
+  --shadow-card: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ---- Token: sáng ---- */
+html.login-pf[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-app: #eef2f7;
+  --bg-surface: #ffffff;
+  --bg-input: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-hover: #eef2f7;
+  --border: #d8e0eb;
+  --border-strong: #c3cedd;
+  --border-input: #cbd5e1;
+  --text: #172033;
+  --text-secondary: #526176;
+  --text-muted: #5d6b80;
+  --gold-text: #8a6a00;
+  --focus-ring: rgba(240, 185, 11, 0.45);
+  --shadow-card: 0 16px 48px rgba(15, 23, 42, 0.18);
+}
+
+/* ---- Ánh xạ sang biến PatternFly ---- */
+html.login-pf {
+  --pf-v5-global--FontFamily--text: Inter, ui-sans-serif, system-ui, sans-serif;
+  --pf-v5-global--FontFamily--heading: Inter, ui-sans-serif, system-ui, sans-serif;
+  --pf-v5-global--BackgroundColor--100: var(--bg-input);
+  --pf-v5-global--BackgroundColor--200: var(--bg-app);
+  --pf-v5-global--BackgroundColor--light-100: var(--bg-surface);
+  --pf-v5-global--Color--100: var(--text);
+  --pf-v5-global--Color--200: var(--text-secondary);
+  --pf-v5-global--Color--dark-100: var(--text);
+  --pf-v5-global--Color--dark-200: var(--text-muted);
+  --pf-v5-global--BorderColor--100: var(--border);
+  --pf-v5-global--BorderColor--200: var(--border-strong);
+  --pf-v5-global--BorderColor--300: var(--border-input);
+  --pf-v5-global--primary-color--100: var(--gold);
+  --pf-v5-global--primary-color--200: var(--gold-hover);
+  --pf-v5-global--link--Color: var(--gold-text);
+  --pf-v5-global--link--Color--hover: var(--gold-text);
+  --pf-v5-global--danger-color--100: var(--loss);
+  --pf-v5-global--success-color--100: var(--profit);
+  --pf-v5-global--info-color--100: var(--info);
+  --pf-v5-global--icon--Color--light: var(--text-muted);
+  --pf-v5-global--icon--Color--dark: var(--text);
+  --pf-v5-global--disabled-color--100: var(--text-muted);
+  --pf-v5-global--disabled-color--300: var(--bg-elevated);
+  --keycloak-card-top-color: var(--gold);
+}
+
+.login-pf body {
+  background: var(--bg-app);
+  color: var(--text);
+  font-family: var(--pf-v5-global--FontFamily--text);
+  min-height: 100%;
+}
+
+/* ---- Logo ---- */
+#kc-header-wrapper {
+  color: var(--text);
+  text-align: center;
+}
+.ad-logo {
+  color: var(--text);
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 2.5px;
+}
+.ad-logo__aurum {
+  color: var(--gold);
+}
+
+/* ---- Thẻ đăng nhập ---- */
+.pf-v5-c-login,
+.pf-v5-c-login__main {
+  --pf-v5-c-login__main--BackgroundColor: var(--bg-surface);
+  --pf-v5-c-login__main-footer-band--BorderTopColor: var(--border);
+}
+.pf-v5-c-login__main {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.pf-v5-c-login__main-header {
+  border-top-width: 3px;
+}
+.pf-v5-c-title {
+  color: var(--text);
+  font-weight: 700;
+}
+.pf-v5-c-form__label-text,
+.pf-v5-c-check__label {
+  color: var(--text-secondary);
+}
+
+/* ---- Ô nhập ---- */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BackgroundColor: var(--bg-input);
+  --pf-v5-c-form-control--Color: var(--text);
+  --pf-v5-c-form-control--before--BorderTopColor: var(--border-input);
+  --pf-v5-c-form-control--before--BorderRightColor: var(--border-input);
+  --pf-v5-c-form-control--before--BorderBottomColor: var(--border-input);
+  --pf-v5-c-form-control--before--BorderLeftColor: var(--border-input);
+  --pf-v5-c-form-control--after--BorderBottomColor: var(--border-input);
+  --pf-v5-c-form-control--hover--after--BorderBottomColor: var(--gold);
+  --pf-v5-c-form-control--focus--after--BorderBottomColor: var(--gold);
+  border-radius: 6px;
+}
+.pf-v5-c-form-control:focus-within {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.pf-v5-c-form-control > input,
+.pf-v5-c-form-control > select {
+  color: var(--text);
+  outline: none;
+}
+.pf-v5-c-form-control select option {
+  background: var(--bg-surface);
+  color: var(--text);
+}
+
+/* ---- Nút ---- */
+.pf-v5-c-button {
+  --pf-v5-c-button--BorderRadius: 6px;
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--gold);
+  --pf-v5-c-button--m-primary--Color: var(--text-on-gold);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--gold-hover);
+  --pf-v5-c-button--m-primary--hover--Color: var(--text-on-gold);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--gold-hover);
+  --pf-v5-c-button--m-primary--focus--Color: var(--text-on-gold);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--gold-hover);
+  --pf-v5-c-button--m-primary--active--Color: var(--text-on-gold);
+  --pf-v5-c-button--m-secondary--Color: var(--text);
+  --pf-v5-c-button--m-secondary--after--BorderColor: var(--border-strong);
+  --pf-v5-c-button--m-secondary--hover--Color: var(--text);
+  --pf-v5-c-button--m-secondary--hover--after--BorderColor: var(--gold);
+  --pf-v5-c-button--m-control--BackgroundColor: var(--bg-input);
+  --pf-v5-c-button--m-control--Color: var(--text-muted);
+  --pf-v5-c-button--m-control--hover--Color: var(--text);
+}
+.pf-v5-c-button.pf-m-primary {
+  font-weight: 700;
+}
+.pf-v5-c-button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---- Thông báo (nền tối như thẻ, màu theo loại) ---- */
+.pf-v5-c-alert.pf-m-inline {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--alert-color, var(--info));
+  border-radius: 6px;
+  --pf-v5-c-alert__title--Color: var(--text);
+  --pf-v5-c-alert__icon--Color: var(--alert-color, var(--info));
+}
+.pf-v5-c-alert.pf-m-inline::before {
+  display: none;
+}
+.pf-v5-c-alert.pf-m-warning {
+  --alert-color: var(--gold-text);
+}
+.pf-v5-c-alert.pf-m-danger {
+  --alert-color: var(--loss);
+}
+.pf-v5-c-alert.pf-m-success {
+  --alert-color: var(--profit);
+}
+.pf-v5-c-alert .pf-v5-c-alert__title {
+  color: var(--text);
+}
+.pf-v5-c-alert .pf-v5-c-alert__icon {
+  color: var(--alert-color, var(--info));
+}
+.pf-v5-c-helper-text__item-text {
+  color: var(--text-muted);
+}
+.pf-v5-c-helper-text__item-text.pf-m-error,
+.kc-feedback-text.pf-m-error {
+  color: var(--loss);
+}
+
+a,
+.pf-v5-c-button.pf-m-link {
+  color: var(--gold-text);
+}
+
+/* ---- Điện thoại ---- */
+@media (max-width: 480px) {
+  .ad-logo {
+    font-size: 22px;
+  }
+  .pf-v5-c-login__main {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+}

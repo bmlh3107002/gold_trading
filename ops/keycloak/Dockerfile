@@ -2,6 +2,8 @@
 # Keycloak cho Gold Trading: ghim phiên bản, build tối ưu, kèm file realm (KHÔNG chứa bí mật).
 # Bí mật (client secret, mật khẩu) lấy từ biến môi trường lúc chạy.
 FROM keycloak/keycloak:26.8.2 AS builder
+# Theme đăng nhập AurumDesk (chỉ CSS/JS/messages, kế thừa keycloak.v2).
+COPY themes/aurumdesk /opt/keycloak/themes/aurumdesk
 ENV KC_DB=postgres \
     KC_HTTP_RELATIVE_PATH=/auth \
     KC_HEALTH_ENABLED=true \
