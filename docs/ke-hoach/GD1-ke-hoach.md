@@ -6,7 +6,7 @@
 
 ## Prompt dán vào phiên chat mới
 
-> Đọc `CLAUDE.md`, `PROGRESS.md` (đã nạp sẵn), rồi `docs/prompts/GD1-ke-hoach.md` (kế hoạch + checklist) và **chỉ** các mục liên quan của `docs/giai-doan/GD1-du-lieu-vao.md`. Tìm bước đầu tiên còn `[ ]` trong mục "Thứ tự làm" và làm **đúng bước đó**: code + test (gồm trường hợp xấu) + soát lại bằng kịch bản riêng → tick checklist ở cả hai file, ghi nhật ký GĐ1, cập nhật `PROGRESS.md` ngắn gọn → chạy `uv run pytest`, `uv run ruff check .` (và `npm run check && npm run build` nếu sửa frontend) → commit (nhắc mã việc) → push `develop`. Bước nào cần thao tác trên máy Windows thì hướng dẫn tôi **từng lệnh một**, chờ tôi trả lời. Tôi không rành kỹ thuật: giải thích tiếng Việt đơn giản, mỗi lần hỏi một câu. Không bao giờ yêu cầu dán mật khẩu/token/khóa API vào chat.
+> Đọc `CLAUDE.md`, `PROGRESS.md` (đã nạp sẵn), rồi `docs/ke-hoach/GD1-ke-hoach.md` (kế hoạch + checklist) và **chỉ** các mục liên quan của `docs/giai-doan/GD1-du-lieu-vao.md`. Tìm bước đầu tiên còn `[ ]` trong mục "Thứ tự làm" và làm **đúng bước đó**: code + test (gồm trường hợp xấu) + soát lại bằng kịch bản riêng → tick checklist ở cả hai file, ghi nhật ký GĐ1, cập nhật `PROGRESS.md` ngắn gọn → chạy `uv run pytest`, `uv run ruff check .` (và `npm run check && npm run build` nếu sửa frontend) → commit (nhắc mã việc) → push `develop`. Bước nào cần thao tác trên máy Windows thì hướng dẫn tôi **từng lệnh một**, chờ tôi trả lời. Tôi không rành kỹ thuật: giải thích tiếng Việt đơn giản, mỗi lần hỏi một câu. Không bao giờ yêu cầu dán mật khẩu/token/khóa API vào chat.
 
 ---
 

@@ -18,6 +18,7 @@ Hệ thống này giao dịch bằng **tiền thật của người dùng**. M�
 ## Quy ước làm việc
 
 - **Đọc `PROGRESS.md` trước tiên** (ngắn, đã nạp sẵn). Rồi mở **đúng một** file giai đoạn đang làm trong `docs/giai-doan/` (ví dụ `GD0-nen-mong.md`). **Không đọc các giai đoạn khác** hay cả thư mục, trừ khi cần tra một mã việc cụ thể (`grep -rn "<mã>" docs/giai-doan/`). Chỉ đọc thêm code hoặc docs khi cần.
+- **Kế hoạch + checklist từng giai đoạn** ở `docs/ke-hoach/` (ví dụ `GD1-ke-hoach.md`): làm theo thứ tự trong đó, xong bước nào tick ở cả file kế hoạch và file giai đoạn. Không để file kế hoạch trong `docs/prompts/`.
 - `docs/ghi-chu-ky-thuat.md`: bảng thành phần + quy ước kỹ thuật. Chỉ đọc **mục liên quan** tới phần đang sửa.
 - **Đi sạch từng giai đoạn** (`docs/giai-doan/README.md`): chỉ làm việc thuộc giai đoạn hiện tại; xong hết việc + case + Gate (và người dùng xác nhận) mới sang giai đoạn sau. Khi làm xong một việc: đổi trạng thái và ghi nhật ký **trong file của giai đoạn đó**, nhắc mã việc trong commit.
 - Đặc tả chức năng ở `docs/huong-dan-chuc-nang/`. Code phải tuân thủ các bất biến trong đó: point-in-time, idempotent, UTC, LIVE khóa mặc định, Safety có quyền chặn cao nhất.
