@@ -17,7 +17,7 @@ from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import SQLAlchemyError
 
 from gold_trading.accounts.access import account_locked
@@ -91,32 +91,85 @@ class IngestReport(BaseModel):
     tail: TailStatus = TailStatus.NONE
 
 
+_FINITE = ConfigDict(allow_inf_nan=False)
+AccountType = Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"]
+
+
 class SymbolSpec(BaseModel):
-    broker_symbol: str
-    digits: int
-    point: float
-    contract_size: float
-    volume_min: float
-    volume_max: float
-    volume_step: float
-    currency_profit: str | None = None
+    model_config = _FINITE
+    broker_symbol: str = Field(max_length=64)
+    digits: int = Field(ge=0, le=12)
+    point: float = Field(gt=0)
+    contract_size: float = Field(gt=0)
+    volume_min: float = Field(gt=0)
+    volume_max: float = Field(gt=0)
+    volume_step: float = Field(gt=0)
+    currency_profit: str | None = Field(default=None, max_length=16)
+    # GW-09 (Gateway ≥ 0.3): None = Gateway cũ hoặc MT5 không trả được, KHÔNG phải 0.
+    # Phí commission: MT5 không cung cấp qua symbol_info → không có trường này (không đoán).
+    stops_level: int | None = Field(default=None, ge=0)
+    freeze_level: int | None = Field(default=None, ge=0)
+    swap_mode: int | None = Field(default=None, ge=0)
+    swap_long: float | None = None
+    swap_short: float | None = None
+    swap_rollover3days: int | None = Field(default=None, ge=0, le=6)
+
+
+class Mt5Identity(BaseModel):
+    """MT-12: danh tính MT5 = ``(login, server)`` do terminal báo (không phải người dùng gõ)."""
+
+    login: int = Field(gt=0, le=2**63 - 1)
+    server: str = Field(min_length=1, max_length=256)
+    company: str | None = Field(default=None, max_length=256)
+    account_type: AccountType
+    terminal_name: str | None = Field(default=None, max_length=256)
+    terminal_path: str | None = Field(default=None, max_length=256)
+
+
+class AccountSnapshot(BaseModel):
+    """GW-09: số liệu tài khoản MT5 lúc gửi nhịp tim (chỉ đọc). Trường None = không đọc được."""
+
+    model_config = _FINITE
+    currency: str | None = Field(default=None, max_length=16)
+    balance: float | None = None
+    equity: float | None = None
+    margin: float | None = Field(default=None, ge=0)
+    margin_free: float | None = None
+    # None khi margin = 0 (không có vị thế): mức ký quỹ không xác định
+    margin_level: float | None = Field(default=None, ge=0)
+    leverage: int | None = Field(default=None, gt=0)
+    trade_allowed: bool | None = None
 
 
 class Heartbeat(BaseModel):
     account_id: str | None = Field(default=None, max_length=64)
     gateway_id: str = Field(min_length=1, max_length=64)
-    gateway_version: str
+    gateway_version: str = Field(max_length=32)
     read_only: Literal[True]
     terminal_connected: bool
-    account_type: Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"]
-    server: str | None = None
-    company: str | None = None
-    server_tz: str
+    account_type: AccountType
+    server: str | None = Field(default=None, max_length=256)
+    company: str | None = Field(default=None, max_length=256)
+    # MT-12 / GW-09 (Gateway ≥ 0.3). None = Gateway cũ, hoặc terminal chưa đăng nhập / đọc lỗi.
+    identity: Mt5Identity | None = None
+    account: AccountSnapshot | None = None
+    server_tz: str = Field(max_length=64)
     server_offset_hours_now: int | None = None
     last_tick_time: UtcDatetime | None = None
     symbol: SymbolSpec | None = None
     last_sent_bar: UtcDatetime | None = None
     timeframes: list[Literal["M15", "H1", "H4", "D1"]] = Field(default_factory=list, max_length=4)
+
+    @model_validator(mode="after")
+    def _identity_consistent(self) -> Heartbeat:
+        """Trường cũ (server/account_type) và ``identity`` phải cùng một lần đọc. Lệch → dữ liệu
+        hỏng/giả mạo: từ chối cả nhịp tim (an toàn hơn chọn một bên)."""
+        i = self.identity
+        if i is not None and (i.server != self.server or i.account_type != self.account_type):
+            raise ValueError("identity mâu thuẫn với server/account_type")
+        if i is None and self.account is not None:
+            raise ValueError("có số liệu tài khoản nhưng không có danh tính MT5")
+        return self
 
 
 class GatewayStatus(BaseModel):

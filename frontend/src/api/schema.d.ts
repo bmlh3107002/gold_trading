@@ -527,6 +527,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccountSnapshot
+         * @description GW-09: số liệu tài khoản MT5 lúc gửi nhịp tim (chỉ đọc). Trường None = không đọc được.
+         */
+        AccountSnapshot: {
+            /** Currency */
+            currency?: string | null;
+            /** Balance */
+            balance?: number | null;
+            /** Equity */
+            equity?: number | null;
+            /** Margin */
+            margin?: number | null;
+            /** Margin Free */
+            margin_free?: number | null;
+            /** Margin Level */
+            margin_level?: number | null;
+            /** Leverage */
+            leverage?: number | null;
+            /** Trade Allowed */
+            trade_allowed?: boolean | null;
+        };
         /** AccountStatus */
         AccountStatus: {
             /** Account Id */
@@ -937,6 +959,8 @@ export interface components {
             server?: string | null;
             /** Company */
             company?: string | null;
+            identity?: components["schemas"]["Mt5Identity"] | null;
+            account?: components["schemas"]["AccountSnapshot"] | null;
             /** Server Tz */
             server_tz: string;
             /** Server Offset Hours Now */
@@ -1135,6 +1159,27 @@ export interface components {
             };
         };
         /**
+         * Mt5Identity
+         * @description MT-12: danh tính MT5 = ``(login, server)`` do terminal báo (không phải người dùng gõ).
+         */
+        Mt5Identity: {
+            /** Login */
+            login: number;
+            /** Server */
+            server: string;
+            /** Company */
+            company?: string | null;
+            /**
+             * Account Type
+             * @enum {string}
+             */
+            account_type: "DEMO" | "CONTEST" | "REAL" | "UNKNOWN";
+            /** Terminal Name */
+            terminal_name?: string | null;
+            /** Terminal Path */
+            terminal_path?: string | null;
+        };
+        /**
          * OpsHealth
          * @description Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu).
          */
@@ -1242,6 +1287,18 @@ export interface components {
             volume_step: number;
             /** Currency Profit */
             currency_profit?: string | null;
+            /** Stops Level */
+            stops_level?: number | null;
+            /** Freeze Level */
+            freeze_level?: number | null;
+            /** Swap Mode */
+            swap_mode?: number | null;
+            /** Swap Long */
+            swap_long?: number | null;
+            /** Swap Short */
+            swap_short?: number | null;
+            /** Swap Rollover3Days */
+            swap_rollover3days?: number | null;
         };
         /**
          * SystemStatus

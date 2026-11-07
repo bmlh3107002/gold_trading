@@ -58,7 +58,8 @@
 - [x] Kiểm trên máy người dùng: tối thứ Sáu thấy nến cuối tuần (không chờ thứ Hai) (2026-11-07, thứ Bảy: nến cuối thứ Sáu M15/H1/H4/D1 vào ngay khi chạy Gateway mới, 0 cách ly. Theo dõi thêm: thứ Hai log không có "sửa" cho các nến này)
 
 ### Bước 4 — Mỗi tài khoản dùng MT5 của mình (đa tài khoản, DEC-14)
-- [ ] MT-12 + GW-09: Gateway báo danh tính terminal (login, server, company, DEMO/REAL, đường dẫn) + đọc tài khoản (equity, margin, đòn bẩy) và symbol (stops/freeze level, swap)
+- [x] MT-12 + GW-09: Gateway báo danh tính terminal (login, server, company, DEMO/REAL, đường dẫn) + đọc tài khoản (equity, margin, đòn bẩy) và symbol (stops/freeze level, swap) (2026-11-07, Gateway 0.3.0; trang Tài khoản hiện thẻ "MT5 đang kết nối")
+  - [ ] Kiểm trên máy người dùng: cập nhật Gateway + build lại `backend frontend` → trang Tài khoản thấy đúng login/server MetaQuotes-Demo
 - [ ] MT-13: liên kết MT5 (`mt5_links`), USER xác nhận "login X / server Y" → ACTIVE; một `(login, server)` không ACTIVE ở 2 tài khoản (MT-C11)
 - [ ] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11)
 - [ ] MT-05: nguồn giá theo `(server, symbol)`; cùng server dùng chung; analyst chạy theo từng nguồn; bỏ khái niệm "nguồn giá chung" duy nhất

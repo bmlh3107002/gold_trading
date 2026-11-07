@@ -223,7 +223,7 @@ Ví dụ: website A liên kết MT5 `111111` trên server `Broker X` → mọi l
 | Safety, Mode, audit riêng từng tài khoản | Có (GĐ0) | MT-02, MT-06 |
 | Token Gateway riêng từng tài khoản; Gateway khai sai `account_id` → 403 | Có (GĐ0) | MT-04. **Không phải** xác minh danh tính MT5 |
 | Tài khoản không phải nguồn giá thì không ghi được nến dùng chung | Có (GĐ0) | Không có đường nào để một tài khoản dùng dữ liệu/MT5 của tài khoản khác |
-| Gateway đọc MT5 login + server + company + loại tài khoản của terminal | **Thiếu** | Heartbeat hiện chỉ có server/company/loại, chưa có login → MT-12 (GĐ1) |
+| Gateway đọc MT5 login + server + company + loại tài khoản của terminal | Có (GĐ1, 2026-11-07) | MT-12: trường `identity` trong nhịp tim, đọc trực tiếp mỗi lần. Chỉ báo; chưa dùng để liên kết/chặn (MT-13/MT-14) |
 | Gateway kết nối đúng terminal đã cấu hình (nhiều terminal trên một máy) | **Thiếu** | → MT-15 (GĐ1) |
 | Bảng liên kết + luồng xác minh có người xác nhận | **Thiếu** | → MT-13 (GĐ1) |
 | Phát hiện terminal đổi tài khoản / sai liên kết → chặn + cảnh báo | **Thiếu** | → MT-14 (GĐ1) |

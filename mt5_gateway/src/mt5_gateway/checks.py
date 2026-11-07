@@ -131,7 +131,9 @@ def run_checks(
 
     try:
         rep.account_type, rep.account = reader.account()
-        server = getattr(rep.account, "server", "")
+        # MT-12: hiện login + server để người dùng đối chiếu đúng tài khoản MT5 của mình.
+        login = getattr(rep.account, "login", None)
+        server = f"login {login} · {getattr(rep.account, 'server', '')}"
         if rep.account_type == "DEMO":
             rep.add("Tài khoản", PASS, f"DEMO · {server}")
         elif rep.account_type == "REAL":

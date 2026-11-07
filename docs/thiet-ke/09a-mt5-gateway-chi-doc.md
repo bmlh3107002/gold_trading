@@ -68,6 +68,18 @@
 - `dry_run=true`: kiểm tra (R1 + kiểm tra từng nến) nhưng **không lưu**.
 - `GET /api/gateway/status`: nhịp tim gần nhất, loại tài khoản, server, thông số symbol (contract size, lot tối thiểu, bước lot, digits). Quá 30 giây không có nhịp tim thì coi là mất kết nối.
 
+### 5a. Danh tính MT5 + số liệu tài khoản trong nhịp tim (MT-12 + GW-09, 2026-11-07, Gateway 0.3.0)
+
+- Mỗi nhịp tim (10 giây) Gateway gọi lại `account_info()`, `terminal_info()`, `symbol_info()` (đều đã có trong `READ_ONLY_FUNCTIONS`, không thêm hàm MT5 mới). **Không** dùng giá trị đọc lúc `check`: người dùng có thể đổi tài khoản trong terminal khi Gateway đang chạy, MT-14 cần thấy ngay.
+- `identity` = `{login, server, company, account_type, terminal_name, terminal_path}`. Danh tính MT5 = `(login, server)`. Chưa đăng nhập (`account_info()` None/lỗi, `login ≤ 0`, server rỗng) → `identity: null`, `account: null`, trường cũ `account_type = UNKNOWN`, `server = null`.
+- `account` = `{currency, balance, equity, margin, margin_free, margin_level, leverage, trade_allowed}`. `margin_level` = `null` khi `margin = 0` (MT5 trả 0 nhưng thực ra không xác định).
+- `symbol` thêm `stops_level`, `freeze_level` (point), `swap_mode`, `swap_long`, `swap_short`, `swap_rollover3days`. Thiếu thông số cốt lõi (digits, point > 0, contract/volume) → cả `symbol: null`, không gửi nửa vời. **Commission:** thư viện MT5 không có trong `symbol_info` → không gửi (lấy từ lịch sử deal ở GĐ9 nếu cần).
+- Số NaN/Inf hoặc sai kiểu → `null` cho đúng trường đó (Gateway); backend từ chối NaN/Inf, số âm vô lý (đòn bẩy ≤ 0, margin < 0, stops level < 0, point ≤ 0), login ≤ 0 hoặc ≥ 2^63, chuỗi > 256 ký tự (422).
+- Backend kiểm `identity.server == server` và `identity.account_type == account_type` (hai trường cũ giữ cho tương thích, cùng một lần đọc). Lệch, hoặc có `account` mà không có `identity` → 422, không chọn bừa một bên.
+- Gateway cũ (không có trường mới) vẫn được nhận: trường mới = `null` (không phải 0).
+- Hiển thị: trang **Tài khoản** của USER (thẻ "MT5 đang kết nối"); tài khoản REAL có cảnh báo. ADMIN và USER khác không xem được (`Guard.check`); danh sách Quản trị chỉ có trạng thái kết nối.
+- **Chưa làm (bước sau):** lưu danh tính vào DB, liên kết + xác nhận (MT-13), chuyển MISMATCH/chặn ghi khi đổi tài khoản (MT-14). Hiện tại terminal đăng xuất vẫn hiện CONNECTED nếu Gateway còn đọc được nến (chỉ `identity: null`) — MT-14 xử lý.
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.

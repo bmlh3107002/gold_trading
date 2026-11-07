@@ -16,7 +16,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from mt5_gateway import __version__
+from mt5_gateway import __version__, snapshot
 from mt5_gateway.backend_client import BackendClient, BackendError
 from mt5_gateway.checks import CheckReport
 from mt5_gateway.config import Config, history_bars_for
@@ -122,8 +122,9 @@ class Syncer:
         return totals
 
     def heartbeat_payload(self) -> dict[str, Any]:
-        info = self.report.symbol_info
-        acc = self.report.account
+        """Nhịp tim. MT-12/GW-09: danh tính, tài khoản, symbol đọc TRỰC TIẾP mỗi lần (không lấy từ
+        lúc ``check``), để báo đúng tài khoản đang đăng nhập nếu người dùng đổi trong terminal."""
+        ident = snapshot.identity(self.reader)
         last_tick = None
         try:
             t = self.reader.last_tick_utc()
@@ -135,24 +136,16 @@ class Syncer:
             "gateway_version": __version__,
             "read_only": True,
             "terminal_connected": self.terminal_ok,
-            "account_type": self.report.account_type,
-            "server": getattr(acc, "server", None),
-            "company": getattr(acc, "company", None),
+            # Ba trường cũ giữ cho backend bản trước; cùng nguồn với ``identity``.
+            "account_type": ident["account_type"] if ident else "UNKNOWN",
+            "server": ident["server"] if ident else None,
+            "company": ident["company"] if ident else None,
+            "identity": ident,
+            "account": snapshot.account(self.reader),
             "server_tz": self.cfg.server_tz,
             "server_offset_hours_now": self.report.offset_now,
             "last_tick_time": last_tick,
-            "symbol": None
-            if info is None
-            else {
-                "broker_symbol": self.cfg.broker_symbol,
-                "digits": int(info.digits),
-                "point": float(info.point),
-                "contract_size": float(info.trade_contract_size),
-                "volume_min": float(info.volume_min),
-                "volume_max": float(info.volume_max),
-                "volume_step": float(info.volume_step),
-                "currency_profit": getattr(info, "currency_profit", None),
-            },
+            "symbol": snapshot.symbol(self.reader, self.cfg.broker_symbol),
             "last_sent_bar": self.last_sent.open_time_utc.isoformat() if self.last_sent else None,
             "timeframes": self.timeframes,
         }

@@ -1,12 +1,12 @@
 import { KeyRound } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type AccountSummary } from "../api/client";
+import { api, type AccountSummary, type GatewayStatus } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/StateView";
 import { usePolling } from "../hooks/usePolling";
-import { formatDateTime } from "../lib/format";
+import { EMPTY, formatDateTime, formatMoney, formatNumber } from "../lib/format";
 
 /** Trang "Tài khoản" của USER: trạng thái token Gateway + xin cấp token (DEC-17: Quản trị cấp). */
 export function AccountPage({ account }: { account: AccountSummary | null }) {
@@ -29,6 +29,7 @@ export function AccountPage({ account }: { account: AccountSummary | null }) {
         </div>
       </div>
       <GatewayInfo account={account} />
+      <Mt5Info account={account} />
     </div>
   );
 }
@@ -90,6 +91,64 @@ function GatewayInfo({ account }: { account: AccountSummary }) {
               </Button>
               {d.has_token && <p className="header__label">{t("accountPage.requestTokenHint")}</p>}
             </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+/** MT-12 + GW-09: MT5 mà Gateway đang đọc (danh tính, số liệu tài khoản, thông số symbol). Chỉ hiển
+ * thị đúng số Gateway gửi; thiếu → "—", không tự tính hay đoán. */
+function Mt5Info({ account }: { account: AccountSummary }) {
+  const { t } = useTranslation();
+  const fetcher = useCallback(() => api.gatewayStatus(account.account_id), [account.account_id]);
+  const st = usePolling<GatewayStatus>(fetcher, 10_000, 60_000).data;
+  const hb = st?.heartbeat ?? null;
+  const id = hb?.identity ?? null;
+  const acc = hb?.account ?? null;
+  const sym = hb?.symbol ?? null;
+  const cur = acc?.currency ?? "";
+  const money = (v: number | null | undefined) => (cur ? formatMoney(v, cur) : formatNumber(v));
+  const rows: [string, string][] = id
+    ? [
+        [t("accountPage.mt5.login"), String(id.login)],
+        [t("accountPage.mt5.server"), id.server],
+        [t("accountPage.mt5.company"), id.company ?? EMPTY],
+        [t("accountPage.mt5.type"), t(`system.gateway.account.${id.account_type}`)],
+        [t("accountPage.mt5.terminal"), id.terminal_path ?? EMPTY],
+        [t("accountPage.mt5.balance"), money(acc?.balance)],
+        [t("accountPage.mt5.equity"), money(acc?.equity)],
+        [t("accountPage.mt5.margin"), money(acc?.margin)],
+        [t("accountPage.mt5.marginFree"), money(acc?.margin_free)],
+        [t("accountPage.mt5.marginLevel"), acc?.margin_level == null ? EMPTY : `${formatNumber(acc.margin_level)}%`],
+        [t("accountPage.mt5.leverage"), acc?.leverage == null ? EMPTY : `1:${acc.leverage}`],
+        [t("accountPage.mt5.stopsFreeze"), `${sym?.stops_level ?? EMPTY} / ${sym?.freeze_level ?? EMPTY}`],
+        [t("accountPage.mt5.swap"), `${formatNumber(sym?.swap_long)} / ${formatNumber(sym?.swap_short)}`],
+      ]
+    : [];
+  return (
+    <Card title={t("accountPage.mt5.title")} description={t("accountPage.mt5.desc")} labelledBy="mt5-title">
+      {st && !id && <p>{t(st.state === "NEVER" ? "accountPage.mt5.never" : "accountPage.mt5.noIdentity")}</p>}
+      {id && (
+        <>
+          {id.account_type === "REAL" && (
+            <div className="banner banner--error" role="alert" style={{ marginBottom: 12 }}>
+              <span className="banner__body">{t("accountPage.mt5.realWarning")}</span>
+            </div>
+          )}
+          <div className="kv">
+            {rows.map(([k, v]) => (
+              <div key={k}>
+                <div className="kv__label">{k}</div>
+                <div className="kv__value" style={{ overflowWrap: "anywhere" }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          {st?.last_seen_at && (
+            <p className="header__label" style={{ marginTop: 12 }}>
+              {t("accountPage.mt5.readAt", { time: formatDateTime(st.last_seen_at) })}
+            </p>
           )}
         </>
       )}

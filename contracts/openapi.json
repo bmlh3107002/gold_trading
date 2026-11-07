@@ -1276,6 +1276,105 @@
   },
   "components": {
     "schemas": {
+      "AccountSnapshot": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 16
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "balance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance"
+          },
+          "equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin"
+          },
+          "margin_free": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Free"
+          },
+          "margin_level": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin Level"
+          },
+          "leverage": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leverage"
+          },
+          "trade_allowed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Allowed"
+          }
+        },
+        "type": "object",
+        "title": "AccountSnapshot",
+        "description": "GW-09: số liệu tài khoản MT5 lúc gửi nhịp tim (chỉ đọc). Trường None = không đọc được."
+      },
       "AccountStatus": {
         "properties": {
           "account_id": {
@@ -2362,6 +2461,7 @@
           },
           "gateway_version": {
             "type": "string",
+            "maxLength": 32,
             "title": "Gateway Version"
           },
           "read_only": {
@@ -2386,7 +2486,8 @@
           "server": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 256
               },
               {
                 "type": "null"
@@ -2397,7 +2498,8 @@
           "company": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 256
               },
               {
                 "type": "null"
@@ -2405,8 +2507,29 @@
             ],
             "title": "Company"
           },
+          "identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mt5Identity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "account": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "server_tz": {
             "type": "string",
+            "maxLength": 64,
             "title": "Server Tz"
           },
           "server_offset_hours_now": {
@@ -2946,6 +3069,76 @@
         ],
         "title": "ModeCommand"
       },
+      "Mt5Identity": {
+        "properties": {
+          "login": {
+            "type": "integer",
+            "maximum": 9.223372036854776e+18,
+            "exclusiveMinimum": 0.0,
+            "title": "Login"
+          },
+          "server": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Server"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "account_type": {
+            "type": "string",
+            "enum": [
+              "DEMO",
+              "CONTEST",
+              "REAL",
+              "UNKNOWN"
+            ],
+            "title": "Account Type"
+          },
+          "terminal_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Name"
+          },
+          "terminal_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "login",
+          "server",
+          "account_type"
+        ],
+        "title": "Mt5Identity",
+        "description": "MT-12: danh tính MT5 = ``(login, server)`` do terminal báo (không phải người dùng gõ)."
+      },
       "OpsHealth": {
         "properties": {
           "clock": {
@@ -3137,42 +3330,122 @@
         "properties": {
           "broker_symbol": {
             "type": "string",
+            "maxLength": 64,
             "title": "Broker Symbol"
           },
           "digits": {
             "type": "integer",
+            "maximum": 12.0,
+            "minimum": 0.0,
             "title": "Digits"
           },
           "point": {
             "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Point"
           },
           "contract_size": {
             "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Contract Size"
           },
           "volume_min": {
             "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Volume Min"
           },
           "volume_max": {
             "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Volume Max"
           },
           "volume_step": {
             "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Volume Step"
           },
           "currency_profit": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 16
               },
               {
                 "type": "null"
               }
             ],
             "title": "Currency Profit"
+          },
+          "stops_level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stops Level"
+          },
+          "freeze_level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freeze Level"
+          },
+          "swap_mode": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Mode"
+          },
+          "swap_long": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Long"
+          },
+          "swap_short": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Short"
+          },
+          "swap_rollover3days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Rollover3Days"
           }
         },
         "type": "object",

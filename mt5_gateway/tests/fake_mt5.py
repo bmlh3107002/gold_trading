@@ -48,6 +48,29 @@ class FakeMt5:
         self._msc = 0
         self.calls: list[str] = []
         self.order_send_called = False
+        # MT-12/GW-09: danh tính + số liệu tài khoản (test đổi được giữa các nhịp tim)
+        self.login = 51234567
+        self.server = "DemoBroker-Demo"
+        self.account_extra: dict = dict(
+            currency="USD",
+            balance=10000.0,
+            equity=10012.5,
+            margin=0.0,
+            margin_free=10012.5,
+            margin_level=0.0,
+            leverage=100,
+            trade_allowed=True,
+        )
+        self.account_none = False
+        self.account_raises = False
+        self.symbol_extra: dict = dict(
+            trade_stops_level=10,
+            trade_freeze_level=5,
+            swap_mode=1,
+            swap_long=-25.3,
+            swap_short=8.1,
+            swap_rollover3days=3,
+        )
 
     # --- hàm đọc ---
     def initialize(self, path=None):
@@ -62,18 +85,29 @@ class FakeMt5:
 
     def terminal_info(self):
         return SimpleNamespace(
-            connected=self.connected, company="Demo Broker Ltd", name="MetaTrader 5"
+            connected=self.connected,
+            company="Demo Broker Ltd",
+            name="MetaTrader 5",
+            path=r"C:\Program Files\MetaTrader 5",
         )
 
     def account_info(self):
+        if self.account_raises:
+            raise RuntimeError("IPC lỗi")
+        if self.account_none:
+            return None
         return SimpleNamespace(
-            trade_mode=self.trade_mode, server="DemoBroker-Demo", company="Demo Broker Ltd"
+            login=self.login,
+            trade_mode=self.trade_mode,
+            server=self.server,
+            company="Demo Broker Ltd",
+            **self.account_extra,
         )
 
     def symbol_info(self, name):
         if name != self.symbol:
             return None
-        return SimpleNamespace(
+        fields = dict(
             visible=True,
             digits=2,
             point=0.01,
@@ -83,6 +117,8 @@ class FakeMt5:
             volume_step=0.01,
             currency_profit="USD",
         )
+        fields.update(self.symbol_extra)  # test ghi đè được cả trường cốt lõi
+        return SimpleNamespace(**fields)
 
     def symbol_select(self, name, enable):
         return name == self.symbol
