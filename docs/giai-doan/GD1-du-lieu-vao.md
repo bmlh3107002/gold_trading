@@ -13,7 +13,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | DEC-02 | Nguồn **tin tức** | **Chỉ thông cáo chính thức** qua RSS: Fed (tuyên bố, biên bản, phát biểu), Bộ Tài chính Mỹ, BLS. Chưa có tin địa chính trị (biến cố chỉ thấy qua giá/spread). **Yêu cầu người dùng: nguồn tin phải cấu hình được** (danh sách nguồn trong cấu hình, bật/tắt, thêm nguồn mới không cần sửa code; mỗi nguồn ghi giấy phép — ING-32), không gắn cứng một nguồn | `[x]` 2026-11-07 |
 | DEC-03 | Nguồn **DXY** | **Tự tính từ giá MT5** theo công thức công khai của DXY (6 cặp: EURUSD, USDJPY, GBPUSD, USDCAD, USDSEK, USDCHF); nếu broker có symbol chỉ số USD thì dùng để đối chiếu. Nhãn rõ: "chỉ số USD tự tính", không gọi là DXY chính thức. Thiếu cặp nào / nến không cùng thời điểm → "không đủ dữ liệu", không nội suy. Cần người dùng kiểm tra broker có đủ 6 cặp. Không dùng chỉ số USD rộng FRED (cập nhật tuần) | `[x]` 2026-11-07 |
 | DEC-04 | Nguồn **kỳ vọng lãi suất Fed** | **Proxy từ FRED (miễn phí, cần khóa — DEC-07):** lợi suất 2 năm + lãi suất Fed hiện hành; chênh lệch (2 năm − lãi suất Fed) < 0 → thị trường nghiêng về cắt, > 0 → giữ/tăng. Ghi rõ là **proxy**, số ngày làm việc trước, `available_at` = lúc FRED công bố. **Không** quy đổi thành "xác suất Fed cắt lãi" (chưa hiệu chỉnh). FedWatch không có API miễn phí | `[x]` 2026-11-07 |
-| DEC-05 | Nguồn **NHTW mua vàng / dòng tiền ETF** | Dữ liệu NHTW thường theo tháng/quý, trễ lớn; ETF: dữ liệu nắm giữ công bố hằng ngày của quỹ | `[!]` |
+| DEC-05 | Nguồn **NHTW mua vàng / dòng tiền ETF** | **Chỉ ETF:** lượng vàng nắm giữ hằng ngày do quỹ GLD và IAU tự công bố (miễn phí; kiểm điều khoản tải từng quỹ trước khi bật — ING-32); `available_at` = lúc quỹ công bố (sau đóng cửa Mỹ). **NHTW: hoãn** (dữ liệu IMF theo tháng, trễ 1–2 tháng, ít giá trị cho giao dịch ngắn hạn) | `[x]` 2026-11-07 |
 | DEC-06 | Ngân sách: chấp nhận nguồn trả phí không, tối đa bao nhiêu/tháng | **0 đồng — chỉ dùng nguồn miễn phí.** Hệ quả: không có tin tổng hợp thời gian thực; thiếu dữ liệu nào thì ghi "không đủ dữ liệu", không đoán. Có thể thêm nguồn trả phí sau mà không làm lại | `[x]` 2026-11-07 |
 | DEC-07 | Đăng ký khóa API miễn phí (ví dụ FRED) — người dùng tự đăng ký, khóa để trong `.env`, không gửi qua chat | | `[!]` |
 
@@ -151,8 +151,8 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ING-12 | COT vàng (dữ liệu chốt thứ Ba, công bố thứ Sáu) | `[ ]` | `available_at` = thời điểm công bố |
-| ING-28 | Lượng vàng nắm giữ của ETF vàng lớn | `[ ]` | |
-| ING-29 | NHTW mua vàng | `[!]` | ← DEC-05, dữ liệu trễ hàng tháng/quý |
+| ING-28 | Lượng vàng nắm giữ của ETF vàng lớn | `[ ]` | DEC-05: GLD, IAU (dữ liệu quỹ tự công bố hằng ngày) |
+| ING-29 | NHTW mua vàng | `[ ]` (hoãn) | Người dùng hoãn 2026-11-07 (DEC-05): dữ liệu trễ hàng tháng/quý |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
