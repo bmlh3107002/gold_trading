@@ -12,7 +12,7 @@
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1 (ING-14 + 1A-C19) xong 2026-11-07**, đã kiểm trên máy người dùng (H1/H4/D1 thật, 0 cách ly). Gateway trên máy: `C:\gold-trading\code\gold_trading-develop` (bản cũ `_bk`).
 - **Bước 2 (1B: CAL-03..05, 1B-C01..C04) code xong 2026-11-07**: bảng ngày lễ Mỹ có phiên bản (`market/holidays.py`, 2024–2027), giờ đặc biệt broker `GT_BROKER_SPECIAL_HOURS`, GAP/R1 theo `MarketCalendar`, `technical-1.3.0` (cờ `LOW_LIQUIDITY_HOLIDAY`, `HOLIDAY_TABLE_MISMATCH`). Đã build lại trên máy người dùng (log có bảng lễ). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11.
-- **Bước 3 (1A-C21) code xong 2026-11-07**: nến cuối phiên (vị trí 0) gửi trong `tail_bar`, backend nhận khi hết giờ nến + 2 phút **và** lịch đóng cửa suốt (thiết kế `docs/thiet-ke/09a` mục 3b). **Tiếp theo:** người dùng cập nhật Gateway + build lại backend, kiểm tối thứ Sáu thấy nến cuối tuần.
+- **Bước 3 (1A-C21) code xong 2026-11-07**: nến cuối phiên (vị trí 0) gửi trong `tail_bar`, backend nhận khi hết giờ nến + 2 phút **và** lịch đóng cửa suốt (thiết kế `docs/thiet-ke/09a` mục 3b). Đã kiểm trên máy người dùng (nến cuối thứ Sáu M15/H1/H4/D1 vào ngay, 0 cách ly). **Tiếp theo: bước 4** (đa tài khoản MT-12..15).
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 

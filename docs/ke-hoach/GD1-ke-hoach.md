@@ -55,7 +55,7 @@
 ### Bước 3 — Nến cuối tuần bị giữ tới thứ Hai (1A-C21)
 - [x] Coi nến đã đóng khi `open + khung ≤ giờ server` **và** lịch broker báo đóng cửa (2026-11-07: Gateway gửi vị trí 0 trong `tail_bar`, backend quyết: hết giờ nến + 2 phút **và** lịch đóng suốt từ lúc nến hết giờ)
 - [x] Test: DST, cuối tuần, ngày lễ, nghỉ giữa phiên (2026-11-07)
-- [ ] Kiểm trên máy người dùng: tối thứ Sáu thấy nến cuối tuần (không chờ thứ Hai)
+- [x] Kiểm trên máy người dùng: tối thứ Sáu thấy nến cuối tuần (không chờ thứ Hai) (2026-11-07, thứ Bảy: nến cuối thứ Sáu M15/H1/H4/D1 vào ngay khi chạy Gateway mới, 0 cách ly. Theo dõi thêm: thứ Hai log không có "sửa" cho các nến này)
 
 ### Bước 4 — Mỗi tài khoản dùng MT5 của mình (đa tài khoản, DEC-14)
 - [ ] MT-12 + GW-09: Gateway báo danh tính terminal (login, server, company, DEMO/REAL, đường dẫn) + đọc tài khoản (equity, margin, đòn bẩy) và symbol (stops/freeze level, swap)
