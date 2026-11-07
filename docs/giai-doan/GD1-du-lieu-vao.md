@@ -19,7 +19,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 
 ### Chuyển từ GĐ0 (2026-11-06)
 
-- **Đa tài khoản** (thuộc GĐ1, chi tiết ở [`MT-da-nguoi-dung.md`](MT-da-nguoi-dung.md)): MT-05 (nguồn giá theo broker/server, ← **DEC-14** cần chốt: nhiều nguồn giá song song?), MT-12..15 (Gateway báo danh tính terminal, liên kết MT5, phát hiện đổi tài khoản, nhiều terminal MT5 trên một máy). Người dùng muốn **một Gateway quản lý nhiều terminal** (mỗi terminal một nhánh, token riêng).
+- **Đa tài khoản** (thuộc GĐ1, chi tiết ở [`MT-da-nguoi-dung.md`](MT-da-nguoi-dung.md)): MT-05 (nguồn giá theo broker/server, **DEC-14 đã chốt 2026-11-07: mỗi tài khoản theo giá broker của mình**, nhiều nguồn giá song song, không trộn), MT-12..15 (Gateway báo danh tính terminal, liên kết MT5, phát hiện đổi tài khoản, nhiều terminal MT5 trên một máy). Người dùng muốn **một Gateway quản lý nhiều terminal** (mỗi terminal một nhánh, token riêng).
 - **1A-C21** (mới, ghi ở bảng 1A): nến cuối tuần bị giữ lại tới thứ Hai.
 - **Câu hỏi còn treo cho người dùng:** token Gateway do ADMIN phát (hiện tại, DEC-16) hay mỗi USER tự lấy — người dùng chưa chọn, giữ ADMIN phát. Tài khoản trống `u-…` của Lord Trade: người dùng tạm giữ.
 
@@ -175,3 +175,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | DSH-07 | Hiển thị giá sống bid/ask/spread | `[ ]` | ← GW-08 |
 
 **Gate GĐ1:** mọi việc 1A–1G xong (trừ việc người dùng hoãn); mọi case 1A–1G có test; chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục**, trong đó bắt được **ít nhất một lần công bố lớn** (CPI hoặc NFP) với giờ, actual (và forecast nếu có) đúng; trang Nguồn dữ liệu hiển thị đủ; bản sao lưu có dữ liệu mới. Bao gồm MT-12..MT-15 (liên kết + xác minh danh tính MT5) và case MT-C08, MT-C11, MT-C14 (phần dữ liệu).
+
+### Nhật ký GĐ1
+
+- **2026-11-07** — Người dùng chốt đủ 8 quyết định (hỏi từng câu): DEC-06 ngân sách 0 đồng (chỉ nguồn miễn phí); DEC-01 lịch + actual từ nguồn chính thức Mỹ (BLS/BEA/Fed), không forecast; DEC-02 tin chỉ từ thông cáo chính thức qua RSS, danh sách nguồn **cấu hình được**; DEC-03 chỉ số USD tự tính từ 6 cặp trên MT5 (không gọi là DXY chính thức); DEC-04 proxy Fed = lợi suất 2 năm so với lãi suất Fed (FRED), không gọi là xác suất; DEC-05 chỉ ETF GLD/IAU, NHTW hoãn (ING-29); DEC-07 khóa miễn phí FRED + BLS + BEA (hướng dẫn đăng ký khi tới 1C/1E); DEC-14 mỗi tài khoản theo giá broker của mình. Chưa code. Bước tiếp: người dùng đồng ý thứ tự làm 1A → 1G.

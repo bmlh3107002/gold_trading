@@ -3,13 +3,13 @@
 > File này **ngắn** và được nạp tự động mỗi lượt (qua `CLAUDE.md`). Chỉ giữ trạng thái hiện tại. Chi tiết nằm theo giai đoạn ở `docs/giai-doan/` — mỗi phiên chỉ mở **file của giai đoạn đang làm**.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Ghi chú kỹ thuật (bảng thành phần, quy ước code): `docs/ghi-chu-ky-thuat.md` — chỉ đọc mục liên quan.
 
-**Cập nhật lần cuối:** 2026-11-06 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-07 · **Nhánh làm việc:** `develop`
 
 ## Trạng thái hiện tại
 
 - **Giai đoạn hiện tại: GĐ1 — Dữ liệu vào** → [`docs/giai-doan/GD1-du-lieu-vao.md`](docs/giai-doan/GD1-du-lieu-vao.md). Bắt đầu bằng prompt [`docs/prompts/GD1-bat-dau.md`](docs/prompts/GD1-bat-dau.md).
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
-- **Việc đầu tiên của GĐ1:** người dùng chốt DEC-01..07 (+ DEC-14 cho đa tài khoản), hỏi từng câu một. Chưa code nguồn mới trước khi chốt.
+- **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Bước tiếp: người dùng đồng ý thứ tự làm 1A → 1G rồi mới code.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
 ## Quyết định đã chốt
