@@ -291,19 +291,28 @@ def main() -> int:
             check("Mật khẩu tạm không xuất hiện trong log",
                   all(p and p not in logs for p in temp_passwords))
 
-        # DEC-17: xóa USER. Gateway đang kết nối → từ chối; hết nhịp tim (> 30 s) → xóa được
+        # DEC-17: xóa USER. USER này đang cấp giá hoặc Gateway đang kết nối → từ chối
         s, _ = b.api("DELETE", f"/api/admin/users/{sub}")
-        check("Xóa USER khi Gateway đang kết nối → 409", s == 409)
-        time.sleep(32)
-        s, dr = b.api("DELETE", f"/api/admin/users/{sub}")
-        check("Xóa USER (Keycloak đã xóa)", s == 200 and dr["keycloak_synced"] is True)
+        check("Xóa USER đang cấp giá / Gateway đang kết nối → 409", s == 409)
         s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
+        check("Xóa bị từ chối: token Gateway vẫn chạy", s == 200)
+        # USER thứ hai (tài khoản riêng, chưa có Gateway kết nối) → xóa được
+        u2 = {**new_user, "username": uname + "x", "email": f"{uname}x@example.invalid"}
+        s, c2 = b.api("POST", "/api/admin/users", u2)
+        sub2 = c2["sub"] if s == 201 else ""
+        s, cred2 = b.api("POST", f"/api/admin/users/{sub2}/gateway-token")
+        tok2 = cred2.get("token", "") if s == 200 else ""
+        check("Tạo USER thứ hai + cấp token", bool(sub2) and tok2.startswith("gtk_"))
+        s, dr = b.api("DELETE", f"/api/admin/users/{sub2}")
+        check("Xóa USER (Keycloak đã xóa)", s == 200 and dr["keycloak_synced"] is True
+              and dr["tokens_revoked"] == 1)
+        s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok2)
         check("USER đã xóa: token Gateway bị thu hồi → 401", s == 401)
         s, users = b.api("GET", "/api/admin/users")
         check("USER đã xóa không còn trong danh sách",
-              s == 200 and all(u["sub"] != sub for u in users))
+              s == 200 and all(u["sub"] != sub2 for u in users))
         m4 = Browser(a.base)
-        status, page, url = login(m4, uname, a.member_password + "N2")
+        status, page, url = login(m4, u2["username"], a.member_password)
         check("USER đã xóa không đăng nhập được",
               urllib.parse.urlsplit(url).path != "/" or "auth_error" in url)
 

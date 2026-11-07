@@ -47,4 +47,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-07, DEC-17): backend 349 passed, frontend 68 passed, ruff/tsc/eslint sạch, build OK, migration 0007 thử trên PostgreSQL 16. CI `ci_stack.sh` (e2e đã sửa cho DEC-17): chờ chạy.
+Kết quả lần cuối (2026-11-07, DEC-17): backend 349 passed, frontend 68 passed, ruff/tsc/eslint sạch, build OK, migration 0007 thử trên PostgreSQL 16. CI `ci_stack.sh`: xem nhật ký GĐ1.
