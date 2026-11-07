@@ -49,7 +49,8 @@
 - [x] CAL-04: dùng `MarketCalendar` cho cờ `GAP` lúc nạp và R1 (2026-11-07)
 - [x] CAL-05: thông báo đổi giờ đặc biệt của broker (cập nhật tay, có phiên bản) (2026-11-07)
 - [x] 1B-C01..C04: đóng sớm không bị coi là thiếu nến; lễ rơi cuối tuần; broker lệch bảng → `CALENDAR_MISMATCH`; Giáng sinh–năm mới gắn cờ thanh khoản thấp (2026-11-07)
-- [ ] Người dùng (nên làm trước 26/11): build lại `backend frontend`; sau Lễ Tạ ơn 26–27/11 đối chiếu giờ broker thật với bảng (lệch → `GT_BROKER_SPECIAL_HOURS`)
+- [x] Người dùng: build lại `backend frontend` (2026-11-07: log backend có `lễ [us-holidays-2026.11.07] ∩ broker [Mon-Fri 00:00-23:00, Europe/Athens]`)
+- [ ] Sau Lễ Tạ ơn 26–27/11: đối chiếu giờ broker thật với bảng (lệch → `GT_BROKER_SPECIAL_HOURS`). Không chặn bước 3
 
 ### Bước 3 — Nến cuối tuần bị giữ tới thứ Hai (1A-C21)
 - [ ] Coi nến đã đóng khi `open + khung ≤ giờ server` **và** lịch broker báo đóng cửa
