@@ -45,6 +45,21 @@ R1 (tự kiểm tra múi giờ khi nạp CSV) nằm ở bước nạp dữ liệ
 
 **Vì sao dùng lịch chính thức chứ không tự suy từ dữ liệu:** suy lịch từ dữ liệu sẽ biến một sự cố mất dữ liệu lặp lại thành "giờ nghỉ" và che mất nó. Giao hai lịch chỉ có thể *bớt* nến lẽ ra phải có ở chỗ broker công bố là đóng. Lưới an toàn cho khai báo sai: nếu có nến thật ở chỗ lịch nói đóng cửa thì chặn bằng `CALENDAR_MISMATCH`. Mất dữ liệu giữa phiên vẫn bị R2 bắt như cũ (có test).
 
+### Ngày lễ / đóng sớm và giờ đặc biệt của broker (từ `technical-1.3.0`, GĐ1 bước 2, 2026-11-07)
+
+Lịch đầy đủ = tham chiếu tuần ∩ (giờ đặc biệt broker của ngày đó **nếu có**; nếu không: giờ tuần của broker **trừ** khoảng nghỉ trong bảng ngày lễ).
+
+- **Bảng ngày lễ Mỹ** (`market/holidays.py`, phiên bản `us-holidays-2026.11.07`, năm 2024–2027), giờ New York: `CLOSED` ngày D = nghỉ `[D−1 17:00, D 18:00)` (Good Friday, Giáng sinh, năm mới); `EARLY_CLOSE` = nghỉ `[D giờ đóng, D 18:00)`: ngày lễ thứ Hai, Juneteenth, Độc lập, Lễ Tạ ơn ngừng **14:30 NY** (13:30 CT); ngày sau Lễ Tạ ơn và đêm Giáng sinh **13:45 NY** (12:45 CT). Lễ rơi thứ Bảy → nghỉ bù thứ Sáu, Chủ nhật → thứ Hai; năm mới rơi thứ Bảy không nghỉ bù. Nguồn: lịch nghỉ lễ thường lệ của CME Globex cho kim loại (`CME_PATTERN`, **chưa đối chiếu broker**); riêng Labor Day 07/09/2026 đã khớp dữ liệu thật MetaQuotes-Demo (`BROKER_DATA`: ngừng 14:30 NY, thiếu thêm đúng 6 nến M15). Test so bảng với quy tắc lịch Mỹ tính độc lập (thuật toán Phục sinh, thứ Hai thứ n…).
+- **Giờ đặc biệt broker** (CAL-05): `GT_BROKER_SPECIAL_HOURS="2026-12-24 00:00-20:45; 2026-12-25 CLOSED"` (ngày + giờ **server**, chép từ thông báo của broker) và nhãn `GT_BROKER_SPECIAL_HOURS_VERSION`. Ngày có giờ đặc biệt thì giờ này thay cho giờ tuần broker **và** bảng ngày lễ (thông báo của broker cụ thể hơn bảng chung), vẫn giao với lịch tham chiếu tuần. Phiên bản = nhãn + 8 ký tự băm nội dung. Sai cú pháp, trùng ngày, thiếu `GT_BROKER_SESSIONS` → backend **không khởi động**.
+- **Phiên bản lịch** (bảng + giờ đặc biệt) nằm trong `features.input.calendar` của mỗi kết quả; `features.input.holidays_in_window` liệt kê ngày lễ trong cửa sổ.
+- **Cờ mới:** `LOW_LIQUIDITY_HOLIDAY` (rủi ro, chỉ gắn cờ, không đổi confidence) khi nến cuối thuộc ngày lễ/đóng sớm hoặc ngày giao dịch 24/12 → 02/01 (1B-C04). `HOLIDAY_TABLE_MISMATCH` (chất lượng, kèm `CALENDAR_MISMATCH` hoặc `LOW_COVERAGE` vẫn chặn như cũ) khi nến lệch lịch / nến thiếu rơi vào ngày lễ trong bảng: gợi ý người dùng nhập giờ đặc biệt (1B-C03).
+- **Ngoài các năm của bảng:** không đoán ngày lễ (coi là ngày thường → R2 có thể chặn oan, hướng an toàn); backend ghi cảnh báo khi bảng không phủ tới 60 ngày tới.
+- **Vì sao sai bảng vẫn an toàn:** ghi đóng mà broker vẫn báo giá → có nến lúc "đóng cửa" → `CALENDAR_MISMATCH` chặn; ghi mở mà broker đóng → thiếu nến → R2 chặn. Bảng chỉ *bớt* nến lẽ ra phải có ở khoảng ghi rõ trong bảng, nên mất dữ liệu ngoài khoảng đó vẫn bị bắt (có test mất nến buổi sáng Labor Day).
+- **CAL-04 — cờ `GAP_BEFORE` lúc nạp** dùng lịch đầy đủ (của `MarketDataService`), **R1** dùng phần **tuần** (tham chiếu ∩ giờ tuần broker), cố ý **không** dùng bảng ngày lễ: R1 từ chối cả lô, nên một dòng sai trong bảng (ví dụ broker vẫn báo giá Good Friday: 92 nến/lô 2.000 = 4,6% > 1%) sẽ chặn nạp toàn bộ dữ liệu. Sai lệch ngày lễ đã có `CALENDAR_MISMATCH`/R2 bắt ở bước phân tích.
+- **Dữ liệu mẫu** sinh theo cùng lịch tham chiếu có ngày lễ (không sinh nến trong khoảng nghỉ lễ).
+
+**Lý do `technical-1.3.0`:** "nến lẽ ra phải có" thay đổi → độ phủ R2 và `CALENDAR_MISMATCH` thay đổi. Soát lại trên dữ liệu tổng hợp theo lịch broker thật 10/11/2026 → 08/01/2027 (chạy analyst mỗi giờ, 747 lần): lịch mới chặn 0 lần; lịch cũ chặn oan 244 lần quanh Lễ Tạ ơn, Giáng sinh, năm mới.
+
 ## 4. Đặc trưng (features)
 
 | Đặc trưng | Công thức |
@@ -92,6 +107,6 @@ R1 (tự kiểm tra múi giờ khi nạp CSV) nằm ở bước nạp dữ liệ
 ## 8. Giới hạn đã biết
 
 - **Lịch broker nhập tay:** MT5 Python không đọc được Sessions, nên phải chép tay từ Specification. Broker đổi giờ báo giá thì phải sửa `.env`; nếu broker mở *dài* hơn khai báo, `CALENDAR_MISMATCH` sẽ chặn; nếu broker đóng *sớm* hơn khai báo, R2 sẽ chặn. Cả hai đều theo hướng an toàn.
-- **Ngày lễ:** lịch thị trường chưa có ngày lễ (ví dụ Labor Day 07/09/2026: broker thật thiếu thêm 6 nến), nên quanh Giáng sinh/năm mới độ phủ có thể dưới 99% và analyst sẽ **tự chặn** (an toàn nhưng gây gián đoạn) trong tối đa ~3 ngày, cho tới khi có lịch giao dịch thật từ MT5 (R12).
+- **Ngày lễ (từ `technical-1.3.0`):** bảng ngày lễ nhập tay, chỉ 2024–2027, giờ lễ theo thông lệ CME (chỉ Labor Day 2026 đã đối chiếu broker). Broker khác bảng → bị chặn (`CALENDAR_MISMATCH`/R2 + gợi ý `HOLIDAY_TABLE_MISMATCH`) tới khi người dùng nhập `GT_BROKER_SPECIAL_HOURS`; tối đa ~3 ngày (cửa sổ 300 nến). Cần đối chiếu từng ngày lễ đầu tiên với dữ liệu thật (Lễ Tạ ơn 26–27/11/2026, Giáng sinh, năm mới). Ngày nghỉ đột xuất (quốc tang…) không có trong bảng.
 - Ngưỡng R2–R6 mới được kiểm tra trên dữ liệu mẫu; **phải kiểm tra lại trên CSV thật của broker**.
 - Không có xác suất và không có tín hiệu. Fusion/Strategy không được coi `trend` là lệnh mua/bán khi chưa có backtest.

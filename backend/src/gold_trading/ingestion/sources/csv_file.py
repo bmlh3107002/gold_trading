@@ -17,9 +17,13 @@ import csv
 import io
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from gold_trading.ingestion.candles import RawBar
+
+if TYPE_CHECKING:
+    from gold_trading.market.hours import MarketCalendar
 
 
 @dataclass(frozen=True)
@@ -157,17 +161,28 @@ class SessionCheck:
         return self.bars < SESSION_CHECK_MIN_BARS or self.outside_fraction <= SESSION_MISMATCH_MAX
 
 
-def check_sessions(bars: list[RawBar], tf_minutes: int) -> SessionCheck:
-    """Tỷ lệ nến rơi vào giờ đóng cửa, và độ lệch giờ (−6…+6) cho tỷ lệ thấp nhất."""
+def check_sessions(
+    bars: list[RawBar], tf_minutes: int, calendar: MarketCalendar | None = None
+) -> SessionCheck:
+    """Tỷ lệ nến rơi vào giờ đóng cửa, và độ lệch giờ (−6…+6) cho tỷ lệ thấp nhất.
+
+    CAL-04: dùng phần **tuần** của ``MarketCalendar`` (tham chiếu ∩ giờ tuần của broker), cố ý
+    KHÔNG dùng bảng ngày lễ / giờ đặc biệt: R1 từ chối cả lô, nên nếu bảng ngày lễ ghi sai một
+    ngày (ví dụ broker vẫn báo giá Good Friday: 92 nến M15 / lô 2.000 = 4,6% > 1%) thì sẽ chặn
+    nạp toàn bộ dữ liệu. Sai lệch ngày lễ được bắt ở bước phân tích (CALENDAR_MISMATCH / R2).
+    """
     from datetime import timedelta
 
-    from gold_trading.market.hours import bar_in_session
+    from gold_trading.market.hours import REFERENCE
 
+    cal = calendar or REFERENCE
     width = timedelta(minutes=tf_minutes)
 
     def outside(shift: int) -> float:
         d = timedelta(hours=shift)
-        n = sum(not bar_in_session(b.open_time + d, b.open_time + d + width) for b in bars)
+        n = sum(
+            not cal.weekly_bar_in_session(b.open_time + d, b.open_time + d + width) for b in bars
+        )
         return n / len(bars) if bars else 0.0
 
     base = outside(0)

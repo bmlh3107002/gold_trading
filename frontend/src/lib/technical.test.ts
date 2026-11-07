@@ -23,4 +23,9 @@ describe("cờ của analyst", () => {
       expect(dict.technical.flag[f]).toBeTruthy();
     }
   });
+  it("cờ ngày lễ (bước 2 GĐ1) được hiển thị và có nhãn, phiên HOLIDAY có nhãn", () => {
+    expect(NOTICE_FLAGS).toContain("LOW_LIQUIDITY_HOLIDAY");
+    expect(NOTICE_FLAGS).toContain("HOLIDAY_TABLE_MISMATCH");
+    expect(dict.header.session.HOLIDAY).toBeTruthy();
+  });
 });

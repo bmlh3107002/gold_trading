@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI
@@ -37,7 +37,7 @@ from gold_trading.contracts.candle import DataSource
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.sample_feed import SampleFeed
-from gold_trading.market.hours import REFERENCE, BrokerSessions, MarketCalendar
+from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST
 from gold_trading.ops.clock import ClockMonitor
@@ -130,17 +130,43 @@ def calendar_from_env(source: DataSource | None) -> MarketCalendar:
     """
     spec = os.environ.get("GT_BROKER_SESSIONS", "").strip()
     tz = os.environ.get("GT_BROKER_SERVER_TZ", "").strip()
+    special_spec = os.environ.get("GT_BROKER_SPECIAL_HOURS", "").strip()
+    special_label = os.environ.get("GT_BROKER_SPECIAL_HOURS_VERSION", "").strip()
     if not spec:
+        if special_spec:
+            raise ValueError("Đã đặt GT_BROKER_SPECIAL_HOURS nhưng thiếu GT_BROKER_SESSIONS")
+        _warn_holiday_coverage(REFERENCE)
         return REFERENCE
     if not tz:
         raise ValueError("Đã đặt GT_BROKER_SESSIONS nhưng thiếu GT_BROKER_SERVER_TZ (IANA)")
     broker = BrokerSessions.parse(spec, tz)
+    # CAL-05: giờ đặc biệt broker thông báo (giờ server), sai cú pháp → không khởi động
+    special = BrokerSpecialHours.parse(special_spec, special_label) if special_spec else None
     if source is None or source.is_sample:
         log.warning("Bỏ qua GT_BROKER_SESSIONS vì nguồn dữ liệu là %s", source)
         return REFERENCE
-    cal = MarketCalendar(broker)
+    cal = MarketCalendar(broker, special=special)
     log.info("Lịch thị trường: %s", cal.description)
+    _warn_holiday_coverage(cal)
     return cal
+
+
+HOLIDAY_COVERAGE_WARN_DAYS = 60
+
+
+def _warn_holiday_coverage(cal: MarketCalendar, now: datetime | None = None) -> bool:
+    """Cảnh báo khi bảng ngày lễ sắp hết năm (ngoài bảng = không biết ngày lễ). True = cảnh báo."""
+    now = now or datetime.now(UTC)
+    ahead = now + timedelta(days=HOLIDAY_COVERAGE_WARN_DAYS)
+    if cal.covers(now) and cal.covers(ahead):
+        return False
+    log.warning(
+        "Bảng ngày lễ (%s) không có dữ liệu cho %s: ngày lễ sẽ bị coi là thiếu nến (R2 có thể "
+        "chặn). Cần cập nhật market/holidays.py",
+        cal.holidays.version if cal.holidays else "không có",
+        ahead.date() if cal.covers(now) else now.date(),
+    )
+    return True
 
 
 SAMPLE_BLOCKED_MODES = (TradingMode.SHADOW, TradingMode.LIVE)
@@ -303,7 +329,7 @@ def create_app(
     app.include_router(
         ingest_router(
             market,
-            CandleIngestor(candle_store),
+            CandleIngestor(candle_store, market.calendar),
             monitors,
             token or None,
             repo,

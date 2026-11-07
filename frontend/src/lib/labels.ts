@@ -64,7 +64,7 @@ const KNOWN_QUARANTINE = new Set([
 
 export type DataSourceName = "SAMPLE" | "CSV" | "MT5";
 export type CandleFlagName = "BACKFILL" | "REVISED" | "GAP_BEFORE" | "PRICE_JUMP" | "ZERO_RANGE";
-export type Session = "OPEN" | "DAILY_BREAK" | "WEEKEND";
+export type Session = "OPEN" | "DAILY_BREAK" | "WEEKEND" | "HOLIDAY";
 
 export function dataSourceLabel(t: TFunction, s: DataSourceName): string {
   return t(`enum.dataSource.${s}`);
@@ -84,4 +84,5 @@ export const sessionTone: Record<Session, BadgeTone> = {
   OPEN: "profit",
   DAILY_BREAK: "gold",
   WEEKEND: "neutral",
+  HOLIDAY: "neutral",
 };

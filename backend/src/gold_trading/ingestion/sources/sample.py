@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 
 from gold_trading.ingestion.candles import RawBar
-from gold_trading.market.hours import bar_in_session
+from gold_trading.market.hours import REFERENCE
 from gold_trading.market.timeframes import Timeframe
 
 # Biến động năm ~15% → độ lệch chuẩn log-return cho 1 phút giao dịch
@@ -67,7 +67,7 @@ def generate(
     last_close = prev_close
     pending_gap = False
     while t + tf.delta <= end:
-        if bar_in_session(t, t + tf.delta):
+        if REFERENCE.bar_in_session(t, t + tf.delta):
             bar = _bar(last_close, t, tf, seed, pending_gap)
             last_close = bar.close
             pending_gap = False

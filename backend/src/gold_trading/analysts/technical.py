@@ -20,7 +20,7 @@ from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
-VERSION = "technical-1.2.0"
+VERSION = "technical-1.3.0"  # 1.3.0: lịch có ngày lễ (CAL-03..05), cờ thanh khoản thấp
 ANALYST_ID = "technical"
 WINDOW = 300
 MIN_BARS = 250
@@ -150,6 +150,18 @@ def analyze(
         risk_flags.add("WIDE_SPREAD")
     if source.is_sample:
         quality_flags.add("SAMPLE_DATA")
+    # 1B-C04: nến cuối thuộc ngày lễ / đóng sớm / 24-12 → 02-01 → thanh khoản thấp (chỉ gắn cờ)
+    if calendar.low_liquidity(last.open_time):
+        risk_flags.add("LOW_LIQUIDITY_HOLIDAY")
+    # 1B-C03: nến lệch lịch hoặc thiếu nến rơi vào ngày lễ trong bảng → nhiều khả năng bảng ngày
+    # lễ sai với broker: báo để cập nhật (GT_BROKER_SPECIAL_HOURS), vẫn chặn như cũ.
+    suspect = {
+        h.name + " " + h.day.isoformat()
+        for t in (*q.outside_session, *q.missing)
+        if (h := calendar.holiday_on(t)) is not None
+    }
+    if suspect and (q.outside_session or q.low_coverage):
+        quality_flags.add("HOLIDAY_TABLE_MISMATCH")
     quality_flags.update(blocking)
 
     input_info = {
@@ -163,6 +175,14 @@ def analyze(
         "missing_bars": len(q.missing),
         "outside_session_bars": len(q.outside_session),
         "calendar": calendar.description,
+        "holidays_in_window": sorted(
+            {
+                h.name + " " + h.day.isoformat()
+                for c in window
+                if (h := calendar.holiday_on(c.open_time)) is not None
+            }
+            | suspect
+        ),
         "spikes": [t.isoformat() for t in q.spikes],
     }
     base = dict(

@@ -2651,7 +2651,8 @@
         "enum": [
           "OPEN",
           "DAILY_BREAK",
-          "WEEKEND"
+          "WEEKEND",
+          "HOLIDAY"
         ],
         "title": "MarketSession"
       },

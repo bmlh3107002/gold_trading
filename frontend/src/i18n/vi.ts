@@ -33,6 +33,7 @@ const vi = {
       OPEN: "Đang mở cửa",
       DAILY_BREAK: "Nghỉ giữa phiên",
       WEEKEND: "Đóng cửa cuối tuần",
+      HOLIDAY: "Nghỉ lễ / giờ đặc biệt",
     },
     toLight: "Chuyển sang giao diện sáng",
     toDark: "Chuyển sang giao diện tối",
@@ -314,6 +315,9 @@ const vi = {
       SPIKE_IN_WINDOW: "Có nến bất thường trong cửa sổ tính toán",
       WIDE_SPREAD: "Spread đang giãn bất thường",
       HIGH_VOLATILITY: "Biến động cao bất thường",
+      LOW_LIQUIDITY_HOLIDAY: "Ngày lễ / cuối năm: thanh khoản thấp",
+      HOLIDAY_TABLE_MISMATCH:
+        "Giờ broker khác bảng ngày lễ: cần nhập giờ đặc biệt của broker (GT_BROKER_SPECIAL_HOURS)",
     },
   },
   quality: {

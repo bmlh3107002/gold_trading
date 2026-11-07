@@ -99,6 +99,10 @@ services:
       # và múi giờ server (IANA). Để trống = lịch tham chiếu chung. Ví dụ: "Mon-Fri 00:00-23:00"
       GT_BROKER_SESSIONS: ${GT_BROKER_SESSIONS:-}
       GT_BROKER_SERVER_TZ: ${GT_BROKER_SERVER_TZ:-}
+      # Giờ đặc biệt broker thông báo (ngày lễ, giờ server), CAL-05. Để trống nếu không có.
+      # Ví dụ: "2026-12-24 00:00-20:45; 2026-12-25 CLOSED". Nhãn: tên/ngày của thông báo.
+      GT_BROKER_SPECIAL_HOURS: ${GT_BROKER_SPECIAL_HOURS:-}
+      GT_BROKER_SPECIAL_HOURS_VERSION: ${GT_BROKER_SPECIAL_HOURS_VERSION:-}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-gold}:${POSTGRES_PASSWORD:-gold-local-only}@db:5432/${POSTGRES_DB:-gold_trading}
       # Đăng nhập (BFF): backend đổi code lấy token qua mạng nội bộ, trình duyệt chỉ giữ cookie.
       GT_PUBLIC_URL: ${GT_PUBLIC_URL:-http://localhost:8080}

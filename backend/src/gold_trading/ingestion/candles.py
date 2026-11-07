@@ -20,7 +20,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from gold_trading.contracts.candle import Candle, CandleFlag, DataSource
-from gold_trading.market.hours import bar_in_session, is_open
+from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import CandleStore, QuarantineEntry
 
@@ -64,8 +64,10 @@ def _finite(*xs: float) -> bool:
 
 
 class CandleIngestor:
-    def __init__(self, store: CandleStore) -> None:
+    def __init__(self, store: CandleStore, calendar: MarketCalendar = REFERENCE) -> None:
         self.store = store
+        # CAL-04: cờ GAP_BEFORE theo lịch đầy đủ (tham chiếu ∩ broker − ngày lễ + giờ đặc biệt)
+        self.calendar = calendar
 
     def ingest(
         self,
@@ -170,7 +172,7 @@ class CandleIngestor:
                 flags.add(CandleFlag.ZERO_RANGE)
             if prev is not None:
                 if prev.close_time < bar.open_time and _gap_in_session(
-                    prev.close_time, bar.open_time, timeframe, server_tz
+                    prev.close_time, bar.open_time, timeframe, self.calendar, server_tz
                 ):
                     flags.add(CandleFlag.GAP_BEFORE)
                 if abs(bar.open / prev.close - 1) > PRICE_JUMP_THRESHOLD:
@@ -227,7 +229,11 @@ _GAP_SCAN_LIMIT = 10_000
 
 
 def _gap_in_session(
-    after: datetime, before: datetime, tf: Timeframe, server_tz: ZoneInfo | None = None
+    after: datetime,
+    before: datetime,
+    tf: Timeframe,
+    calendar: MarketCalendar = REFERENCE,
+    server_tz: ZoneInfo | None = None,
 ) -> bool:
     """Có nến nào "lẽ ra phải có" bị thiếu giữa ``after`` và ``before`` không.
 
@@ -239,19 +245,19 @@ def _gap_in_session(
             return False
         end = tf.close_time(t, server_tz) if tf.server_aligned else t + tf.delta
         if tf.server_aligned:
-            if _any_open(t, end):
+            if _any_open(t, end, calendar):
                 return True
-        elif bar_in_session(t, end):
+        elif calendar.bar_in_session(t, end):
             return True
         t = end
     return True  # khoảng quá dài: coi là có thiếu (an toàn)
 
 
-def _any_open(start: datetime, end: datetime) -> bool:
+def _any_open(start: datetime, end: datetime, calendar: MarketCalendar) -> bool:
     step = timedelta(minutes=15)
     t = start
     while t < end:
-        if is_open(t):
+        if calendar.is_open(t):
             return True
         t += step
     return False

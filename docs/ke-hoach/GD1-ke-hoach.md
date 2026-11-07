@@ -45,10 +45,11 @@
 - [x] Kiểm trên máy người dùng: có nến H1/H4/D1 thật từ MetaQuotes-Demo (2026-11-07: 2.000/1.000/500 nến, 0 cách ly, giờ mở đúng giờ server)
 
 ### Bước 2 — Lịch ngày lễ (1B)
-- [ ] CAL-03: bảng ngày lễ/đóng sớm Mỹ có phiên bản, ghi nguồn
-- [ ] CAL-04: dùng `MarketCalendar` cho cờ `GAP` lúc nạp và R1
-- [ ] CAL-05: thông báo đổi giờ đặc biệt của broker (cập nhật tay, có phiên bản)
-- [ ] 1B-C01..C04: đóng sớm không bị coi là thiếu nến; lễ rơi cuối tuần; broker lệch bảng → `CALENDAR_MISMATCH`; Giáng sinh–năm mới gắn cờ thanh khoản thấp
+- [x] CAL-03: bảng ngày lễ/đóng sớm Mỹ có phiên bản, ghi nguồn (2026-11-07)
+- [x] CAL-04: dùng `MarketCalendar` cho cờ `GAP` lúc nạp và R1 (2026-11-07)
+- [x] CAL-05: thông báo đổi giờ đặc biệt của broker (cập nhật tay, có phiên bản) (2026-11-07)
+- [x] 1B-C01..C04: đóng sớm không bị coi là thiếu nến; lễ rơi cuối tuần; broker lệch bảng → `CALENDAR_MISMATCH`; Giáng sinh–năm mới gắn cờ thanh khoản thấp (2026-11-07)
+- [ ] Người dùng (nên làm trước 26/11): build lại `backend frontend`; sau Lễ Tạ ơn 26–27/11 đối chiếu giờ broker thật với bảng (lệch → `GT_BROKER_SPECIAL_HOURS`)
 
 ### Bước 3 — Nến cuối tuần bị giữ tới thứ Hai (1A-C21)
 - [ ] Coi nến đã đóng khi `open + khung ≤ giờ server` **và** lịch broker báo đóng cửa

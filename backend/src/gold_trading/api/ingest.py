@@ -242,7 +242,7 @@ def ingest_router(
         extra: dict[str, Any] = {}
         # R1 (kiểm tra múi giờ) chỉ có nghĩa với nến ngắn nằm trọn trong phiên (M15, H1). Nến
         # H4/D1 vắt qua giờ nghỉ; múi giờ đã được R1 kiểm trên M15/H1 của cùng Gateway.
-        chk = None if tf.server_aligned else check_sessions(bars, tf.minutes)
+        chk = None if tf.server_aligned else check_sessions(bars, tf.minutes, market.calendar)
         if chk is not None:
             extra = {
                 "session_outside_fraction": round(chk.outside_fraction, 4),
@@ -258,7 +258,7 @@ def ingest_router(
         target = ingestor
         if dry_run:
             # Chạy toàn bộ kiểm tra trên một kho tạm, có sẵn nến hiện có để khử trùng giống thật
-            target = CandleIngestor(_DryRunStore(ingestor.store))
+            target = CandleIngestor(_DryRunStore(ingestor.store), ingestor.calendar)
         try:
             res = target.ingest(
                 bars,

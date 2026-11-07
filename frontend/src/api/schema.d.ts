@@ -1029,7 +1029,7 @@ export interface components {
          * MarketSession
          * @enum {string}
          */
-        MarketSession: "OPEN" | "DAILY_BREAK" | "WEEKEND";
+        MarketSession: "OPEN" | "DAILY_BREAK" | "WEEKEND" | "HOLIDAY";
         /** MarketSummary */
         MarketSummary: {
             /** Symbol */
