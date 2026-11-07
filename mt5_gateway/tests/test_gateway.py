@@ -472,3 +472,26 @@ def test_mt5_read_error_on_higher_timeframe_live_is_isolated():
     s.push_recent()
     sent = [p["timeframe"] for p in be.posts]
     assert "M15" in sent and "D1" not in sent and s.terminal_ok
+
+
+def test_higher_timeframes_request_bounded_history_and_report_progress():
+    # Lỗi thật 2026-11-07: xin 5.000 nến D1 (~20 năm) làm MT5 đứng rất lâu, màn hình không hiện gì
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    c = cfg(timeframes=ALL_TF)
+    msgs: list[str] = []
+    rep = checks.run_checks(
+        c, fake, FakeBackend(), now=lambda: NOW_WINTER, tick_wait_s=1, progress=msgs.append
+    )
+    asked = {tf: n for tf, n in fake.rate_requests}
+    assert asked[FakeMt5.TIMEFRAME_M15] == 5000
+    assert asked[FakeMt5.TIMEFRAME_H1] == 2000
+    assert asked[FakeMt5.TIMEFRAME_H4] == 1000
+    assert asked[FakeMt5.TIMEFRAME_D1] == 500
+    assert any("D1" in m for m in msgs) and any("M15" in m for m in msgs)
+    fake.rate_requests.clear()
+    Syncer(c, rep.reader, FakeBackend(), rep, sleep=lambda _: None, clock=lambda: 0.0).backfill()
+    assert max(n for tf, n in fake.rate_requests if tf == FakeMt5.TIMEFRAME_D1) == 500
+    # GT_HISTORY_BARS nhỏ hơn thì không vượt
+    from mt5_gateway.config import history_bars_for
+
+    assert history_bars_for(cfg(history_bars=300), "D1") == 300

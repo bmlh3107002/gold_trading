@@ -12,6 +12,16 @@ MIN_TOKEN_LEN = 24
 # không tự ghép từ M15 (nến H4/D1 căn theo giờ server broker).
 SUPPORTED_TIMEFRAMES = ("M15", "H1", "H4", "D1")
 DEFAULT_TIMEFRAMES = "M15,H1,H4,D1"
+# Số nến lịch sử tối đa cho khung lớn. Xin quá nhiều (vd 5.000 nến D1 ≈ 20 năm) làm MT5 đứng rất
+# lâu để tải từ server (phát hiện 2026-11-07 trên máy người dùng). Đủ cho bối cảnh khung lớn.
+HIGHER_HISTORY_BARS = {"H1": 2000, "H4": 1000, "D1": 500}
+
+
+def history_bars_for(cfg: Config, tf: str) -> int:
+    """M15 dùng ``GT_HISTORY_BARS``; khung lớn dùng mức trần riêng (không vượt GT_HISTORY_BARS)."""
+    if tf == "M15":
+        return cfg.history_bars
+    return min(cfg.history_bars, HIGHER_HISTORY_BARS[tf])
 
 
 @dataclass(frozen=True)

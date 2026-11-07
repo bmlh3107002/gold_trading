@@ -37,6 +37,7 @@ class FakeMt5:
         missing_tfs=(),
     ):
         self.missing_tfs = set(missing_tfs)
+        self.rate_requests: list[tuple[int, int]] = []
         self.now = now_utc
         self.tz = ZoneInfo(server_tz)
         self.trade_mode = trade_mode
@@ -136,6 +137,7 @@ class FakeMt5:
         return out
 
     def copy_rates_from_pos(self, name, tf, start, count):
+        self.rate_requests.append((tf, count))
         if name != self.symbol or tf in self.missing_tfs:
             return None
         if tf != TIMEFRAME_M15 and tf not in _TF_SECONDS:

@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from mt5_gateway.backend_client import BackendClient, BackendError
-from mt5_gateway.config import MIN_TOKEN_LEN, Config
+from mt5_gateway.config import MIN_TOKEN_LEN, Config, history_bars_for
 from mt5_gateway.reader import Mt5Error, Mt5Reader
 from mt5_gateway.timeconv import load_tz, tz_offset_hours
 
@@ -63,7 +63,9 @@ def run_checks(
     *,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
     tick_wait_s: float = 10.0,
+    progress: Callable[[str], None] = lambda _msg: None,
 ) -> CheckReport:
+    """``progress``: in tiến độ cho người dùng thấy (bước đọc MT5 có thể mất vài chục giây)."""
     rep = CheckReport()
 
     # 1. Cấu hình
@@ -196,6 +198,7 @@ def run_checks(
 
     # 4. Lịch sử
     try:
+        progress(f"Đang đọc lịch sử M15 ({cfg.history_bars} nến) từ MT5...")
         bars = reader.closed_bars(cfg.history_bars)
     except Mt5Error as e:
         rep.add(
@@ -238,6 +241,7 @@ def run_checks(
 
     # 6. Chạy thử gửi dữ liệu (không lưu): xác thực token + R1 trên lịch sử
     try:
+        progress("Đang chạy thử gửi lịch sử M15 lên backend (không lưu)...")
         r = dry_run_all(cfg, client, bars)
         detail = (
             f"{r['received']} nến: hợp lệ {r['accepted'] + r['duplicates']}, "
@@ -267,19 +271,26 @@ def run_checks(
     # CẢNH BÁO và không đồng bộ khung đó (M15 vẫn chạy).
     extra = [t for t in cfg.timeframes if t != "M15"]
     if extra:
-        check_higher_timeframes(cfg, reader, client, rep, extra)
+        check_higher_timeframes(cfg, reader, client, rep, extra, progress)
     return rep
 
 
 def check_higher_timeframes(
-    cfg: Config, reader: Mt5Reader, client: BackendClient, rep: CheckReport, tfs: list[str]
+    cfg: Config,
+    reader: Mt5Reader,
+    client: BackendClient,
+    rep: CheckReport,
+    tfs: list[str],
+    progress: Callable[[str], None] = lambda _msg: None,
 ) -> None:
     good: list[str] = []
     notes: list[str] = []
     problems: list[str] = []
     for tf in tfs:
         try:
-            bars = reader.closed_bars(cfg.history_bars, tf)
+            n = history_bars_for(cfg, tf)
+            progress(f"Đang đọc lịch sử {tf} ({n} nến) từ MT5...")
+            bars = reader.closed_bars(n, tf)
         except Mt5Error as e:
             problems.append(f"{tf}: {e}")
             continue

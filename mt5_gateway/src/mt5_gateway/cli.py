@@ -37,7 +37,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = config.load(args.env_file)
     mt5 = _mt5()
     client = BackendClient(cfg.backend_url, cfg.token)
-    rep = run_checks(cfg, mt5, client)
+    print("Đang kiểm tra (có thể mất 1–2 phút, đừng tắt)...", flush=True)
+    rep = run_checks(cfg, mt5, client, progress=lambda m: print("  " + m, flush=True))
     print_report(rep)
     if args.command == "check" or not rep.ok:
         if rep.reader:

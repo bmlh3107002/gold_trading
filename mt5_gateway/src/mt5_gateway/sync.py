@@ -14,7 +14,7 @@ from typing import Any
 from mt5_gateway import __version__
 from mt5_gateway.backend_client import BackendClient, BackendError
 from mt5_gateway.checks import CheckReport
-from mt5_gateway.config import Config
+from mt5_gateway.config import Config, history_bars_for
 from mt5_gateway.reader import Bar, Mt5Error, Mt5Reader
 
 log = logging.getLogger("mt5_gateway")
@@ -76,7 +76,7 @@ class Syncer:
         return totals
 
     def _backfill_tf(self, tf: str) -> dict[str, int]:
-        bars = self.reader.closed_bars(self.cfg.history_bars, tf)
+        bars = self.reader.closed_bars(history_bars_for(self.cfg, tf), tf)
         totals = {"accepted": 0, "duplicates": 0, "quarantined": 0}
         for part in chunks(bars, BATCH):
             r = self._post(tf, part, backfill=True)

@@ -24,7 +24,7 @@
 
 ### 3a. Khung H1, H4, D1 (ING-14, 2026-11-07)
 
-- Đọc thẳng từ MT5 bằng `copy_rates_from_pos(symbol, TIMEFRAME_H1/H4/D1, 1, count)`, **không** ghép từ M15. Khung chọn bằng `GT_TIMEFRAMES` (mặc định `M15,H1,H4,D1`; M15 luôn có vì R1 kiểm múi giờ trên M15).
+- Đọc thẳng từ MT5 bằng `copy_rates_from_pos(symbol, TIMEFRAME_H1/H4/D1, 1, count)`, **không** ghép từ M15. Lịch sử tối đa: H1 2.000, H4 1.000, D1 500 nến (xin nhiều hơn làm MT5 đứng lâu để tải). Khung chọn bằng `GT_TIMEFRAMES` (mặc định `M15,H1,H4,D1`; M15 luôn có vì R1 kiểm múi giờ trên M15).
 - MT5 cắt H4/D1 theo **đồng hồ server**: D1 mở 00:00 giờ server, H4 lúc 00/04/…/20 giờ server. Ví dụ Europe/Athens mùa đông, D1 mở 22:00 UTC hôm trước. Gateway chỉ đổi sang UTC, không cắt lại.
 - Lô H4/D1 bắt buộc kèm `server_tz` (tên IANA). Backend dùng nó để (1) kiểm `open_time` đúng ranh giới giờ server — sai thì cách ly `MISALIGNED_TIME`; (2) tính `close_time` thật = ranh giới kế tiếp theo giờ server (ngày đổi giờ: 23/25 h hoặc 3/5 h). Giờ ranh giới mơ hồ → lấy lần muộn hơn; không tồn tại → lúc đồng hồ vượt qua. Lý do: không bao giờ coi một nến là đã đóng sớm hơn thực tế (point-in-time).
 - Nếu backend có `GT_BROKER_SERVER_TZ` mà khác `server_tz` của Gateway → từ chối lô H4/D1 (422): hai cấu hình mâu thuẫn thì không đoán.
