@@ -10,7 +10,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | Mã | Câu hỏi | Gợi ý (phải xác minh giấy phép/điều khoản trước khi dùng) | TT |
 | --- | --- | --- | --- |
 | DEC-01 | Nguồn **lịch kinh tế**, đặc biệt **số dự báo (forecast/consensus)** | **Chỉ nguồn chính thức Mỹ**: lịch công bố BLS (CPI, NFP…), BEA (GDP, PCE), Fed (FOMC) + số actual qua API miễn phí của các cơ quan này. **Không có forecast** → `EVT-03`/ING-18 ghi "không đủ dữ liệu" (1C-C07); cửa sổ rủi ro quanh giờ công bố vẫn đầy đủ. Lý do: miễn phí (DEC-06), giấy phép rõ, ổn định. Có thể thêm nhập tay forecast sau | `[x]` 2026-11-07 |
-| DEC-02 | Nguồn **tin tức** | Miễn phí: thông cáo chính thức (Fed, Bộ Tài chính, BLS) qua RSS. Tin tổng hợp thời gian thực (Reuters, Bloomberg…) thường trả phí | `[!]` |
+| DEC-02 | Nguồn **tin tức** | **Chỉ thông cáo chính thức** qua RSS: Fed (tuyên bố, biên bản, phát biểu), Bộ Tài chính Mỹ, BLS. Chưa có tin địa chính trị (biến cố chỉ thấy qua giá/spread). **Yêu cầu người dùng: nguồn tin phải cấu hình được** (danh sách nguồn trong cấu hình, bật/tắt, thêm nguồn mới không cần sửa code; mỗi nguồn ghi giấy phép — ING-32), không gắn cứng một nguồn | `[x]` 2026-11-07 |
 | DEC-03 | Nguồn **DXY** | (a) Symbol chỉ số USD trên MT5 nếu broker có; (b) chỉ số USD rộng hằng ngày từ FRED (khác DXY, cần ghi rõ); (c) nguồn có phí | `[!]` |
 | DEC-04 | Nguồn **kỳ vọng lãi suất Fed** | Công cụ FedWatch không có API miễn phí; thay thế: lợi suất 2 năm (FRED) làm proxy, ghi rõ là proxy | `[!]` |
 | DEC-05 | Nguồn **NHTW mua vàng / dòng tiền ETF** | Dữ liệu NHTW thường theo tháng/quý, trễ lớn; ETF: dữ liệu nắm giữ công bố hằng ngày của quỹ | `[!]` |
@@ -114,7 +114,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
-| ING-10 | Khung nạp tin: khử trùng theo fingerprint, `publishedAt` + `ingestedAt` + URL + nội dung gốc | `[ ]` | |
+| ING-10 | Khung nạp tin: khử trùng theo fingerprint, `publishedAt` + `ingestedAt` + URL + nội dung gốc | `[ ]` | Nguồn tin là **danh sách cấu hình được** (DEC-02): thêm/bật/tắt nguồn RSS không sửa code, mỗi nguồn có ghi chú giấy phép |
 | ING-21 | Nguồn chính thức: tuyên bố/biên bản/phát biểu Fed, Bộ Tài chính, BLS | `[ ]` | |
 | ING-22 | Nguồn tin tổng hợp | `[!]` | ← DEC-02 |
 | ING-23 | Nhận diện ngôn ngữ, thực thể cơ bản (Fed, lạm phát, vàng, USD, địa chính trị) | `[ ]` | |
