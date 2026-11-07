@@ -10,7 +10,7 @@
 - **Giai đoạn hiện tại: GĐ1 — Dữ liệu vào** → [`docs/giai-doan/GD1-du-lieu-vao.md`](docs/giai-doan/GD1-du-lieu-vao.md). Bắt đầu bằng prompt [`docs/prompts/GD1-bat-dau.md`](docs/prompts/GD1-bat-dau.md).
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Bước tiếp: người dùng đồng ý thứ tự làm 1A → 1G rồi mới code.
-- **DEC-17 (2026-11-07):** trang Quản trị đơn giản — một USER một dòng, thêm/sửa/xóa/khóa, USER xin token → ADMIN cấp (migration 0007 bỏ tài khoản trống). Chờ CI e2e + người dùng build lại và kiểm trên máy.
+- **DEC-17 (2026-11-07):** trang Quản trị đơn giản — một USER một dòng, thêm/sửa/xóa/khóa, USER xin token → ADMIN cấp (migration 0007 bỏ tài khoản trống). CI đạt; chờ người dùng build lại và kiểm trên máy.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
 ## Quyết định đã chốt
@@ -47,4 +47,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-07, DEC-17): backend 349 passed, frontend 68 passed, ruff/tsc/eslint sạch, build OK, migration 0007 thử trên PostgreSQL 16. CI `ci_stack.sh`: xem nhật ký GĐ1.
+Kết quả lần cuối (2026-11-07, DEC-17): backend 349 passed, frontend 68 passed, ruff/tsc/eslint sạch, build OK, migration 0007 thử trên PostgreSQL 16. CI `ci_stack.sh` đạt với Keycloak thật (e2e 52/52 + khôi phục 14/14 + không có bí mật trong log).
