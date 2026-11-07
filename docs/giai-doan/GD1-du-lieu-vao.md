@@ -9,7 +9,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 
 | Mã | Câu hỏi | Gợi ý (phải xác minh giấy phép/điều khoản trước khi dùng) | TT |
 | --- | --- | --- | --- |
-| DEC-01 | Nguồn **lịch kinh tế**, đặc biệt **số dự báo (forecast/consensus)** | Lịch + số actual có ở nguồn chính thức miễn phí (BLS, BEA, Fed). Số **dự báo** thường phải trả phí hoặc lấy từ trang web có điều khoản hạn chế. Nếu không có forecast thì `EVT-03` (bất ngờ so với dự báo) phải ghi "không đủ dữ liệu" | `[!]` |
+| DEC-01 | Nguồn **lịch kinh tế**, đặc biệt **số dự báo (forecast/consensus)** | **Chỉ nguồn chính thức Mỹ**: lịch công bố BLS (CPI, NFP…), BEA (GDP, PCE), Fed (FOMC) + số actual qua API miễn phí của các cơ quan này. **Không có forecast** → `EVT-03`/ING-18 ghi "không đủ dữ liệu" (1C-C07); cửa sổ rủi ro quanh giờ công bố vẫn đầy đủ. Lý do: miễn phí (DEC-06), giấy phép rõ, ổn định. Có thể thêm nhập tay forecast sau | `[x]` 2026-11-07 |
 | DEC-02 | Nguồn **tin tức** | Miễn phí: thông cáo chính thức (Fed, Bộ Tài chính, BLS) qua RSS. Tin tổng hợp thời gian thực (Reuters, Bloomberg…) thường trả phí | `[!]` |
 | DEC-03 | Nguồn **DXY** | (a) Symbol chỉ số USD trên MT5 nếu broker có; (b) chỉ số USD rộng hằng ngày từ FRED (khác DXY, cần ghi rõ); (c) nguồn có phí | `[!]` |
 | DEC-04 | Nguồn **kỳ vọng lãi suất Fed** | Công cụ FedWatch không có API miễn phí; thay thế: lợi suất 2 năm (FRED) làm proxy, ghi rõ là proxy | `[!]` |
