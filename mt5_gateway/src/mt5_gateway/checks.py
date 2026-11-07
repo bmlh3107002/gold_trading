@@ -45,6 +45,8 @@ class CheckReport:
     account: Any = None
     symbol_info: Any = None
     offset_now: int | None = None
+    # Khung được phép đồng bộ khi ``run`` (M15 luôn có; H1/H4/D1 chỉ khi bước kiểm tra đạt)
+    timeframes_ok: list[str] = field(default_factory=lambda: ["M15"])
 
     def add(self, name: str, status: str, detail: str, fix: str = "") -> None:
         self.steps.append(Step(name, status, detail, fix))
@@ -259,10 +261,64 @@ def run_checks(
             else:
                 fix = "Không tìm được múi giờ khớp: liên hệ broker để hỏi giờ server"
         rep.add("Chạy thử gửi dữ liệu (không lưu)", FAIL, detail, fix)
+        return rep
+
+    # 7. Khung lớn H1/H4/D1 (ING-14): đọc thẳng từ MT5, chạy thử ở backend. Không đạt thì chỉ
+    # CẢNH BÁO và không đồng bộ khung đó (M15 vẫn chạy).
+    extra = [t for t in cfg.timeframes if t != "M15"]
+    if extra:
+        check_higher_timeframes(cfg, reader, client, rep, extra)
     return rep
 
 
-def dry_run_all(cfg: Config, client: BackendClient, bars: list[Any]) -> dict[str, Any]:
+def check_higher_timeframes(
+    cfg: Config, reader: Mt5Reader, client: BackendClient, rep: CheckReport, tfs: list[str]
+) -> None:
+    good: list[str] = []
+    notes: list[str] = []
+    problems: list[str] = []
+    for tf in tfs:
+        try:
+            bars = reader.closed_bars(cfg.history_bars, tf)
+        except Mt5Error as e:
+            problems.append(f"{tf}: {e}")
+            continue
+        if not bars:
+            problems.append(f"{tf}: MT5 chưa có lịch sử")
+            continue
+        try:
+            r = dry_run_all(cfg, client, bars, timeframe=tf)
+        except BackendError as e:
+            problems.append(f"{tf}: backend từ chối ({e.detail})")
+            continue
+        reasons = r["reasons"] or {}
+        if reasons.get("MISALIGNED_TIME"):
+            # Nến không khớp ranh giới giờ server: múi giờ/dữ liệu sai → không gửi khung này
+            problems.append(f"{tf}: {reasons['MISALIGNED_TIME']} nến lệch ranh giới giờ server")
+            continue
+        good.append(tf)
+        note = f"{tf} {len(bars)} nến"
+        if r["quarantined"]:
+            note += f" (cách ly {r['quarantined']} {reasons})"
+            problems.append(f"{tf}: cách ly {r['quarantined']}")
+        notes.append(note)
+    rep.timeframes_ok = ["M15", *good]
+    detail = "; ".join(notes) if notes else "không khung nào dùng được"
+    if problems:
+        rep.add(
+            "Khung H1/H4/D1",
+            WARN,
+            f"{detail}. Vấn đề: {'; '.join(problems)}",
+            "Mở chart XAUUSD ở khung bị thiếu trong MT5 cho tải lịch sử rồi chạy lại check. "
+            "Khung bị lỗi sẽ không được gửi; M15 vẫn chạy bình thường",
+        )
+    else:
+        rep.add("Khung H1/H4/D1", PASS, detail)
+
+
+def dry_run_all(
+    cfg: Config, client: BackendClient, bars: list[Any], *, timeframe: str = "M15"
+) -> dict[str, Any]:
     """Chạy thử (không lưu) TOÀN BỘ lịch sử theo lô. Lô nào bị từ chối thì ném BackendError.
 
     Kiểm tra cả lịch sử (không chỉ vài tuần gần nhất) để phân biệt múi giờ có giờ mùa hè với
@@ -279,7 +335,13 @@ def dry_run_all(cfg: Config, client: BackendClient, bars: list[Any]) -> dict[str
     for i in range(0, len(bars), DRY_RUN_BARS):
         part = [b.to_json() for b in bars[i : i + DRY_RUN_BARS]]
         r = client.post_candles(
-            symbol=cfg.symbol, bars=part, backfill=True, gateway_id=cfg.gateway_id, dry_run=True
+            symbol=cfg.symbol,
+            bars=part,
+            backfill=True,
+            gateway_id=cfg.gateway_id,
+            dry_run=True,
+            timeframe=timeframe,
+            server_tz=cfg.server_tz,
         )
         for k in ("received", "accepted", "duplicates", "quarantined"):
             total[k] += r[k]

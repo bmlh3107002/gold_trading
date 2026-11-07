@@ -1,4 +1,8 @@
-"""Vòng đồng bộ: nạp bù lịch sử một lần, sau đó gửi nến vừa đóng + nhịp tim. Chỉ đọc MT5."""
+"""Vòng đồng bộ: nạp bù lịch sử một lần, sau đó gửi nến vừa đóng + nhịp tim. Chỉ đọc MT5.
+
+M15 gửi mỗi vòng (như cũ). H1/H4/D1 (ING-14) chỉ gửi khi có nến mới đóng, hoặc định kỳ
+``HIGHER_RESEND_S`` để bắt bản sửa của broker; backend khử trùng nên gửi lại không nhân đôi.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +20,8 @@ from mt5_gateway.reader import Bar, Mt5Error, Mt5Reader
 log = logging.getLogger("mt5_gateway")
 BATCH = 1000
 LIVE_BARS = 20
+LIVE_BARS_HIGHER = 3
+HIGHER_RESEND_S = 60.0
 MAX_BACKOFF_S = 30.0
 
 
@@ -38,22 +44,49 @@ class Syncer:
         self.sleep, self.clock = sleep, clock
         self.last_sent: Bar | None = None
         self.terminal_ok = True
+        self.higher = [t for t in report.timeframes_ok if t != "M15"]
+        self.last_sent_tf: dict[str, Bar] = {}
+        self._next_resend: dict[str, float] = {}
+        self._retry_after: dict[str, float] = {}
+
+    @property
+    def timeframes(self) -> list[str]:
+        return ["M15", *self.higher]
+
+    def _post(self, tf: str, bars: list[Bar], *, backfill: bool) -> Any:
+        return self.client.post_candles(
+            symbol=self.cfg.symbol,
+            bars=[b.to_json() for b in bars],
+            backfill=backfill,
+            gateway_id=self.cfg.gateway_id,
+            timeframe=tf,
+            server_tz=self.cfg.server_tz,
+        )
 
     def backfill(self) -> dict[str, int]:
-        bars = self.reader.closed_bars(self.cfg.history_bars)
+        """Nạp bù M15 rồi các khung lớn. Trả tổng của M15 (giữ như cũ)."""
+        totals = self._backfill_tf("M15")
+        for tf in list(self.higher):
+            try:
+                self._backfill_tf(tf)
+            except (Mt5Error, BackendError) as e:
+                # Không làm hỏng M15. Khung này tắt tới lần chạy sau (không gửi lịch sử dở dang).
+                log.warning("Nạp bù %s lỗi: %s. Tạm không đồng bộ %s; chạy lại run sau.", tf, e, tf)
+                self.higher.remove(tf)
+        return totals
+
+    def _backfill_tf(self, tf: str) -> dict[str, int]:
+        bars = self.reader.closed_bars(self.cfg.history_bars, tf)
         totals = {"accepted": 0, "duplicates": 0, "quarantined": 0}
         for part in chunks(bars, BATCH):
-            r = self.client.post_candles(
-                symbol=self.cfg.symbol,
-                bars=[b.to_json() for b in part],
-                backfill=True,
-                gateway_id=self.cfg.gateway_id,
-            )
+            r = self._post(tf, part, backfill=True)
             for k in totals:
                 totals[k] += r[k]
         if bars:
-            self.last_sent = bars[-1]
-        log.info("Nạp bù lịch sử: %s", totals)
+            self.last_sent_tf[tf] = bars[-1]
+            if tf == "M15":
+                self.last_sent = bars[-1]
+        log.info("Nạp bù lịch sử %s: %s", tf, totals)
         return totals
 
     def heartbeat_payload(self) -> dict[str, Any]:
@@ -89,22 +122,52 @@ class Syncer:
                 "currency_profit": getattr(info, "currency_profit", None),
             },
             "last_sent_bar": self.last_sent.open_time_utc.isoformat() if self.last_sent else None,
+            "timeframes": self.timeframes,
         }
 
     def push_recent(self) -> dict[str, Any] | None:
         bars = self.reader.closed_bars(LIVE_BARS)
-        if not bars:
-            return None
-        r = self.client.post_candles(
-            symbol=self.cfg.symbol,
-            bars=[b.to_json() for b in bars],
-            backfill=False,
-            gateway_id=self.cfg.gateway_id,
-        )
-        if r["accepted"] or r["quarantined"]:
-            log.info("Nến mới: +%d, cách ly %d %s", r["accepted"], r["quarantined"], r["reasons"])
-        self.last_sent = bars[-1]
+        r = None
+        if bars:
+            r = self._post("M15", bars, backfill=False)
+            if r["accepted"] or r["quarantined"]:
+                log.info(
+                    "Nến M15 mới: +%d, cách ly %d %s", r["accepted"], r["quarantined"], r["reasons"]
+                )
+            self.last_sent = bars[-1]
+            self.last_sent_tf["M15"] = bars[-1]
+        for tf in self.higher:
+            try:
+                self._push_higher(tf)
+            except (Mt5Error, BackendError) as e:
+                # Lỗi riêng một khung lớn không được làm ngừng M15; thử lại ở lần định kỳ sau.
+                log.warning("Gửi nến %s lỗi: %s", tf, e)
+                self._retry_after[tf] = self.clock() + HIGHER_RESEND_S
         return r
+
+    def _push_higher(self, tf: str) -> None:
+        now = self.clock()
+        if now < self._retry_after.get(tf, 0.0):
+            return
+        bars = self.reader.closed_bars(LIVE_BARS_HIGHER, tf)
+        if not bars:
+            return
+        prev = self.last_sent_tf.get(tf)
+        is_new = prev is None or bars[-1].open_time_utc != prev.open_time_utc
+        if not is_new and now < self._next_resend.get(tf, 0.0):
+            return
+        r = self._post(tf, bars, backfill=False)
+        if r["accepted"] or r["quarantined"] or r.get("revised"):
+            log.info(
+                "Nến %s: +%d, sửa %d, cách ly %d %s",
+                tf,
+                r["accepted"],
+                r.get("revised", 0),
+                r["quarantined"],
+                r["reasons"],
+            )
+        self.last_sent_tf[tf] = bars[-1]
+        self._next_resend[tf] = now + HIGHER_RESEND_S
 
     def run_forever(self, stop: Callable[[], bool] = lambda: False) -> None:
         backoff = 1.0

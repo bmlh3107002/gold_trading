@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     syncer = Syncer(cfg, rep.reader, client, rep)
     try:
         syncer.backfill()
-        print("Đang đồng bộ nến M15 (chỉ đọc). Nhấn Ctrl+C để dừng.")
+        print(f"Đang đồng bộ nến {', '.join(syncer.timeframes)} (chỉ đọc). Nhấn Ctrl+C để dừng.")
         syncer.run_forever()
     except KeyboardInterrupt:
         print("Đã dừng.")

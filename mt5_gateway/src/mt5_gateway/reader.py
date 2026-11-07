@@ -29,6 +29,7 @@ READ_ONLY_FUNCTIONS = frozenset(
 )
 
 ACCOUNT_TYPES = {0: "DEMO", 1: "CONTEST", 2: "REAL"}
+TIMEFRAMES = ("M15", "H1", "H4", "D1")
 
 
 class Mt5Error(RuntimeError):
@@ -147,11 +148,18 @@ class Mt5Reader:
         tick = self.mt5.symbol_info_tick(self.symbol)
         return server_epoch_to_utc(tick.time, self.tz) if tick is not None else None
 
-    def closed_bars(self, count: int) -> list[Bar]:
-        """Nến M15 ĐÃ ĐÓNG gần nhất. Vị trí 0 là nến đang chạy nên bắt đầu từ vị trí 1."""
-        rates = self.mt5.copy_rates_from_pos(self.symbol, self.mt5.TIMEFRAME_M15, 1, count)
+    def closed_bars(self, count: int, timeframe: str = "M15") -> list[Bar]:
+        """Nến ĐÃ ĐÓNG gần nhất của ``timeframe`` (M15/H1/H4/D1), đọc thẳng từ MT5.
+
+        Vị trí 0 là nến đang chạy nên bắt đầu từ vị trí 1. ``open_time`` của H4/D1 là ranh giới
+        theo giờ server broker (ví dụ D1 = 00:00 giờ server), chỉ đổi sang UTC, không cắt lại.
+        """
+        if timeframe not in TIMEFRAMES:
+            raise ValueError(f"Khung không hỗ trợ: {timeframe}")
+        tf_const = getattr(self.mt5, f"TIMEFRAME_{timeframe}")
+        rates = self.mt5.copy_rates_from_pos(self.symbol, tf_const, 1, count)
         if rates is None:
-            raise self._err("Đọc nến (copy_rates_from_pos)")
+            raise self._err(f"Đọc nến {timeframe} (copy_rates_from_pos)")
         out: list[Bar] = []
         for r in rates:
             t = server_epoch_to_utc(int(r["time"]), self.tz)

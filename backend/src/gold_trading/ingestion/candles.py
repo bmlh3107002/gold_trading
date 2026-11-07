@@ -5,6 +5,9 @@ Mọi nguồn đưa vào ``RawBar`` → ``CandleIngestor.ingest`` sẽ:
 2. Khử trùng: cùng khóa + cùng giá trị → bỏ qua (idempotent).
 3. Cùng khóa nhưng giá trị khác → revision mới (không ghi đè), available_at = lúc nhận.
 4. Gắn cờ chất lượng: GAP_BEFORE, PRICE_JUMP, ZERO_RANGE (chỉ cờ, không sửa dữ liệu).
+
+Khung H4/D1 (ING-14, 1A-C19) căn theo giờ server broker: bắt buộc truyền ``server_tz`` để kiểm
+tra căn khung và tính ``close_time`` thật (ngày đổi DST dài 23/25 giờ). Không tự tổng hợp từ M15.
 """
 
 from __future__ import annotations
@@ -12,11 +15,12 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from gold_trading.contracts.candle import Candle, CandleFlag, DataSource
-from gold_trading.market.hours import bar_in_session
+from gold_trading.market.hours import bar_in_session, is_open
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import CandleStore, QuarantineEntry
 
@@ -73,9 +77,13 @@ class CandleIngestor:
         ingested_at: datetime,
         backfill: bool,
         rejected: Iterable[tuple[str, dict[str, Any]]] = (),
+        server_tz: ZoneInfo | None = None,
     ) -> IngestResult:
         """``backfill=True``: dữ liệu lịch sử, available_at = close_time (cờ BACKFILL).
-        ``backfill=False``: dữ liệu realtime, available_at = ingested_at."""
+        ``backfill=False``: dữ liệu realtime, available_at = ingested_at.
+        ``server_tz``: múi giờ server broker, BẮT BUỘC với H4/D1."""
+        if timeframe.server_aligned and server_tz is None:
+            raise ValueError(f"Khung {timeframe} cần múi giờ server broker (server_tz)")
         result = IngestResult()
         quarantine: list[QuarantineEntry] = []
         # Dòng đã bị nguồn từ chối (ví dụ không đọc được thời gian) vẫn phải được ghi lại.
@@ -126,7 +134,7 @@ class CandleIngestor:
         accepted: list[Candle] = []
 
         for bar in ordered:
-            reason = self._check(bar, timeframe, ingested_at)
+            reason = self._check(bar, timeframe, ingested_at, server_tz)
             if reason:
                 result._reject(reason)
                 quarantine.append(
@@ -149,7 +157,7 @@ class CandleIngestor:
 
             flags: set[CandleFlag] = set()
             revision = 0
-            close_time = bar.open_time + timeframe.delta
+            close_time = timeframe.close_time(bar.open_time, server_tz)
             available_at = ingested_at
             if current is not None:
                 revision = current.revision + 1
@@ -161,8 +169,8 @@ class CandleIngestor:
             if bar.high == bar.low:
                 flags.add(CandleFlag.ZERO_RANGE)
             if prev is not None:
-                if prev.open_time + timeframe.delta < bar.open_time and _gap_in_session(
-                    prev.close_time, bar.open_time, timeframe
+                if prev.close_time < bar.open_time and _gap_in_session(
+                    prev.close_time, bar.open_time, timeframe, server_tz
                 ):
                     flags.add(CandleFlag.GAP_BEFORE)
                 if abs(bar.open / prev.close - 1) > PRICE_JUMP_THRESHOLD:
@@ -195,7 +203,9 @@ class CandleIngestor:
         return result
 
     @staticmethod
-    def _check(bar: RawBar, tf: Timeframe, ingested_at: datetime) -> str | None:
+    def _check(
+        bar: RawBar, tf: Timeframe, ingested_at: datetime, server_tz: ZoneInfo | None = None
+    ) -> str | None:
         if bar.open_time.tzinfo is None:
             return "NAIVE_TIME"
         if not _finite(bar.open, bar.high, bar.low, bar.close):
@@ -204,22 +214,46 @@ class CandleIngestor:
             return "NON_POSITIVE_PRICE"
         if bar.tick_volume < 0 or (bar.spread_points is not None and bar.spread_points < 0):
             return "NEGATIVE_VOLUME"
-        if not tf.is_aligned(bar.open_time):
+        if not tf.is_aligned_in(bar.open_time, server_tz):
             return "MISALIGNED_TIME"
         if bar.high < max(bar.open, bar.close) or bar.low > min(bar.open, bar.close):
             return "INVALID_OHLC"
-        if bar.open_time + tf.delta > ingested_at:
+        if tf.close_time(bar.open_time, server_tz) > ingested_at:
             return "BAR_NOT_CLOSED"
         return None
 
 
-def _gap_in_session(after: datetime, before: datetime, tf: Timeframe) -> bool:
-    """Có nến nào trong giờ mở cửa bị thiếu giữa ``after`` và ``before`` không."""
+_GAP_SCAN_LIMIT = 10_000
+
+
+def _gap_in_session(
+    after: datetime, before: datetime, tf: Timeframe, server_tz: ZoneInfo | None = None
+) -> bool:
+    """Có nến nào "lẽ ra phải có" bị thiếu giữa ``after`` và ``before`` không.
+
+    M1–H1: nến nằm trọn trong giờ mở cửa. H4/D1: nến dài, thường vắt qua giờ nghỉ hằng ngày nên
+    chỉ cần thị trường mở ở BẤT KỲ lúc nào trong nến (MT5 tạo nến khi có tick)."""
     t = after
-    while t < before:
-        if bar_in_session(t, t + tf.delta):
+    for _ in range(_GAP_SCAN_LIMIT):
+        if t >= before:
+            return False
+        end = tf.close_time(t, server_tz) if tf.server_aligned else t + tf.delta
+        if tf.server_aligned:
+            if _any_open(t, end):
+                return True
+        elif bar_in_session(t, end):
             return True
-        t += tf.delta
+        t = end
+    return True  # khoảng quá dài: coi là có thiếu (an toàn)
+
+
+def _any_open(start: datetime, end: datetime) -> bool:
+    step = timedelta(minutes=15)
+    t = start
+    while t < end:
+        if is_open(t):
+            return True
+        t += step
     return False
 
 

@@ -10,11 +10,19 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
+# Hằng số giống thư viện MetaTrader5 thật
 TIMEFRAME_M15 = 15
+TIMEFRAME_H1 = 16385
+TIMEFRAME_H4 = 16388
+TIMEFRAME_D1 = 16408
+_TF_SECONDS = {TIMEFRAME_H1: 3600, TIMEFRAME_H4: 14400, TIMEFRAME_D1: 86400}
 
 
 class FakeMt5:
     TIMEFRAME_M15 = TIMEFRAME_M15
+    TIMEFRAME_H1 = TIMEFRAME_H1
+    TIMEFRAME_H4 = TIMEFRAME_H4
+    TIMEFRAME_D1 = TIMEFRAME_D1
 
     def __init__(
         self,
@@ -26,7 +34,9 @@ class FakeMt5:
         connected=True,
         init_ok=True,
         live_ticks=True,
+        missing_tfs=(),
     ):
+        self.missing_tfs = set(missing_tfs)
         self.now = now_utc
         self.tz = ZoneInfo(server_tz)
         self.trade_mode = trade_mode
@@ -91,15 +101,12 @@ class FakeMt5:
         t = self._server_epoch(self.now)
         return SimpleNamespace(time=t, time_msc=t * 1000 + self._msc, bid=2400.0, ask=2400.2)
 
-    def copy_rates_from_pos(self, name, tf, start, count):
-        if name != self.symbol or tf != TIMEFRAME_M15:
-            return None
+    def _rows(self, tf):
+        """Nến theo giờ server (``time`` = epoch giờ server). H1/H4/D1 gom từ M15 theo RANH GIỚI
+        GIỜ SERVER (như MT5 thật: D1 bắt đầu 00:00 giờ server, H4 lúc 00/04/…/20)."""
         from tests.gold_trading_sample import bars_until
 
-        rows = bars_until(self.now)  # gồm cả nến đang chạy ở cuối
-        end = len(rows) - start
-        sel = rows[max(0, end - count) : end]
-        return [
+        m15 = [
             {
                 "time": self._server_epoch(b["open_time"]),
                 "open": b["open"],
@@ -110,8 +117,32 @@ class FakeMt5:
                 "spread": 20,
                 "real_volume": 0,
             }
-            for b in sel
+            for b in bars_until(self.now)  # gồm cả nến đang chạy ở cuối
         ]
+        if tf == TIMEFRAME_M15:
+            return m15
+        width = _TF_SECONDS[tf]
+        out: list[dict] = []
+        for r in m15:
+            start = r["time"] - r["time"] % width
+            if out and out[-1]["time"] == start:
+                g = out[-1]
+                g["high"] = max(g["high"], r["high"])
+                g["low"] = min(g["low"], r["low"])
+                g["close"] = r["close"]
+                g["tick_volume"] += r["tick_volume"]
+            else:
+                out.append(dict(r, time=start))
+        return out
+
+    def copy_rates_from_pos(self, name, tf, start, count):
+        if name != self.symbol or tf in self.missing_tfs:
+            return None
+        if tf != TIMEFRAME_M15 and tf not in _TF_SECONDS:
+            return None
+        rows = self._rows(tf)
+        end = len(rows) - start
+        return rows[max(0, end - count) : end]
 
     # --- hàm GIAO DỊCH: không bao giờ được gọi ---
     def order_send(self, request):

@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 MIN_TOKEN_LEN = 24
+# ING-14: khung được đồng bộ. M15 bắt buộc (R1 kiểm múi giờ trên M15); H1/H4/D1 đọc thẳng từ MT5,
+# không tự ghép từ M15 (nến H4/D1 căn theo giờ server broker).
+SUPPORTED_TIMEFRAMES = ("M15", "H1", "H4", "D1")
+DEFAULT_TIMEFRAMES = "M15,H1,H4,D1"
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,7 @@ class Config:
     poll_seconds: float
     heartbeat_seconds: float
     gateway_id: str
+    timeframes: tuple[str, ...] = ("M15",)
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -35,6 +40,19 @@ def read_env_file(path: Path) -> dict[str, str]:
         k, v = line.split("=", 1)
         out[k.strip()] = v.strip().strip('"').strip("'")
     return out
+
+
+def parse_timeframes(raw: str) -> tuple[str, ...]:
+    """``"M15,H1,H4,D1"`` → tuple theo thứ tự chuẩn. Sai tên thì báo lỗi, không đoán."""
+    names = {x.strip().upper() for x in raw.split(",") if x.strip()}
+    bad = names - set(SUPPORTED_TIMEFRAMES)
+    if bad:
+        raise ValueError(
+            f"GT_TIMEFRAMES có khung không hỗ trợ: {', '.join(sorted(bad))} "
+            f"(chỉ dùng {', '.join(SUPPORTED_TIMEFRAMES)})"
+        )
+    names.add("M15")
+    return tuple(t for t in SUPPORTED_TIMEFRAMES if t in names)
 
 
 def load(env_file: Path = Path("gateway.env")) -> Config:
@@ -54,4 +72,5 @@ def load(env_file: Path = Path("gateway.env")) -> Config:
         poll_seconds=float(get("GT_POLL_SECONDS", "5")),
         heartbeat_seconds=float(get("GT_HEARTBEAT_SECONDS", "10")),
         gateway_id=get("GT_GATEWAY_ID", socket.gethostname()[:64] or "gateway"),
+        timeframes=parse_timeframes(get("GT_TIMEFRAMES", DEFAULT_TIMEFRAMES)),
     )

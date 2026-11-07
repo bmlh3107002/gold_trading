@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -25,6 +26,7 @@ from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar
 from gold_trading.ingestion.sources.csv_file import SESSION_MISMATCH_MAX, check_sessions
 from gold_trading.market.service import MarketDataService
+from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import Repository
 from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
@@ -50,7 +52,10 @@ class CandleBatch(BaseModel):
     # Không bắt buộc. Nếu gửi thì phải đúng tài khoản của token (MT-C02).
     account_id: str | None = Field(default=None, max_length=64)
     symbol: str
-    timeframe: Literal["M15"]
+    # ING-14: khung Gateway được gửi. H4/D1 căn theo giờ server broker → bắt buộc kèm server_tz.
+    timeframe: Literal["M15", "H1", "H4", "D1"]
+    # Múi giờ server broker (IANA), cùng giá trị Gateway dùng để đổi giờ. Bắt buộc với H4/D1.
+    server_tz: str | None = Field(default=None, max_length=64)
     backfill: bool
     gateway_id: str = Field(min_length=1, max_length=64)
     bars: list[BarIn] = Field(max_length=MAX_BARS)
@@ -93,6 +98,7 @@ class Heartbeat(BaseModel):
     last_tick_time: UtcDatetime | None = None
     symbol: SymbolSpec | None = None
     last_sent_bar: UtcDatetime | None = None
+    timeframes: list[Literal["M15", "H1", "H4", "D1"]] = Field(default_factory=list, max_length=4)
 
 
 class GatewayStatus(BaseModel):
@@ -201,6 +207,26 @@ def ingest_router(
             raise HTTPException(503, reason)
         if batch.symbol != market.symbol:
             raise HTTPException(422, f"Symbol phải là {market.symbol}")
+        tf = Timeframe(batch.timeframe)
+        server_tz: ZoneInfo | None = None
+        if batch.server_tz is not None:
+            try:
+                server_tz = ZoneInfo(batch.server_tz)
+            except (ZoneInfoNotFoundError, ValueError):
+                raise HTTPException(
+                    422, f"server_tz không hợp lệ: {batch.server_tz!r} (cần tên IANA)"
+                ) from None
+        if tf.server_aligned and server_tz is None:
+            # 1A-C19: không đoán ranh giới nến H4/D1 theo UTC.
+            raise HTTPException(422, f"Khung {tf} cần server_tz (múi giờ server broker)")
+        broker = market.calendar.broker
+        if tf.server_aligned and broker is not None and broker.tz.key != server_tz.key:
+            # Hai cấu hình múi giờ server khác nhau → không biết ranh giới nào đúng: từ chối.
+            raise HTTPException(
+                422,
+                f"server_tz của Gateway ({server_tz.key}) khác GT_BROKER_SERVER_TZ của backend "
+                f"({broker.tz.key}): sửa cho giống nhau",
+            )
         bars = [
             RawBar(
                 open_time=b.open_time,
@@ -213,12 +239,16 @@ def ingest_router(
             )
             for b in batch.bars
         ]
-        chk = check_sessions(bars, 15)
-        extra: dict[str, Any] = {
-            "session_outside_fraction": round(chk.outside_fraction, 4),
-            "session_best_shift_hours": chk.best_shift_hours,
-        }
-        if batch.backfill and not chk.ok:
+        extra: dict[str, Any] = {}
+        # R1 (kiểm tra múi giờ) chỉ có nghĩa với nến ngắn nằm trọn trong phiên (M15, H1). Nến
+        # H4/D1 vắt qua giờ nghỉ; múi giờ đã được R1 kiểm trên M15/H1 của cùng Gateway.
+        chk = None if tf.server_aligned else check_sessions(bars, tf.minutes)
+        if chk is not None:
+            extra = {
+                "session_outside_fraction": round(chk.outside_fraction, 4),
+                "session_best_shift_hours": chk.best_shift_hours,
+            }
+        if chk is not None and batch.backfill and not chk.ok:
             raise HTTPException(
                 422,
                 f"Từ chối: {chk.outside_fraction:.1%} số nến rơi vào giờ đóng cửa (tối đa "
@@ -233,10 +263,11 @@ def ingest_router(
             res = target.ingest(
                 bars,
                 symbol=batch.symbol,
-                timeframe=market.timeframe,
+                timeframe=tf,
                 source=DataSource.MT5,
                 ingested_at=utcnow(),
                 backfill=batch.backfill,
+                server_tz=server_tz,
             )
         except SQLAlchemyError as e:
             # 0-C05: ổ đầy / DB lỗi. Cả lô nằm trong một transaction nên không ghi dở;

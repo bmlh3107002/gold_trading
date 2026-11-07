@@ -49,10 +49,21 @@ class FakeBackend:
             raise BackendError(None, "Không kết nối được backend")
         return {"status": "ok", "storage": "postgres"}
 
-    def post_candles(self, *, symbol, bars, backfill, gateway_id, dry_run=False):
+    def post_candles(
+        self, *, symbol, bars, backfill, gateway_id, dry_run=False, timeframe="M15", server_tz=None
+    ):
         if dry_run and self.dry_status:
             raise BackendError(self.dry_status, "lỗi")
-        self.posts.append(dict(symbol=symbol, bars=bars, backfill=backfill, dry_run=dry_run))
+        self.posts.append(
+            dict(
+                symbol=symbol,
+                bars=bars,
+                backfill=backfill,
+                dry_run=dry_run,
+                timeframe=timeframe,
+                server_tz=server_tz,
+            )
+        )
         return {
             "received": len(bars),
             "accepted": len(bars),
@@ -270,7 +281,7 @@ def test_sync_backs_off_on_backend_error():
 class SessionCheckingBackend(FakeBackend):
     """Giả lập R1 của backend: từ chối nếu có nến rơi vào giờ đóng cửa (theo giờ New York)."""
 
-    def post_candles(self, *, symbol, bars, backfill, gateway_id, dry_run=False):
+    def post_candles(self, *, symbol, bars, backfill, gateway_id, dry_run=False, **kw):
         from tests.gold_trading_sample import _open
 
         outside = sum(not _open(datetime.fromisoformat(b["open_time"])) for b in bars) / len(bars)
@@ -295,3 +306,169 @@ def test_wrong_timezone_suggests_iana_name_not_fixed_offset():
     assert step.status == checks.FAIL
     assert step.fix.startswith("Đặt GT_SERVER_TZ=Europe/Athens")
     assert "Etc/GMT-2" not in step.fix and "Etc/GMT-3" not in step.fix  # độ lệch cố định đều sai
+
+
+# ---- ING-14 / 1A-C19: khung H1, H4, D1 ----
+
+ALL_TF = ("M15", "H1", "H4", "D1")
+
+
+def test_parse_timeframes():
+    from mt5_gateway.config import parse_timeframes
+
+    assert parse_timeframes("d1, h4,M15,H1") == ALL_TF
+    assert parse_timeframes("H4") == ("M15", "H4")  # M15 luôn có
+    with pytest.raises(ValueError, match="W1"):
+        parse_timeframes("M15,W1")
+
+
+def test_config_default_syncs_all_timeframes(tmp_path, monkeypatch):
+    from mt5_gateway import config
+
+    monkeypatch.delenv("GT_TIMEFRAMES", raising=False)
+    assert config.load(tmp_path / "none.env").timeframes == ALL_TF
+
+
+def test_d1_h4_bars_keep_server_boundaries_and_skip_forming_bar():
+    r = Mt5Reader(FakeMt5(now_utc=NOW_WINTER), broker_symbol="XAUUSD", server_tz=ATHENS)
+    d1 = r.closed_bars(10, "D1")
+    # 00:00 giờ Athens mùa đông = 22:00 UTC; nến của hôm nay (14/01, đang chạy) không có
+    assert all(b.open_time_utc.astimezone(ATHENS).hour == 0 for b in d1)
+    assert all(b.open_time_utc.hour == 22 for b in d1)
+    assert d1[-1].open_time_utc == datetime(2026, 1, 12, 22, tzinfo=UTC)
+    h4 = r.closed_bars(50, "H4")
+    assert all(b.open_time_utc.astimezone(ATHENS).hour % 4 == 0 for b in h4)
+    assert h4[-1].open_time_utc + timedelta(hours=4) <= NOW_WINTER
+    h1 = r.closed_bars(5, "H1")
+    assert h1[-1].open_time_utc == datetime(2026, 1, 14, 9, tzinfo=UTC)
+    with pytest.raises(ValueError):
+        r.closed_bars(5, "W1")
+
+
+def test_d1_summer_server_midnight_is_21_utc():
+    r = Mt5Reader(FakeMt5(now_utc=NOW_SUMMER), broker_symbol="XAUUSD", server_tz=ATHENS)
+    assert {b.open_time_utc.hour for b in r.closed_bars(20, "D1")} == {21}
+
+
+def test_check_higher_timeframes_pass_and_send_server_tz():
+    be = FakeBackend()
+    rep = checks.run_checks(
+        cfg(timeframes=ALL_TF),
+        FakeMt5(now_utc=NOW_WINTER),
+        be,
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    step = next(s for s in rep.steps if s.name == "Khung H1/H4/D1")
+    assert step.status == checks.PASS and rep.ok
+    assert rep.timeframes_ok == list(ALL_TF)
+    d1 = [p for p in be.posts if p["timeframe"] == "D1"]
+    assert d1 and all(p["dry_run"] and p["server_tz"] == "Europe/Athens" for p in d1)
+
+
+def test_check_missing_timeframe_warns_and_excludes_it():
+    fake = FakeMt5(now_utc=NOW_WINTER, missing_tfs={FakeMt5.TIMEFRAME_D1})
+    rep = checks.run_checks(
+        cfg(timeframes=ALL_TF), fake, FakeBackend(), now=lambda: NOW_WINTER, tick_wait_s=1
+    )
+    step = next(s for s in rep.steps if s.name == "Khung H1/H4/D1")
+    assert step.status == checks.WARN and "D1" in step.detail
+    assert rep.ok and rep.timeframes_ok == ["M15", "H1", "H4"]
+
+
+class RejectingBackend(FakeBackend):
+    """Backend từ chối một khung (ví dụ backend cũ) hoặc cách ly vì lệch ranh giới."""
+
+    def __init__(self, reject_tf=None, misaligned_tf=None, live_fail_tf=None):
+        super().__init__()
+        self.reject_tf, self.misaligned_tf, self.live_fail_tf = (
+            reject_tf,
+            misaligned_tf,
+            live_fail_tf,
+        )
+
+    def post_candles(self, **kw):
+        tf = kw.get("timeframe", "M15")
+        if tf == self.reject_tf:
+            raise BackendError(422, "Input should be 'M15'")
+        if tf == self.live_fail_tf and not kw.get("dry_run"):
+            raise BackendError(503, "lỗi tạm thời")
+        r = super().post_candles(**kw)
+        if tf == self.misaligned_tf:
+            n = len(kw["bars"])
+            r |= {"accepted": 0, "quarantined": n, "reasons": {"MISALIGNED_TIME": n}}
+        return r
+
+
+@pytest.mark.parametrize("kw", [{"reject_tf": "H4"}, {"misaligned_tf": "H4"}])
+def test_check_backend_problem_excludes_timeframe(kw):
+    rep = checks.run_checks(
+        cfg(timeframes=ALL_TF),
+        FakeMt5(now_utc=NOW_WINTER),
+        RejectingBackend(**kw),
+        now=lambda: NOW_WINTER,
+        tick_wait_s=1,
+    )
+    assert rep.ok and rep.timeframes_ok == ["M15", "H1", "D1"]
+    assert next(s for s in rep.steps if s.name == "Khung H1/H4/D1").status == checks.WARN
+
+
+def test_sync_higher_timeframes_backfill_then_only_on_new_bar_or_resend():
+    fake, be = FakeMt5(now_utc=NOW_WINTER), FakeBackend()
+    c = cfg(timeframes=ALL_TF)
+    rep = checks.run_checks(c, fake, be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    be.posts.clear()
+    t = [0.0]
+    s = Syncer(c, rep.reader, be, rep, sleep=lambda _: None, clock=lambda: t[0])
+    s.backfill()
+    by_tf = {tf: [p for p in be.posts if p["timeframe"] == tf] for tf in ALL_TF}
+    assert all(by_tf[tf] and all(p["backfill"] for p in by_tf[tf]) for tf in ALL_TF)
+    assert all(p["server_tz"] == "Europe/Athens" for p in be.posts)
+    be.posts.clear()
+    s.push_recent()  # lần đầu: gửi lại 3 nến mỗi khung lớn (bắt bản sửa)
+    assert sorted(p["timeframe"] for p in be.posts) == sorted(ALL_TF)
+    assert all(len(p["bars"]) == 3 for p in be.posts if p["timeframe"] != "M15")
+    be.posts.clear()
+    t[0] = 30.0
+    s.push_recent()  # chưa có nến mới, chưa tới hạn gửi lại → chỉ M15
+    assert [p["timeframe"] for p in be.posts] == ["M15"]
+    be.posts.clear()
+    fake.now = NOW_WINTER + timedelta(hours=1)  # có nến H1 mới đóng
+    s.push_recent()
+    assert sorted(p["timeframe"] for p in be.posts) == ["H1", "M15"]
+    be.posts.clear()
+    t[0] = 91.0
+    s.push_recent()  # tới hạn gửi lại định kỳ
+    assert sorted(p["timeframe"] for p in be.posts) == sorted(ALL_TF)
+    assert s.heartbeat_payload()["timeframes"] == list(ALL_TF)
+    assert fake.order_send_called is False
+
+
+def test_higher_timeframe_error_does_not_stop_m15():
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    c = cfg(timeframes=ALL_TF)
+    be = RejectingBackend(live_fail_tf="H4")
+    rep = checks.run_checks(c, fake, be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    assert rep.timeframes_ok == list(ALL_TF)
+    s = Syncer(c, rep.reader, be, rep, sleep=lambda _: None, clock=lambda: 0.0)
+    s.backfill()  # H4 lỗi khi nạp bù → tắt H4, các khung khác vẫn chạy
+    assert s.timeframes == ["M15", "H1", "D1"]
+    be.posts.clear()
+    loops = iter([False, True])
+    s.run_forever(stop=lambda: next(loops))
+    assert s.terminal_ok and "M15" in [p["timeframe"] for p in be.posts]
+    assert "H4" not in [p["timeframe"] for p in be.posts]
+
+
+def test_mt5_read_error_on_higher_timeframe_live_is_isolated():
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    c = cfg(timeframes=ALL_TF)
+    be = FakeBackend()
+    rep = checks.run_checks(c, fake, be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    s = Syncer(c, rep.reader, be, rep, sleep=lambda _: None, clock=lambda: 0.0)
+    s.backfill()
+    fake.missing_tfs = {FakeMt5.TIMEFRAME_D1}  # MT5 không trả D1 nữa
+    be.posts.clear()
+    s.push_recent()
+    sent = [p["timeframe"] for p in be.posts]
+    assert "M15" in sent and "D1" not in sent and s.terminal_ok

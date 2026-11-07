@@ -84,7 +84,8 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
   - Trùng thời điểm trong **cùng một batch** mà giá khác nhau: cách ly tất cả (`CONFLICTING_DUPLICATE`), không tạo revision giả. Giống hệt nhau thì giữ một.
   - Độ mới dữ liệu (`MarketDataService._freshness`): so nến mới nhất với **nến lẽ ra đã đóng gần nhất trong giờ mở cửa** (`expected_last_close`, cho trễ `FRESHNESS_GRACE` = 2 phút). Nhờ vậy không báo nhầm lúc mở cửa đầu tuần, và vẫn báo `STALE` vào cuối tuần nếu nguồn đã chết từ trước khi đóng cửa.
   - R1: CLI nạp CSV **từ chối cả file** nếu > 1% nến (khi có ≥ 200 nến) rơi vào giờ đóng cửa, và gợi ý độ lệch giờ khớp nhất (`csv_file.check_sessions`). Không có cờ bỏ qua.
-  - CLI chỉ cho khung M1–H1. H4 trở lên được broker căn theo giờ server, chưa hỗ trợ.
+  - CLI chỉ cho khung M1–H1. H4/D1 chỉ nhận qua Gateway (cần múi giờ server).
+  - **Khung H4/D1 (ING-14):** `Timeframe.server_aligned`. Ranh giới theo **đồng hồ server broker**, không theo UTC: dùng `tf.is_aligned_in(t, tz)` và `tf.close_time(open, tz)`, **không** dùng `open + tf.delta` (ngày đổi giờ dài 23/25 h). `tf.floor()` báo lỗi với H4/D1. `CandleIngestor.ingest(..., server_tz=)` bắt buộc với H4/D1. Không tổng hợp H4/D1 từ M15.
   - CSV từ MT5 dùng giờ server broker. **Bắt buộc `--server-tz`**; giờ mơ hồ do đổi DST bị cách ly, không đoán.
   - Dữ liệu mẫu: tất định theo seed (`20260101`) và giá khởi đầu 2400. `ModeManager(guard=...)` chặn SHADOW/LIVE khi `GT_DATA_SOURCE=SAMPLE`; mode đã lưu là SHADOW/LIVE sẽ về PAPER khi khởi động (ghi audit).
   - Frontend test mock `lightweight-charts`, vì jsdom không có canvas (`src/pages/MarketPage.test.tsx`).

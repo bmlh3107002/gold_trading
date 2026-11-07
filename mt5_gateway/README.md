@@ -96,9 +96,11 @@ Lần đầu sẽ mất 1–2 phút để tải Python và thư viện. Kết qu
 [  ĐẠT   ] 7. Lịch sử nến M15: ... nến đã đóng ...
 [  ĐẠT   ] 8. Backend: http://localhost:8080 · lưu trữ postgres
 [  ĐẠT   ] 9. Chạy thử gửi dữ liệu (không lưu): ...
+[  ĐẠT   ] 10. Khung H1/H4/D1: H1 ... nến; H4 ... nến; D1 ... nến
 KẾT QUẢ: SẴN SÀNG. Chạy: mt5-gateway run
 ```
 
+- Dòng 10 hiện **CẢNH BÁO** nếu MT5 chưa có lịch sử khung đó: mở chart XAUUSD ở khung H1, H4, D1 (mỗi khung một lần) rồi chạy lại `check`. Khung bị cảnh báo sẽ không được gửi; M15 vẫn chạy.
 - Dòng 6 hiện **CẢNH BÁO** khi thị trường đóng cửa (cuối tuần) là bình thường; dòng 9 vẫn kiểm tra múi giờ bằng lịch sử. Tốt nhất nên chạy khi thị trường mở.
 - Nếu có dòng **LỖI**, xem gợi ý "→ Cách xử lý" ngay bên dưới dòng đó. **Hãy copy toàn bộ kết quả gửi lại để được hỗ trợ.**
 

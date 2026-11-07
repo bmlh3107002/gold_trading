@@ -700,9 +700,11 @@ export interface components {
             symbol: string;
             /**
              * Timeframe
-             * @constant
+             * @enum {string}
              */
-            timeframe: "M15";
+            timeframe: "M15" | "H1" | "H4" | "D1";
+            /** Server Tz */
+            server_tz?: string | null;
             /** Backfill */
             backfill: boolean;
             /** Gateway Id */
@@ -943,6 +945,8 @@ export interface components {
             symbol?: components["schemas"]["SymbolSpec"] | null;
             /** Last Sent Bar */
             last_sent_bar?: string | null;
+            /** Timeframes */
+            timeframes?: ("M15" | "H1" | "H4" | "D1")[];
         };
         /** IngestReport */
         IngestReport: {
@@ -1267,7 +1271,7 @@ export interface components {
          * Timeframe
          * @enum {string}
          */
-        Timeframe: "M1" | "M5" | "M15" | "M30" | "H1" | "H4";
+        Timeframe: "M1" | "M5" | "M15" | "M30" | "H1" | "H4" | "D1";
         /**
          * TradingMode
          * @enum {string}

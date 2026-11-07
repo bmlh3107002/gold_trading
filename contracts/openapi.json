@@ -1732,8 +1732,25 @@
           },
           "timeframe": {
             "type": "string",
-            "const": "M15",
+            "enum": [
+              "M15",
+              "H1",
+              "H4",
+              "D1"
+            ],
             "title": "Timeframe"
+          },
+          "server_tz": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Tz"
           },
           "backfill": {
             "type": "boolean",
@@ -2426,6 +2443,20 @@
               }
             ],
             "title": "Last Sent Bar"
+          },
+          "timeframes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "M15",
+                "H1",
+                "H4",
+                "D1"
+              ]
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Timeframes"
           }
         },
         "type": "object",
@@ -3201,7 +3232,8 @@
           "M15",
           "M30",
           "H1",
-          "H4"
+          "H4",
+          "D1"
         ],
         "title": "Timeframe"
       },

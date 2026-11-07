@@ -50,19 +50,20 @@ class BackendClient:
         backfill: bool,
         gateway_id: str,
         dry_run: bool = False,
+        timeframe: str = "M15",
+        server_tz: str | None = None,
     ) -> Any:
         q = "?dry_run=true" if dry_run else ""
-        return self._call(
-            "POST",
-            f"/api/ingest/mt5/candles{q}",
-            {
-                "symbol": symbol,
-                "timeframe": "M15",
-                "backfill": backfill,
-                "gateway_id": gateway_id,
-                "bars": bars,
-            },
-        )
+        body: dict[str, Any] = {
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "backfill": backfill,
+            "gateway_id": gateway_id,
+            "bars": bars,
+        }
+        if server_tz:
+            body["server_tz"] = server_tz  # bắt buộc với H4/D1 (backend căn theo giờ server)
+        return self._call("POST", f"/api/ingest/mt5/candles{q}", body)
 
     def heartbeat(self, payload: dict[str, Any]) -> Any:
         return self._call("POST", "/api/ingest/mt5/heartbeat", payload)

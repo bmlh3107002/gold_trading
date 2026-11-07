@@ -39,9 +39,9 @@
 ## Thứ tự làm (mỗi bước: xong + test + kiểm chứng rồi mới sang bước sau)
 
 ### Bước 1 — Khung H1, H4, D1 (giá MT5)
-- [ ] ING-14: Gateway đọc + gửi H1/H4/D1 (vẫn chỉ đọc), backend nạp qua `CandleIngestor`
-- [ ] 1A-C19: nến D1/H4 lưu đúng `open_time` theo giờ server broker, **không** tự ghép từ M15
-- [ ] Test: DST, cuối tuần, nến chưa đóng, trùng/khác giá, thiếu nến
+- [x] ING-14: Gateway đọc + gửi H1/H4/D1 (vẫn chỉ đọc), backend nạp qua `CandleIngestor` (2026-11-07)
+- [x] 1A-C19: nến D1/H4 lưu đúng `open_time` theo giờ server broker, **không** tự ghép từ M15
+- [x] Test: DST, cuối tuần, nến chưa đóng, trùng/khác giá, thiếu nến
 - [ ] Kiểm trên máy người dùng: có nến H1/H4/D1 thật từ MetaQuotes-Demo
 
 ### Bước 2 — Lịch ngày lễ (1B)

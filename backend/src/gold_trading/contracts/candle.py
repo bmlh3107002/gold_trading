@@ -57,8 +57,10 @@ class Candle(Contract):
     def _invariants(self) -> Candle:
         if not self.timeframe.is_aligned(self.open_time):
             raise ValueError("open_time không khớp khung thời gian")
-        if self.close_time != self.open_time + self.timeframe.delta:
-            raise ValueError("close_time phải bằng open_time + timeframe")
+        if not self.timeframe.plausible_close(self.open_time, self.close_time):
+            # M1–H1: đúng bằng open_time + khung. H4/D1 căn theo giờ server broker: độ dài thật
+            # lệch tối đa 1 giờ ở ngày đổi DST (close_time do cửa nạp tính theo múi giờ server).
+            raise ValueError("close_time không khớp open_time + timeframe")
         if self.high < max(self.open, self.close) or self.low > min(self.open, self.close):
             raise ValueError("OHLC không hợp lệ: high/low không bao open/close")
         if self.available_at < self.close_time:

@@ -22,6 +22,16 @@
 - `copy_rates_from_pos(symbol, M15, start_pos=1, count)`: vị trí 0 là nến **đang chạy**, nên luôn bắt đầu từ vị trí 1.
 - Backend kiểm tra thêm một lần: nến có `close_time` lớn hơn giờ nhận thì cách ly với lý do `BAR_NOT_CLOSED`.
 
+### 3a. Khung H1, H4, D1 (ING-14, 2026-11-07)
+
+- Đọc thẳng từ MT5 bằng `copy_rates_from_pos(symbol, TIMEFRAME_H1/H4/D1, 1, count)`, **không** ghép từ M15. Khung chọn bằng `GT_TIMEFRAMES` (mặc định `M15,H1,H4,D1`; M15 luôn có vì R1 kiểm múi giờ trên M15).
+- MT5 cắt H4/D1 theo **đồng hồ server**: D1 mở 00:00 giờ server, H4 lúc 00/04/…/20 giờ server. Ví dụ Europe/Athens mùa đông, D1 mở 22:00 UTC hôm trước. Gateway chỉ đổi sang UTC, không cắt lại.
+- Lô H4/D1 bắt buộc kèm `server_tz` (tên IANA). Backend dùng nó để (1) kiểm `open_time` đúng ranh giới giờ server — sai thì cách ly `MISALIGNED_TIME`; (2) tính `close_time` thật = ranh giới kế tiếp theo giờ server (ngày đổi giờ: 23/25 h hoặc 3/5 h). Giờ ranh giới mơ hồ → lấy lần muộn hơn; không tồn tại → lúc đồng hồ vượt qua. Lý do: không bao giờ coi một nến là đã đóng sớm hơn thực tế (point-in-time).
+- Nếu backend có `GT_BROKER_SERVER_TZ` mà khác `server_tz` của Gateway → từ chối lô H4/D1 (422): hai cấu hình mâu thuẫn thì không đoán.
+- R1 áp cho M15 và H1; H4/D1 vắt qua giờ nghỉ nên không áp.
+- `check` bước 10 chạy thử từng khung; khung nào lỗi chỉ **CẢNH BÁO** và không được gửi, M15 vẫn chạy.
+- Khi chạy: khung lớn gửi 3 nến gần nhất khi có nến mới đóng, hoặc 60 giây/lần để bắt bản sửa. Lỗi riêng một khung không làm ngừng M15.
+
 ## 4. Đồng bộ
 
 | Giai đoạn | Làm gì | `backfill` |
@@ -38,7 +48,7 @@
 - `POST /api/ingest/mt5/candles` và `POST /api/ingest/mt5/heartbeat`, bắt buộc header `Authorization: Bearer <GT_INGEST_TOKEN>`.
   - Backend không đặt token thì endpoint **tắt** (503).
   - Token phải dài ít nhất 24 ký tự; so sánh bằng `hmac.compare_digest`.
-- Chỉ nhận symbol khớp symbol của hệ thống (`XAUUSD`) và khung `M15`; tối đa 2.000 nến mỗi lần.
+- Chỉ nhận symbol khớp symbol của hệ thống (`XAUUSD`) và khung `M15`, `H1`, `H4`, `D1` (H4/D1 kèm `server_tz`, mục 3a); tối đa 2.000 nến mỗi lần.
 - `dry_run=true`: kiểm tra (R1 + kiểm tra từng nến) nhưng **không lưu**.
 - `GET /api/gateway/status`: nhịp tim gần nhất, loại tài khoản, server, thông số symbol (contract size, lot tối thiểu, bước lot, digits). Quá 30 giây không có nhịp tim thì coi là mất kết nối.
 
