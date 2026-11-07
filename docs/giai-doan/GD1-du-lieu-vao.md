@@ -14,7 +14,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | DEC-03 | Nguồn **DXY** | (a) Symbol chỉ số USD trên MT5 nếu broker có; (b) chỉ số USD rộng hằng ngày từ FRED (khác DXY, cần ghi rõ); (c) nguồn có phí | `[!]` |
 | DEC-04 | Nguồn **kỳ vọng lãi suất Fed** | Công cụ FedWatch không có API miễn phí; thay thế: lợi suất 2 năm (FRED) làm proxy, ghi rõ là proxy | `[!]` |
 | DEC-05 | Nguồn **NHTW mua vàng / dòng tiền ETF** | Dữ liệu NHTW thường theo tháng/quý, trễ lớn; ETF: dữ liệu nắm giữ công bố hằng ngày của quỹ | `[!]` |
-| DEC-06 | Ngân sách: chấp nhận nguồn trả phí không, tối đa bao nhiêu/tháng | | `[!]` |
+| DEC-06 | Ngân sách: chấp nhận nguồn trả phí không, tối đa bao nhiêu/tháng | **0 đồng — chỉ dùng nguồn miễn phí.** Hệ quả: không có tin tổng hợp thời gian thực; thiếu dữ liệu nào thì ghi "không đủ dữ liệu", không đoán. Có thể thêm nguồn trả phí sau mà không làm lại | `[x]` 2026-11-07 |
 | DEC-07 | Đăng ký khóa API miễn phí (ví dụ FRED) — người dùng tự đăng ký, khóa để trong `.env`, không gửi qua chat | | `[!]` |
 
 ### Chuyển từ GĐ0 (2026-11-06)
