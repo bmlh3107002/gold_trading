@@ -13,7 +13,7 @@
 - **Bước 1 (ING-14 + 1A-C19) xong 2026-11-07**, đã kiểm trên máy người dùng (H1/H4/D1 thật, 0 cách ly). Gateway trên máy: `C:\gold-trading\code\gold_trading-develop` (bản cũ `_bk`).
 - **Bước 2 (1B: CAL-03..05, 1B-C01..C04) code xong 2026-11-07**: bảng ngày lễ Mỹ (`market/holidays.py`), giờ đặc biệt broker `GT_BROKER_SPECIAL_HOURS`. Đã chạy trên máy người dùng. Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11.
 - **Bước 3 (1A-C21) code xong 2026-11-07**: nến cuối phiên (vị trí 0) gửi trong `tail_bar`, backend nhận khi hết giờ nến + 2 phút **và** lịch đóng cửa suốt. Đã kiểm trên máy người dùng.
-- **Bước 4 (đa tài khoản) chia 5 phần.** Phần 1 **MT-12 + GW-09 code xong 2026-11-07**: Gateway 0.3.0 gửi login/server/DEMO-REAL + số dư, equity, ký quỹ, đòn bẩy, stops/freeze level, swap trong nhịp tim; trang Tài khoản có thẻ "MT5 đang kết nối". **Chờ kiểm trên máy người dùng**, rồi phần 2: MT-13 (liên kết MT5).
+- **Bước 4 (đa tài khoản) chia 5 phần.** Phần 1 **MT-12 + GW-09 code xong 2026-11-07**: Gateway 0.3.0 gửi login/server/DEMO-REAL + số dư, equity, ký quỹ, đòn bẩy, stops/freeze level, swap trong nhịp tim; trang Tài khoản có thẻ "MT5 đang kết nối". Đã kiểm trên máy người dùng. **Tiếp theo: phần 2 MT-13** (liên kết MT5).
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 

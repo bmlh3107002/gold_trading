@@ -59,7 +59,7 @@
 
 ### Bước 4 — Mỗi tài khoản dùng MT5 của mình (đa tài khoản, DEC-14)
 - [x] MT-12 + GW-09: Gateway báo danh tính terminal (login, server, company, DEMO/REAL, đường dẫn) + đọc tài khoản (equity, margin, đòn bẩy) và symbol (stops/freeze level, swap) (2026-11-07, Gateway 0.3.0; trang Tài khoản hiện thẻ "MT5 đang kết nối")
-  - [ ] Kiểm trên máy người dùng: cập nhật Gateway + build lại `backend frontend` → trang Tài khoản thấy đúng login/server MetaQuotes-Demo
+  - [x] Kiểm trên máy người dùng: cập nhật Gateway + build lại `backend frontend` → trang Tài khoản thấy đúng login/server MetaQuotes-Demo (2026-11-07)
 - [ ] MT-13: liên kết MT5 (`mt5_links`), USER xác nhận "login X / server Y" → ACTIVE; một `(login, server)` không ACTIVE ở 2 tài khoản (MT-C11)
 - [ ] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11)
 - [ ] MT-05: nguồn giá theo `(server, symbol)`; cùng server dùng chung; analyst chạy theo từng nguồn; bỏ khái niệm "nguồn giá chung" duy nhất
