@@ -11,7 +11,7 @@
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1 (ING-14 + 1A-C19) xong 2026-11-07**, đã kiểm trên máy người dùng: H1/H4/D1 đọc thẳng từ MT5, căn theo giờ server broker (D1 mở 21/22 UTC), 0 cách ly. **Tiếp theo: bước 2** (lịch ngày lễ 1B). Gateway trên máy: `C:\gold-trading\code\gold_trading-develop` (bản cũ `_bk`).
-- **DEC-17 (2026-11-07):** trang Quản trị đơn giản — một USER một dòng, thêm/sửa/xóa/khóa, USER xin token → ADMIN cấp (migration 0007 bỏ tài khoản trống). Đã build lại trên máy, migration 0007 chạy; còn kiểm trang Quản trị (một người một dòng, xin/cấp token).
+- **DEC-17 (2026-11-07):** trang Quản trị đơn giản — một USER một dòng, thêm/sửa/xóa/khóa, USER xin token → ADMIN cấp (migration 0007 bỏ tài khoản trống). **Đã kiểm xong trên máy người dùng** (migration 0007, một người một dòng, xin token → từ chối).
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
 ## Quyết định đã chốt

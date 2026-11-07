@@ -12,11 +12,11 @@
 
 ## Việc còn treo trước khi bắt đầu bước 1
 
-- [ ] **Người dùng:** trả token của **Lord Trade** vào `gateway.env` (nếu đã thay bằng token tài khoản khác) → Gateway `check` mục 9 đạt, có nến mới.
-- [ ] **Người dùng:** build lại theo DEC-17 (`docker compose build --no-cache backend frontend` → `docker compose up -d`), xác nhận:
+- [x] **Người dùng:** trả token của **Lord Trade** vào `gateway.env` (2026-11-07: Gateway mới `check` SẴN SÀNG, nạp nến được) (nếu đã thay bằng token tài khoản khác) → Gateway `check` mục 9 đạt, có nến mới.
+- [x] **Người dùng:** build lại theo DEC-17 (2026-11-07) (`docker compose build --no-cache backend frontend` → `docker compose up -d`), xác nhận:
   - [x] log backend có dòng "bỏ tài khoản thừa u-user_cutlot (giữ default)" (2026-11-07, thu hồi 1 token)
-  - [ ] trang Quản trị: **một người một dòng**, nút Cấp token / Sửa / Khóa / Đặt lại mật khẩu / Xóa
-  - [ ] USER bấm "Xin cấp token" → ADMIN thấy yêu cầu → Cấp hoặc Từ chối
+  - [x] trang Quản trị: **một người một dòng**, nút Cấp token / Sửa / Khóa / Đặt lại mật khẩu / Xóa
+  - [x] USER bấm "Xin cấp token" → ADMIN thấy yêu cầu → Cấp hoặc Từ chối (thử nhánh Từ chối để giữ token đang chạy; nhánh Cấp đã có e2e trong CI)
 - [x] **Người dùng chốt thứ tự (2026-11-07):** giữ **thứ tự đề xuất** bên dưới, bắt đầu từ bước 1 (khung H1/H4/D1). Không đưa bước 4 lên đầu.
 
 ## Quyết định đã chốt (không hỏi lại)
