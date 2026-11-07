@@ -12,8 +12,7 @@ const ADMIN = makeMe({ username: "admin", is_admin: true });
 const LAN = {
   sub: "kc-1", username: "lanng", email: "lan@example.com", display_name: "Lan Nguyen", status: "ACTIVE",
   first_login_at: null, last_login_at: null, updated_at: null,
-  accounts: [{ account_id: "u-lanng", name: "Tài khoản của Lan", price_feed: false, gateway_status: "WAITING",
-               gateway_last_seen_at: null }],
+  gateway_status: "WAITING", gateway_last_seen_at: null, token_requested_at: null, price_feed: false,
 };
 
 type Handler = (url: string, init?: RequestInit) => Response | null;
@@ -23,7 +22,7 @@ function mock(handler: Handler = () => null, users: unknown[] = []) {
     const url = String(input);
     const r = handler(url, init);
     if (r) return r;
-    if (url === "/api/admin/users" && init?.method !== "POST") return json(users);
+    if (url === "/api/admin/users" && (init?.method ?? "GET") === "GET") return json(users);
     if (url === "/api/admin/live-requests") return json([]);
     return json({}, 404);
   });
@@ -31,8 +30,9 @@ function mock(handler: Handler = () => null, users: unknown[] = []) {
   return fn;
 }
 
-const posts = (fn: ReturnType<typeof mock>) =>
-  fn.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "POST").map(([u]) => String(u));
+const calls = (fn: ReturnType<typeof mock>, method: string) =>
+  fn.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === method).map(([u]) => String(u));
+const posts = (fn: ReturnType<typeof mock>) => calls(fn, "POST");
 
 async function fill(pw = PW, confirm = PW) {
   await userEvent.type(screen.getByLabelText(/Tên đăng nhập/), "lanng");
@@ -54,40 +54,38 @@ describe("Trang Quản trị", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it("tạo USER: gửi đúng dữ liệu, hiện token Gateway MỘT lần, xóa mật khẩu khỏi form", async () => {
+  it("tạo USER: gửi đúng dữ liệu, KHÔNG có token (USER xin sau), xóa mật khẩu khỏi form", async () => {
     const fn = mock((url, init) =>
       url === "/api/admin/users" && init?.method === "POST"
         ? json({ sub: "kc-1", username: "lanng", email: "lan@example.com", display_name: "Lan Nguyen",
-                 status: "ACTIVE", account_id: "u-lanng", account_name: "Tài khoản của Lan Nguyen",
-                 gateway: { account_id: "u-lanng", token_id: "gtk_1", token: TOKEN, created_at: "2026-11-06T03:00:00Z" },
-                 gateway_status: "WAITING", temporary_password: null }, 201)
+                 status: "ACTIVE", temporary_password: null }, 201)
         : null,
     );
     render(<AdminPage me={ADMIN} multiUser />);
+    expect(screen.queryByLabelText(/Tên tài khoản giao dịch/)).not.toBeInTheDocument();
     await fill();
     await userEvent.click(screen.getByRole("button", { name: "Tạo người dùng" }));
     const dialog = await screen.findByRole("dialog", { name: "Đã tạo người dùng lanng" });
-    expect(within(dialog).getByText(TOKEN)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Xin cấp token/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/gtk_/)).not.toBeInTheDocument();
     const [, init] = fn.mock.calls.find(([, i]) => (i as RequestInit)?.method === "POST") as unknown as [
       string,
       RequestInit,
     ];
     expect(JSON.parse(String(init.body))).toEqual({
       username: "lanng", email: "lan@example.com", first_name: "Lan", last_name: "Nguyen",
-      password: PW, account_name: null,
+      password: PW,
     });
     expect(screen.getByLabelText(/^Mật khẩu tạm/)).toHaveValue("");
     await userEvent.click(within(dialog).getByRole("button", { name: "Tôi đã lưu" }));
-    await waitFor(() => expect(screen.queryByText(TOKEN)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("bỏ trống mật khẩu: gửi null, hiện mật khẩu tạm hệ thống sinh", async () => {
     const fn = mock((url, init) =>
       url === "/api/admin/users" && init?.method === "POST"
         ? json({ sub: "kc-1", username: "lanng", email: "lan@example.com", display_name: "Lan Nguyen",
-                 status: "ACTIVE", account_id: "u-lanng", account_name: "TK",
-                 gateway: { account_id: "u-lanng", token_id: "gtk_1", token: TOKEN, created_at: "2026-11-06T03:00:00Z" },
-                 gateway_status: "WAITING", temporary_password: "GENERATED-pw-123456" }, 201)
+                 status: "ACTIVE", temporary_password: "GENERATED-pw-123456" }, 201)
         : null,
     );
     render(<AdminPage me={ADMIN} multiUser />);
@@ -133,7 +131,7 @@ describe("Trang Quản trị", () => {
     expect(screen.getByRole("button", { name: "Tạo người dùng" })).toBeDisabled();
   });
 
-  it("danh sách USER: trạng thái + Gateway, khóa cần xác nhận", async () => {
+  it("danh sách: một người một dòng (không lộ tài khoản giao dịch nội bộ), khóa cần xác nhận", async () => {
     const fn = mock(
       (url) =>
         url === "/api/admin/users/kc-1/lock"
@@ -142,48 +140,49 @@ describe("Trang Quản trị", () => {
       [LAN],
     );
     render(<AdminPage me={ADMIN} multiUser />);
-    // Hai bảng riêng: người dùng (trạng thái, thao tác tài khoản) và tài khoản giao dịch (Gateway, token)
-    await screen.findAllByText("Lan Nguyen");
-    const [uTable, aTable] = screen.getAllByRole("table");
-    const usersTable = within(uTable);
-    expect(usersTable.getByText("Lan Nguyen")).toBeInTheDocument();
-    expect(usersTable.getByText("Đang hoạt động")).toBeInTheDocument();
-    expect(usersTable.queryByRole("button", { name: "Cấp lại token" })).not.toBeInTheDocument();
-    const accTable = within(aTable);
-    expect(screen.getByRole("heading", { name: "Tài khoản giao dịch · MT5 Gateway" })).toBeInTheDocument();
-    expect(accTable.getByText("Tài khoản của Lan")).toBeInTheDocument();
-    expect(accTable.getByText("Đã cấp token · chờ Gateway kết nối")).toBeInTheDocument();
-    expect(accTable.getAllByRole("button", { name: "Cấp lại token" })).toHaveLength(1);
+    await screen.findByText("Lan Nguyen");
+    expect(screen.getAllByRole("table")).toHaveLength(1);
+    expect(screen.getAllByRole("row")).toHaveLength(2); // tiêu đề + một người
+    expect(screen.getByText("Đang hoạt động")).toBeInTheDocument();
+    expect(screen.getByText("Đã cấp token · chờ Gateway kết nối")).toBeInTheDocument();
+    expect(screen.queryByText(/Tài khoản chính|Nguồn giá chung|u-lanng|default/)).not.toBeInTheDocument();
+    for (const name of ["Cấp token", "Sửa", "Khóa", "Đặt lại mật khẩu", "Xóa"])
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Từ chối" })).not.toBeInTheDocument(); // không có yêu cầu
     await userEvent.click(screen.getByRole("button", { name: "Khóa" }));
     expect(posts(fn)).toEqual([]); // chưa gửi khi chưa xác nhận
     const dialog = screen.getByRole("dialog", { name: "Khóa người dùng lanng?" });
     expect(within(dialog).getByText(/KHÔNG bị đóng tự động/)).toBeInTheDocument();
-    expect(within(dialog).queryByText(/NGUỒN GIÁ/)).not.toBeInTheDocument(); // tài khoản riêng
+    expect(within(dialog).queryByText(/CẤP GIÁ/)).not.toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "Khóa" }));
     await waitFor(() => expect(posts(fn)).toEqual(["/api/admin/users/kc-1/lock"]));
     // Keycloak chưa cập nhật: vẫn báo khóa có hiệu lực + nhắc bấm lại
     expect(await screen.findByText(/Keycloak chưa cập nhật/)).toBeInTheDocument();
   });
 
-  it("khóa USER giữ tài khoản nguồn giá: cảnh báo ngừng nhận nến cho cả hệ thống", async () => {
-    mock(() => null, [{ ...LAN, accounts: [{ ...LAN.accounts[0], account_id: "default", price_feed: true }] }]);
+  it("người đang cấp giá cho hệ thống: ghi chú rõ, cảnh báo khi khóa, không cho xóa", async () => {
+    const fn = mock(() => null, [{ ...LAN, price_feed: true, gateway_status: "CONNECTED" }]);
     render(<AdminPage me={ADMIN} multiUser />);
-    await userEvent.click(await screen.findByRole("button", { name: "Khóa" }));
+    expect(await screen.findByText(/đang cấp giá XAUUSD cho cả hệ thống/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Xóa" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Khóa" }));
     const dialog = screen.getByRole("dialog", { name: "Khóa người dùng lanng?" });
-    expect(within(dialog).getByText(/NGUỒN GIÁ chung/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/CẤP GIÁ cho cả hệ thống/)).toBeInTheDocument();
+    expect(calls(fn, "DELETE")).toEqual([]);
   });
 
-  it("USER đã khóa: nút Mở khóa", async () => {
+  it("USER đã khóa: nút Mở khóa, không cấp token", async () => {
     const fn = mock(
       (url) =>
         url === "/api/admin/users/kc-1/unlock"
           ? json({ sub: "kc-1", status: "ACTIVE", sessions_revoked: 0, keycloak_synced: true })
           : null,
-      [{ ...LAN, status: "LOCKED", accounts: [{ ...LAN.accounts[0], gateway_status: "BLOCKED" }] }],
+      [{ ...LAN, status: "LOCKED", gateway_status: "BLOCKED" }],
     );
     render(<AdminPage me={ADMIN} multiUser />);
     expect(await screen.findByText("Đã khóa")).toBeInTheDocument();
     expect(screen.getByText("Bị chặn (người dùng đã khóa)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cấp token" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Mở khóa" }));
     const dialog = screen.getByRole("dialog", { name: "Mở khóa người dùng lanng?" });
     expect(within(dialog).getByText(/Bot KHÔNG tự chạy lại/)).toBeInTheDocument();
@@ -191,12 +190,12 @@ describe("Trang Quản trị", () => {
     await waitFor(() => expect(posts(fn)).toEqual(["/api/admin/users/kc-1/unlock"]));
   });
 
-  it("đặt lại mật khẩu và cấp lại token: xác nhận rồi hiện bí mật MỘT lần", async () => {
+  it("đặt lại mật khẩu và cấp token: xác nhận rồi hiện bí mật MỘT lần cho ADMIN", async () => {
     const fn = mock(
       (url) =>
         url === "/api/admin/users/kc-1/reset-password"
           ? json({ sub: "kc-1", temporary_password: "NEWTEMP-pw-987654", sessions_revoked: 1 })
-          : url === "/api/admin/users/kc-1/accounts/u-lanng/gateway-token"
+          : url === "/api/admin/users/kc-1/gateway-token"
             ? json({ account_id: "u-lanng", token_id: "gtk_2", token: TOKEN, created_at: "2026-11-06T03:00:00Z" })
             : null,
       [LAN],
@@ -213,15 +212,82 @@ describe("Trang Quản trị", () => {
     await userEvent.click(within(pwDialog).getByRole("button", { name: "Tôi đã lưu" }));
     await waitFor(() => expect(screen.queryByText("NEWTEMP-pw-987654")).not.toBeInTheDocument());
 
-    await userEvent.click(screen.getByRole("button", { name: "Cấp lại token" }));
-    const confirm = screen.getByRole("dialog", { name: "Cấp lại token Gateway cho Tài khoản của Lan?" });
+    await userEvent.click(screen.getByRole("button", { name: "Cấp token" }));
+    const confirm = screen.getByRole("dialog", { name: "Cấp token Gateway cho lanng?" });
     expect(within(confirm).getByText(/hết hiệu lực NGAY/)).toBeInTheDocument();
-    await userEvent.click(within(confirm).getByRole("button", { name: "Cấp token mới" }));
+    await userEvent.click(within(confirm).getByRole("button", { name: "Cấp token" }));
     expect(await screen.findByText(TOKEN)).toBeInTheDocument();
     expect(posts(fn)).toEqual([
       "/api/admin/users/kc-1/reset-password",
-      "/api/admin/users/kc-1/accounts/u-lanng/gateway-token",
+      "/api/admin/users/kc-1/gateway-token",
     ]);
+  });
+
+  it("USER đang xin token: hiện yêu cầu, ADMIN cấp hoặc từ chối", async () => {
+    const fn = mock(
+      (url) => (url === "/api/admin/users/kc-1/gateway-token/reject" ? new Response(null, { status: 204 }) : null),
+      [{ ...LAN, gateway_status: "NO_TOKEN", token_requested_at: "2026-11-07T03:00:00Z" }],
+    );
+    render(<AdminPage me={ADMIN} multiUser />);
+    expect(await screen.findByText(/Xin cấp token lúc/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Từ chối" }));
+    const dialog = screen.getByRole("dialog", { name: "Từ chối yêu cầu xin token của lanng?" });
+    expect(within(dialog).getByText(/không bị đổi/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Từ chối" }));
+    await waitFor(() => expect(posts(fn)).toEqual(["/api/admin/users/kc-1/gateway-token/reject"]));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument(); // 204 không bị coi là lỗi
+  });
+
+  it("sửa: điền sẵn, gửi PUT đúng dữ liệu; email trùng báo rõ", async () => {
+    let status = 200;
+    const fn = mock(
+      (url, init) =>
+        url === "/api/admin/users/kc-1" && init?.method === "PUT" ? json({ ...LAN, detail: "raw" }, status) : null,
+      [LAN],
+    );
+    render(<AdminPage me={ADMIN} multiUser />);
+    await userEvent.click(await screen.findByRole("button", { name: "Sửa" }));
+    const dialog = screen.getByRole("dialog", { name: "Sửa thông tin lanng" });
+    const email = within(dialog).getByLabelText(/Email/);
+    expect(email).toHaveValue("lan@example.com");
+    expect(within(dialog).getByLabelText(/^Tên\*?$/)).toHaveValue("Lan");
+    expect(within(dialog).getByLabelText(/^Họ\*?$/)).toHaveValue("Nguyen");
+    status = 409;
+    await userEvent.clear(email);
+    await userEvent.type(email, "minh@example.com");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+    expect(await within(dialog).findByText("Email này đã có người dùng.")).toBeInTheDocument();
+    expect(screen.queryByText(/raw/)).not.toBeInTheDocument();
+    status = 200;
+    await userEvent.click(within(dialog).getByRole("button", { name: "Lưu" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    const puts = fn.mock.calls.filter(([, i]) => (i as RequestInit)?.method === "PUT");
+    expect(JSON.parse(String((puts[1][1] as RequestInit).body))).toEqual({
+      email: "minh@example.com", first_name: "Lan", last_name: "Nguyen",
+    });
+  });
+
+  it("xóa: cần xác nhận; backend từ chối (409) thì báo lý do", async () => {
+    let status = 409;
+    const fn = mock(
+      (url, init) =>
+        url === "/api/admin/users/kc-1" && init?.method === "DELETE"
+          ? json({ sub: "kc-1", sessions_revoked: 0, tokens_revoked: 1, keycloak_synced: true }, status)
+          : null,
+      [LAN],
+    );
+    render(<AdminPage me={ADMIN} multiUser />);
+    await userEvent.click(await screen.findByRole("button", { name: "Xóa" }));
+    expect(calls(fn, "DELETE")).toEqual([]);
+    let dialog = screen.getByRole("dialog", { name: "Xóa người dùng lanng?" });
+    expect(within(dialog).getByText(/Không hoàn tác được/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Xóa người dùng" }));
+    expect(await screen.findByText(/Gateway đang kết nối/)).toBeInTheDocument();
+    status = 200;
+    await userEvent.click(screen.getByRole("button", { name: "Xóa" }));
+    dialog = screen.getByRole("dialog", { name: "Xóa người dùng lanng?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Xóa người dùng" }));
+    await waitFor(() => expect(calls(fn, "DELETE")).toHaveLength(2));
   });
 
   it("yêu cầu bật LIVE: ADMIN duyệt (có xác nhận) hoặc từ chối", async () => {

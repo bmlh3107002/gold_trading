@@ -39,8 +39,10 @@ from gold_trading.modes.manager import ModeChange
 from gold_trading.storage.schema import (
     ACCOUNT_ROLES,
     DEFAULT_ACCOUNT_ID,
+    TOKEN_REQUEST_EVENTS,
     account_members,
     audit_log,
+    gateway_token_requests,
     gateway_tokens,
     metadata,
     mode_changes,
@@ -99,6 +101,17 @@ class TradingAccount:
 
 
 @dataclass(frozen=True)
+class TokenRequestEvent:
+    """DEC-17: sự kiện xin cấp token Gateway. Trạng thái hiện tại = sự kiện cuối của tài khoản."""
+
+    account_id: str
+    sub: str  # USER xin (chủ tài khoản)
+    event: str  # REQUESTED | APPROVED | REJECTED | CANCELLED
+    at: datetime
+    actor: str  # người tạo sự kiện (USER xin, ADMIN cấp/từ chối, hệ thống)
+
+
+@dataclass(frozen=True)
 class Member:
     account_id: str
     sub: str
@@ -144,15 +157,23 @@ class Repository(Protocol):
     def set_member(self, m: Member) -> None: ...
     def remove_member(self, account_id: str, sub: str) -> bool: ...
     def provision_user(self, user: UserRecord, acc: TradingAccount | None, owner: Member,
-                       token_raw: str, at: datetime) -> str:
+                       token_raw: str | None, at: datetime) -> str | None:
         """MT-20/DEC-16: người dùng mới + tài khoản riêng (``acc``; None = nhận tài khoản có sẵn
-        ``owner.account_id`` chưa có chủ) + quyền sở hữu + token Gateway, trong MỘT giao dịch.
-        Trả token_id."""
+        ``owner.account_id`` chưa có chủ) + quyền sở hữu, trong MỘT giao dịch. Token cũ của tài
+        khoản luôn bị thu hồi. ``token_raw`` None (DEC-17: USER xin, ADMIN cấp sau) → không tạo
+        token, trả None; có → tạo token, trả token_id."""
         ...
+    def update_user_profile(self, sub: str, email: str, display_name: str,
+                            at: datetime) -> bool: ...
     # Token Gateway
     def rotate_gateway_token(self, account_id: str, raw: str, by: str, at: datetime) -> str: ...
+    def revoke_gateway_tokens(self, account_id: str, at: datetime) -> int: ...
     def account_for_token(self, raw: str) -> str | None: ...
     def has_gateway_tokens(self, account_id: str) -> bool: ...
+    def has_active_gateway_token(self, account_id: str) -> bool: ...
+    # Xin cấp token (DEC-17)
+    def add_token_request_event(self, e: TokenRequestEvent) -> None: ...
+    def last_token_request(self, account_id: str) -> TokenRequestEvent | None: ...
 
 
 _UNSET: Any = object()
@@ -164,7 +185,12 @@ def _check_role(role: str) -> None:
 
 
 USER_ROLES = ("ADMIN", "USER")
-USER_STATUSES = ("ACTIVE", "LOCKED")
+USER_STATUSES = ("ACTIVE", "LOCKED", "DELETED")
+
+
+def _check_token_event(e: TokenRequestEvent) -> None:
+    if e.event not in TOKEN_REQUEST_EVENTS:
+        raise ValueError(f"Sự kiện xin token không hợp lệ: {e.event}")
 
 
 def _check_user(role: str, status: str) -> None:
@@ -185,6 +211,7 @@ class InMemoryRepository:
         self._users: dict[str, UserRecord] = {}
         self._members: dict[tuple[str, str], Member] = {}
         self._tokens: list[dict[str, Any]] = []
+        self._token_requests: list[TokenRequestEvent] = []
         self._lock = threading.RLock()
         self.ensure_default_account()
 
@@ -323,7 +350,7 @@ class InMemoryRepository:
             return self._members.pop((account_id, sub), None) is not None
 
     def provision_user(self, user: UserRecord, acc: TradingAccount | None, owner: Member,
-                       token_raw: str, at: datetime) -> str:
+                       token_raw: str | None, at: datetime) -> str | None:
         _check_role(owner.role)
         _check_user(user.role, user.status)
         if owner.sub != user.sub or (acc is not None and owner.account_id != acc.account_id):
@@ -346,6 +373,8 @@ class InMemoryRepository:
             for t in self._tokens:
                 if t["account_id"] == owner.account_id and t["revoked_at"] is None:
                     t["revoked_at"] = at
+            if token_raw is None:
+                return None
             token_id = new_id("gtk")
             self._tokens.append({
                 "token_id": token_id, "account_id": owner.account_id,
@@ -353,6 +382,16 @@ class InMemoryRepository:
                 "created_by": owner.granted_by, "revoked_at": None,
             })
             return token_id
+
+    def update_user_profile(self, sub: str, email: str, display_name: str,
+                            at: datetime) -> bool:
+        with self._lock:
+            old = self._users.get(sub)
+            if old is None:
+                return False
+            self._users[sub] = replace(old, email=email, display_name=display_name,
+                                       updated_at=at)
+            return True
 
     # --- Token Gateway ---
 
@@ -380,6 +419,37 @@ class InMemoryRepository:
     def has_gateway_tokens(self, account_id: str) -> bool:
         with self._lock:
             return any(t["account_id"] == account_id for t in self._tokens)
+
+    def has_active_gateway_token(self, account_id: str) -> bool:
+        with self._lock:
+            return any(t["account_id"] == account_id and t["revoked_at"] is None
+                       for t in self._tokens)
+
+    def revoke_gateway_tokens(self, account_id: str, at: datetime) -> int:
+        n = 0
+        with self._lock:
+            for t in self._tokens:
+                if t["account_id"] == account_id and t["revoked_at"] is None:
+                    t["revoked_at"] = at
+                    n += 1
+        return n
+
+    # --- Xin cấp token (DEC-17) ---
+
+    def add_token_request_event(self, e: TokenRequestEvent) -> None:
+        _check_token_event(e)
+        with self._lock:
+            self._require_account(e.account_id)
+            if e.sub not in self._users:
+                raise KeyError("Không có người dùng")
+            self._token_requests.append(e)
+
+    def last_token_request(self, account_id: str) -> TokenRequestEvent | None:
+        with self._lock:
+            for e in reversed(self._token_requests):
+                if e.account_id == account_id:
+                    return e
+        return None
 
 
 def _row(r) -> dict[str, Any]:
@@ -639,13 +709,13 @@ class SqlRepository:
         return res.rowcount > 0
 
     def provision_user(self, user: UserRecord, acc: TradingAccount | None, owner: Member,
-                       token_raw: str, at: datetime) -> str:
+                       token_raw: str | None, at: datetime) -> str | None:
         _check_role(owner.role)
         _check_user(user.role, user.status)
         if owner.sub != user.sub or (acc is not None and owner.account_id != acc.account_id):
             raise ValueError("owner phải là người dùng mới của tài khoản mới")
         m, t = account_members.c, gateway_tokens.c
-        token_id = new_id("gtk")
+        token_id = new_id("gtk") if token_raw is not None else None
         try:
             with self.engine.begin() as conn:
                 if acc is None:
@@ -666,14 +736,22 @@ class SqlRepository:
                     .where(and_(t.account_id == owner.account_id, t.revoked_at.is_(None)))
                     .values(revoked_at=at)
                 )
-                conn.execute(insert(gateway_tokens).values(
-                    token_id=token_id, account_id=owner.account_id,
-                    token_sha256=token_hash(token_raw), created_at=at,
-                    created_by=owner.granted_by, revoked_at=None,
-                ))
+                if token_raw is not None:
+                    conn.execute(insert(gateway_tokens).values(
+                        token_id=token_id, account_id=owner.account_id,
+                        token_sha256=token_hash(token_raw), created_at=at,
+                        created_by=owner.granted_by, revoked_at=None,
+                    ))
         except IntegrityError as e:
             raise ConflictError("Người dùng hoặc tài khoản đã tồn tại") from e
         return token_id
+
+    def update_user_profile(self, sub: str, email: str, display_name: str,
+                            at: datetime) -> bool:
+        with self.engine.begin() as conn:
+            res = conn.execute(update(users).where(users.c.sub == sub).values(
+                email=email, display_name=display_name, updated_at=at))
+        return res.rowcount > 0
 
     # --- Token Gateway ---
 
@@ -708,6 +786,41 @@ class SqlRepository:
                 select(gateway_tokens.c.seq).where(gateway_tokens.c.account_id == account_id)
                 .limit(1)
             ).first() is not None
+
+    def has_active_gateway_token(self, account_id: str) -> bool:
+        c = gateway_tokens.c
+        with self.engine.connect() as conn:
+            return conn.execute(
+                select(c.seq).where(and_(c.account_id == account_id, c.revoked_at.is_(None)))
+                .limit(1)
+            ).first() is not None
+
+    def revoke_gateway_tokens(self, account_id: str, at: datetime) -> int:
+        c = gateway_tokens.c
+        with self.engine.begin() as conn:
+            res = conn.execute(
+                update(gateway_tokens)
+                .where(and_(c.account_id == account_id, c.revoked_at.is_(None)))
+                .values(revoked_at=at)
+            )
+        return res.rowcount
+
+    # --- Xin cấp token (DEC-17) ---
+
+    def add_token_request_event(self, e: TokenRequestEvent) -> None:
+        _check_token_event(e)
+        with self.engine.begin() as conn:
+            self._require_account(conn, e.account_id)
+            conn.execute(insert(gateway_token_requests).values(**e.__dict__))
+
+    def last_token_request(self, account_id: str) -> TokenRequestEvent | None:
+        c = gateway_token_requests.c
+        with self.engine.connect() as conn:
+            r = conn.execute(
+                select(c.account_id, c.sub, c.event, c.at, c.actor)
+                .where(c.account_id == account_id).order_by(c.seq.desc()).limit(1)
+            ).mappings().first()
+        return TokenRequestEvent(**_row(r)) if r else None
 
 
 def restore_safety_state(history: list[SafetyTransition]) -> tuple[SafetyState, str | None]:

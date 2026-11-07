@@ -162,8 +162,8 @@ def main() -> int:
     check("Kill switch trên Dashboard đã bỏ (chỉ còn break-glass CLI)", s in (404, 405))
     s, users = b.api("GET", "/api/admin/users")
     check("ADMIN xem danh sách USER", s == 200 and isinstance(users, list))
-    default_owned = s == 200 and any(x["account_id"] == "default"
-                                     for u in users for x in u["accounts"])
+    # DEC-17: một USER một dòng; price_feed = MT5 của người đó cấp giá (tài khoản "default")
+    default_owned = s == 200 and any(u["price_feed"] for u in users)
 
     hb = {"gateway_id": "e2e", "gateway_version": "e2e", "read_only": True,
           "terminal_connected": True, "account_type": "DEMO", "server_tz": "Europe/Athens"}
@@ -179,12 +179,15 @@ def main() -> int:
         new_user = {"username": uname, "email": f"{uname}@example.invalid", "first_name": "E2E",
                     "last_name": "Member", "password": a.member_password}
         s, cu = b.api("POST", "/api/admin/users", new_user)
-        acc = cu.get("account_id") if s == 201 else ""
+        check("ADMIN tạo USER: KHÔNG tự sinh token (DEC-17: USER xin, ADMIN cấp)",
+              s == 201 and "gateway" not in cu)
+        sub = cu["sub"] if s == 201 else ""
+        s, cred = b.api("POST", f"/api/admin/users/{sub}/gateway-token")
+        acc = cred.get("account_id") if s == 200 else ""
         expected = f"u-{uname}" if default_owned else "default"
-        check("ADMIN tạo USER: tài khoản giao dịch riêng + token Gateway tự sinh",
-              s == 201 and acc == expected and cu["gateway"]["token"].startswith("gtk_")
-              and cu["gateway_status"] == "WAITING")
-        tok = cu["gateway"]["token"] if s == 201 else ""
+        tok = cred.get("token", "") if s == 200 else ""
+        check("ADMIN cấp token cho tài khoản giao dịch riêng của USER",
+              s == 200 and acc == expected and tok.startswith("gtk_"))
         s, _ = b.api("POST", "/api/admin/users", new_user)
         check("Tạo trùng tên đăng nhập → 409", s == 409)
         s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
@@ -197,7 +200,7 @@ def main() -> int:
         row = next((u for u in users if u["username"] == uname), None) if s == 200 else None
         check("Danh sách: USER ACTIVE, Gateway CONNECTED, không lộ token",
               row is not None and row["status"] == "ACTIVE"
-              and row["accounts"][0]["gateway_status"] == "CONNECTED" and tok not in str(users))
+              and row["gateway_status"] == "CONNECTED" and tok not in str(users))
 
         m = Browser(a.base)
         status, page, url = login(m, uname, a.member_password, a.member_password + "N2")
@@ -224,8 +227,25 @@ def main() -> int:
         s, _ = m.api("GET", "/api/admin/users")
         check("USER không vào được trang quản trị → 403", s == 403)
 
+        # DEC-17: USER xin cấp lại token → ADMIN thấy → từ chối (token đang dùng giữ nguyên)
+        s, ti = m.api("POST", f"/api/accounts/{acc}/gateway/token-request")
+        check("USER xin cấp lại token → PENDING", s == 200 and ti["request_status"] == "PENDING")
+        s, users = b.api("GET", "/api/admin/users")
+        row = next((u for u in users if u["sub"] == sub), None) if s == 200 else None
+        check("ADMIN thấy yêu cầu xin token", row is not None and row["token_requested_at"])
+        s, _ = b.api("POST", f"/api/admin/users/{sub}/gateway-token/reject")
+        s2, ti = m.api("GET", f"/api/accounts/{acc}/gateway/token")
+        check("ADMIN từ chối → USER thấy REJECTED, token cũ vẫn chạy",
+              s == 204 and s2 == 200 and ti["request_status"] == "REJECTED"
+              and b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)[0] == 200)
+        # DEC-17: ADMIN sửa email/họ/tên trên Keycloak thật (gửi lại bản đầy đủ)
+        new_email = f"{uname}.moi@example.invalid"
+        s, ed = b.api("PUT", f"/api/admin/users/{sub}",
+                      {"email": new_email, "first_name": "E2E", "last_name": "Sua"})
+        check("ADMIN sửa thông tin USER",
+              s == 200 and ed["email"] == new_email and ed["display_name"] == "E2E Sua")
+
         # Khóa: Keycloak + backend + Gateway
-        sub = cu["sub"]
         s, lk = b.api("POST", f"/api/admin/users/{sub}/lock")
         check("ADMIN khóa USER (Keycloak đã cập nhật)",
               s == 200 and lk["status"] == "LOCKED" and lk["keycloak_synced"] is True)
@@ -270,6 +290,22 @@ def main() -> int:
                                   capture_output=True, text=True, timeout=120).stdout
             check("Mật khẩu tạm không xuất hiện trong log",
                   all(p and p not in logs for p in temp_passwords))
+
+        # DEC-17: xóa USER. Gateway đang kết nối → từ chối; hết nhịp tim (> 30 s) → xóa được
+        s, _ = b.api("DELETE", f"/api/admin/users/{sub}")
+        check("Xóa USER khi Gateway đang kết nối → 409", s == 409)
+        time.sleep(32)
+        s, dr = b.api("DELETE", f"/api/admin/users/{sub}")
+        check("Xóa USER (Keycloak đã xóa)", s == 200 and dr["keycloak_synced"] is True)
+        s, _ = b.api("POST", "/api/ingest/mt5/heartbeat", hb, origin=None, token=tok)
+        check("USER đã xóa: token Gateway bị thu hồi → 401", s == 401)
+        s, users = b.api("GET", "/api/admin/users")
+        check("USER đã xóa không còn trong danh sách",
+              s == 200 and all(u["sub"] != sub for u in users))
+        m4 = Browser(a.base)
+        status, page, url = login(m4, uname, a.member_password + "N2")
+        check("USER đã xóa không đăng nhập được",
+              urllib.parse.urlsplit(url).path != "/" or "auth_error" in url)
 
     # Đăng xuất cả phía Keycloak
     s, lo = b.api("POST", "/api/auth/logout")

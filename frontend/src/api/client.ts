@@ -23,6 +23,8 @@ export type LogoutResult = components["schemas"]["LogoutResult"];
 export type UserCreate = components["schemas"]["UserCreate"];
 export type UserCreated = components["schemas"]["UserCreated"];
 export type UserAdmin = components["schemas"]["UserAdminOut"];
+export type UserUpdate = components["schemas"]["UserUpdate"];
+export type DeleteResult = components["schemas"]["DeleteResult"];
 export type GatewayCredential = components["schemas"]["GatewayCredential"];
 export type LockResult = components["schemas"]["LockResult"];
 export type PasswordReset = components["schemas"]["PasswordReset"];
@@ -70,6 +72,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 401) unauthorizedListeners.forEach((fn) => fn());
   if (!res.ok) throw new ApiError(kindFor(res.status), res.status);
+  if (res.status === 204) return undefined as T;
   try {
     return (await res.json()) as T;
   } catch {
@@ -104,16 +107,21 @@ export const api = {
   technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
-  // --- Quản trị (DEC-16): chỉ ADMIN; backend kiểm lại ---
+  /** DEC-17: USER xin cấp (lại) token Gateway; ADMIN cấp hoặc từ chối. */
+  requestGatewayToken: (id: string) =>
+    request<GatewayTokenInfo>(`${acc(id)}/gateway/token-request`, { method: "POST" }),
+  // --- Quản trị (DEC-16, DEC-17): chỉ ADMIN; backend kiểm lại ---
   users: () => request<UserAdmin[]>("/api/admin/users"),
   createUser: (body: UserCreate) => request<UserCreated>("/api/admin/users", post(body)),
   lockUser: (sub: string) => request<LockResult>(`${usr(sub)}/lock`, { method: "POST" }),
   unlockUser: (sub: string) => request<LockResult>(`${usr(sub)}/unlock`, { method: "POST" }),
   resetPassword: (sub: string) => request<PasswordReset>(`${usr(sub)}/reset-password`, { method: "POST" }),
-  reissueToken: (sub: string, accountId: string) =>
-    request<GatewayCredential>(`${usr(sub)}/accounts/${encodeURIComponent(accountId)}/gateway-token`, {
-      method: "POST",
-    }),
+  updateUser: (sub: string, body: UserUpdate) =>
+    request<UserAdmin>(usr(sub), { method: "PUT", body: JSON.stringify(body) }),
+  deleteUser: (sub: string) => request<DeleteResult>(usr(sub), { method: "DELETE" }),
+  issueToken: (sub: string) => request<GatewayCredential>(`${usr(sub)}/gateway-token`, { method: "POST" }),
+  rejectTokenRequest: (sub: string) =>
+    request<void>(`${usr(sub)}/gateway-token/reject`, { method: "POST" }),
   adminLiveRequests: () => request<LiveRequest[]>("/api/admin/live-requests"),
   approveLive: (requestId: string) =>
     request<LiveRequest>(`/api/admin/live-requests/${encodeURIComponent(requestId)}/approve`, { method: "POST" }),

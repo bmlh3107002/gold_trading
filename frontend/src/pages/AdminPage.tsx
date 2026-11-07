@@ -3,7 +3,9 @@ import {
   KeyRound,
   Lock,
   LockOpen,
+  Pencil,
   RotateCcw,
+  Trash2,
   UserPlus,
   X,
 } from "lucide-react";
@@ -31,7 +33,7 @@ import { formatDateTime, formatTime } from "../lib/format";
 const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,29}$/;
 const MIN_PASSWORD = 12;
 
-type GatewayState = UserAdmin["accounts"][number]["gateway_status"];
+type GatewayState = UserAdmin["gateway_status"];
 const GATEWAY_TONE: Record<GatewayState, BadgeTone> = {
   CONNECTED: "profit",
   WAITING: "gold",
@@ -45,7 +47,8 @@ interface Props {
   multiUser: boolean;
 }
 
-/** Trang "Quản trị" (DEC-16): ADMIN chỉ quản lý tài khoản USER + duyệt bật LIVE. Backend kiểm lại. */
+/** Trang "Quản trị" (DEC-16, DEC-17): ADMIN quản lý USER (một người một dòng) + cấp token khi
+ * USER xin + duyệt bật LIVE. Backend kiểm lại. */
 export function AdminPage({ me, multiUser }: Props) {
   const { t } = useTranslation();
   if (!me.is_admin) {
@@ -113,11 +116,13 @@ function ErrorBanner({ text }: { text: string | null }) {
   );
 }
 
-// ---------- Danh sách USER + khóa / mở khóa / đặt lại mật khẩu / cấp lại token ----------
+// ---------- Danh sách USER (DEC-17: một người một dòng) + sửa / xóa / khóa / token ----------
 
 type Pending =
-  | { kind: "lock" | "unlock" | "reset"; user: UserAdmin }
-  | { kind: "token"; user: UserAdmin; accountId: string; accountName: string }
+  | {
+      kind: "lock" | "unlock" | "reset" | "token" | "rejectToken" | "delete";
+      user: UserAdmin;
+    }
   | null;
 
 type Secret =
@@ -136,6 +141,7 @@ function UserList({
 }) {
   const { t } = useTranslation();
   const [pending, setPending] = useState<Pending>(null);
+  const [editing, setEditing] = useState<UserAdmin | null>(null);
   const [secret, setSecret] = useState<Secret>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -162,290 +168,396 @@ function UserList({
           value: r.temporary_password,
         });
       } else if (p.kind === "token") {
-        const r = await api.reissueToken(p.user.sub, p.accountId);
+        const r = await api.issueToken(p.user.sub);
         setSecret({ kind: "token", username: p.user.username, value: r });
+      } else if (p.kind === "rejectToken") {
+        await api.rejectTokenRequest(p.user.sub);
+      } else if (p.kind === "delete") {
+        const r = await api.deleteUser(p.user.sub);
+        if (!r.keycloak_synced) setWarn(t("adminPage.deleteNotSynced"));
       }
       onChanged();
     } catch (e) {
-      setError(t(errorKey(e)));
+      setError(
+        p.kind === "delete" && e instanceof ApiError && e.status === 409
+          ? t("adminPage.deleteConflict")
+          : t(errorKey(e)),
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  // Mỗi tài khoản giao dịch một dòng; tài khoản nguồn giá lên đầu.
-  const rows = (users ?? [])
-    .flatMap((u) => u.accounts.map((a) => ({ u, a })))
-    .sort(
-      (x, y) =>
-        Number(y.a.price_feed) - Number(x.a.price_feed) ||
-        x.a.name.localeCompare(y.a.name),
-    );
-
   const dialog = pending && {
-    title:
-      pending.kind === "token"
-        ? t("adminPage.tokenTitle", { account: pending.accountName })
-        : t(`adminPage.${pending.kind}Title`, {
-            username: pending.user.username,
-          }),
+    title: t(`adminPage.${pending.kind}Title`, {
+      username: pending.user.username,
+    }),
     desc:
-      pending.kind === "lock" && pending.user.accounts.some((a) => a.price_feed)
+      pending.kind === "lock" && pending.user.price_feed
         ? `${t("adminPage.lockDesc")} ${t("adminPage.lockPriceFeedWarn")}`
         : t(`adminPage.${pending.kind}Desc`),
     confirm: t(`adminPage.${pending.kind}Confirm`),
-    danger: pending.kind !== "unlock",
+    danger: pending.kind !== "unlock" && pending.kind !== "rejectToken",
   };
 
   return (
-    <>
-      <Card
-        title={t("adminPage.usersTitle")}
-        description={t("adminPage.usersDesc")}
-        labelledBy="users-title"
-      >
-        <ErrorBanner text={error} />
-        {warn && (
-          <div
-            className="banner banner--warn"
-            role="status"
-            style={{ marginBottom: 14 }}
-          >
-            <span className="banner__body">{warn}</span>
-          </div>
-        )}
-        {!users && loading && <LoadingState label={t("accountPage.loading")} />}
-        {users && users.length === 0 && (
-          <EmptyState
-            title={t("adminPage.noUsers")}
-            description={t("adminPage.noUsersDesc")}
-          />
-        )}
-        {users && users.length > 0 && (
-          <div
-            className="table-wrap"
-            tabIndex={0}
-            role="region"
-            aria-labelledby="users-title"
-          >
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">{t("adminPage.colUser")}</th>
-                  <th scope="col">{t("adminPage.colStatus")}</th>
-                  <th scope="col">{t("adminPage.colAccounts")}</th>
-                  <th scope="col">{t("adminPage.colLastLogin")}</th>
-                  <th scope="col">{t("adminPage.colActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => {
-                  const locked = u.status === "LOCKED";
-                  return (
-                    <tr key={u.sub}>
-                      <td>
-                        {u.display_name || u.username}
-                        <div className="header__label">
-                          {u.username}
-                          {u.email ? ` · ${u.email}` : ""}
-                        </div>
-                      </td>
-                      <td>
-                        <Badge tone={locked ? "loss" : "profit"} dot>
-                          {t(`adminPage.status.${u.status}`)}
-                        </Badge>
-                      </td>
-                      <td className="num">{u.accounts.length}</td>
-                      <td className="num">
-                        {u.last_login_at
-                          ? formatDateTime(u.last_login_at)
-                          : t("adminPage.neverLoggedIn")}
-                      </td>
-                      <td>
-                        <div className="admin-actions">
-                          {locked ? (
-                            <Button
-                              variant="secondary"
-                              icon={<LockOpen size={14} aria-hidden="true" />}
-                              disabled={busy}
-                              onClick={() =>
-                                setPending({ kind: "unlock", user: u })
-                              }
-                            >
-                              {t("adminPage.unlockAction")}
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="danger"
-                              icon={<Lock size={14} aria-hidden="true" />}
-                              disabled={busy}
-                              onClick={() =>
-                                setPending({ kind: "lock", user: u })
-                              }
-                            >
-                              {t("adminPage.lockAction")}
-                            </Button>
-                          )}
-                          <Button
-                            variant="secondary"
-                            icon={<RotateCcw size={14} aria-hidden="true" />}
-                            disabled={busy}
-                            onClick={() =>
-                              setPending({ kind: "reset", user: u })
-                            }
-                          >
-                            {t("adminPage.resetAction")}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      <Card
-        title={t("adminPage.accountsTitle")}
-        description={t("adminPage.accountsDesc")}
-        labelledBy="accounts-title"
-      >
-        {rows.length === 0 && users && (
-          <EmptyState
-            title={t("adminPage.noAccounts")}
-            description={t("adminPage.noUsersDesc")}
-          />
-        )}
-        {rows.length > 0 && (
-          <div
-            className="table-wrap"
-            tabIndex={0}
-            role="region"
-            aria-labelledby="accounts-title"
-          >
-            <table className="table">
-              <thead>
-                <tr>
-                  <th scope="col">{t("adminPage.colAccount")}</th>
-                  <th scope="col">{t("adminPage.colUser")}</th>
-                  <th scope="col">{t("adminPage.colGateway")}</th>
-                  <th scope="col">{t("adminPage.colLastSeen")}</th>
-                  <th scope="col">{t("adminPage.colActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(({ u, a }) => (
-                  <tr key={a.account_id}>
+    <Card
+      title={t("adminPage.usersTitle")}
+      description={t("adminPage.usersDesc")}
+      labelledBy="users-title"
+    >
+      <ErrorBanner text={error} />
+      {warn && (
+        <div
+          className="banner banner--warn"
+          role="status"
+          style={{ marginBottom: 14 }}
+        >
+          <span className="banner__body">{warn}</span>
+        </div>
+      )}
+      {!users && loading && <LoadingState label={t("accountPage.loading")} />}
+      {users && users.length === 0 && (
+        <EmptyState
+          title={t("adminPage.noUsers")}
+          description={t("adminPage.noUsersDesc")}
+        />
+      )}
+      {users && users.length > 0 && (
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="region"
+          aria-labelledby="users-title"
+        >
+          <table className="table">
+            <thead>
+              <tr>
+                <th scope="col">{t("adminPage.colUser")}</th>
+                <th scope="col">{t("adminPage.colStatus")}</th>
+                <th scope="col">{t("adminPage.colGateway")}</th>
+                <th scope="col">{t("adminPage.colLastLogin")}</th>
+                <th scope="col">{t("adminPage.colActions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const locked = u.status === "LOCKED";
+                const requested = u.token_requested_at !== null;
+                return (
+                  <tr key={u.sub}>
                     <td>
-                      {a.name}
-                      {a.price_feed && (
-                        <>
-                          {" "}
-                          <Badge tone="info">{t("adminPage.priceFeed")}</Badge>
-                        </>
-                      )}
-                      <div className="header__label">{a.account_id}</div>
+                      {u.display_name || u.username}
+                      <div className="header__label">
+                        {u.username}
+                        {u.email ? ` · ${u.email}` : ""}
+                      </div>
                     </td>
-                    <td>{u.display_name || u.username}</td>
                     <td>
-                      <Badge tone={GATEWAY_TONE[a.gateway_status]} dot>
-                        {t(`adminPage.gateway.${a.gateway_status}`)}
+                      <Badge tone={locked ? "loss" : "profit"} dot>
+                        {t(`adminPage.status.${u.status}`)}
                       </Badge>
                     </td>
+                    <td>
+                      <Badge tone={GATEWAY_TONE[u.gateway_status]} dot>
+                        {t(`adminPage.gateway.${u.gateway_status}`)}
+                      </Badge>
+                      {requested && (
+                        <div style={{ marginTop: 6 }}>
+                          <Badge tone="gold">
+                            {t("adminPage.tokenRequested", {
+                              time: formatDateTime(u.token_requested_at!),
+                            })}
+                          </Badge>
+                        </div>
+                      )}
+                      {u.gateway_last_seen_at && (
+                        <div className="header__label">
+                          {t("adminPage.lastSeen", {
+                            time: formatDateTime(u.gateway_last_seen_at),
+                          })}
+                        </div>
+                      )}
+                      {u.price_feed && (
+                        <div className="header__label">
+                          {t("adminPage.priceFeedHint")}
+                        </div>
+                      )}
+                    </td>
                     <td className="num">
-                      {a.gateway_last_seen_at
-                        ? formatDateTime(a.gateway_last_seen_at)
-                        : "—"}
+                      {u.last_login_at
+                        ? formatDateTime(u.last_login_at)
+                        : t("adminPage.neverLoggedIn")}
                     </td>
                     <td>
-                      <Button
-                        variant="secondary"
-                        icon={<KeyRound size={14} aria-hidden="true" />}
-                        disabled={busy}
-                        onClick={() =>
-                          setPending({
-                            kind: "token",
-                            user: u,
-                            accountId: a.account_id,
-                            accountName: a.name,
-                          })
-                        }
-                      >
-                        {t("adminPage.tokenAction")}
-                      </Button>
+                      <div className="admin-actions">
+                        <Button
+                          variant={requested ? "primary" : "secondary"}
+                          icon={<KeyRound size={14} aria-hidden="true" />}
+                          disabled={busy || locked}
+                          onClick={() => setPending({ kind: "token", user: u })}
+                        >
+                          {t("adminPage.tokenAction")}
+                        </Button>
+                        {requested && (
+                          <Button
+                            variant="secondary"
+                            icon={<X size={14} aria-hidden="true" />}
+                            disabled={busy}
+                            onClick={() =>
+                              setPending({ kind: "rejectToken", user: u })
+                            }
+                          >
+                            {t("adminPage.rejectTokenAction")}
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          icon={<Pencil size={14} aria-hidden="true" />}
+                          disabled={busy}
+                          onClick={() => setEditing(u)}
+                        >
+                          {t("adminPage.editAction")}
+                        </Button>
+                        {locked ? (
+                          <Button
+                            variant="secondary"
+                            icon={<LockOpen size={14} aria-hidden="true" />}
+                            disabled={busy}
+                            onClick={() =>
+                              setPending({ kind: "unlock", user: u })
+                            }
+                          >
+                            {t("adminPage.unlockAction")}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="danger"
+                            icon={<Lock size={14} aria-hidden="true" />}
+                            disabled={busy}
+                            onClick={() => setPending({ kind: "lock", user: u })}
+                          >
+                            {t("adminPage.lockAction")}
+                          </Button>
+                        )}
+                        <Button
+                          variant="secondary"
+                          icon={<RotateCcw size={14} aria-hidden="true" />}
+                          disabled={busy}
+                          onClick={() => setPending({ kind: "reset", user: u })}
+                        >
+                          {t("adminPage.resetAction")}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          icon={<Trash2 size={14} aria-hidden="true" />}
+                          disabled={busy || u.price_feed}
+                          title={
+                            u.price_feed
+                              ? t("adminPage.deletePriceFeed")
+                              : undefined
+                          }
+                          onClick={() => setPending({ kind: "delete", user: u })}
+                        >
+                          {t("adminPage.deleteAction")}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-        <Dialog
-          open={dialog !== null}
-          title={dialog?.title ?? ""}
-          description={dialog?.desc}
-          closeLabel={t("dialog.close")}
-          onClose={() => setPending(null)}
-          actions={
-            <>
-              <Button
-                variant="secondary"
-                data-autofocus
-                onClick={() => setPending(null)}
-              >
-                {t("dialog.cancel")}
-              </Button>
-              <Button
-                variant={dialog?.danger ? "danger" : "primary"}
-                onClick={() => void confirm()}
-              >
-                {dialog?.confirm}
-              </Button>
-            </>
-          }
-        />
-
-        <Dialog
-          open={secret !== null}
-          title={
-            secret?.kind === "token"
-              ? t("adminPage.tokenIssuedTitle", { username: secret.username })
-              : t("adminPage.passwordIssuedTitle", {
-                  username: secret?.username ?? "",
-                })
-          }
-          description={
-            secret?.kind === "token"
-              ? t("adminPage.tokenIssuedDesc")
-              : t("adminPage.passwordIssuedDesc")
-          }
-          closeLabel={t("dialog.close")}
-          onClose={() => setSecret(null)}
-          actions={
+      <Dialog
+        open={dialog !== null}
+        title={dialog?.title ?? ""}
+        description={dialog?.desc}
+        closeLabel={t("dialog.close")}
+        onClose={() => setPending(null)}
+        actions={
+          <>
             <Button
-              variant="primary"
+              variant="secondary"
               data-autofocus
-              onClick={() => setSecret(null)}
+              onClick={() => setPending(null)}
             >
-              {t("accountPage.issuedDone")}
+              {t("dialog.cancel")}
             </Button>
-          }
-        >
-          {secret?.kind === "token" && (
-            <SecretBox
-              label={t("accountPage.tokenLabel")}
-              value={secret.value.token}
-            />
-          )}
-          {secret?.kind === "password" && (
-            <SecretBox label={t("adminPage.password")} value={secret.value} />
-          )}
-        </Dialog>
-      </Card>
-    </>
+            <Button
+              variant={dialog?.danger ? "danger" : "primary"}
+              onClick={() => void confirm()}
+            >
+              {dialog?.confirm}
+            </Button>
+          </>
+        }
+      />
+
+      <EditUser
+        user={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          onChanged();
+        }}
+      />
+
+      <Dialog
+        open={secret !== null}
+        title={
+          secret?.kind === "token"
+            ? t("adminPage.tokenIssuedTitle", { username: secret.username })
+            : t("adminPage.passwordIssuedTitle", {
+                username: secret?.username ?? "",
+              })
+        }
+        description={
+          secret?.kind === "token"
+            ? t("adminPage.tokenIssuedDesc")
+            : t("adminPage.passwordIssuedDesc")
+        }
+        closeLabel={t("dialog.close")}
+        onClose={() => setSecret(null)}
+        actions={
+          <Button
+            variant="primary"
+            data-autofocus
+            onClick={() => setSecret(null)}
+          >
+            {t("accountPage.issuedDone")}
+          </Button>
+        }
+      >
+        {secret?.kind === "token" && (
+          <SecretBox
+            label={t("accountPage.tokenLabel")}
+            value={secret.value.token}
+          />
+        )}
+        {secret?.kind === "password" && (
+          <SecretBox label={t("adminPage.password")} value={secret.value} />
+        )}
+      </Dialog>
+    </Card>
+  );
+}
+
+// ---------- Sửa USER (email, họ, tên) ----------
+
+function splitName(u: UserAdmin): { first: string; last: string } {
+  // display_name = "<Tên> <Họ>" (cách backend ghép khi tạo/sửa)
+  const parts = (u.display_name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+}
+
+function EditUser({
+  user,
+  onClose,
+  onSaved,
+}: {
+  user: UserAdmin | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const [form, setForm] = useState({ email: "", first_name: "", last_name: "" });
+  const [forSub, setForSub] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Nạp lại form mỗi khi mở cho một người khác
+  if (user && forSub !== user.sub) {
+    const n = splitName(user);
+    setForSub(user.sub);
+    setForm({ email: user.email ?? "", first_name: n.first, last_name: n.last });
+    setError(null);
+  }
+  if (!user && forSub !== null) setForSub(null);
+
+  const filled =
+    form.email.trim() && form.first_name.trim() && form.last_name.trim();
+
+  async function save() {
+    if (!user || !filled) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.updateUser(user.sub, {
+        email: form.email.trim(),
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+      });
+      onSaved();
+    } catch (e) {
+      setError(
+        e instanceof ApiError && e.status === 409
+          ? t("adminPage.errEmailExists")
+          : e instanceof ApiError && e.status === 422
+            ? t("errors.validation")
+            : t(errorKey(e)),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  return (
+    <Dialog
+      open={user !== null}
+      title={t("adminPage.editTitle", { username: user?.username ?? "" })}
+      description={t("adminPage.editDesc")}
+      closeLabel={t("dialog.close")}
+      onClose={onClose}
+      actions={
+        <>
+          <Button variant="secondary" data-autofocus onClick={onClose}>
+            {t("dialog.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={busy || !filled}
+            onClick={() => void save()}
+          >
+            {t("adminPage.editSave")}
+          </Button>
+        </>
+      }
+    >
+      <ErrorBanner text={error} />
+      <div className="form-grid">
+        <Field
+          label={t("adminPage.email")}
+          type="email"
+          required
+          value={form.email}
+          maxLength={256}
+          autoComplete="off"
+          onChange={set("email")}
+        />
+        <Field
+          label={t("adminPage.lastName")}
+          required
+          value={form.last_name}
+          maxLength={64}
+          onChange={set("last_name")}
+        />
+        <Field
+          label={t("adminPage.firstName")}
+          required
+          value={form.first_name}
+          maxLength={64}
+          onChange={set("first_name")}
+        />
+      </div>
+    </Dialog>
   );
 }
 
@@ -456,7 +568,6 @@ const EMPTY = {
   email: "",
   first_name: "",
   last_name: "",
-  account_name: "",
 };
 
 function CreateUser({
@@ -514,7 +625,6 @@ function CreateUser({
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         password: password || null,
-        account_name: form.account_name.trim() || null,
       });
       setCreated(res);
       setForm(EMPTY);
@@ -600,13 +710,6 @@ function CreateUser({
           autoComplete="new-password"
           onChange={(e) => setConfirm(e.target.value)}
         />
-        <Field
-          label={t("adminPage.accountName")}
-          hint={t("adminPage.accountNameHint")}
-          value={form.account_name}
-          maxLength={128}
-          onChange={set("account_name")}
-        />
         <div>
           <Button
             type="submit"
@@ -624,9 +727,11 @@ function CreateUser({
         title={t("adminPage.createdTitle", {
           username: created?.username ?? "",
         })}
-        description={t("adminPage.createdDesc", {
-          account: created?.account_name ?? "",
-        })}
+        description={
+          created?.temporary_password
+            ? `${t("adminPage.createdDesc")} ${t("adminPage.createdPasswordDesc")}`
+            : t("adminPage.createdDesc")
+        }
         closeLabel={t("dialog.close")}
         onClose={() => setCreated(null)}
         actions={
@@ -639,22 +744,11 @@ function CreateUser({
           </Button>
         }
       >
-        {created && (
-          <>
-            <p className="header__label">
-              {t(`adminPage.gateway.${created.gateway_status}`)}
-            </p>
-            <SecretBox
-              label={t("accountPage.tokenLabel")}
-              value={created.gateway.token}
-            />
-            {created.temporary_password && (
-              <SecretBox
-                label={t("adminPage.password")}
-                value={created.temporary_password}
-              />
-            )}
-          </>
+        {created?.temporary_password && (
+          <SecretBox
+            label={t("adminPage.password")}
+            value={created.temporary_password}
+          />
         )}
       </Dialog>
     </Card>

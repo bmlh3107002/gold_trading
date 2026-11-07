@@ -819,6 +819,49 @@
         }
       }
     },
+    "/api/accounts/{account_id}/gateway/token-request": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Request Token",
+        "description": "USER xin cấp (hoặc cấp lại) token Gateway. Đã đang chờ → không tạo thêm (NOOP).",
+        "operationId": "request_token_api_accounts__account_id__gateway_token_request_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayTokenInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/users": {
       "get": {
         "tags": [
@@ -866,6 +909,98 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{sub}": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update User",
+        "operationId": "update_user_api_admin_users__sub__put",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserAdminOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Delete User",
+        "operationId": "delete_user_api_admin_users__sub__delete",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResult"
                 }
               }
             }
@@ -1009,13 +1144,13 @@
         }
       }
     },
-    "/api/admin/users/{sub}/accounts/{account_id}/gateway-token": {
+    "/api/admin/users/{sub}/gateway-token": {
       "post": {
         "tags": [
           "admin"
         ],
-        "summary": "Reissue Token",
-        "operationId": "reissue_token_api_admin_users__sub__accounts__account_id__gateway_token_post",
+        "summary": "Issue Token",
+        "operationId": "issue_token_api_admin_users__sub__gateway_token_post",
         "parameters": [
           {
             "name": "sub",
@@ -1024,15 +1159,6 @@
             "schema": {
               "type": "string",
               "title": "Sub"
-            }
-          },
-          {
-            "name": "account_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Account Id"
             }
           }
         ],
@@ -1046,6 +1172,41 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{sub}/gateway-token/reject": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reject Token Request",
+        "operationId": "reject_token_request_api_admin_users__sub__gateway_token_reject_post",
+        "parameters": [
+          {
+            "name": "sub",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sub"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -1115,54 +1276,6 @@
   },
   "components": {
     "schemas": {
-      "AccountAdminOut": {
-        "properties": {
-          "account_id": {
-            "type": "string",
-            "title": "Account Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "price_feed": {
-            "type": "boolean",
-            "title": "Price Feed"
-          },
-          "gateway_status": {
-            "type": "string",
-            "enum": [
-              "NO_TOKEN",
-              "WAITING",
-              "CONNECTED",
-              "DISCONNECTED",
-              "BLOCKED"
-            ],
-            "title": "Gateway Status"
-          },
-          "gateway_last_seen_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Gateway Last Seen At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "account_id",
-          "name",
-          "price_feed",
-          "gateway_status",
-          "gateway_last_seen_at"
-        ],
-        "title": "AccountAdminOut"
-      },
       "AccountStatus": {
         "properties": {
           "account_id": {
@@ -1966,6 +2079,35 @@
         ],
         "title": "DataSource"
       },
+      "DeleteResult": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "sessions_revoked": {
+            "type": "integer",
+            "title": "Sessions Revoked"
+          },
+          "tokens_revoked": {
+            "type": "integer",
+            "title": "Tokens Revoked"
+          },
+          "keycloak_synced": {
+            "type": "boolean",
+            "title": "Keycloak Synced",
+            "description": "False = chưa xóa được trên Keycloak (USER vẫn bị chặn ở backend); bấm lại"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "sessions_revoked",
+          "tokens_revoked",
+          "keycloak_synced"
+        ],
+        "title": "DeleteResult"
+      },
       "DiskOut": {
         "properties": {
           "name": {
@@ -2112,7 +2254,7 @@
           "has_token": {
             "type": "boolean",
             "title": "Has Token",
-            "description": "Đã có token tạo trên giao diện"
+            "description": "Đang có token còn hiệu lực (ADMIN đã cấp)"
           },
           "legacy_token_active": {
             "type": "boolean",
@@ -2123,13 +2265,38 @@
             "type": "boolean",
             "title": "Price Feed",
             "description": "Gateway của tài khoản này được ghi nến dùng chung"
+          },
+          "request_status": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "PENDING",
+              "REJECTED"
+            ],
+            "title": "Request Status",
+            "description": "DEC-17: PENDING = đã xin cấp token, chờ ADMIN; REJECTED = ADMIN từ chối lần xin gần nhất (xin lại được)"
+          },
+          "requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested At",
+            "description": "Thời điểm xin (khi PENDING/REJECTED)"
           }
         },
         "type": "object",
         "required": [
           "has_token",
           "legacy_token_active",
-          "price_feed"
+          "price_feed",
+          "request_status",
+          "requested_at"
         ],
         "title": "GatewayTokenInfo"
       },
@@ -3124,12 +3291,47 @@
             ],
             "title": "Updated At"
           },
-          "accounts": {
-            "items": {
-              "$ref": "#/components/schemas/AccountAdminOut"
-            },
-            "type": "array",
-            "title": "Accounts"
+          "gateway_status": {
+            "type": "string",
+            "enum": [
+              "NO_TOKEN",
+              "WAITING",
+              "CONNECTED",
+              "DISCONNECTED",
+              "BLOCKED"
+            ],
+            "title": "Gateway Status",
+            "description": "NO_TOKEN chưa cấp token; WAITING đã cấp, chờ Gateway; BLOCKED USER bị khóa"
+          },
+          "gateway_last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Last Seen At"
+          },
+          "token_requested_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Requested At",
+            "description": "USER đang xin cấp token (chờ ADMIN cấp hoặc từ chối); None = không xin"
+          },
+          "price_feed": {
+            "type": "boolean",
+            "title": "Price Feed",
+            "description": "MT5 của USER này đang cấp giá XAUUSD cho cả hệ thống (không xóa được)"
           }
         },
         "type": "object",
@@ -3142,10 +3344,13 @@
           "first_login_at",
           "last_login_at",
           "updated_at",
-          "accounts"
+          "gateway_status",
+          "gateway_last_seen_at",
+          "token_requested_at",
+          "price_feed"
         ],
         "title": "UserAdminOut",
-        "description": "Không có token hay mật khẩu."
+        "description": "Một USER = một dòng (DEC-17). Không có token hay mật khẩu."
       },
       "UserCreate": {
         "properties": {
@@ -3187,20 +3392,6 @@
             ],
             "title": "Password",
             "description": "Mật khẩu tạm; bỏ trống = hệ thống tự sinh. Phải đổi ở lần đăng nhập đầu"
-          },
-          "account_name": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 128,
-                "minLength": 1
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Account Name",
-            "description": "Tên tài khoản giao dịch riêng"
           }
         },
         "additionalProperties": false,
@@ -3239,29 +3430,6 @@
             ],
             "title": "Status"
           },
-          "account_id": {
-            "type": "string",
-            "title": "Account Id"
-          },
-          "account_name": {
-            "type": "string",
-            "title": "Account Name"
-          },
-          "gateway": {
-            "$ref": "#/components/schemas/GatewayCredential"
-          },
-          "gateway_status": {
-            "type": "string",
-            "enum": [
-              "NO_TOKEN",
-              "WAITING",
-              "CONNECTED",
-              "DISCONNECTED",
-              "BLOCKED"
-            ],
-            "title": "Gateway Status",
-            "description": "WAITING = token đã đăng ký ở backend, chờ Gateway gửi nhịp tim đầu tiên"
-          },
           "temporary_password": {
             "anyOf": [
               {
@@ -3281,13 +3449,41 @@
           "username",
           "email",
           "display_name",
-          "status",
-          "account_id",
-          "account_name",
-          "gateway",
-          "gateway_status"
+          "status"
         ],
         "title": "UserCreated"
+      },
+      "UserUpdate": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 3,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "title": "Email"
+          },
+          "first_name": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Last Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "first_name",
+          "last_name"
+        ],
+        "title": "UserUpdate",
+        "description": "DEC-17: ADMIN sửa thông tin USER. Tên đăng nhập không đổi được."
       },
       "ValidationError": {
         "properties": {

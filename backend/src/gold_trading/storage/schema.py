@@ -98,7 +98,9 @@ users = Table(
     Column("status", String(8), nullable=False, server_default="ACTIVE"),
     Column("updated_at", DateTime(timezone=True)),
     CheckConstraint("role IN ('ADMIN', 'USER')", name="ck_users_role"),
-    CheckConstraint("status IN ('ACTIVE', 'LOCKED')", name="ck_users_status"),
+    # DEC-17 (migration 0007): DELETED = ADMIN đã xóa (ẩn, không đăng nhập, token thu hồi; giữ
+    # dòng để còn lịch sử)
+    CheckConstraint("status IN ('ACTIVE', 'LOCKED', 'DELETED')", name="ck_users_status"),
 )
 Index("ix_users_username", users.c.username)
 Index("ix_users_email", users.c.email)
@@ -138,6 +140,25 @@ gateway_tokens = Table(
     Column("revoked_at", DateTime(timezone=True)),
 )
 Index("ix_gateway_tokens_account", gateway_tokens.c.account_id)
+
+# DEC-17 (migration 0007): USER xin cấp token Gateway, ADMIN cấp hoặc từ chối. Chỉ thêm dòng:
+# trạng thái hiện tại của một tài khoản = sự kiện cuối cùng.
+TOKEN_REQUEST_EVENTS = ("REQUESTED", "APPROVED", "REJECTED", "CANCELLED")
+
+gateway_token_requests = Table(
+    "gateway_token_requests",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("account_id", String(64), ForeignKey("trading_accounts.account_id"), nullable=False),
+    Column("sub", String(255), ForeignKey("users.sub"), nullable=False),
+    Column("event", String(16), nullable=False),
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("actor", String(128), nullable=False),
+    CheckConstraint("event IN ('REQUESTED', 'APPROVED', 'REJECTED', 'CANCELLED')",
+                    name="ck_gateway_token_requests_event"),
+)
+Index("ix_gateway_token_requests_account", gateway_token_requests.c.account_id,
+      gateway_token_requests.c.seq)
 
 
 # --- Dữ liệu thị trường (migration 0002) ---

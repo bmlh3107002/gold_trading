@@ -1,4 +1,4 @@
-"""Tạo/xóa người dùng trên Keycloak qua Admin REST API (MT-20).
+"""Tạo/sửa/xóa người dùng trên Keycloak qua Admin REST API (MT-20, DEC-17).
 
 Dùng service account của chính client ``gold-trading-dashboard`` (client_credentials), chỉ có
 quyền ``realm-management: manage-users, view-users`` trong realm ``gold-trading``
@@ -147,6 +147,23 @@ class KeycloakAdmin:
         r = self._call("PUT", f"{self._base}/users/{sub}", json={"enabled": enabled},
                        headers=self._headers())
         self._expect(r, "bật/tắt người dùng")
+
+    def update_profile(self, sub: str, email: str, first_name: str, last_name: str) -> None:
+        """DEC-17: ADMIN sửa email / họ / tên (tên đăng nhập không đổi).
+
+        Đọc bản đầy đủ rồi gửi lại cả bản (Keycloak ≥ 24 có thể bỏ thuộc tính không gửi kèm)."""
+        h = self._headers()
+        r = self._call("GET", f"{self._base}/users/{sub}", headers=h)
+        self._expect(r, "đọc người dùng", ok=(200,))
+        rep = r.json()
+        if not isinstance(rep, dict):
+            raise AdminApiError("Keycloak trả dữ liệu người dùng không hợp lệ")
+        rep.update({"email": email, "firstName": first_name, "lastName": last_name})
+        rep.pop("credentials", None)
+        r = self._call("PUT", f"{self._base}/users/{sub}", json=rep, headers=h)
+        if r.status_code == 409:
+            raise UserExists("Email đã có")
+        self._expect(r, "sửa người dùng")
 
     def logout(self, sub: str) -> None:
         """Thu hồi mọi phiên SSO + refresh token của người dùng trên Keycloak."""

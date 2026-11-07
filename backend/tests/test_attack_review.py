@@ -111,10 +111,15 @@ def test_user_cannot_use_any_admin_endpoint():
         ("POST", "/api/admin/users/sub-bob/lock"),
         ("POST", "/api/admin/users/sub-bob/unlock"),
         ("POST", "/api/admin/users/sub-bob/reset-password"),
-        ("POST", "/api/admin/users/sub-bob/accounts/acc_b/gateway-token"),
+        ("POST", "/api/admin/users/sub-bob/gateway-token"),
+        ("POST", "/api/admin/users/sub-bob/gateway-token/reject"),
+        ("PUT", "/api/admin/users/sub-bob"),
+        ("DELETE", "/api/admin/users/sub-bob"),
         ("GET", "/api/admin/live-requests"),
     ]:
-        assert a.request(method, path, json={}).status_code == 403, path
+        body = ({"email": "x@example.com", "first_name": "X", "last_name": "Y"}
+                if method == "PUT" else {})
+        assert a.request(method, path, json=body).status_code == 403, path
     assert a.post("/api/accounts/acc_b/gateway/token").status_code == 405
     assert repo.user("sub-bob").status == "ACTIVE"
     assert not repo.has_gateway_tokens("acc_b")
@@ -131,7 +136,7 @@ def test_bad_request_id_header_is_not_reflected():
 def test_lowercase_bearer_and_token_whitespace_rejected():
     repo, app, kc, admin = world()
     login_owner(app, kc, repo, "trader")
-    tok = admin.post("/api/admin/users/sub-trader/accounts/default/gateway-token").json()["token"]
+    tok = admin.post("/api/admin/users/sub-trader/gateway-token").json()["token"]
     hb = {"gateway_id": "g", "gateway_version": "1", "read_only": True,
           "terminal_connected": True, "account_type": "DEMO", "server_tz": "Europe/Athens"}
     anon = TestClient(app, base_url=PUBLIC_URL)

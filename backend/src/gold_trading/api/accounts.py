@@ -32,6 +32,7 @@ from gold_trading.storage.repository import (
     AuditEntry,
     Repository,
     StaleStateError,
+    TokenRequestEvent,
     TradingAccount,
 )
 
@@ -90,11 +91,16 @@ class LiveRequestOut(BaseModel):
 
 
 class GatewayTokenInfo(BaseModel):
-    has_token: bool = Field(description="Đã có token tạo trên giao diện")
+    has_token: bool = Field(description="Đang có token còn hiệu lực (ADMIN đã cấp)")
     legacy_token_active: bool = Field(
         description="Token cũ GT_INGEST_TOKEN còn được nhận (chỉ tài khoản mặc định)"
     )
     price_feed: bool = Field(description="Gateway của tài khoản này được ghi nến dùng chung")
+    request_status: Literal["NONE", "PENDING", "REJECTED"] = Field(
+        description="DEC-17: PENDING = đã xin cấp token, chờ ADMIN; REJECTED = ADMIN từ chối "
+                    "lần xin gần nhất (xin lại được)"
+    )
+    requested_at: datetime | None = Field(description="Thời điểm xin (khi PENDING/REJECTED)")
 
 
 class AuditRecord(BaseModel):
@@ -375,7 +381,28 @@ def accounts_router(
                     req.account_id)
         return req.out(account_name(req.account_id))
 
-    # ---------- Gateway (MT-04): USER chỉ xem; token do ADMIN cấp ----------
+    # ---------- Gateway (MT-04): USER xem + xin cấp token; token do ADMIN cấp (DEC-17) ----------
+
+    def token_info(a: Access) -> GatewayTokenInfo:
+        account_id = a.account.account_id
+        has = repo.has_active_gateway_token(account_id)
+        last = repo.last_token_request(account_id)
+        st: Literal["NONE", "PENDING", "REJECTED"] = "NONE"
+        at = None
+        if last is not None and last.event == "REQUESTED":
+            st, at = "PENDING", last.at
+        elif last is not None and last.event == "REJECTED":
+            st, at = "REJECTED", last.at
+        return GatewayTokenInfo(
+            has_token=has,
+            legacy_token_active=(
+                legacy_token_configured and account_id == "default"
+                and not repo.has_gateway_tokens(account_id)
+            ),
+            price_feed=a.account.price_feed,
+            request_status=st,
+            requested_at=at,
+        )
 
     @r.get("/api/accounts/{account_id}/gateway/status", response_model=GatewayStatus)
     def gateway_status(account_id: str, p: CurrentUser) -> GatewayStatus:
@@ -384,14 +411,19 @@ def accounts_router(
 
     @r.get("/api/accounts/{account_id}/gateway/token", response_model=GatewayTokenInfo)
     def gateway_token_info(account_id: str, p: CurrentUser) -> GatewayTokenInfo:
-        a = guard.check(account_id, p, "gateway.token_info")
-        has = repo.has_gateway_tokens(account_id)
-        return GatewayTokenInfo(
-            has_token=has,
-            legacy_token_active=(
-                legacy_token_configured and account_id == "default" and not has
-            ),
-            price_feed=a.account.price_feed,
-        )
+        return token_info(guard.check(account_id, p, "gateway.token_info"))
+
+    @r.post("/api/accounts/{account_id}/gateway/token-request", response_model=GatewayTokenInfo)
+    def request_token(account_id: str, p: CurrentUser) -> GatewayTokenInfo:
+        """USER xin cấp (hoặc cấp lại) token Gateway. Đã đang chờ → không tạo thêm (NOOP)."""
+        a = guard.check(account_id, p, "gateway.token_request")
+        last = repo.last_token_request(account_id)
+        if last is not None and last.event == "REQUESTED":
+            guard.audit(p, "gateway.token_request", "NOOP", {}, "Đang chờ quản trị", account_id)
+            return token_info(a)
+        repo.add_token_request_event(
+            TokenRequestEvent(account_id, p.sub, "REQUESTED", utcnow(), p.username))
+        guard.audit(p, "gateway.token_request", "ACCEPTED", {}, None, account_id)
+        return token_info(a)
 
     return r

@@ -331,6 +331,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/gateway/token-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Token
+         * @description USER xin cấp (hoặc cấp lại) token Gateway. Đã đang chờ → không tạo thêm (NOOP).
+         */
+        post: operations["request_token_api_accounts__account_id__gateway_token_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -344,6 +364,24 @@ export interface paths {
         /** Create User */
         post: operations["create_user_api_admin_users_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{sub}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update User */
+        put: operations["update_user_api_admin_users__sub__put"];
+        post?: never;
+        /** Delete User */
+        delete: operations["delete_user_api_admin_users__sub__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -400,7 +438,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/users/{sub}/accounts/{account_id}/gateway-token": {
+    "/api/admin/users/{sub}/gateway-token": {
         parameters: {
             query?: never;
             header?: never;
@@ -409,8 +447,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reissue Token */
-        post: operations["reissue_token_api_admin_users__sub__accounts__account_id__gateway_token_post"];
+        /** Issue Token */
+        post: operations["issue_token_api_admin_users__sub__gateway_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{sub}/gateway-token/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Token Request */
+        post: operations["reject_token_request_api_admin_users__sub__gateway_token_reject_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -472,22 +527,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AccountAdminOut */
-        AccountAdminOut: {
-            /** Account Id */
-            account_id: string;
-            /** Name */
-            name: string;
-            /** Price Feed */
-            price_feed: boolean;
-            /**
-             * Gateway Status
-             * @enum {string}
-             */
-            gateway_status: "NO_TOKEN" | "WAITING" | "CONNECTED" | "DISCONNECTED" | "BLOCKED";
-            /** Gateway Last Seen At */
-            gateway_last_seen_at: string | null;
-        };
         /** AccountStatus */
         AccountStatus: {
             /** Account Id */
@@ -771,6 +810,20 @@ export interface components {
          * @enum {string}
          */
         DataSource: "SAMPLE" | "CSV" | "MT5";
+        /** DeleteResult */
+        DeleteResult: {
+            /** Sub */
+            sub: string;
+            /** Sessions Revoked */
+            sessions_revoked: number;
+            /** Tokens Revoked */
+            tokens_revoked: number;
+            /**
+             * Keycloak Synced
+             * @description False = chưa xóa được trên Keycloak (USER vẫn bị chặn ở backend); bấm lại
+             */
+            keycloak_synced: boolean;
+        };
         /** DiskOut */
         DiskOut: {
             /**
@@ -827,7 +880,7 @@ export interface components {
         GatewayTokenInfo: {
             /**
              * Has Token
-             * @description Đã có token tạo trên giao diện
+             * @description Đang có token còn hiệu lực (ADMIN đã cấp)
              */
             has_token: boolean;
             /**
@@ -840,6 +893,17 @@ export interface components {
              * @description Gateway của tài khoản này được ghi nến dùng chung
              */
             price_feed: boolean;
+            /**
+             * Request Status
+             * @description DEC-17: PENDING = đã xin cấp token, chờ ADMIN; REJECTED = ADMIN từ chối lần xin gần nhất (xin lại được)
+             * @enum {string}
+             */
+            request_status: "NONE" | "PENDING" | "REJECTED";
+            /**
+             * Requested At
+             * @description Thời điểm xin (khi PENDING/REJECTED)
+             */
+            requested_at: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1211,7 +1275,7 @@ export interface components {
         TradingMode: "BACKTEST" | "PAPER" | "SHADOW" | "LIVE";
         /**
          * UserAdminOut
-         * @description Không có token hay mật khẩu.
+         * @description Một USER = một dòng (DEC-17). Không có token hay mật khẩu.
          */
         UserAdminOut: {
             /** Sub */
@@ -1233,8 +1297,24 @@ export interface components {
             last_login_at: string | null;
             /** Updated At */
             updated_at: string | null;
-            /** Accounts */
-            accounts: components["schemas"]["AccountAdminOut"][];
+            /**
+             * Gateway Status
+             * @description NO_TOKEN chưa cấp token; WAITING đã cấp, chờ Gateway; BLOCKED USER bị khóa
+             * @enum {string}
+             */
+            gateway_status: "NO_TOKEN" | "WAITING" | "CONNECTED" | "DISCONNECTED" | "BLOCKED";
+            /** Gateway Last Seen At */
+            gateway_last_seen_at: string | null;
+            /**
+             * Token Requested At
+             * @description USER đang xin cấp token (chờ ADMIN cấp hoặc từ chối); None = không xin
+             */
+            token_requested_at: string | null;
+            /**
+             * Price Feed
+             * @description MT5 của USER này đang cấp giá XAUUSD cho cả hệ thống (không xóa được)
+             */
+            price_feed: boolean;
         };
         /** UserCreate */
         UserCreate: {
@@ -1254,11 +1334,6 @@ export interface components {
              * @description Mật khẩu tạm; bỏ trống = hệ thống tự sinh. Phải đổi ở lần đăng nhập đầu
              */
             password?: string | null;
-            /**
-             * Account Name
-             * @description Tên tài khoản giao dịch riêng
-             */
-            account_name?: string | null;
         };
         /** UserCreated */
         UserCreated: {
@@ -1275,22 +1350,23 @@ export interface components {
              * @enum {string}
              */
             status: "ACTIVE" | "LOCKED";
-            /** Account Id */
-            account_id: string;
-            /** Account Name */
-            account_name: string;
-            gateway: components["schemas"]["GatewayCredential"];
-            /**
-             * Gateway Status
-             * @description WAITING = token đã đăng ký ở backend, chờ Gateway gửi nhịp tim đầu tiên
-             * @enum {string}
-             */
-            gateway_status: "NO_TOKEN" | "WAITING" | "CONNECTED" | "DISCONNECTED" | "BLOCKED";
             /**
              * Temporary Password
              * @description Chỉ có khi hệ thống tự sinh mật khẩu tạm. CHỈ HIỆN MỘT LẦN
              */
             temporary_password?: string | null;
+        };
+        /**
+         * UserUpdate
+         * @description DEC-17: ADMIN sửa thông tin USER. Tên đăng nhập không đổi được.
+         */
+        UserUpdate: {
+            /** Email */
+            email: string;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -1883,6 +1959,37 @@ export interface operations {
             };
         };
     };
+    request_token_api_accounts__account_id__gateway_token_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GatewayTokenInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_api_admin_users_get: {
         parameters: {
             query?: never;
@@ -1923,6 +2030,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_admin_users__sub__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_admin_users__sub__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteResult"];
                 };
             };
             /** @description Validation Error */
@@ -2029,13 +2202,12 @@ export interface operations {
             };
         };
     };
-    reissue_token_api_admin_users__sub__accounts__account_id__gateway_token_post: {
+    issue_token_api_admin_users__sub__gateway_token_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 sub: string;
-                account_id: string;
             };
             cookie?: never;
         };
@@ -2049,6 +2221,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GatewayCredential"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_token_request_api_admin_users__sub__gateway_token_reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sub: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

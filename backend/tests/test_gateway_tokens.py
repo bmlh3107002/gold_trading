@@ -34,8 +34,8 @@ def bearer(t):
     return {"Authorization": f"Bearer {t}"}
 
 
-def rotate(admin, sub="sub-trader", acc="default"):
-    r = admin.post(f"/api/admin/users/{sub}/accounts/{acc}/gateway-token")
+def rotate(admin, sub="sub-trader"):
+    r = admin.post(f"/api/admin/users/{sub}/gateway-token")
     assert r.status_code == 200, r.text
     return r
 
@@ -44,7 +44,8 @@ def test_rotation_issues_token_once_and_disables_legacy():
     repo, store, _, _, admin, trader = world()
     assert trader.post(HB_PATH, json=HB, headers=bearer(LEGACY)).status_code == 200
     info = trader.get("/api/accounts/default/gateway/token").json()
-    assert info == {"has_token": False, "legacy_token_active": True, "price_feed": True}
+    assert info == {"has_token": False, "legacy_token_active": True, "price_feed": True,
+                    "request_status": "NONE", "requested_at": None}
 
     r = rotate(admin)
     tok = r.json()["token"]
@@ -78,19 +79,18 @@ def test_only_admin_issues_tokens_and_only_for_the_users_own_account():
     repo, _, app, kc, admin, trader = world()
     # USER không tự cấp token (DEC-16: token do ADMIN cấp, ADMIN cấu hình máy chung)
     assert trader.post("/api/accounts/default/gateway/token").status_code == 405
-    assert trader.post("/api/admin/users/sub-trader/accounts/default/gateway-token"
-                       ).status_code == 403
+    assert trader.post("/api/admin/users/sub-trader/gateway-token").status_code == 403
     assert not repo.has_gateway_tokens("default")
-    # ADMIN cấp cho tài khoản KHÔNG thuộc USER đó → 404, không sinh token
-    repo.create_account(TradingAccount("acc_b", "B", utcnow(), "t", price_feed=False))
-    r = admin.post("/api/admin/users/sub-trader/accounts/acc_b/gateway-token")
-    assert r.status_code == 404 and "token" not in r.json()
-    assert not repo.has_gateway_tokens("acc_b")
-    # Người không phải USER (ADMIN) → 404
+    # Token luôn cấp cho tài khoản của chính USER đó (không nhận account_id từ ngoài)
+    login_owner(app, kc, repo, "bob", account="acc_b")
+    tok = rotate(admin, "sub-bob").json()
+    assert tok["account_id"] == "acc_b" and not repo.has_gateway_tokens("default")
+    # Người không phải USER (ADMIN) → 404, không sinh token
     sub_admin = next(u.sub for u in kc.users.values() if u.username == "admin")
-    repo.set_member(Member("acc_b", sub_admin, "OWNER", utcnow(), "t"))
-    assert admin.post(f"/api/admin/users/{sub_admin}/accounts/acc_b/gateway-token"
-                      ).status_code == 404
+    repo.create_account(TradingAccount("acc_c", "C", utcnow(), "t", price_feed=False))
+    repo.set_member(Member("acc_c", sub_admin, "OWNER", utcnow(), "t"))
+    assert admin.post(f"/api/admin/users/{sub_admin}/gateway-token").status_code == 404
+    assert not repo.has_gateway_tokens("acc_c")
 
 
 def test_gateway_of_a_cannot_write_into_b():
@@ -98,7 +98,7 @@ def test_gateway_of_a_cannot_write_into_b():
     repo, store, app, kc, admin, trader = world()
     bob = login_owner(app, kc, repo, "bob", account="acc_b")
     tok_default = rotate(admin).json()["token"]
-    tok_b = rotate(admin, "sub-bob", "acc_b").json()["token"]
+    tok_b = rotate(admin, "sub-bob").json()["token"]
 
     # Token của acc_b mà khai account_id=default → 403
     r = trader.post(HB_PATH, json=HB | {"account_id": "default"}, headers=bearer(tok_b))

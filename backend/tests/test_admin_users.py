@@ -1,7 +1,7 @@
-"""MT-20 + DEC-16: ADMIN quản lý USER trên Dashboard.
+"""MT-20 + DEC-16 + DEC-17: ADMIN quản lý USER trên Dashboard.
 
-Tạo (Keycloak + tài khoản giao dịch riêng + token Gateway trong một giao dịch), danh sách, khóa,
-mở khóa, đặt lại mật khẩu, cấp lại token.
+Tạo (Keycloak + tài khoản giao dịch riêng trong một giao dịch, KHÔNG sinh token), danh sách (một
+USER một dòng), sửa, xóa, khóa, mở khóa, đặt lại mật khẩu, USER xin token → ADMIN cấp/từ chối.
 """
 
 from __future__ import annotations
@@ -49,6 +49,12 @@ def bearer(t):
     return {"Authorization": f"Bearer {t}"}
 
 
+def issue(admin, sub) -> str:
+    r = admin.post(f"{URL}/{sub}/gateway-token")
+    assert r.status_code == 200, r.text
+    return r.json()["token"]
+
+
 def user_audit(repo):
     return [e for e in repo.audit(500) if e.action == "user.create"]
 
@@ -66,17 +72,12 @@ def test_admin_creates_user_with_own_account_and_temporary_password():
     r = admin.post(URL, json=body())
     assert r.status_code == 201, r.text
     out = r.json()
-    assert out["username"] == "lanng" and out["account_id"] == "u-lanng"
-    assert out["account_name"] == "Tài khoản của Lan Nguyen"
+    assert out["username"] == "lanng"
     sub = out["sub"]
     assert out["status"] == "ACTIVE" and out["temporary_password"] is None  # admin tự đặt
     assert r.headers["cache-control"] == "no-store"
-    # Token Gateway sinh tự động, gắn đúng tài khoản, đã đăng ký ở backend (chờ Gateway)
-    tok = out["gateway"]["token"]
-    assert tok.startswith("gtk_") and len(tok) >= 40
-    assert out["gateway"]["account_id"] == "u-lanng" and out["gateway_status"] == "WAITING"
-    assert repo.account_for_token(tok) == "u-lanng"
-    assert tok not in json.dumps(repo._tokens, default=str)  # chỉ lưu băm
+    # DEC-17: không có token nào được sinh lúc tạo (USER xin, ADMIN cấp sau)
+    assert "gateway" not in out and repo._tokens == []
     # Keycloak: có người dùng, mật khẩu tạm (bắt đổi ở lần đăng nhập đầu)
     assert kc.users[sub].username == "lanng"
     assert kc.passwords[sub] == (PW, True)
@@ -86,13 +87,16 @@ def test_admin_creates_user_with_own_account_and_temporary_password():
     assert u.role == "USER" and u.status == "ACTIVE"
     acc = repo.account("u-lanng")
     assert acc is not None and acc.price_feed is False
+    assert acc.name == "Tài khoản của Lan Nguyen"
     assert repo.role("u-lanng", sub) == "OWNER"
     assert app.state.registry.get("u-lanng") is not None
     [e] = user_audit(repo)
     assert e.outcome == "ACCEPTED" and e.account_id == "u-lanng" and e.actor == "admin"
-    assert "password" not in e.payload and e.payload["token_id"] == out["gateway"]["token_id"]
-    assert tok not in json.dumps([x.__dict__ for x in repo.audit(500)], default=str)
+    assert "password" not in e.payload and e.payload["account_id"] == "u-lanng"
     no_password_anywhere(repo, r.text)
+    # Danh sách: chưa có token
+    [row] = [u for u in admin.get(URL).json() if u["sub"] == sub]
+    assert row["gateway_status"] == "NO_TOKEN" and row["token_requested_at"] is None
 
 
 def test_new_user_logs_in_and_only_sees_own_account():
@@ -136,7 +140,8 @@ def test_unlimited_number_of_users():
         r = admin.post(URL, json=body(username=f"user{i:02d}", email=f"u{i}@example.com"))
         assert r.status_code == 201, r.text
     assert len([a for a in repo.accounts() if a.account_id.startswith("u-")]) == 12
-    tokens = {t["token_sha256"] for t in repo._tokens}
+    subs = [u["sub"] for u in admin.get(URL).json() if u["username"].startswith("user")]
+    tokens = {issue(admin, s) for s in subs}
     assert len(tokens) == 12  # không dùng chung token giữa các USER
 
 
@@ -218,7 +223,8 @@ def test_db_failure_deletes_user_from_keycloak(monkeypatch):
 def test_dotted_username_gets_valid_account_id():
     repo, _, _, admin = world()
     r = admin.post(URL, json=body(username="lan.nguyen", email="lan.nguyen@example.com"))
-    assert r.status_code == 201 and r.json()["account_id"] == "u-lan-nguyen"
+    assert r.status_code == 201
+    assert repo.role("u-lan-nguyen", r.json()["sub"]) == "OWNER"
 
 
 # --- Repository SQL (SQLite) ---
@@ -296,34 +302,37 @@ def create(admin, **kw):
 def test_first_user_on_fresh_install_gets_price_feed_account_and_generated_password():
     repo, app, kc, admin = world(seed_owner=False, repo=InMemoryRepository())
     out = admin.post(URL, json={k: v for k, v in body().items() if k != "password"}).json()
-    assert out["account_id"] == "default" and out["account_name"] == "Tài khoản chính"
+    assert repo.role("default", out["sub"]) == "OWNER"
     pw = out["temporary_password"]
     assert pw and len(pw) >= 12 and kc.passwords[out["sub"]] == (pw, True)
     assert pw not in json.dumps([e.__dict__ for e in repo.audit(500)], default=str)
     # Gateway của USER này ghi được nến dùng chung (price_feed)
     me = client(app)
-    r = me.post("/api/ingest/mt5/heartbeat", json=HB, headers=bearer(out["gateway"]["token"]))
+    r = me.post("/api/ingest/mt5/heartbeat", json=HB, headers=bearer(issue(admin, out["sub"])))
     assert r.status_code == 200
     # USER thứ hai: tài khoản riêng
-    assert create(admin, username="minh", email="m@example.com")["account_id"] == "u-minh"
+    minh = create(admin, username="minh", email="m@example.com")
+    assert repo.role("u-minh", minh["sub"]) == "OWNER"
 
 
 def test_list_users_shows_status_and_gateway_but_never_secrets():
     repo, app, kc, admin = world()
     out = create(admin)
+    tok = issue(admin, out["sub"])
     rows = admin.get(URL).json()
     assert [u["username"] for u in rows] == ["lanng", "trader"]  # ADMIN không nằm trong danh sách
     lan = rows[0]
     assert lan["status"] == "ACTIVE" and lan["first_login_at"] is None
-    assert [(a["account_id"], a["gateway_status"]) for a in lan["accounts"]] == [
-        ("u-lanng", "WAITING")]
-    assert rows[1]["accounts"][0]["gateway_status"] == "NO_TOKEN"
+    # DEC-17: một USER một dòng, không lộ mã tài khoản nội bộ
+    assert lan["gateway_status"] == "WAITING" and lan["price_feed"] is False
+    assert "account_id" not in lan and "accounts" not in lan
+    assert rows[1]["gateway_status"] == "NO_TOKEN" and rows[1]["price_feed"] is True
     text = json.dumps(rows)
-    assert out["gateway"]["token"] not in text and PW not in text and "token" not in lan
+    assert tok not in text and PW not in text and "token" not in lan
     # Gateway gửi nhịp tim → CONNECTED
     gw = client(app)
-    gw.post("/api/ingest/mt5/heartbeat", json=HB, headers=bearer(out["gateway"]["token"]))
-    assert admin.get(URL).json()[0]["accounts"][0]["gateway_status"] == "CONNECTED"
+    gw.post("/api/ingest/mt5/heartbeat", json=HB, headers=bearer(tok))
+    assert admin.get(URL).json()[0]["gateway_status"] == "CONNECTED"
     # USER không xem được danh sách
     me = client(app)
     kc.login(me, "lanng")
@@ -333,7 +342,8 @@ def test_list_users_shows_status_and_gateway_but_never_secrets():
 def test_lock_blocks_login_session_gateway_and_orders_without_touching_safety():
     repo, app, kc, admin = world()
     out = create(admin)
-    sub, tok = out["sub"], out["gateway"]["token"]
+    sub = out["sub"]
+    tok = issue(admin, sub)
     me = client(app)
     kc.login(me, "lanng")
     assert me.post("/api/accounts/u-lanng/safety",
@@ -353,7 +363,9 @@ def test_lock_blocks_login_session_gateway_and_orders_without_touching_safety():
     assert gw.post("/api/ingest/mt5/heartbeat", json=HB, headers=bearer(tok)).status_code == 403
     assert reg.allows_new_orders("u-lanng") is False
     assert reg.get("u-lanng").safety.state.value == "ACTIVE"  # không đổi Safety / không đóng lệnh
-    assert admin.get(URL).json()[0]["accounts"][0]["gateway_status"] == "BLOCKED"
+    assert admin.get(URL).json()[0]["gateway_status"] == "BLOCKED"
+    # Đang khóa: không cấp token mới
+    assert admin.post(f"{URL}/{sub}/gateway-token").status_code == 409
     # Khóa lại lần nữa: idempotent
     assert admin.post(f"{URL}/{sub}/lock").json()["status"] == "LOCKED"
 
@@ -394,7 +406,8 @@ def test_unlock_keeps_user_locked_when_keycloak_fails():
 def test_reset_password_revokes_sessions_and_keeps_gateway_token():
     repo, app, kc, admin = world()
     out = create(admin)
-    sub, tok = out["sub"], out["gateway"]["token"]
+    sub = out["sub"]
+    tok = issue(admin, sub)
     me = client(app)
     kc.login(me, "lanng")
     r = admin.post(f"{URL}/{sub}/reset-password")
@@ -426,8 +439,8 @@ def test_admin_cannot_lock_or_reset_admin_and_unknown_user_is_404():
 def test_reissue_token_revokes_old_one():
     repo, app, kc, admin = world()
     out = create(admin)
-    old = out["gateway"]["token"]
-    r = admin.post(f"{URL}/{out['sub']}/accounts/u-lanng/gateway-token")
+    old = issue(admin, out["sub"])
+    r = admin.post(f"{URL}/{out['sub']}/gateway-token")
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
     new = r.json()["token"]
     assert new != old

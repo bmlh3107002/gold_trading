@@ -312,3 +312,28 @@ ACTIVE ──OWNER gỡ──► REVOKED
 
 **Kiểm thử:** `tests/test_rbac.py` (ADMIN không vào tài khoản giao dịch kể cả có dòng OWNER cũ; dòng OPERATOR/VIEWER không cho quyền; cách ly; khóa thu hồi phiên + chặn đăng nhập + chặn lệnh mới; duyệt/từ chối LIVE), `tests/test_admin_users.py` (tạo + token + mật khẩu tự sinh, danh sách không lộ bí mật, khóa/mở khóa khi Keycloak lỗi, đặt lại mật khẩu giữ token, không tự khóa mình), `tests/test_gateway_tokens.py` (USER bị khóa → Gateway 403, mở khóa dùng lại token), migration 0006 thử trên PostgreSQL 16 thật (không mất dòng, CHECK chặn giá trị sai). Frontend: `AdminPage.test.tsx`, `AccountPage.test.tsx`, `App.test.tsx`. E2E với Keycloak thật: `ops/scripts/e2e_auth.py` (chạy trong CI).
 
+
+## 17. Trang Quản trị đơn giản: một USER một dòng, USER xin token, ADMIN cấp (DEC-17, người dùng chốt 2026-11-07)
+
+**Yêu cầu (người dùng):** trang Quản trị chỉ hiện **người dùng**, không tách bảng "tài khoản giao dịch" (dòng "Tài khoản chính · Nguồn giá chung · default" gây hiểu nhầm). ADMIN có: **thêm, sửa, xóa, khóa** (+ mở khóa, đặt lại mật khẩu đã có). Tạo người dùng **không** sinh token; USER muốn dùng MT5 thì **xin cấp token**, ADMIN **cấp**. Người dùng chọn **lựa chọn B**: token **hiện cho ADMIN** (một lần) vì ADMIN cấu hình Gateway trên máy chung (DEC-13); USER không bao giờ thấy token. Thay phần "token sinh lúc tạo" của mục 15/16.
+
+**Mô hình:** mỗi USER đúng một tài khoản giao dịch (ẩn với ADMIN). "Tài khoản chính" của USER = tài khoản cấp giá nếu có, nếu không thì tài khoản tạo sớm nhất. Mã tài khoản mới: `u-<username>`, trùng (tên đăng nhập dùng lại sau khi xóa) → `u-<username>-2`… (tài khoản cũ giữ để còn lịch sử, không bao giờ trao lại cho người mới).
+
+**API (thay đổi so với mục 16):**
+
+| Endpoint | Làm gì |
+| --- | --- |
+| `GET /api/admin/users` | Một dòng/USER: trạng thái, Gateway (`NO_TOKEN` = chưa có token **còn hiệu lực**), `token_requested_at` (đang xin), `price_feed` (MT5 của người này cấp giá cho cả hệ thống). Không có mã tài khoản, token, mật khẩu. Ẩn USER `DELETED` |
+| `POST /api/admin/users` | Như cũ nhưng **không** sinh token (token cũ của tài khoản nhận lại vẫn bị thu hồi). Bỏ trường `account_name` |
+| `PUT /api/admin/users/{sub}` | Sửa email / họ / tên (tên đăng nhập không đổi). Kiểm email trùng ở DB, rồi Keycloak: **đọc bản đầy đủ rồi gửi lại cả bản** (Keycloak ≥ 24 có thể xóa thuộc tính không gửi kèm). Keycloak lỗi → 503, DB không đổi |
+| `DELETE /api/admin/users/{sub}` | **Từ chối (409)** nếu tài khoản của USER đang cấp giá, đang LIVE, hoặc Gateway đang kết nối. Xóa = DB `status=DELETED` **trước** (chặn ngay: phiên, đăng nhập, Gateway, lệnh mới) → thu hồi mọi token → hủy yêu cầu xin token → thu hồi phiên → xóa trên Keycloak. Keycloak lỗi → `keycloak_synced=false`, bấm lại (cho phép gọi lại trên USER đã `DELETED`). Giữ dòng `users` + lịch sử |
+| `POST /api/admin/users/{sub}/gateway-token` | Cấp token cho tài khoản của USER (thu hồi token cũ trong cùng transaction), đánh dấu yêu cầu đang chờ là `APPROVED`. Dùng cả khi không có yêu cầu (cấp lại khi mất). USER đang khóa → 409 |
+| `POST /api/admin/users/{sub}/gateway-token/reject` | Từ chối yêu cầu đang chờ (204); không có yêu cầu → 409. Token đang dùng không đổi |
+| `POST /api/accounts/{id}/gateway/token-request` | USER (chủ, ACTIVE) xin cấp/cấp lại token. Đang chờ → NOOP (không tạo thêm) |
+| `GET /api/accounts/{id}/gateway/token` | Thêm `request_status` (`NONE`/`PENDING`/`REJECTED`) + `requested_at`. `has_token` = có token **còn hiệu lực** |
+
+**Lưu trữ (migration 0007):** `users.status` thêm `DELETED`; bảng `gateway_token_requests` chỉ thêm dòng (trigger chặn UPDATE/DELETE; sự kiện `REQUESTED`/`APPROVED`/`REJECTED`/`CANCELLED`, trạng thái = sự kiện cuối). **Dọn dữ liệu:** USER là chủ nhiều tài khoản (luồng cũ) → giữ một (cấp giá, hoặc sớm nhất), tài khoản thừa: thu hồi token, bỏ quyền sở hữu, ghi audit `account.dedupe` (actor `migration-0007`); **không đụng** tài khoản thừa đang cấp giá hoặc chế độ cuối SHADOW/LIVE. Thử trên PostgreSQL 16 với dữ liệu giống máy người dùng (Lord Trade chủ `default` + `u-user_cutlot`): giữ `default`, thu hồi token `u-user_cutlot`, tài khoản LIVE thừa giữ nguyên, chạy lại không đổi gì, hạ cấp được.
+
+**Hệ quả an toàn:** USER `DELETED` bị chặn ở mọi chỗ USER `LOCKED` bị chặn (mọi kiểm tra dùng `status != ACTIVE`). Lúc mới cài, USER đầu tiên nhận `default` mà chưa có token → token cũ `GT_INGEST_TOKEN` vẫn chạy cho tới khi ADMIN cấp token đầu tiên cho `default` (giống trước khi có USER).
+
+**Kiểm thử:** `tests/test_admin_users_dec17.py` (xin/cấp/từ chối, xin trùng, khóa, sửa + giữ thuộc tính Keycloak, email trùng, Keycloak lỗi, xóa + chặn sau xóa, không xóa USER cấp giá/LIVE/Gateway đang kết nối, dùng lại tên đăng nhập, SQL + bộ nhớ khớp nhau); `AdminPage.test.tsx`, `AccountPage.test.tsx`; `ops/scripts/e2e_auth.py` (luồng trên Keycloak thật). Thử đột biến 11 chốt chặn: 10 làm test đỏ; chốt kiểm email trùng ở DB không đỏ vì Keycloak kiểm lần hai.

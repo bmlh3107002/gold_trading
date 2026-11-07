@@ -51,6 +51,9 @@ class User:
     roles: list[str]
     email: str | None = None
     enabled: bool = True
+    first_name: str = ""
+    last_name: str = ""
+    attributes: dict[str, list[str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -181,13 +184,32 @@ class FakeKeycloak:
         sub = rest[0]
         if request.method in ("PUT", "POST") and self.fail_admin_ops:
             return httpx.Response(self.fail_admin_ops, json={"errorMessage": "forced"})
+        if request.method == "GET" and len(rest) == 1:
+            u = self.users.get(sub)
+            if u is None:
+                return httpx.Response(404)
+            return httpx.Response(200, json={
+                "id": u.sub, "username": u.username, "email": u.email, "enabled": u.enabled,
+                "firstName": u.first_name, "lastName": u.last_name, "attributes": u.attributes})
         if request.method == "PUT" and len(rest) == 1:
             if sub not in self.users:
                 return httpx.Response(404)
             body = json.loads(request.content)
-            if set(body) != {"enabled"}:
+            u = self.users[sub]
+            if set(body) == {"enabled"}:
+                u.enabled = bool(body["enabled"])
+                return httpx.Response(204)
+            # Sửa hồ sơ (DEC-17): giống Keycloak ≥ 24, thuộc tính không gửi kèm bị mất
+            if "credentials" in body or body.get("username") != u.username:
                 return httpx.Response(400, json={"errorMessage": "unexpected fields"})
-            self.users[sub].enabled = bool(body["enabled"])
+            if any(o.sub != sub and o.email and o.email == body.get("email")
+                   for o in self.users.values()):
+                return httpx.Response(409, json={"errorMessage": "User exists with same email"})
+            u.email = body.get("email")
+            u.first_name = body.get("firstName") or ""
+            u.last_name = body.get("lastName") or ""
+            u.attributes = body.get("attributes") or {}
+            u.enabled = bool(body.get("enabled", u.enabled))
             return httpx.Response(204)
         if request.method == "POST" and rest[1:] == ["logout"]:
             if sub not in self.users:

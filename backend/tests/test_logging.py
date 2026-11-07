@@ -91,11 +91,12 @@ def test_no_secret_in_logs_after_full_flow(captured, caplog):
     # Ingest có token, xoay token, dùng token mới, token sai
     auth = {"Authorization": f"Bearer {LEGACY}"}
     c.post("/api/ingest/mt5/heartbeat", json=HB, headers=auth)
-    # DEC-16: token do hệ thống sinh khi ADMIN tạo USER (kèm mật khẩu tạm tự sinh)
+    # ADMIN tạo USER (mật khẩu tạm tự sinh)
     created = c.post("/api/admin/users", json={
         "username": "bob", "email": "bob@example.com", "first_name": "B", "last_name": "C",
     }).json()
-    tok = created["gateway"]["token"]
+    # DEC-17: token do ADMIN cấp sau khi tạo
+    tok = c.post(f"/api/admin/users/{created['sub']}/gateway-token").json()["token"]
     secrets |= {tok, created["temporary_password"]}
     reset = c.post(f"/api/admin/users/{created['sub']}/reset-password").json()
     secrets.add(reset["temporary_password"])
