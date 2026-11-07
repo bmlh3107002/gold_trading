@@ -53,8 +53,8 @@
 - [ ] Sau Lễ Tạ ơn 26–27/11: đối chiếu giờ broker thật với bảng (lệch → `GT_BROKER_SPECIAL_HOURS`). Không chặn bước 3
 
 ### Bước 3 — Nến cuối tuần bị giữ tới thứ Hai (1A-C21)
-- [ ] Coi nến đã đóng khi `open + khung ≤ giờ server` **và** lịch broker báo đóng cửa
-- [ ] Test: DST, cuối tuần, ngày lễ, nghỉ giữa phiên
+- [x] Coi nến đã đóng khi `open + khung ≤ giờ server` **và** lịch broker báo đóng cửa (2026-11-07: Gateway gửi vị trí 0 trong `tail_bar`, backend quyết: hết giờ nến + 2 phút **và** lịch đóng suốt từ lúc nến hết giờ)
+- [x] Test: DST, cuối tuần, ngày lễ, nghỉ giữa phiên (2026-11-07)
 - [ ] Kiểm trên máy người dùng: tối thứ Sáu thấy nến cuối tuần (không chờ thứ Hai)
 
 ### Bước 4 — Mỗi tài khoản dùng MT5 của mình (đa tài khoản, DEC-14)

@@ -148,6 +148,46 @@ class Mt5Reader:
         tick = self.mt5.symbol_info_tick(self.symbol)
         return server_epoch_to_utc(tick.time, self.tz) if tick is not None else None
 
+    def _to_bar(self, r: Any) -> Bar | None:
+        t = server_epoch_to_utc(int(r["time"]), self.tz)
+        if t is None:
+            self.skipped_ambiguous += 1
+            return None
+        return Bar(
+            t,
+            float(r["open"]),
+            float(r["high"]),
+            float(r["low"]),
+            float(r["close"]),
+            int(r["tick_volume"]),
+            int(r["spread"]),
+        )
+
+    def bars_with_tail(self, count: int, timeframe: str = "M15") -> tuple[list[Bar], Bar | None]:
+        """(nến đã đóng ở vị trí 1..count, nến ở vị trí 0) đọc trong MỘT lần gọi MT5.
+
+        Nến vị trí 0 có thể còn đang chạy, cũng có thể là nến cuối phiên đã hết giờ nhưng chưa có
+        nến kế (cuối tuần, ngày lễ, giờ nghỉ — 1A-C21). Gateway KHÔNG tự quyết: gửi riêng trong
+        ``tail_bar`` để backend xét theo đồng hồ + lịch broker. Đọc một lần để không lệch nhau
+        khi nến mới hình thành giữa hai lần đọc.
+        """
+        if timeframe not in TIMEFRAMES:
+            raise ValueError(f"Khung không hỗ trợ: {timeframe}")
+        tf_const = getattr(self.mt5, f"TIMEFRAME_{timeframe}")
+        rates = self.mt5.copy_rates_from_pos(self.symbol, tf_const, 0, count + 1)
+        if rates is None:
+            raise self._err(f"Đọc nến {timeframe} (copy_rates_from_pos)")
+        rows = list(rates)
+        if not rows:
+            return [], None
+        # MT5 trả theo thứ tự cũ → mới: phần tử cuối là vị trí 0.
+        tail = self._to_bar(rows[-1])
+        closed = [b for b in (self._to_bar(r) for r in rows[:-1]) if b is not None]
+        closed.sort(key=lambda b: b.open_time_utc)
+        if tail is not None and closed and tail.open_time_utc <= closed[-1].open_time_utc:
+            tail = None  # dữ liệu lạ: không gửi
+        return closed, tail
+
     def closed_bars(self, count: int, timeframe: str = "M15") -> list[Bar]:
         """Nến ĐÃ ĐÓNG gần nhất của ``timeframe`` (M15/H1/H4/D1), đọc thẳng từ MT5.
 
@@ -160,21 +200,13 @@ class Mt5Reader:
         rates = self.mt5.copy_rates_from_pos(self.symbol, tf_const, 1, count)
         if rates is None:
             raise self._err(f"Đọc nến {timeframe} (copy_rates_from_pos)")
-        out: list[Bar] = []
-        for r in rates:
-            t = server_epoch_to_utc(int(r["time"]), self.tz)
-            if t is None:
-                self.skipped_ambiguous += 1
-                continue
-            out.append(
-                Bar(
-                    t,
-                    float(r["open"]),
-                    float(r["high"]),
-                    float(r["low"]),
-                    float(r["close"]),
-                    int(r["tick_volume"]),
-                    int(r["spread"]),
-                )
-            )
+        out = [b for b in (self._to_bar(r) for r in rates) if b is not None]
         return sorted(out, key=lambda b: b.open_time_utc)
+
+    def terminal_connected(self) -> bool:
+        """Terminal đang nối với server broker không (lỗi đọc → False, an toàn)."""
+        try:
+            info = self.mt5.terminal_info()
+        except Exception:
+            return False
+        return bool(getattr(info, "connected", False)) if info is not None else False

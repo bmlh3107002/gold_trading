@@ -38,7 +38,8 @@ def cfg(**kw) -> Config:
 class FakeBackend:
     base = "http://x"
 
-    def __init__(self, fail_health=False, dry_status=None):
+    def __init__(self, fail_health=False, dry_status=None, tail_answer=None):
+        self.tail_answer = tail_answer  # None = backend cũ (không trả "tail")
         self.posts: list[dict] = []
         self.heartbeats: list[dict] = []
         self.fail_health = fail_health
@@ -50,7 +51,16 @@ class FakeBackend:
         return {"status": "ok", "storage": "postgres"}
 
     def post_candles(
-        self, *, symbol, bars, backfill, gateway_id, dry_run=False, timeframe="M15", server_tz=None
+        self,
+        *,
+        symbol,
+        bars,
+        backfill,
+        gateway_id,
+        dry_run=False,
+        timeframe="M15",
+        server_tz=None,
+        tail_bar=None,
     ):
         if dry_run and self.dry_status:
             raise BackendError(self.dry_status, "lỗi")
@@ -62,9 +72,10 @@ class FakeBackend:
                 dry_run=dry_run,
                 timeframe=timeframe,
                 server_tz=server_tz,
+                tail_bar=tail_bar,
             )
         )
-        return {
+        out = {
             "received": len(bars),
             "accepted": len(bars),
             "duplicates": 0,
@@ -73,6 +84,9 @@ class FakeBackend:
             "reasons": {},
             "session_outside_fraction": 0.0,
         }
+        if tail_bar is not None and self.tail_answer:
+            out["tail"] = self.tail_answer
+        return out
 
     def heartbeat(self, payload):
         self.heartbeats.append(payload)
@@ -495,3 +509,134 @@ def test_higher_timeframes_request_bounded_history_and_report_progress():
     from mt5_gateway.config import history_bars_for
 
     assert history_bars_for(cfg(history_bars=300), "D1") == 300
+
+
+# ---- 1A-C21: nến cuối phiên (vị trí 0) ----
+
+# Thứ Sáu 16/01/2026 23:30 UTC: thị trường (giả lập theo giờ NY) đã đóng lúc 22:00 UTC.
+FRI_CLOSED = datetime(2026, 1, 16, 23, 30, tzinfo=UTC)
+
+
+def test_bars_with_tail_reads_once_and_splits_position_zero():
+    fake = FakeMt5(now_utc=FRI_CLOSED)
+    r = Mt5Reader(fake, broker_symbol="XAUUSD", server_tz=ATHENS)
+    closed, tail = r.bars_with_tail(10)
+    assert tail is not None and tail.open_time_utc == datetime(2026, 1, 16, 21, 45, tzinfo=UTC)
+    assert len(closed) == 10 and closed[-1].open_time_utc == datetime(
+        2026, 1, 16, 21, 30, tzinfo=UTC
+    )
+    assert closed == r.closed_bars(10)  # cùng nến đã đóng như cách đọc cũ
+    assert fake.rate_requests[0] == (fake.TIMEFRAME_M15, 11)  # một lần đọc, gồm vị trí 0
+    # Giữa tuần: vị trí 0 là nến đang chạy
+    closed, tail = Mt5Reader(
+        FakeMt5(now_utc=NOW_WINTER), broker_symbol="XAUUSD", server_tz=ATHENS
+    ).bars_with_tail(5)
+    assert tail.open_time_utc == datetime(2026, 1, 14, 10, 0, tzinfo=UTC)
+    assert closed[-1].open_time_utc == datetime(2026, 1, 14, 9, 45, tzinfo=UTC)
+
+
+class _RowsMt5:
+    TIMEFRAME_M15 = 15
+
+    def __init__(self, rows):
+        self.rows = rows
+
+    def copy_rates_from_pos(self, name, tf, start, count):
+        return self.rows
+
+    def last_error(self):
+        return (1, "ok")
+
+
+def _row(server_epoch):
+    return {
+        "time": server_epoch,
+        "open": 1,
+        "high": 2,
+        "low": 0.5,
+        "close": 1.5,
+        "tick_volume": 1,
+        "spread": 1,
+    }
+
+
+def test_bars_with_tail_strange_data_drops_tail():
+    t = int(datetime(2026, 1, 16, 22, 0, tzinfo=UTC).timestamp())
+    # Vị trí 0 không mới hơn nến trước nó → không gửi tail
+    r = Mt5Reader(_RowsMt5([_row(t), _row(t)]), broker_symbol="XAUUSD", server_tz=ATHENS)
+    closed, tail = r.bars_with_tail(1)
+    assert tail is None and len(closed) == 1
+    assert Mt5Reader(_RowsMt5([]), broker_symbol="XAUUSD", server_tz=ATHENS).bars_with_tail(1) == (
+        [],
+        None,
+    )
+    # Vị trí 0 rơi vào giờ mơ hồ lúc lùi giờ (03:30 Athens 25/10/2026 có hai lần) → bỏ
+    amb = int(datetime(2026, 10, 25, 3, 30, tzinfo=UTC).timestamp())
+    prev = int(datetime(2026, 10, 25, 2, 0, tzinfo=UTC).timestamp())
+    r = Mt5Reader(_RowsMt5([_row(prev), _row(amb)]), broker_symbol="XAUUSD", server_tz=ATHENS)
+    closed, tail = r.bars_with_tail(1)
+    assert tail is None and len(closed) == 1 and r.skipped_ambiguous == 1
+
+
+def _syncer(now, be, connected=True, timeframes=("M15",)):
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    c = cfg(timeframes=timeframes)
+    rep = checks.run_checks(c, fake, be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    fake.now, fake.connected = now, connected
+    be.posts.clear()
+    t = [0.0]
+    return fake, Syncer(c, rep.reader, be, rep, sleep=lambda _: None, clock=lambda: t[0]), t
+
+
+def test_sync_sends_tail_until_backend_includes_it():
+    be = FakeBackend(tail_answer="INCLUDED")
+    fake, s, _ = _syncer(FRI_CLOSED, be)
+    s.backfill()
+    assert all(p["tail_bar"] is None for p in be.posts)  # nạp bù không bao giờ gửi vị trí 0
+    be.posts.clear()
+    s.push_recent()
+    assert be.posts[0]["tail_bar"]["open_time"] == "2026-01-16T21:45:00+00:00"
+    assert s.heartbeat_payload()["last_sent_bar"] == "2026-01-16T21:45:00+00:00"
+    be.posts.clear()
+    s.push_recent()  # đã được nhận → không gửi lại, nhịp tim không lùi về nến trước
+    assert be.posts[0]["tail_bar"] is None
+    assert s.heartbeat_payload()["last_sent_bar"] == "2026-01-16T21:45:00+00:00"
+    assert fake.order_send_called is False
+
+
+def test_sync_keeps_sending_tail_while_backend_holds_it():
+    be = FakeBackend(tail_answer="HELD_NOT_CLOSED")
+    _, s, _ = _syncer(NOW_WINTER, be)
+    s.push_recent()
+    s.push_recent()
+    assert [p["tail_bar"]["open_time"] for p in be.posts] == ["2026-01-14T10:00:00+00:00"] * 2
+    assert s.heartbeat_payload()["last_sent_bar"] == "2026-01-14T09:45:00+00:00"
+    # Backend cũ (không hiểu tail_bar, không trả "tail"): vẫn chạy như trước
+    old = FakeBackend()
+    _, s, _ = _syncer(FRI_CLOSED, old)
+    s.push_recent()
+    assert len(old.posts[0]["bars"]) == 20 and old.posts[0]["tail_bar"] is not None
+
+
+def test_sync_no_tail_when_terminal_disconnected():
+    be = FakeBackend(tail_answer="INCLUDED")
+    _, s, _ = _syncer(FRI_CLOSED, be, connected=False)
+    s.push_recent()
+    assert be.posts[0]["tail_bar"] is None and len(be.posts[0]["bars"]) == 20
+
+
+def test_sync_higher_timeframe_tail_on_weekend():
+    be = FakeBackend(tail_answer="INCLUDED")
+    fake, s, t = _syncer(FRI_CLOSED, be, timeframes=ALL_TF)
+    s.backfill()
+    be.posts.clear()
+    s.push_recent()
+    tails = {p["timeframe"]: p["tail_bar"]["open_time"] for p in be.posts}
+    # D1 thứ Sáu = 00:00 Athens = 15/01 22:00 UTC; H4 cuối = 20:00 Athens = 18:00 UTC
+    assert tails["D1"] == "2026-01-15T22:00:00+00:00"
+    assert tails["H4"] == "2026-01-16T18:00:00+00:00"
+    assert tails["H1"] == "2026-01-16T21:00:00+00:00"
+    be.posts.clear()
+    t[0] = 120.0  # tới hạn gửi lại: không gửi lại tail đã được nhận
+    s.push_recent()
+    assert all(p["tail_bar"] is None for p in be.posts)

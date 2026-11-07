@@ -22,6 +22,22 @@
 - `copy_rates_from_pos(symbol, M15, start_pos=1, count)`: vị trí 0 là nến **đang chạy**, nên luôn bắt đầu từ vị trí 1.
 - Backend kiểm tra thêm một lần: nến có `close_time` lớn hơn giờ nhận thì cách ly với lý do `BAR_NOT_CLOSED`.
 
+### 3b. Nến cuối phiên trước cuối tuần / ngày lễ / giờ nghỉ (1A-C21, 2026-11-07)
+
+**Vấn đề:** MT5 chỉ đẩy nến sang vị trí 1 khi có tick của nến kế tiếp. Nến cuối trước khi thị trường đóng (tối thứ Sáu, ngày lễ, giờ nghỉ hằng ngày) nằm ở vị trí 0 tới khi thị trường mở lại → trước đây tới thứ Hai mới gửi (trễ ~2 ngày; D1/H4/H1/M15 thứ Sáu đều bị giữ).
+
+**Cách làm:**
+
+- Gateway đọc vị trí 0..N trong **một** lần gọi (`Mt5Reader.bars_with_tail`), gửi nến đã đóng trong `bars` như cũ và nến vị trí 0 **riêng** trong `tail_bar` — chỉ khi terminal đang kết nối (`terminal_info().connected`) và chỉ với lô realtime. Nạp bù không bao giờ gửi `tail_bar` (backend trả 422 nếu có).
+- **Backend quyết định** (đồng hồ backend + lịch đầy đủ `MarketCalendar`), hàm `ingestion/candles.tail_status`. Chỉ nhận khi CẢ HAI:
+  1. `close_time + 2 phút ≤ giờ backend` (`TAIL_GRACE`, để terminal nhận nốt tick cuối; H4/D1 tính `close_time` theo giờ server, ngày đổi giờ dài/ngắn đúng thực tế);
+  2. lịch báo **đóng cửa suốt** từ `close_time` tới giờ hiện tại (quét từng phút; quá 7 ngày → không xác minh được → giữ).
+- Nhận (`INCLUDED`) thì nến đi qua đúng các bước kiểm tra như nến thường (OHLC, căn khung, khử trùng); `available_at` = lúc nhận (không phải `close_time`). Không nhận thì bỏ qua, **không lưu, không cách ly** (`HELD_NOT_CLOSED`, `HELD_MARKET_OPEN`, `HELD_NOT_LATEST`); trường `tail` trong kết quả cho biết số phận.
+- Thứ Hai, MT5 đẩy nến đó sang vị trí 1, Gateway gửi như nến thường → trùng (bỏ qua) hoặc, nếu terminal đã nhận thêm tick trễ, thành **revision** có cờ `REVISED` (không ghi đè).
+- Gateway nhớ nến vị trí 0 nào đã được nhận để không gửi lại.
+
+**Lý do chọn điều kiện 2 ("đóng suốt"):** nếu lịch còn mở ở phút nào đó sau khi nến hết giờ mà vẫn không có nến mới, có thể terminal mất kết nối hoặc chậm → nến có thể thiếu tick → giữ lại (chậm như cũ, an toàn). Lịch broker khai sai (thiếu `GT_BROKER_SESSIONS`, giờ đóng khai muộn hơn thật) chỉ làm nến bị giữ tới thứ Hai như trước, **không bao giờ nhận sớm**. Khai giờ đóng **sớm hơn** thật mới có rủi ro (nến lúc broker còn mở bị coi là cuối phiên) — R1 (lúc nạp bù: > 1% nến rơi vào giờ lịch báo đóng → từ chối) giúp phát hiện lịch tuần khai sai.
+
 ### 3a. Khung H1, H4, D1 (ING-14, 2026-11-07)
 
 - Đọc thẳng từ MT5 bằng `copy_rates_from_pos(symbol, TIMEFRAME_H1/H4/D1, 1, count)`, **không** ghép từ M15. Lịch sử tối đa: H1 2.000, H4 1.000, D1 500 nến (xin nhiều hơn làm MT5 đứng lâu để tải). Khung chọn bằng `GT_TIMEFRAMES` (mặc định `M15,H1,H4,D1`; M15 luôn có vì R1 kiểm múi giờ trên M15).

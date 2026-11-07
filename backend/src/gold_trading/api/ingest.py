@@ -23,7 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from gold_trading.accounts.access import account_locked
 from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
-from gold_trading.ingestion.candles import CandleIngestor, RawBar
+from gold_trading.ingestion.candles import CandleIngestor, RawBar, TailStatus, tail_status
 from gold_trading.ingestion.sources.csv_file import SESSION_MISMATCH_MAX, check_sessions
 from gold_trading.market.service import MarketDataService
 from gold_trading.market.timeframes import Timeframe
@@ -59,6 +59,22 @@ class CandleBatch(BaseModel):
     backfill: bool
     gateway_id: str = Field(min_length=1, max_length=64)
     bars: list[BarIn] = Field(max_length=MAX_BARS)
+    # 1A-C21: nến ở VỊ TRÍ 0 của MT5 (có thể còn đang chạy). Backend tự quyết theo đồng hồ của
+    # mình + lịch broker có coi là đã đóng không (xem ``tail_status``); không thì bỏ qua, không lưu.
+    # Chỉ dùng với lô realtime (backfill=false).
+    tail_bar: BarIn | None = None
+
+
+def _bar(b: BarIn) -> RawBar:
+    return RawBar(
+        open_time=b.open_time,
+        open=b.open,
+        high=b.high,
+        low=b.low,
+        close=b.close,
+        tick_volume=b.tick_volume,
+        spread_points=b.spread_points,
+    )
 
 
 class IngestReport(BaseModel):
@@ -71,6 +87,8 @@ class IngestReport(BaseModel):
     reasons: dict[str, int]
     session_outside_fraction: float | None = None
     session_best_shift_hours: int | None = None
+    # 1A-C21: số phận của ``tail_bar`` (NONE nếu không gửi)
+    tail: TailStatus = TailStatus.NONE
 
 
 class SymbolSpec(BaseModel):
@@ -227,18 +245,19 @@ def ingest_router(
                 f"server_tz của Gateway ({server_tz.key}) khác GT_BROKER_SERVER_TZ của backend "
                 f"({broker.tz.key}): sửa cho giống nhau",
             )
-        bars = [
-            RawBar(
-                open_time=b.open_time,
-                open=b.open,
-                high=b.high,
-                low=b.low,
-                close=b.close,
-                tick_volume=b.tick_volume,
-                spread_points=b.spread_points,
+        bars = [_bar(b) for b in batch.bars]
+        now = utcnow()
+        tail = TailStatus.NONE
+        if batch.tail_bar is not None:
+            if batch.backfill:
+                raise HTTPException(422, "tail_bar chỉ dùng với lô realtime (backfill=false)")
+            latest = max((b.open_time for b in bars), default=None)
+            tail = tail_status(
+                batch.tail_bar.open_time, latest, tf, now, market.calendar, server_tz
             )
-            for b in batch.bars
-        ]
+            if tail is TailStatus.INCLUDED:
+                # Đi qua đúng các bước kiểm tra như nến thường (OHLC, căn khung, khử trùng…)
+                bars.append(_bar(batch.tail_bar))
         extra: dict[str, Any] = {}
         # R1 (kiểm tra múi giờ) chỉ có nghĩa với nến ngắn nằm trọn trong phiên (M15, H1). Nến
         # H4/D1 vắt qua giờ nghỉ; múi giờ đã được R1 kiểm trên M15/H1 của cùng Gateway.
@@ -265,7 +284,7 @@ def ingest_router(
                 symbol=batch.symbol,
                 timeframe=tf,
                 source=DataSource.MT5,
-                ingested_at=utcnow(),
+                ingested_at=now,
                 backfill=batch.backfill,
                 server_tz=server_tz,
             )
@@ -284,6 +303,7 @@ def ingest_router(
             revised=res.revised,
             quarantined=res.quarantined,
             reasons=res.reasons,
+            tail=tail,
             **extra,
         )
 

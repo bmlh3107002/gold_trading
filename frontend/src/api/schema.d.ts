@@ -711,6 +711,7 @@ export interface components {
             gateway_id: string;
             /** Bars */
             bars: components["schemas"]["BarIn"][];
+            tail_bar?: components["schemas"]["BarIn"] | null;
         };
         /**
          * CandleFlag
@@ -970,6 +971,8 @@ export interface components {
             session_outside_fraction?: number | null;
             /** Session Best Shift Hours */
             session_best_shift_hours?: number | null;
+            /** @default NONE */
+            tail: components["schemas"]["TailStatus"];
         };
         /** LiveRequestCreate */
         LiveRequestCreate: {
@@ -1267,6 +1270,11 @@ export interface components {
              */
             multi_user_enabled: boolean;
         };
+        /**
+         * TailStatus
+         * @enum {string}
+         */
+        TailStatus: "NONE" | "INCLUDED" | "HELD_NOT_CLOSED" | "HELD_MARKET_OPEN" | "HELD_NOT_LATEST";
         /**
          * Timeframe
          * @enum {string}

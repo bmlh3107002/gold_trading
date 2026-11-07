@@ -1769,6 +1769,16 @@
             "type": "array",
             "maxItems": 2000,
             "title": "Bars"
+          },
+          "tail_bar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BarIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -2524,6 +2534,10 @@
               }
             ],
             "title": "Session Best Shift Hours"
+          },
+          "tail": {
+            "$ref": "#/components/schemas/TailStatus",
+            "default": "NONE"
           }
         },
         "type": "object",
@@ -3224,6 +3238,17 @@
         ],
         "title": "SystemStatus",
         "description": "Thông tin chung của hệ thống. Trạng thái Safety/Mode nằm ở /api/accounts/{id}/status."
+      },
+      "TailStatus": {
+        "type": "string",
+        "enum": [
+          "NONE",
+          "INCLUDED",
+          "HELD_NOT_CLOSED",
+          "HELD_MARKET_OPEN",
+          "HELD_NOT_LATEST"
+        ],
+        "title": "TailStatus"
       },
       "Timeframe": {
         "type": "string",

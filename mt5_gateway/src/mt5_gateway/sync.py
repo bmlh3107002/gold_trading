@@ -2,6 +2,11 @@
 
 M15 gửi mỗi vòng (như cũ). H1/H4/D1 (ING-14) chỉ gửi khi có nến mới đóng, hoặc định kỳ
 ``HIGHER_RESEND_S`` để bắt bản sửa của broker; backend khử trùng nên gửi lại không nhân đôi.
+
+1A-C21: mỗi lô realtime gửi kèm nến VỊ TRÍ 0 (``tail_bar``) khi terminal đang kết nối. Backend
+quyết định theo đồng hồ của nó + lịch broker có coi nến đó là đã đóng không (nến cuối phiên trước
+cuối tuần / ngày lễ / giờ nghỉ), nên không phải chờ tới khi thị trường mở lại. Đã được nhận thì
+không gửi lại nến vị trí 0 đó nữa.
 """
 
 from __future__ import annotations
@@ -48,12 +53,17 @@ class Syncer:
         self.last_sent_tf: dict[str, Bar] = {}
         self._next_resend: dict[str, float] = {}
         self._retry_after: dict[str, float] = {}
+        self._tail_done: dict[str, Any] = {}  # khung → open_time nến vị trí 0 backend đã nhận
+        self._connected: bool | None = None  # đọc một lần mỗi vòng push_recent
 
     @property
     def timeframes(self) -> list[str]:
         return ["M15", *self.higher]
 
-    def _post(self, tf: str, bars: list[Bar], *, backfill: bool) -> Any:
+    def _post(self, tf: str, bars: list[Bar], *, backfill: bool, tail: Bar | None = None) -> Any:
+        kw: dict[str, Any] = {}
+        if tail is not None:
+            kw["tail_bar"] = tail.to_json()
         return self.client.post_candles(
             symbol=self.cfg.symbol,
             bars=[b.to_json() for b in bars],
@@ -61,7 +71,29 @@ class Syncer:
             gateway_id=self.cfg.gateway_id,
             timeframe=tf,
             server_tz=self.cfg.server_tz,
+            **kw,
         )
+
+    def _tail_to_send(self, tf: str, tail: Bar | None) -> Bar | None:
+        """Nến vị trí 0 chỉ gửi khi terminal đang kết nối (mất kết nối → nến có thể thiếu tick)
+        và chưa được backend nhận trước đó."""
+        if tail is None or self._tail_done.get(tf) == tail.open_time_utc:
+            return None
+        if self._connected is None:
+            self._connected = self.reader.terminal_connected()
+        return tail if self._connected else None
+
+    def _after_post(self, tf: str, tail: Bar | None, r: Any) -> None:
+        if tail is not None and isinstance(r, dict) and r.get("tail") == "INCLUDED":
+            self._tail_done[tf] = tail.open_time_utc
+            log.info(
+                "Nến cuối phiên %s %s: thị trường đóng cửa, backend đã nhận (1A-C21)",
+                tf,
+                f"{tail.open_time_utc:%d/%m %H:%M} UTC",
+            )
+            self.last_sent_tf[tf] = tail
+            if tf == "M15":
+                self.last_sent = tail
 
     def backfill(self) -> dict[str, int]:
         """Nạp bù M15 rồi các khung lớn. Trả tổng của M15 (giữ như cũ)."""
@@ -126,16 +158,22 @@ class Syncer:
         }
 
     def push_recent(self) -> dict[str, Any] | None:
-        bars = self.reader.closed_bars(LIVE_BARS)
+        self._connected = None
+        bars, tail = self.reader.bars_with_tail(LIVE_BARS)
+        tail = self._tail_to_send("M15", tail)
         r = None
-        if bars:
-            r = self._post("M15", bars, backfill=False)
+        if bars or tail:
+            r = self._post("M15", bars, backfill=False, tail=tail)
             if r["accepted"] or r["quarantined"]:
                 log.info(
                     "Nến M15 mới: +%d, cách ly %d %s", r["accepted"], r["quarantined"], r["reasons"]
                 )
-            self.last_sent = bars[-1]
-            self.last_sent_tf["M15"] = bars[-1]
+            if bars and (
+                self.last_sent is None or bars[-1].open_time_utc > self.last_sent.open_time_utc
+            ):
+                self.last_sent = bars[-1]
+                self.last_sent_tf["M15"] = bars[-1]
+            self._after_post("M15", tail, r)
         for tf in self.higher:
             try:
                 self._push_higher(tf)
@@ -149,14 +187,15 @@ class Syncer:
         now = self.clock()
         if now < self._retry_after.get(tf, 0.0):
             return
-        bars = self.reader.closed_bars(LIVE_BARS_HIGHER, tf)
+        bars, tail = self.reader.bars_with_tail(LIVE_BARS_HIGHER, tf)
         if not bars:
             return
         prev = self.last_sent_tf.get(tf)
-        is_new = prev is None or bars[-1].open_time_utc != prev.open_time_utc
+        is_new = prev is None or bars[-1].open_time_utc > prev.open_time_utc
         if not is_new and now < self._next_resend.get(tf, 0.0):
             return
-        r = self._post(tf, bars, backfill=False)
+        tail = self._tail_to_send(tf, tail)
+        r = self._post(tf, bars, backfill=False, tail=tail)
         if r["accepted"] or r["quarantined"] or r.get("revised"):
             log.info(
                 "Nến %s: +%d, sửa %d, cách ly %d %s",
@@ -166,7 +205,9 @@ class Syncer:
                 r["quarantined"],
                 r["reasons"],
             )
-        self.last_sent_tf[tf] = bars[-1]
+        if prev is None or bars[-1].open_time_utc > prev.open_time_utc:
+            self.last_sent_tf[tf] = bars[-1]
+        self._after_post(tf, tail, r)
         self._next_resend[tf] = now + HIGHER_RESEND_S
 
     def run_forever(self, stop: Callable[[], bool] = lambda: False) -> None:

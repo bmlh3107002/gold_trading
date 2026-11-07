@@ -16,6 +16,7 @@ import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -261,6 +262,63 @@ def _any_open(start: datetime, end: datetime, calendar: MarketCalendar) -> bool:
             return True
         t += step
     return False
+
+
+# ---------------------------------------------------------------------------
+# 1A-C21: nến cuối phiên (vị trí 0 của MT5) trước cuối tuần / ngày lễ / giờ nghỉ
+# ---------------------------------------------------------------------------
+
+# Chờ thêm sau giờ đóng nến để terminal nhận nốt tick cuối (an toàn hơn là nhanh).
+TAIL_GRACE = timedelta(minutes=2)
+# Thị trường không đóng liền quá 7 ngày; dài hơn thì không xác minh được → giữ lại.
+TAIL_MAX_SPAN = timedelta(days=7)
+_TAIL_STEP = timedelta(minutes=1)  # giờ lịch (broker, ngày lễ, giờ đặc biệt) đều theo phút
+
+
+class TailStatus(StrEnum):
+    NONE = "NONE"  # không gửi nến vị trí 0
+    INCLUDED = "INCLUDED"  # coi là đã đóng, đưa vào lô như nến thường
+    HELD_NOT_CLOSED = "HELD_NOT_CLOSED"  # chưa hết thời gian nến (+ TAIL_GRACE)
+    HELD_MARKET_OPEN = "HELD_MARKET_OPEN"  # lịch báo mở cửa ở lúc nào đó từ khi nến đóng tới giờ
+    HELD_NOT_LATEST = "HELD_NOT_LATEST"  # không mới hơn mọi nến đã đóng trong lô: dữ liệu lạ
+
+
+def tail_status(
+    tail_open: datetime,
+    latest_closed_open: datetime | None,
+    tf: Timeframe,
+    now: datetime,
+    calendar: MarketCalendar,
+    server_tz: ZoneInfo | None = None,
+) -> TailStatus:
+    """Nến ở vị trí 0 của MT5 có được coi là ĐÃ ĐÓNG không (1A-C21).
+
+    MT5 chỉ chuyển nến sang vị trí 1 khi có tick của nến kế tiếp, nên nến cuối trước cuối tuần /
+    ngày lễ / giờ nghỉ nằm ở vị trí 0 tới khi thị trường mở lại. Chỉ coi là đã đóng khi CẢ HAI:
+
+    1. hết thời gian nến theo đồng hồ backend: ``close_time + TAIL_GRACE <= now`` (H4/D1 tính
+       ``close_time`` theo giờ server broker, ngày đổi DST dài/ngắn đúng thực tế);
+    2. lịch đầy đủ (tham chiếu ∩ broker − ngày lễ + giờ đặc biệt) báo **đóng cửa suốt** từ
+       ``close_time`` tới ``now``. Nếu lịch mở ở bất kỳ phút nào trong khoảng đó thì việc không có
+       nến mới có thể do terminal mất kết nối / chậm → giữ lại (chờ MT5 chuyển nến sang vị trí 1).
+
+    Lịch sai (thiếu ``GT_BROKER_SESSIONS``) chỉ làm nến bị giữ lâu hơn, không bao giờ nhận sớm.
+    """
+    if latest_closed_open is not None and tail_open <= latest_closed_open:
+        return TailStatus.HELD_NOT_LATEST
+    close = tf.close_time(tail_open, server_tz)
+    if close + TAIL_GRACE > now:
+        return TailStatus.HELD_NOT_CLOSED
+    if now - close > TAIL_MAX_SPAN:
+        return TailStatus.HELD_MARKET_OPEN
+    t = close
+    while t <= now:
+        if calendar.is_open(t):
+            return TailStatus.HELD_MARKET_OPEN
+        t += _TAIL_STEP
+    if calendar.is_open(now):
+        return TailStatus.HELD_MARKET_OPEN
+    return TailStatus.INCLUDED
 
 
 def _raw_payload(bar: RawBar) -> dict[str, Any]:
