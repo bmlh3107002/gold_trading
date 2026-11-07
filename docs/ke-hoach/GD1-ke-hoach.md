@@ -14,7 +14,7 @@
 
 - [ ] **Người dùng:** trả token của **Lord Trade** vào `gateway.env` (nếu đã thay bằng token tài khoản khác) → Gateway `check` mục 9 đạt, có nến mới.
 - [ ] **Người dùng:** build lại theo DEC-17 (`docker compose build --no-cache backend frontend` → `docker compose up -d`), xác nhận:
-  - [ ] log backend có `0006 -> 0007` và dòng "bỏ tài khoản thừa u-user_cutlot (giữ default)"
+  - [x] log backend có dòng "bỏ tài khoản thừa u-user_cutlot (giữ default)" (2026-11-07, thu hồi 1 token)
   - [ ] trang Quản trị: **một người một dòng**, nút Cấp token / Sửa / Khóa / Đặt lại mật khẩu / Xóa
   - [ ] USER bấm "Xin cấp token" → ADMIN thấy yêu cầu → Cấp hoặc Từ chối
 - [x] **Người dùng chốt thứ tự (2026-11-07):** giữ **thứ tự đề xuất** bên dưới, bắt đầu từ bước 1 (khung H1/H4/D1). Không đưa bước 4 lên đầu.
@@ -42,7 +42,7 @@
 - [x] ING-14: Gateway đọc + gửi H1/H4/D1 (vẫn chỉ đọc), backend nạp qua `CandleIngestor` (2026-11-07)
 - [x] 1A-C19: nến D1/H4 lưu đúng `open_time` theo giờ server broker, **không** tự ghép từ M15
 - [x] Test: DST, cuối tuần, nến chưa đóng, trùng/khác giá, thiếu nến
-- [ ] Kiểm trên máy người dùng: có nến H1/H4/D1 thật từ MetaQuotes-Demo
+- [x] Kiểm trên máy người dùng: có nến H1/H4/D1 thật từ MetaQuotes-Demo (2026-11-07: 2.000/1.000/500 nến, 0 cách ly, giờ mở đúng giờ server)
 
 ### Bước 2 — Lịch ngày lễ (1B)
 - [ ] CAL-03: bảng ngày lễ/đóng sớm Mỹ có phiên bản, ghi nguồn

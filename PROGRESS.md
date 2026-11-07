@@ -10,8 +10,8 @@
 - **Giai đoạn hiện tại: GĐ1 — Dữ liệu vào** → [`docs/giai-doan/GD1-du-lieu-vao.md`](docs/giai-doan/GD1-du-lieu-vao.md). **Kế hoạch + checklist + prompt cho phiên mới: [`docs/ke-hoach/GD1-ke-hoach.md`](docs/ke-hoach/GD1-ke-hoach.md).**
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
-- **Bước 1 (ING-14 + 1A-C19) — code xong 2026-11-07:** Gateway gửi thêm H1/H4/D1 đọc thẳng từ MT5 (`GT_TIMEFRAMES`), backend căn H4/D1 theo giờ server broker (`server_tz`), không cắt lại theo UTC. **Còn:** kiểm trên máy người dùng (tải Gateway mới + build lại backend).
-- **DEC-17 (2026-11-07):** trang Quản trị đơn giản — một USER một dòng, thêm/sửa/xóa/khóa, USER xin token → ADMIN cấp (migration 0007 bỏ tài khoản trống). CI đạt; chờ người dùng build lại và kiểm trên máy.
+- **Bước 1 (ING-14 + 1A-C19) xong 2026-11-07**, đã kiểm trên máy người dùng: H1/H4/D1 đọc thẳng từ MT5, căn theo giờ server broker (D1 mở 21/22 UTC), 0 cách ly. **Tiếp theo: bước 2** (lịch ngày lễ 1B). Gateway trên máy: `C:\gold-trading\code\gold_trading-develop` (bản cũ `_bk`).
+- **DEC-17 (2026-11-07):** trang Quản trị đơn giản — một USER một dòng, thêm/sửa/xóa/khóa, USER xin token → ADMIN cấp (migration 0007 bỏ tài khoản trống). Đã build lại trên máy, migration 0007 chạy; còn kiểm trang Quản trị (một người một dòng, xin/cấp token).
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
 ## Quyết định đã chốt
@@ -49,4 +49,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-07, ING-14): backend 384 passed, mt5_gateway 37 passed, frontend 68 passed, ruff/tsc/eslint sạch, build OK. (DEC-17: CI `ci_stack.sh` đạt với Keycloak thật, e2e 52/52.)
+Kết quả lần cuối (2026-11-07, ING-14): backend 384 passed, mt5_gateway 38 passed, frontend 68 passed, ruff/tsc/eslint sạch, build OK. (DEC-17: CI `ci_stack.sh` đạt với Keycloak thật, e2e 52/52.)
