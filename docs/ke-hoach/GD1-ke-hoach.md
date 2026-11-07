@@ -17,7 +17,7 @@
   - [ ] log backend có `0006 -> 0007` và dòng "bỏ tài khoản thừa u-user_cutlot (giữ default)"
   - [ ] trang Quản trị: **một người một dòng**, nút Cấp token / Sửa / Khóa / Đặt lại mật khẩu / Xóa
   - [ ] USER bấm "Xin cấp token" → ADMIN thấy yêu cầu → Cấp hoặc Từ chối
-- [ ] **Người dùng chốt thứ tự:** giữ thứ tự dưới đây (bắt đầu từ bước 1) **hay đưa bước 4 lên đầu** (mỗi tài khoản dùng MT5 riêng sớm hơn). Ghi lựa chọn vào đây: `__________`
+- [x] **Người dùng chốt thứ tự (2026-11-07):** giữ **thứ tự đề xuất** bên dưới, bắt đầu từ bước 1 (khung H1/H4/D1). Không đưa bước 4 lên đầu.
 
 ## Quyết định đã chốt (không hỏi lại)
 
