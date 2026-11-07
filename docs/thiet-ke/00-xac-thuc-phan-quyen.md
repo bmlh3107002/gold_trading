@@ -225,7 +225,7 @@ Ví dụ: website A liên kết MT5 `111111` trên server `Broker X` → mọi l
 | Tài khoản không phải nguồn giá thì không ghi được nến dùng chung | Có (GĐ0) | Không có đường nào để một tài khoản dùng dữ liệu/MT5 của tài khoản khác |
 | Gateway đọc MT5 login + server + company + loại tài khoản của terminal | Có (GĐ1, 2026-11-07) | MT-12: trường `identity` trong nhịp tim, đọc trực tiếp mỗi lần. Chỉ báo; chưa dùng để liên kết/chặn (MT-13/MT-14) |
 | Gateway kết nối đúng terminal đã cấu hình (nhiều terminal trên một máy) | **Thiếu** | → MT-15 (GĐ1) |
-| Bảng liên kết + luồng xác minh có người xác nhận | **Thiếu** | → MT-13 (GĐ1) |
+| Bảng liên kết + luồng xác minh có người xác nhận | Có (GĐ1, code 2026-11-07) | MT-13: bảng `mt5_links` (migration 0008), mục 14.5. Chờ kiểm trên máy người dùng |
 | Phát hiện terminal đổi tài khoản / sai liên kết → chặn + cảnh báo | **Thiếu** | → MT-14 (GĐ1) |
 | Lệnh, vị thế, vốn, hạn mức, ledger theo tài khoản | **Thiếu** | → MT-07 (GĐ5), MT-16 (GĐ8) |
 | Định tuyến lệnh tới đúng Gateway đã liên kết | **Thiếu** | → MT-17 (GĐ9) |
@@ -264,6 +264,16 @@ ACTIVE ──OWNER gỡ──► REVOKED
 - Không code nào được chọn MT5/Gateway "mặc định" cho một tài khoản không có liên kết của chính nó.
 - Danh tính MT5 so khớp theo `(login, server)` do terminal báo, không theo dữ liệu người dùng gõ tay.
 - Mọi bảng lệnh/vị thế/ledger/vốn/hạn mức mới đều có `account_id` (và `link_id` khi liên quan MT5), lọc ở tầng truy cập dữ liệu như MT-03.
+
+### 14.5 MT-13 đã làm (2026-11-07)
+
+- **Bảng `mt5_links`** (migration 0008): mỗi liên kết một dòng, chỉ đổi cột trạng thái/xác minh/kết thúc; Postgres có trigger chặn DELETE; mọi lần đổi trạng thái có audit (`mt5_link.pending` / `mt5_link.confirm` / `mt5_link.revoke`). Trạng thái: `PENDING_CONFIRM`, `ACTIVE`, `MISMATCH`, `DISCONNECTED` (hai trạng thái này dành cho MT-14), `REVOKED`, `CANCELLED`. "Đang giữ" = ACTIVE/MISMATCH/DISCONNECTED.
+- **Index duy nhất có điều kiện ở DB** (lớp phòng thủ cuối, kể cả khi hai tài khoản xác nhận cùng lúc): `(login, lower(server))` chỉ được giữ ở một tài khoản (MT-C11); mỗi tài khoản giữ tối đa một liên kết; mỗi tài khoản tối đa một liên kết chờ.
+- **Tạo liên kết chờ** (`accounts/mt5_link.py::observe_identity`, gọi sau mỗi nhịp tim đã xác thực): chỉ cho **tài khoản của token**; không có `identity`, loại tài khoản `UNKNOWN`, hoặc tên server có khoảng trắng đầu/cuối / ký tự điều khiển / ký tự vô hình → **không tạo** (tìm được khi soát: `" Broker-Demo"` hay `"broker-demo"` có thể bị coi là MT5 khác để lách MT-C11 → sửa bằng chặn tên lạ + so server không phân biệt hoa/thường). Terminal đổi MT5 trước khi xác nhận → liên kết chờ cũ `CANCELLED` (`REPLACED`), tạo liên kết chờ mới. Đã có liên kết đang giữ → **không làm gì** (MT-14 sẽ chuyển MISMATCH + chặn). Lỗi DB lúc tạo → bỏ qua (không liên kết = an toàn), nhịp tim vẫn nhận. Lưu `gateway_id` + `token_id` (NULL = token cũ `GT_INGEST_TOKEN`).
+- **Xác nhận** (`POST /api/accounts/{id}/mt5-link/confirm`, chỉ chủ tài khoản đang ACTIVE): USER **gõ lại số login** (server do giao diện gửi lại). Backend chỉ nhận khi (1) liên kết còn chờ, (2) login + server gõ/gửi trùng đúng danh tính terminal đã báo, (3) nhịp tim **còn hạn** (≤ 30 s) **vẫn** báo đúng `(login, server, loại tài khoản)` đó, (4) REAL thì phải có `acknowledge_real=true`, (5) MT5 chưa được giữ ở tài khoản khác (thông báo không lộ tài khoản kia). Trường lạ → 422. Dữ liệu gõ tay chỉ để xác nhận, không bao giờ thay danh tính terminal báo.
+- **Gỡ** (`POST .../mt5-link/revoke`): liên kết đang giữ → `REVOKED`; liên kết chờ → `CANCELLED` ("Không phải MT5 của tôi"). Đang LIVE → từ chối (chuyển khỏi LIVE trước). Liên kết lại = dòng mới, phải xác nhận lại (MT-C14). ADMIN xóa USER → liên kết của USER đó kết thúc (`USER_DELETED`) để MT5 không bị giữ chỗ mãi.
+- **Chưa làm (MT-14):** phát hiện terminal đổi MT5 / đăng xuất khi đang ACTIVE → MISMATCH/DISCONNECTED + chặn ghi + cảnh báo. Liên kết chưa được dùng để cho phép/chặn ghi nến (MT-05).
+- **Giới hạn:** số login > 2^53 hiển thị/gõ trên trình duyệt có thể sai số (JavaScript) → backend từ chối vì không khớp (an toàn; login MT5 thực tế nhỏ hơn nhiều). Hai terminal luân phiên dùng cùng một token (cấu hình sai) sẽ tạo/hủy liên kết chờ liên tục — MT-15 xử lý (mỗi terminal một token).
 
 ## 15. ADMIN tạo người dùng trên Dashboard (MT-20, người dùng chốt 2026-11-06)
 

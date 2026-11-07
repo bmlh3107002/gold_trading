@@ -21,6 +21,8 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     String,
     Table,
+    func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -160,6 +162,57 @@ gateway_token_requests = Table(
 Index("ix_gateway_token_requests_account", gateway_token_requests.c.account_id,
       gateway_token_requests.c.seq)
 
+
+# MT-13 (migration 0008): liên kết tài khoản giao dịch ↔ MT5 ``(login, server)`` do terminal báo.
+# Chỉ thêm dòng và đổi trạng thái (không xóa; Postgres có trigger chặn DELETE); mỗi lần đổi trạng
+# thái đều ghi audit. Liên kết MT5 mới luôn là DÒNG MỚI (lịch sử cũ không trộn, MT-C14).
+#
+# "Đang giữ" (HELD) = ACTIVE / MISMATCH / DISCONNECTED: liên kết vẫn thuộc tài khoản dù đang bị
+# chặn (MT-14). Index duy nhất có điều kiện bảo đảm ngay ở DB:
+#   - một ``(login, server)`` chỉ được GIỮ ở một tài khoản giao dịch (MT-C11);
+#   - mỗi tài khoản giữ tối đa một liên kết, và có tối đa một liên kết chờ xác nhận.
+MT5_LINK_STATUSES = (
+    "PENDING_CONFIRM", "ACTIVE", "MISMATCH", "DISCONNECTED", "REVOKED", "CANCELLED",
+)
+MT5_LINK_HELD = ("ACTIVE", "MISMATCH", "DISCONNECTED")
+_HELD_SQL = "status IN ('ACTIVE', 'MISMATCH', 'DISCONNECTED')"
+_PENDING_SQL = "status = 'PENDING_CONFIRM'"
+
+mt5_links = Table(
+    "mt5_links",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("link_id", String(64), nullable=False, unique=True),
+    Column("account_id", String(64), ForeignKey("trading_accounts.account_id"), nullable=False),
+    Column("mt5_login", BigInteger, nullable=False),
+    Column("mt5_server", String(256), nullable=False),
+    Column("mt5_company", String(256)),
+    Column("trade_mode", String(16), nullable=False),  # DEMO | CONTEST | REAL
+    Column("gateway_id", String(64), nullable=False),
+    # Token Gateway đã gửi danh tính. NULL = token cũ GT_INGEST_TOKEN (chỉ tài khoản mặc định)
+    Column("token_id", String(64)),
+    Column("status", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("verified_at", DateTime(timezone=True)),
+    Column("verified_by", String(128)),
+    Column("ended_at", DateTime(timezone=True)),
+    Column("ended_by", String(128)),
+    Column("end_reason", String(128)),
+    CheckConstraint(
+        "status IN ('PENDING_CONFIRM', 'ACTIVE', 'MISMATCH', 'DISCONNECTED', 'REVOKED', "
+        "'CANCELLED')", name="ck_mt5_links_status",
+    ),
+    CheckConstraint("trade_mode IN ('DEMO', 'CONTEST', 'REAL')", name="ck_mt5_links_trade_mode"),
+    CheckConstraint("mt5_login > 0", name="ck_mt5_links_login"),
+)
+Index("ix_mt5_links_account", mt5_links.c.account_id, mt5_links.c.seq)
+# Server so không phân biệt hoa/thường: "Broker-Demo" và "broker-demo" là cùng một MT5.
+Index("uq_mt5_links_identity_held", mt5_links.c.mt5_login, func.lower(mt5_links.c.mt5_server),
+      unique=True, postgresql_where=text(_HELD_SQL), sqlite_where=text(_HELD_SQL))
+Index("uq_mt5_links_account_held", mt5_links.c.account_id, unique=True,
+      postgresql_where=text(_HELD_SQL), sqlite_where=text(_HELD_SQL))
+Index("uq_mt5_links_account_pending", mt5_links.c.account_id, unique=True,
+      postgresql_where=text(_PENDING_SQL), sqlite_where=text(_PENDING_SQL))
 
 # --- Dữ liệu thị trường (migration 0002) ---
 

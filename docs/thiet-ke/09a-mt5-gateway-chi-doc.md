@@ -78,7 +78,7 @@
 - Backend kiểm `identity.server == server` và `identity.account_type == account_type` (hai trường cũ giữ cho tương thích, cùng một lần đọc). Lệch, hoặc có `account` mà không có `identity` → 422, không chọn bừa một bên.
 - Gateway cũ (không có trường mới) vẫn được nhận: trường mới = `null` (không phải 0).
 - Hiển thị: trang **Tài khoản** của USER (thẻ "MT5 đang kết nối"); tài khoản REAL có cảnh báo. ADMIN và USER khác không xem được (`Guard.check`); danh sách Quản trị chỉ có trạng thái kết nối.
-- **Chưa làm (bước sau):** lưu danh tính vào DB, liên kết + xác nhận (MT-13), chuyển MISMATCH/chặn ghi khi đổi tài khoản (MT-14). Hiện tại terminal đăng xuất vẫn hiện CONNECTED nếu Gateway còn đọc được nến (chỉ `identity: null`) — MT-14 xử lý.
+- **Liên kết (MT-13, 2026-11-07):** danh tính trong nhịp tim tạo liên kết chờ xác nhận ở bảng `mt5_links` (xem `00-xac-thuc-phan-quyen.md` mục 14.5). **Chưa làm:** chuyển MISMATCH/chặn ghi khi đổi tài khoản (MT-14). Hiện tại terminal đăng xuất vẫn hiện CONNECTED nếu Gateway còn đọc được nến (chỉ `identity: null`) — MT-14 xử lý.
 
 ## 6. Lệnh cho người dùng
 

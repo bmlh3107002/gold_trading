@@ -426,10 +426,12 @@ def users_router(
                     raise HTTPException(409, reason)
             # DB trước: chặn ngay phiên, Gateway, lệnh mới.
             repo.set_user_status(sub, "DELETED", now)
-        tokens = 0
+        tokens = links = 0
         for acc in accs:
             tokens += repo.revoke_gateway_tokens(acc.account_id, utcnow())
             close_request(acc.account_id, "CANCELLED", p.username, utcnow())
+            # MT-13: trả MT5 về trạng thái chưa liên kết (không giữ chỗ mãi cho USER đã xóa).
+            links += repo.end_account_links(acc.account_id, p.username, utcnow(), "USER_DELETED")
         revoked = revoke_sessions(sub)
         synced = True
         try:
@@ -439,7 +441,7 @@ def users_router(
             synced = False
         audit(p, "user.delete", "ACCEPTED",
               {**payload, "username": u.username, "sessions_revoked": revoked,
-               "tokens_revoked": tokens},
+               "tokens_revoked": tokens, "mt5_links_ended": links},
               None if synced else "Keycloak chưa xóa; USER vẫn bị chặn ở backend")
         return DeleteResult(sub=sub, sessions_revoked=revoked, tokens_revoked=tokens,
                             keycloak_synced=synced)

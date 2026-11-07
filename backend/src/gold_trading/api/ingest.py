@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import SQLAlchemyError
 
 from gold_trading.accounts.access import account_locked
+from gold_trading.accounts.mt5_link import observe_identity
 from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar, TailStatus, tail_status
@@ -235,15 +236,17 @@ def ingest_router(
     r = APIRouter(tags=["ingest"])
     legacy = token if token and len(token) >= MIN_TOKEN_LEN else None
 
-    def authorize(authorization: str | None, claimed: str | None) -> str:
-        """Trả account_id của token. Không bao giờ tin account_id do Gateway tự khai."""
+    def authorize(authorization: str | None, claimed: str | None) -> tuple[str, str | None]:
+        """Trả ``(account_id, token_id)`` của token (token_id None = token cũ GT_INGEST_TOKEN).
+        Không bao giờ tin account_id do Gateway tự khai."""
         prefix = "Bearer "
         given = (
             authorization[len(prefix) :]
             if authorization and authorization.startswith(prefix)
             else ""
         )
-        account_id = repo.account_for_token(given) if given else None
+        found = repo.gateway_token(given) if given else None
+        account_id, token_id = found if found else (None, None)
         if account_id is None and legacy and not repo.has_gateway_tokens(DEFAULT_ACCOUNT_ID):
             if hmac.compare_digest(given.encode(), legacy.encode()):
                 account_id = DEFAULT_ACCOUNT_ID
@@ -261,7 +264,7 @@ def ingest_router(
         if account_locked(repo, account_id):
             # DEC-16: USER bị khóa → Gateway của họ bị từ chối hoàn toàn (cả nhịp tim).
             raise HTTPException(403, "Người dùng của tài khoản này đang bị khóa")
-        return account_id
+        return account_id, token_id
 
     @r.post("/api/ingest/mt5/candles", response_model=IngestReport)
     def ingest_candles(
@@ -269,7 +272,7 @@ def ingest_router(
         authorization: Annotated[str | None, Header()] = None,
         dry_run: Annotated[bool, Query()] = False,
     ) -> IngestReport:
-        account_id = authorize(authorization, batch.account_id)
+        account_id, _ = authorize(authorization, batch.account_id)
         acc = repo.account(account_id)
         if acc is None or not acc.price_feed:
             # Tới MT-05 (GĐ1) chỉ tài khoản nguồn giá được ghi vào kho nến dùng chung.
@@ -364,10 +367,16 @@ def ingest_router(
     def heartbeat(
         hb: Heartbeat, authorization: Annotated[str | None, Header()] = None
     ) -> GatewayStatus:
-        account_id = authorize(authorization, hb.account_id)
+        account_id, token_id = authorize(authorization, hb.account_id)
         now = utcnow()
         monitor = monitors.get(account_id)
         monitor.record(hb, now)
+        try:
+            # MT-13: danh tính MT5 mới → liên kết chờ chủ tài khoản xác nhận.
+            observe_identity(repo, account_id, hb, token_id, now)
+        except SQLAlchemyError as e:
+            # Không tạo được liên kết chờ = không liên kết (an toàn). Nhịp tim vẫn ghi nhận.
+            log.error("Không ghi được liên kết MT5 chờ xác nhận: %s", type(e).__name__)
         return monitor.status(now)
 
     return r

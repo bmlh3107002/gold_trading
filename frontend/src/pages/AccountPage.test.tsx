@@ -109,3 +109,95 @@ describe("Trang Tài khoản (USER, DEC-17)", () => {
     expect(screen.getByText("Bạn chưa có tài khoản giao dịch nào")).toBeInTheDocument();
   });
 });
+
+// ---------- MT-13: liên kết MT5 ----------
+
+const LINK = {
+  link_id: "mtl_1", status: "PENDING_CONFIRM", login: 51234567, server: "Broker-Demo", company: "Demo Ltd",
+  trade_mode: "DEMO", gateway_id: "win-1", created_at: "2026-11-07T03:00:00Z", verified_at: null,
+  verified_by: null, ended_at: null, end_reason: null,
+};
+const NO_LINK = { current: null, pending: null, terminal_matches_pending: false, history: [] };
+
+function mockLink(state: unknown, after: unknown = state, postStatus = 200) {
+  let current = state;
+  const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === `${ACC}/gateway/status`) return json(NEVER);
+    if (url === `${ACC}/gateway/token`) return json(BASE);
+    if (url === `${ACC}/mt5-link` && init?.method !== "POST") return json(current);
+    if (url.startsWith(`${ACC}/mt5-link/`) && init?.method === "POST") {
+      if (postStatus !== 200) return json({ detail: "x" }, postStatus);
+      current = after;
+      return json(after);
+    }
+    return json({}, 404);
+  });
+  vi.stubGlobal("fetch", fn);
+  return fn;
+}
+
+const bodies = (fn: ReturnType<typeof mockLink>) =>
+  fn.mock.calls
+    .filter(([, i]) => (i as RequestInit | undefined)?.method === "POST")
+    .map(([u, i]) => [String(u), JSON.parse(String((i as RequestInit).body))]);
+
+describe("Liên kết MT5 (MT-13)", () => {
+  it("chưa liên kết: hướng dẫn, không có nút xác nhận", async () => {
+    mockLink(NO_LINK);
+    render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText(/Chưa liên kết\. Mở MT5/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Xác nhận đây là MT5/ })).not.toBeInTheDocument();
+  });
+
+  it("chờ xác nhận: phải gõ đúng login mới bấm được; gửi đúng link_id/login/server", async () => {
+    const active = { ...NO_LINK, current: { ...LINK, status: "ACTIVE", verified_by: "trader", verified_at: "2026-11-07T03:01:00Z" } };
+    const fn = mockLink({ ...NO_LINK, pending: LINK, terminal_matches_pending: true }, active);
+    render(<AccountPage account={makeAccount()} />);
+    const btn = await screen.findByRole("button", { name: "Xác nhận đây là MT5 của tôi" });
+    expect(btn).toBeDisabled();
+    const input = screen.getByLabelText(/Gõ lại số login/);
+    await userEvent.type(input, "51234568"); // sai một số
+    expect(btn).toBeDisabled();
+    await userEvent.clear(input);
+    await userEvent.type(input, "51234567");
+    expect(btn).toBeEnabled();
+    await userEvent.click(btn);
+    expect(await screen.findByText(/Xác nhận bởi trader/)).toBeInTheDocument();
+    expect(bodies(fn)).toEqual([[`${ACC}/mt5-link/confirm`,
+      { link_id: "mtl_1", login: 51234567, server: "Broker-Demo", acknowledge_real: false }]]);
+  });
+
+  it("terminal không còn đúng MT5: cảnh báo, không bấm được dù gõ đúng", async () => {
+    mockLink({ ...NO_LINK, pending: LINK, terminal_matches_pending: false });
+    render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText(/Terminal hiện không còn đăng nhập MT5 này/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Gõ lại số login/), "51234567");
+    expect(screen.getByRole("button", { name: "Xác nhận đây là MT5 của tôi" })).toBeDisabled();
+  });
+
+  it("tài khoản THẬT: phải đánh dấu đã hiểu; backend từ chối (409) → báo lỗi rõ", async () => {
+    const real = { ...LINK, trade_mode: "REAL", server: "Broker-Live" };
+    const fn = mockLink({ ...NO_LINK, pending: real, terminal_matches_pending: true }, null, 409);
+    render(<AccountPage account={makeAccount()} />);
+    await userEvent.type(await screen.findByLabelText(/Gõ lại số login/), "51234567");
+    const btn = screen.getByRole("button", { name: "Xác nhận đây là MT5 của tôi" });
+    expect(btn).toBeDisabled();
+    await userEvent.click(screen.getByLabelText(/TIỀN THẬT/));
+    expect(btn).toBeEnabled();
+    await userEvent.click(btn);
+    expect(await screen.findByText(/MT5 này có thể đã liên kết ở tài khoản khác/)).toBeInTheDocument();
+    expect(bodies(fn)[0][1]).toMatchObject({ acknowledge_real: true, server: "Broker-Live" });
+  });
+
+  it("đã liên kết: gỡ cần bấm xác nhận lần hai", async () => {
+    const active = { ...NO_LINK, current: { ...LINK, status: "ACTIVE", verified_by: "trader", verified_at: "2026-11-07T03:01:00Z" } };
+    const fn = mockLink(active, NO_LINK);
+    render(<AccountPage account={makeAccount()} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Gỡ liên kết" }));
+    expect(bodies(fn)).toEqual([]);
+    await userEvent.click(screen.getByRole("button", { name: "Có, gỡ liên kết" }));
+    expect(await screen.findByText(/Chưa liên kết\. Mở MT5/)).toBeInTheDocument();
+    expect(bodies(fn)).toEqual([[`${ACC}/mt5-link/revoke`, { link_id: "mtl_1" }]]);
+  });
+});

@@ -351,6 +351,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/mt5-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mt5 Link */
+        get: operations["mt5_link_api_accounts__account_id__mt5_link_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/mt5-link/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Mt5 Link */
+        post: operations["confirm_mt5_link_api_accounts__account_id__mt5_link_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/mt5-link/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Mt5 Link
+         * @description Gỡ liên kết đang giữ (→ REVOKED) hoặc bỏ liên kết chờ (→ CANCELLED).
+         */
+        post: operations["revoke_mt5_link_api_accounts__account_id__mt5_link_revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -1178,6 +1232,85 @@ export interface components {
             terminal_name?: string | null;
             /** Terminal Path */
             terminal_path?: string | null;
+        };
+        /**
+         * Mt5LinkConfirm
+         * @description USER gõ lại số login (và gửi server đang thấy) để xác nhận đúng MT5 của mình.
+         */
+        Mt5LinkConfirm: {
+            /** Link Id */
+            link_id: string;
+            /** Login */
+            login: number;
+            /** Server */
+            server: string;
+            /**
+             * Acknowledge Real
+             * @description Bắt buộc True khi MT5 là tài khoản tiền thật (REAL)
+             * @default false
+             */
+            acknowledge_real: boolean;
+        };
+        /**
+         * Mt5LinkOut
+         * @description MT-13: một liên kết MT5. Danh tính = ``(login, server)`` do terminal báo.
+         */
+        Mt5LinkOut: {
+            /** Link Id */
+            link_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING_CONFIRM" | "ACTIVE" | "MISMATCH" | "DISCONNECTED" | "REVOKED" | "CANCELLED";
+            /** Login */
+            login: number;
+            /** Server */
+            server: string;
+            /** Company */
+            company: string | null;
+            /**
+             * Trade Mode
+             * @enum {string}
+             */
+            trade_mode: "DEMO" | "CONTEST" | "REAL";
+            /** Gateway Id */
+            gateway_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Verified At */
+            verified_at: string | null;
+            /** Verified By */
+            verified_by: string | null;
+            /** Ended At */
+            ended_at: string | null;
+            /** End Reason */
+            end_reason: string | null;
+        };
+        /** Mt5LinkRevoke */
+        Mt5LinkRevoke: {
+            /** Link Id */
+            link_id: string;
+        };
+        /** Mt5LinkState */
+        Mt5LinkState: {
+            /** @description Liên kết đang giữ (ACTIVE/MISMATCH/DISCONNECTED); None = chưa liên kết */
+            current: components["schemas"]["Mt5LinkOut"] | null;
+            /** @description Liên kết chờ chủ tài khoản xác nhận */
+            pending: components["schemas"]["Mt5LinkOut"] | null;
+            /**
+             * Terminal Matches Pending
+             * @description Nhịp tim mới nhất (còn hạn) đang báo đúng MT5 của liên kết chờ: chỉ khi True mới xác nhận được
+             */
+            terminal_matches_pending: boolean;
+            /**
+             * History
+             * @description Liên kết đã kết thúc, mới nhất trước
+             */
+            history: components["schemas"]["Mt5LinkOut"][];
         };
         /**
          * OpsHealth
@@ -2046,6 +2179,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GatewayTokenInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mt5_link_api_accounts__account_id__mt5_link_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5LinkState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_mt5_link_api_accounts__account_id__mt5_link_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mt5LinkConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5LinkState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_mt5_link_api_accounts__account_id__mt5_link_revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mt5LinkRevoke"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5LinkState"];
                 };
             };
             /** @description Validation Error */

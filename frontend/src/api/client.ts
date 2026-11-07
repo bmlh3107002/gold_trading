@@ -28,6 +28,9 @@ export type DeleteResult = components["schemas"]["DeleteResult"];
 export type GatewayCredential = components["schemas"]["GatewayCredential"];
 export type LockResult = components["schemas"]["LockResult"];
 export type PasswordReset = components["schemas"]["PasswordReset"];
+export type Mt5LinkState = components["schemas"]["Mt5LinkState"];
+export type Mt5LinkOut = components["schemas"]["Mt5LinkOut"];
+export type Mt5LinkConfirm = components["schemas"]["Mt5LinkConfirm"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
@@ -110,6 +113,12 @@ export const api = {
   /** DEC-17: USER xin cấp (lại) token Gateway; ADMIN cấp hoặc từ chối. */
   requestGatewayToken: (id: string) =>
     request<GatewayTokenInfo>(`${acc(id)}/gateway/token-request`, { method: "POST" }),
+  /** MT-13: liên kết MT5 (Gateway báo danh tính → USER gõ lại login để xác nhận). */
+  mt5Link: (id: string) => request<Mt5LinkState>(`${acc(id)}/mt5-link`),
+  confirmMt5Link: (id: string, body: Mt5LinkConfirm) =>
+    request<Mt5LinkState>(`${acc(id)}/mt5-link/confirm`, post(body)),
+  revokeMt5Link: (id: string, linkId: string) =>
+    request<Mt5LinkState>(`${acc(id)}/mt5-link/revoke`, post({ link_id: linkId })),
   // --- Quản trị (DEC-16, DEC-17): chỉ ADMIN; backend kiểm lại ---
   users: () => request<UserAdmin[]>("/api/admin/users"),
   createUser: (body: UserCreate) => request<UserCreated>("/api/admin/users", post(body)),

@@ -39,6 +39,8 @@ from gold_trading.modes.manager import ModeChange
 from gold_trading.storage.schema import (
     ACCOUNT_ROLES,
     DEFAULT_ACCOUNT_ID,
+    MT5_LINK_HELD,
+    MT5_LINK_STATUSES,
     TOKEN_REQUEST_EVENTS,
     account_members,
     audit_log,
@@ -46,6 +48,7 @@ from gold_trading.storage.schema import (
     gateway_tokens,
     metadata,
     mode_changes,
+    mt5_links,
     safety_transitions,
     trading_accounts,
     users,
@@ -120,6 +123,51 @@ class Member:
     granted_by: str
 
 
+@dataclass(frozen=True)
+class Mt5Link:
+    """MT-13: liên kết tài khoản giao dịch ↔ MT5 ``(login, server)`` do terminal báo."""
+
+    link_id: str
+    account_id: str
+    mt5_login: int
+    mt5_server: str
+    mt5_company: str | None
+    trade_mode: str  # DEMO | CONTEST | REAL
+    gateway_id: str
+    token_id: str | None  # None = token cũ GT_INGEST_TOKEN
+    status: str
+    created_at: datetime
+    verified_at: datetime | None = None
+    verified_by: str | None = None
+    ended_at: datetime | None = None
+    ended_by: str | None = None
+    end_reason: str | None = None
+
+    @property
+    def held(self) -> bool:
+        return self.status in MT5_LINK_HELD
+
+    def same_identity(self, login: int, server: str, trade_mode: str) -> bool:
+        return (self.mt5_login, self.mt5_server, self.trade_mode) == (login, server, trade_mode)
+
+
+class Mt5LinkError(ConflictError):
+    """``code``: NOT_FOUND | NOT_PENDING | IDENTITY_HELD (MT-C11) | ACCOUNT_HELD | NOT_OPEN."""
+
+    def __init__(self, code: str, msg: str) -> None:
+        super().__init__(msg)
+        self.code = code
+
+
+def _check_link(link: Mt5Link) -> None:
+    if link.status not in MT5_LINK_STATUSES:
+        raise ValueError(f"Trạng thái liên kết không hợp lệ: {link.status}")
+    if link.trade_mode not in ("DEMO", "CONTEST", "REAL"):
+        raise ValueError(f"Loại tài khoản MT5 không hợp lệ: {link.trade_mode}")
+    if link.mt5_login <= 0 or not link.mt5_server:
+        raise ValueError("Danh tính MT5 không hợp lệ")
+
+
 def token_hash(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -169,11 +217,21 @@ class Repository(Protocol):
     def rotate_gateway_token(self, account_id: str, raw: str, by: str, at: datetime) -> str: ...
     def revoke_gateway_tokens(self, account_id: str, at: datetime) -> int: ...
     def account_for_token(self, raw: str) -> str | None: ...
+    def gateway_token(self, raw: str) -> tuple[str, str] | None: ...
     def has_gateway_tokens(self, account_id: str) -> bool: ...
     def has_active_gateway_token(self, account_id: str) -> bool: ...
     # Xin cấp token (DEC-17)
     def add_token_request_event(self, e: TokenRequestEvent) -> None: ...
     def last_token_request(self, account_id: str) -> TokenRequestEvent | None: ...
+
+    # --- Liên kết MT5 (MT-13) ---
+
+    def mt5_links(self, account_id: str, limit: int = 50) -> list[Mt5Link]: ...
+    def add_pending_link(self, link: Mt5Link) -> bool: ...
+    def confirm_link(self, account_id: str, link_id: str, by: str, at: datetime) -> Mt5Link: ...
+    def end_link(self, account_id: str, link_id: str, status: str, by: str, at: datetime,
+                 reason: str) -> Mt5Link: ...
+    def end_account_links(self, account_id: str, by: str, at: datetime, reason: str) -> int: ...
 
 
 _UNSET: Any = object()
@@ -212,6 +270,7 @@ class InMemoryRepository:
         self._members: dict[tuple[str, str], Member] = {}
         self._tokens: list[dict[str, Any]] = []
         self._token_requests: list[TokenRequestEvent] = []
+        self._links: list[Mt5Link] = []
         self._lock = threading.RLock()
         self.ensure_default_account()
 
@@ -409,11 +468,16 @@ class InMemoryRepository:
             return token_id
 
     def account_for_token(self, raw: str) -> str | None:
+        t = self.gateway_token(raw)
+        return t[0] if t else None
+
+    def gateway_token(self, raw: str) -> tuple[str, str] | None:
+        """``(account_id, token_id)`` của token còn hiệu lực."""
         h = token_hash(raw)
         with self._lock:
             for t in self._tokens:
                 if t["revoked_at"] is None and t["token_sha256"] == h:
-                    return t["account_id"]
+                    return t["account_id"], t["token_id"]
         return None
 
     def has_gateway_tokens(self, account_id: str) -> bool:
@@ -450,6 +514,77 @@ class InMemoryRepository:
                 if e.account_id == account_id:
                     return e
         return None
+
+    # --- Liên kết MT5 (MT-13) ---
+
+    def mt5_links(self, account_id: str, limit: int = 50) -> list[Mt5Link]:
+        with self._lock:
+            return [x for x in self._links if x.account_id == account_id][-limit:]
+
+    def _replace_link(self, new: Mt5Link) -> Mt5Link:
+        for i, x in enumerate(self._links):
+            if x.link_id == new.link_id:
+                self._links[i] = new
+                return new
+        raise KeyError(new.link_id)
+
+    def add_pending_link(self, link: Mt5Link) -> bool:
+        _check_link(link)
+        if link.status != "PENDING_CONFIRM":
+            raise ValueError("Liên kết mới phải ở trạng thái PENDING_CONFIRM")
+        with self._lock:
+            self._require_account(link.account_id)
+            mine = [x for x in self._links if x.account_id == link.account_id]
+            if any(x.held for x in mine):
+                return False  # đổi MT5 khi đang có liên kết: MT-14 xử lý, không tạo chờ mới
+            for x in mine:
+                if x.status == "PENDING_CONFIRM":
+                    if x.same_identity(link.mt5_login, link.mt5_server, link.trade_mode):
+                        return False
+                    self._replace_link(replace(x, status="CANCELLED", ended_at=link.created_at,
+                                               ended_by="gateway", end_reason="REPLACED"))
+            self._links.append(link)
+            return True
+
+    def confirm_link(self, account_id: str, link_id: str, by: str, at: datetime) -> Mt5Link:
+        with self._lock:
+            x = next((x for x in self._links
+                      if x.link_id == link_id and x.account_id == account_id), None)
+            if x is None:
+                raise Mt5LinkError("NOT_FOUND", "Không có liên kết này")
+            if x.status != "PENDING_CONFIRM":
+                raise Mt5LinkError("NOT_PENDING", "Liên kết không còn chờ xác nhận")
+            if any(o.held and o.account_id == account_id for o in self._links):
+                raise Mt5LinkError("ACCOUNT_HELD", "Tài khoản đã có liên kết MT5")
+            if any(o.held and o.mt5_login == x.mt5_login
+                   and o.mt5_server.lower() == x.mt5_server.lower() for o in self._links):
+                raise Mt5LinkError("IDENTITY_HELD", "MT5 này đã liên kết ở tài khoản khác")
+            return self._replace_link(replace(x, status="ACTIVE", verified_at=at, verified_by=by))
+
+    def end_link(self, account_id: str, link_id: str, status: str, by: str, at: datetime,
+                 reason: str) -> Mt5Link:
+        if status not in ("REVOKED", "CANCELLED"):
+            raise ValueError("Chỉ kết thúc liên kết bằng REVOKED/CANCELLED")
+        with self._lock:
+            x = next((x for x in self._links
+                      if x.link_id == link_id and x.account_id == account_id), None)
+            if x is None:
+                raise Mt5LinkError("NOT_FOUND", "Không có liên kết này")
+            if not (x.held or x.status == "PENDING_CONFIRM"):
+                raise Mt5LinkError("NOT_OPEN", "Liên kết đã kết thúc")
+            return self._replace_link(replace(x, status=status, ended_at=at, ended_by=by,
+                                              end_reason=reason[:128]))
+
+    def end_account_links(self, account_id: str, by: str, at: datetime, reason: str) -> int:
+        n = 0
+        with self._lock:
+            for x in list(self._links):
+                if x.account_id == account_id and (x.held or x.status == "PENDING_CONFIRM"):
+                    self._replace_link(replace(
+                        x, status="REVOKED" if x.held else "CANCELLED", ended_at=at, ended_by=by,
+                        end_reason=reason[:128]))
+                    n += 1
+        return n
 
 
 def _row(r) -> dict[str, Any]:
@@ -772,13 +907,18 @@ class SqlRepository:
         return token_id
 
     def account_for_token(self, raw: str) -> str | None:
+        t = self.gateway_token(raw)
+        return t[0] if t else None
+
+    def gateway_token(self, raw: str) -> tuple[str, str] | None:
         c = gateway_tokens.c
         with self.engine.connect() as conn:
-            return conn.execute(
-                select(c.account_id).where(
+            r = conn.execute(
+                select(c.account_id, c.token_id).where(
                     and_(c.token_sha256 == token_hash(raw), c.revoked_at.is_(None))
                 )
-            ).scalar_one_or_none()
+            ).first()
+        return (r[0], r[1]) if r else None
 
     def has_gateway_tokens(self, account_id: str) -> bool:
         with self.engine.connect() as conn:
@@ -821,6 +961,117 @@ class SqlRepository:
                 .where(c.account_id == account_id).order_by(c.seq.desc()).limit(1)
             ).mappings().first()
         return TokenRequestEvent(**_row(r)) if r else None
+
+    # --- Liên kết MT5 (MT-13) ---
+
+    def mt5_links(self, account_id: str, limit: int = 50) -> list[Mt5Link]:
+        c = mt5_links.c
+        with self.engine.connect() as conn:
+            rows = conn.execute(
+                select(mt5_links).where(c.account_id == account_id)
+                .order_by(c.seq.desc()).limit(limit)
+            ).mappings().all()
+        return [Mt5Link(**_row(r)) for r in reversed(rows)]
+
+    @staticmethod
+    def _link(conn, account_id: str, link_id: str, *, lock: bool) -> Mt5Link | None:
+        c = mt5_links.c
+        q = select(mt5_links).where(and_(c.link_id == link_id, c.account_id == account_id))
+        if lock and conn.dialect.name == "postgresql":
+            q = q.with_for_update()
+        r = conn.execute(q).mappings().first()
+        return Mt5Link(**_row(r)) if r else None
+
+    @staticmethod
+    def _account_lock(conn, account_id: str) -> None:
+        if conn.dialect.name == "postgresql":
+            conn.execute(select(func.pg_advisory_xact_lock(_lock_key("mt5:" + account_id))))
+
+    def add_pending_link(self, link: Mt5Link) -> bool:
+        _check_link(link)
+        if link.status != "PENDING_CONFIRM":
+            raise ValueError("Liên kết mới phải ở trạng thái PENDING_CONFIRM")
+        c = mt5_links.c
+        try:
+            with self.engine.begin() as conn:
+                self._require_account(conn, link.account_id)
+                self._account_lock(conn, link.account_id)
+                open_rows = conn.execute(
+                    select(mt5_links).where(and_(
+                        c.account_id == link.account_id,
+                        c.status.in_((*MT5_LINK_HELD, "PENDING_CONFIRM")),
+                    ))
+                ).mappings().all()
+                links = [Mt5Link(**_row(r)) for r in open_rows]
+                if any(x.held for x in links):
+                    return False  # đổi MT5 khi đang có liên kết: MT-14 xử lý
+                for x in links:
+                    if x.same_identity(link.mt5_login, link.mt5_server, link.trade_mode):
+                        return False
+                    conn.execute(update(mt5_links).where(c.link_id == x.link_id).values(
+                        status="CANCELLED", ended_at=link.created_at, ended_by="gateway",
+                        end_reason="REPLACED"))
+                conn.execute(insert(mt5_links).values(**link.__dict__))
+        except IntegrityError:
+            return False  # hai nhịp tim cùng lúc: dòng kia đã thắng
+        return True
+
+    def confirm_link(self, account_id: str, link_id: str, by: str, at: datetime) -> Mt5Link:
+        c = mt5_links.c
+        try:
+            with self.engine.begin() as conn:
+                self._account_lock(conn, account_id)
+                x = self._link(conn, account_id, link_id, lock=True)
+                if x is None:
+                    raise Mt5LinkError("NOT_FOUND", "Không có liên kết này")
+                if x.status != "PENDING_CONFIRM":
+                    raise Mt5LinkError("NOT_PENDING", "Liên kết không còn chờ xác nhận")
+                held = c.status.in_(MT5_LINK_HELD)
+                if conn.execute(select(c.seq).where(and_(c.account_id == account_id, held))
+                                .limit(1)).first():
+                    raise Mt5LinkError("ACCOUNT_HELD", "Tài khoản đã có liên kết MT5")
+                if conn.execute(select(c.seq).where(and_(
+                        c.mt5_login == x.mt5_login,
+                        func.lower(c.mt5_server) == x.mt5_server.lower(), held))
+                        .limit(1)).first():
+                    raise Mt5LinkError("IDENTITY_HELD", "MT5 này đã liên kết ở tài khoản khác")
+                conn.execute(update(mt5_links).where(c.link_id == link_id).values(
+                    status="ACTIVE", verified_at=at, verified_by=by))
+        except IntegrityError as e:
+            # Index duy nhất ở DB chặn hai tài khoản xác nhận cùng MT5 cùng lúc (MT-C11).
+            raise Mt5LinkError("IDENTITY_HELD", "MT5 này đã liên kết ở tài khoản khác") from e
+        return replace(x, status="ACTIVE", verified_at=at, verified_by=by)
+
+    def end_link(self, account_id: str, link_id: str, status: str, by: str, at: datetime,
+                 reason: str) -> Mt5Link:
+        if status not in ("REVOKED", "CANCELLED"):
+            raise ValueError("Chỉ kết thúc liên kết bằng REVOKED/CANCELLED")
+        c = mt5_links.c
+        with self.engine.begin() as conn:
+            self._account_lock(conn, account_id)
+            x = self._link(conn, account_id, link_id, lock=True)
+            if x is None:
+                raise Mt5LinkError("NOT_FOUND", "Không có liên kết này")
+            if not (x.held or x.status == "PENDING_CONFIRM"):
+                raise Mt5LinkError("NOT_OPEN", "Liên kết đã kết thúc")
+            vals = {"status": status, "ended_at": at, "ended_by": by,
+                    "end_reason": reason[:128]}
+            conn.execute(update(mt5_links).where(c.link_id == link_id).values(**vals))
+        return replace(x, **vals)
+
+    def end_account_links(self, account_id: str, by: str, at: datetime, reason: str) -> int:
+        c = mt5_links.c
+        n = 0
+        with self.engine.begin() as conn:
+            self._account_lock(conn, account_id)
+            base = {"ended_at": at, "ended_by": by, "end_reason": reason[:128]}
+            n += conn.execute(update(mt5_links).where(and_(
+                c.account_id == account_id, c.status.in_(MT5_LINK_HELD)))
+                .values(status="REVOKED", **base)).rowcount
+            n += conn.execute(update(mt5_links).where(and_(
+                c.account_id == account_id, c.status == "PENDING_CONFIRM"))
+                .values(status="CANCELLED", **base)).rowcount
+        return n
 
 
 def restore_safety_state(history: list[SafetyTransition]) -> tuple[SafetyState, str | None]:

@@ -862,6 +862,153 @@
         }
       }
     },
+    "/api/accounts/{account_id}/mt5-link": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Mt5 Link",
+        "operationId": "mt5_link_api_accounts__account_id__mt5_link_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mt5LinkState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/mt5-link/confirm": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Confirm Mt5 Link",
+        "operationId": "confirm_mt5_link_api_accounts__account_id__mt5_link_confirm_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Mt5LinkConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mt5LinkState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/mt5-link/revoke": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Revoke Mt5 Link",
+        "description": "Gỡ liên kết đang giữ (→ REVOKED) hoặc bỏ liên kết chờ (→ CANCELLED).",
+        "operationId": "revoke_mt5_link_api_accounts__account_id__mt5_link_revoke_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Mt5LinkRevoke"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mt5LinkState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/users": {
       "get": {
         "tags": [
@@ -3138,6 +3285,226 @@
         ],
         "title": "Mt5Identity",
         "description": "MT-12: danh tính MT5 = ``(login, server)`` do terminal báo (không phải người dùng gõ)."
+      },
+      "Mt5LinkConfirm": {
+        "properties": {
+          "link_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Link Id"
+          },
+          "login": {
+            "type": "integer",
+            "maximum": 9.223372036854776e+18,
+            "exclusiveMinimum": 0.0,
+            "title": "Login"
+          },
+          "server": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Server"
+          },
+          "acknowledge_real": {
+            "type": "boolean",
+            "title": "Acknowledge Real",
+            "description": "Bắt buộc True khi MT5 là tài khoản tiền thật (REAL)",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "link_id",
+          "login",
+          "server"
+        ],
+        "title": "Mt5LinkConfirm",
+        "description": "USER gõ lại số login (và gửi server đang thấy) để xác nhận đúng MT5 của mình."
+      },
+      "Mt5LinkOut": {
+        "properties": {
+          "link_id": {
+            "type": "string",
+            "title": "Link Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_CONFIRM",
+              "ACTIVE",
+              "MISMATCH",
+              "DISCONNECTED",
+              "REVOKED",
+              "CANCELLED"
+            ],
+            "title": "Status"
+          },
+          "login": {
+            "type": "integer",
+            "title": "Login"
+          },
+          "server": {
+            "type": "string",
+            "title": "Server"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "trade_mode": {
+            "type": "string",
+            "enum": [
+              "DEMO",
+              "CONTEST",
+              "REAL"
+            ],
+            "title": "Trade Mode"
+          },
+          "gateway_id": {
+            "type": "string",
+            "title": "Gateway Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "verified_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified By"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "link_id",
+          "status",
+          "login",
+          "server",
+          "company",
+          "trade_mode",
+          "gateway_id",
+          "created_at",
+          "verified_at",
+          "verified_by",
+          "ended_at",
+          "end_reason"
+        ],
+        "title": "Mt5LinkOut",
+        "description": "MT-13: một liên kết MT5. Danh tính = ``(login, server)`` do terminal báo."
+      },
+      "Mt5LinkRevoke": {
+        "properties": {
+          "link_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Link Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "link_id"
+        ],
+        "title": "Mt5LinkRevoke"
+      },
+      "Mt5LinkState": {
+        "properties": {
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mt5LinkOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Liên kết đang giữ (ACTIVE/MISMATCH/DISCONNECTED); None = chưa liên kết"
+          },
+          "pending": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Mt5LinkOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Liên kết chờ chủ tài khoản xác nhận"
+          },
+          "terminal_matches_pending": {
+            "type": "boolean",
+            "title": "Terminal Matches Pending",
+            "description": "Nhịp tim mới nhất (còn hạn) đang báo đúng MT5 của liên kết chờ: chỉ khi True mới xác nhận được"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/Mt5LinkOut"
+            },
+            "type": "array",
+            "title": "History",
+            "description": "Liên kết đã kết thúc, mới nhất trước"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "pending",
+          "terminal_matches_pending",
+          "history"
+        ],
+        "title": "Mt5LinkState"
       },
       "OpsHealth": {
         "properties": {
