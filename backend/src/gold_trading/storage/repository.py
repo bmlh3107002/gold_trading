@@ -49,6 +49,7 @@ from gold_trading.storage.schema import (
     metadata,
     mode_changes,
     mt5_links,
+    price_feeds,
     safety_transitions,
     trading_accounts,
     users,
@@ -142,6 +143,7 @@ class Mt5Link:
     ended_at: datetime | None = None
     ended_by: str | None = None
     end_reason: str | None = None
+    broker_symbol: str | None = None  # MT-05: khóa ở lô nến đầu tiên được ghi
 
     @property
     def held(self) -> bool:
@@ -151,6 +153,16 @@ class Mt5Link:
         """Cùng MT5: login + server (không phân biệt hoa/thường) + loại tài khoản."""
         return (self.mt5_login, self.mt5_server.lower(), self.trade_mode) == (
             login, server.lower(), trade_mode)
+
+
+@dataclass(frozen=True)
+class PriceFeed:
+    """MT-05: một nguồn giá = (server broker, symbol broker)."""
+
+    feed_id: str
+    mt5_server: str
+    broker_symbol: str
+    created_at: datetime
 
 
 class Mt5LinkError(ConflictError):
@@ -250,6 +262,12 @@ class Repository(Protocol):
     def end_account_links(self, account_id: str, by: str, at: datetime, reason: str) -> int: ...
     def transition_link(self, account_id: str, link_id: str, expected: str, to: str,
                         at: datetime, verified_by: str | None = None) -> bool: ...
+    def lock_link_symbol(self, account_id: str, link_id: str, broker_symbol: str) -> str | None: ...
+
+    # --- Nguồn giá (MT-05) ---
+
+    def ensure_price_feed(self, feed: PriceFeed) -> None: ...
+    def price_feed(self, feed_id: str) -> PriceFeed | None: ...
 
 
 _UNSET: Any = object()
@@ -289,6 +307,7 @@ class InMemoryRepository:
         self._tokens: list[dict[str, Any]] = []
         self._token_requests: list[TokenRequestEvent] = []
         self._links: list[Mt5Link] = []
+        self._feeds: dict[str, PriceFeed] = {}
         self._lock = threading.RLock()
         self.ensure_default_account()
 
@@ -616,6 +635,26 @@ class InMemoryRepository:
             extra = {"verified_at": at, "verified_by": verified_by} if verified_by else {}
             self._replace_link(replace(x, status=to, **extra))
             return True
+
+    def lock_link_symbol(self, account_id: str, link_id: str, broker_symbol: str) -> str | None:
+        """Ghi symbol broker nếu liên kết chưa có. Trả symbol đang khóa (của lần này hoặc trước)."""
+        with self._lock:
+            x = next((x for x in self._links
+                      if x.link_id == link_id and x.account_id == account_id), None)
+            if x is None:
+                return None
+            if x.broker_symbol is None:
+                self._replace_link(replace(x, broker_symbol=broker_symbol))
+                return broker_symbol
+            return x.broker_symbol
+
+    def ensure_price_feed(self, feed: PriceFeed) -> None:
+        with self._lock:
+            self._feeds.setdefault(feed.feed_id, feed)
+
+    def price_feed(self, feed_id: str) -> PriceFeed | None:
+        with self._lock:
+            return self._feeds.get(feed_id)
 
 
 def _row(r) -> dict[str, Any]:
@@ -1117,6 +1156,31 @@ class SqlRepository:
                 c.link_id == link_id, c.account_id == account_id, c.status == expected))
                 .values(**vals)).rowcount
         return n == 1
+
+    def lock_link_symbol(self, account_id: str, link_id: str, broker_symbol: str) -> str | None:
+        c = mt5_links.c
+        with self.engine.begin() as conn:
+            conn.execute(update(mt5_links).where(and_(
+                c.link_id == link_id, c.account_id == account_id, c.broker_symbol.is_(None)))
+                .values(broker_symbol=broker_symbol))
+            return conn.execute(select(c.broker_symbol).where(and_(
+                c.link_id == link_id, c.account_id == account_id))).scalar_one_or_none()
+
+    def ensure_price_feed(self, feed: PriceFeed) -> None:
+        with self.engine.begin() as conn:
+            if conn.execute(select(price_feeds.c.feed_id).where(
+                    price_feeds.c.feed_id == feed.feed_id)).first() is None:
+                try:
+                    with conn.begin_nested():
+                        conn.execute(insert(price_feeds).values(**feed.__dict__))
+                except IntegrityError:
+                    pass  # Gateway khác vừa tạo cùng nguồn
+
+    def price_feed(self, feed_id: str) -> PriceFeed | None:
+        with self.engine.connect() as conn:
+            r = conn.execute(select(price_feeds).where(price_feeds.c.feed_id == feed_id)
+                             ).mappings().first()
+        return PriceFeed(**_row(r)) if r else None
 
 
 def restore_safety_state(history: list[SafetyTransition]) -> tuple[SafetyState, str | None]:

@@ -6,7 +6,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
 from tests.auth_helpers import user_client
-from tests.mt5_helpers import IDENT_FIELDS, link_active
+from tests.mt5_helpers import FEED, IDENT_FIELDS, link_active
 
 TOKEN = "t" * 32
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
@@ -80,26 +80,26 @@ def test_backfill_stored_as_mt5_and_idempotent():
     assert r["accepted"] == 300 and r["quarantined"] == 0 and r["dry_run"] is False
     again = c.post("/api/ingest/mt5/candles", json=batch(bars(300)), headers=AUTH).json()
     assert again["accepted"] == 0 and again["duplicates"] == 300
-    st = store.stats("XAUUSD", TF, DataSource.MT5)
+    st = store.stats("XAUUSD", TF, DataSource.MT5, feed=FEED)
     assert st.count == 300
     last = store.query(
-        "XAUUSD", TF, DataSource.MT5, as_of=datetime(2027, 1, 1, tzinfo=UTC), limit=1
+        "XAUUSD", TF, DataSource.MT5, as_of=datetime(2027, 1, 1, tzinfo=UTC), limit=1, feed=FEED
     )[0]
-    assert "BACKFILL" in last.flags
+    assert "BACKFILL" in last.flags and last.feed_id == FEED
 
 
 def test_dry_run_does_not_store():
     c, store = client()
     r = c.post("/api/ingest/mt5/candles?dry_run=true", json=batch(bars(300)), headers=AUTH).json()
     assert r["dry_run"] is True and r["accepted"] == 300
-    assert store.stats("XAUUSD", TF, DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", TF, DataSource.MT5, feed=FEED).count == 0
 
 
 def test_wrong_server_timezone_rejected_with_hint():
     c, store = client()
     r = c.post("/api/ingest/mt5/candles", json=batch(bars(600, shift_hours=2)), headers=AUTH)
     assert r.status_code == 422 and "-2 giờ" in r.json()["detail"]
-    assert store.stats("XAUUSD", TF, DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", TF, DataSource.MT5, feed=FEED).count == 0
 
 
 def test_symbol_timeframe_size_validation():
@@ -185,7 +185,7 @@ def test_d1_requires_valid_server_tz():
     assert r.status_code == 422 and "server_tz" in r.json()["detail"]
     r = c.post("/api/ingest/mt5/candles", json=b | {"server_tz": "GMT+2"}, headers=AUTH)
     assert r.status_code == 422
-    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5, feed=FEED).count == 0
 
 
 def test_d1_stored_separately_with_server_aligned_times():
@@ -197,8 +197,9 @@ def test_d1_stored_separately_with_server_aligned_times():
     assert r["session_outside_fraction"] is None  # R1 không áp cho D1
     again = c.post("/api/ingest/mt5/candles", json=b, headers=AUTH).json()
     assert again["duplicates"] == 5
-    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5).count == 5
-    assert store.stats("XAUUSD", TF, DataSource.MT5).count == 300  # M15 không bị ảnh hưởng
+    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5, feed=FEED).count == 5
+    # M15 không bị ảnh hưởng
+    assert store.stats("XAUUSD", TF, DataSource.MT5, feed=FEED).count == 300
     # dry_run không lưu
     dry = batch([ohlc(datetime(2026, 1, 18, 22, tzinfo=UTC))]) | {
         "timeframe": "D1",
@@ -207,7 +208,7 @@ def test_d1_stored_separately_with_server_aligned_times():
     assert c.post("/api/ingest/mt5/candles?dry_run=true", json=dry, headers=AUTH).json()[
         "accepted"
     ] == 1
-    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5).count == 5
+    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5, feed=FEED).count == 5
 
 
 def test_d1_cut_at_utc_midnight_quarantined():
@@ -216,7 +217,7 @@ def test_d1_cut_at_utc_midnight_quarantined():
     b = batch([ohlc(t) for t in utc_cut]) | {"timeframe": "D1", "server_tz": "Europe/Athens"}
     r = c.post("/api/ingest/mt5/candles", json=b, headers=AUTH).json()
     assert r["reasons"] == {"MISALIGNED_TIME": 3}
-    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", Timeframe.D1, DataSource.MT5, feed=FEED).count == 0
 
 
 def h1_bars(shift_hours=0):
@@ -237,7 +238,7 @@ def test_h1_goes_through_session_check():
     bad = batch(h1_bars(shift_hours=2)) | {"timeframe": "H1"}
     r = c.post("/api/ingest/mt5/candles", json=bad, headers=AUTH)
     assert r.status_code == 422 and "-2 giờ" in r.json()["detail"]
-    assert store.stats("XAUUSD", Timeframe.H1, DataSource.MT5).count == len(good)
+    assert store.stats("XAUUSD", Timeframe.H1, DataSource.MT5, feed=FEED).count == len(good)
 
 
 def test_d1_server_tz_must_match_backend_broker_tz():

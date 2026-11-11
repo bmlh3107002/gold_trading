@@ -81,10 +81,12 @@ class CandleIngestor:
         backfill: bool,
         rejected: Iterable[tuple[str, dict[str, Any]]] = (),
         server_tz: ZoneInfo | None = None,
+        feed: str = "",
     ) -> IngestResult:
         """``backfill=True``: dữ liệu lịch sử, available_at = close_time (cờ BACKFILL).
         ``backfill=False``: dữ liệu realtime, available_at = ingested_at.
-        ``server_tz``: múi giờ server broker, BẮT BUỘC với H4/D1."""
+        ``server_tz``: múi giờ server broker, BẮT BUỘC với H4/D1.
+        ``feed``: MT-05, nguồn giá; khử trùng / revision / GAP chỉ so với nến CÙNG feed."""
         if timeframe.server_aligned and server_tz is None:
             raise ValueError(f"Khung {timeframe} cần múi giờ server broker (server_tz)")
         result = IngestResult()
@@ -95,6 +97,7 @@ class CandleIngestor:
             quarantine.append(
                 QuarantineEntry(
                     source=source,
+                    feed_id=feed,
                     symbol=symbol,
                     timeframe=timeframe,
                     received_at=ingested_at,
@@ -117,6 +120,7 @@ class CandleIngestor:
                     quarantine.append(
                         QuarantineEntry(
                             source=source,
+                            feed_id=feed,
                             symbol=symbol,
                             timeframe=timeframe,
                             received_at=ingested_at,
@@ -132,8 +136,8 @@ class CandleIngestor:
             return result
 
         lo, hi = ordered[0].open_time, ordered[-1].open_time
-        existing = self.store.latest_by_open_time(symbol, timeframe, source, lo, hi)
-        prev: Candle | None = self.store.last_before(symbol, timeframe, source, lo)
+        existing = self.store.latest_by_open_time(symbol, timeframe, source, lo, hi, feed=feed)
+        prev: Candle | None = self.store.last_before(symbol, timeframe, source, lo, feed=feed)
         accepted: list[Candle] = []
 
         for bar in ordered:
@@ -143,6 +147,7 @@ class CandleIngestor:
                 quarantine.append(
                     QuarantineEntry(
                         source=source,
+                        feed_id=feed,
                         symbol=symbol,
                         timeframe=timeframe,
                         received_at=ingested_at,
@@ -183,6 +188,7 @@ class CandleIngestor:
                 symbol=symbol,
                 timeframe=timeframe,
                 source=source,
+                feed_id=feed,
                 open_time=bar.open_time,
                 close_time=close_time,
                 open=bar.open,

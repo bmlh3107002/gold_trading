@@ -71,12 +71,13 @@ def identity(reader: Mt5Reader) -> dict[str, Any] | None:
 
 
 def batch_identity(reader: Mt5Reader) -> dict[str, Any] | None:
-    """MT-14: danh tính gửi kèm lô nến (backend chỉ ghi khi khớp liên kết ACTIVE)."""
+    """MT-14: danh tính gửi kèm lô nến (backend chỉ ghi khi khớp liên kết ACTIVE).
+    MT-05 (0.5.0): thêm symbol broker — cùng server xác định nguồn giá ở backend."""
     i = identity(reader)
     if i is None:
         return None
     return {"mt5_login": i["login"], "mt5_server": i["server"],
-            "mt5_account_type": i["account_type"]}
+            "mt5_account_type": i["account_type"], "broker_symbol": reader.symbol}
 
 
 def account(reader: Mt5Reader) -> dict[str, Any] | None:

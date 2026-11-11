@@ -15,7 +15,7 @@ from gold_trading.ops.clock import SOURCES, ClockMonitor, classify, measure_offs
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
 from tests.auth_helpers import client, make_app
-from tests.mt5_helpers import link_active
+from tests.mt5_helpers import FEED, link_active
 from tests.test_ingest_api import HB, bars, batch
 
 LOCAL_NOW = 1_800_000_000.25  # đồng hồ backend (giây epoch)
@@ -106,7 +106,7 @@ def test_blocked_clock_stops_candle_ingest_until_fixed():
     auth = {"Authorization": f"Bearer {TOKEN}"}
     r = c.post("/api/ingest/mt5/candles", json=batch(bars(20)), headers=auth)
     assert r.status_code == 503 and "đồng hồ" in r.json()["detail"]
-    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5, feed=FEED).count == 0
     # Nhịp tim vẫn nhận để Dashboard thấy Gateway còn sống
     assert c.post("/api/ingest/mt5/heartbeat", json=HB, headers=auth).status_code == 200
     h = c.get("/api/system/health").json()["clock"]

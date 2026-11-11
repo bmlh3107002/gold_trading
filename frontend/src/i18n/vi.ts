@@ -124,6 +124,8 @@ const vi = {
       conflict: "Không thực hiện được. MT5 này có thể đã liên kết ở tài khoản khác, terminal vừa đổi tài khoản, hoặc đang giao dịch thật (LIVE). Tải lại trang và thử lại.",
       error: "Không thực hiện được. Thử lại sau.",
       historyTitle: "Liên kết đã kết thúc",
+      feed: "Nguồn giá (symbol của broker)",
+      feedNone: "chưa nhận nến nào",
       mismatch: "MT5 đang đăng nhập KHÁC MT5 đã liên kết. Hệ thống đã NGỪNG ghi dữ liệu và không tự chuyển sang MT5 mới.",
       mismatchSeen: "MT5 đang đăng nhập KHÁC MT5 đã liên kết (terminal đang báo login {{login}} · {{server}}). Hệ thống đã NGỪNG ghi dữ liệu và không tự chuyển sang MT5 mới.",
       disconnected: "Mất kết nối MT5: MT5 đã đăng xuất, hoặc Gateway đang tắt / mất mạng. Đăng nhập lại đúng MT5 là tự chạy lại.",

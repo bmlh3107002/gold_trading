@@ -14,7 +14,7 @@ from gold_trading.contracts.candle import Candle, CandleFlag, DataSource
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.schema import candle_quarantine, candles
 
-Key = tuple[str, Timeframe, DataSource]
+Key = tuple[str, Timeframe, DataSource, str]  # (symbol, khung, nguồn, feed_id)
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,7 @@ class QuarantineEntry:
     received_at: datetime
     reason: str
     raw: dict[str, Any] = field(default_factory=dict)
+    feed_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -38,11 +39,13 @@ class SeriesStats:
 
 class CandleStore(Protocol):
     def append(self, items: list[Candle], quarantine: list[QuarantineEntry]) -> None: ...
+    # ``feed``: MT-05, nguồn giá (""= không gắn broker). Mọi đọc/ghi đều theo đúng một feed.
     def latest_by_open_time(
-        self, symbol: str, tf: Timeframe, source: DataSource, lo: datetime, hi: datetime
+        self, symbol: str, tf: Timeframe, source: DataSource, lo: datetime, hi: datetime,
+        *, feed: str = "",
     ) -> dict[datetime, Candle]: ...
     def last_before(
-        self, symbol: str, tf: Timeframe, source: DataSource, t: datetime
+        self, symbol: str, tf: Timeframe, source: DataSource, t: datetime, *, feed: str = ""
     ) -> Candle | None: ...
     def query(
         self,
@@ -53,8 +56,11 @@ class CandleStore(Protocol):
         as_of: datetime,
         end: datetime | None = None,
         limit: int = 500,
+        feed: str = "",
     ) -> list[Candle]: ...
-    def stats(self, symbol: str, tf: Timeframe, source: DataSource) -> SeriesStats: ...
+    def stats(
+        self, symbol: str, tf: Timeframe, source: DataSource, *, feed: str = ""
+    ) -> SeriesStats: ...
     def quarantine(self, limit: int = 50) -> list[QuarantineEntry]: ...
 
 
@@ -73,24 +79,24 @@ class InMemoryCandleStore:
     def append(self, items: list[Candle], quarantine: list[QuarantineEntry]) -> None:
         with self._lock:
             for c in items:
-                self._rows[(c.symbol, c.timeframe, c.source)][c.open_time].append(c)
+                self._rows[(c.symbol, c.timeframe, c.source, c.feed_id)][c.open_time].append(c)
             self._quarantine.extend(quarantine)
 
-    def latest_by_open_time(self, symbol, tf, source, lo, hi):
-        series = self._rows.get((symbol, tf, source), {})
+    def latest_by_open_time(self, symbol, tf, source, lo, hi, *, feed=""):
+        series = self._rows.get((symbol, tf, source, feed), {})
         out = {}
         for t, revs in series.items():
             if lo <= t <= hi and (c := _visible(revs, None)):
                 out[t] = c
         return out
 
-    def last_before(self, symbol, tf, source, t):
-        series = self._rows.get((symbol, tf, source), {})
+    def last_before(self, symbol, tf, source, t, *, feed=""):
+        series = self._rows.get((symbol, tf, source, feed), {})
         earlier = [k for k in series if k < t]
         return _visible(series[max(earlier)], None) if earlier else None
 
-    def query(self, symbol, tf, source, *, as_of, end=None, limit=500):
-        series = self._rows.get((symbol, tf, source), {})
+    def query(self, symbol, tf, source, *, as_of, end=None, limit=500, feed=""):
+        series = self._rows.get((symbol, tf, source, feed), {})
         out = []
         for t in sorted(series):
             if end is not None and t > end:
@@ -99,11 +105,12 @@ class InMemoryCandleStore:
                 out.append(c)
         return out[-limit:]
 
-    def stats(self, symbol, tf, source):
-        series = self._rows.get((symbol, tf, source), {})
+    def stats(self, symbol, tf, source, *, feed=""):
+        series = self._rows.get((symbol, tf, source, feed), {})
         keys = sorted(series)
         q = sum(
-            1 for e in self._quarantine if (e.symbol, e.timeframe, e.source) == (symbol, tf, source)
+            1 for e in self._quarantine
+            if (e.symbol, e.timeframe, e.source, e.feed_id) == (symbol, tf, source, feed)
         )
         last_ing = max((c.ingested_at for revs in series.values() for c in revs), default=None)
         return SeriesStats(
@@ -125,6 +132,7 @@ def _to_candle(r: Any) -> Candle:
         symbol=r.symbol,
         timeframe=Timeframe(r.timeframe),
         source=DataSource(r.source),
+        feed_id=r.feed_id,
         open_time=_utc(r.open_time),
         close_time=_utc(r.close_time),
         open=r.open,
@@ -155,6 +163,7 @@ class SqlCandleStore:
                             "symbol": c.symbol,
                             "timeframe": c.timeframe.value,
                             "source": c.source.value,
+                            "feed_id": c.feed_id,
                             "open_time": c.open_time,
                             "revision": c.revision,
                             "close_time": c.close_time,
@@ -178,6 +187,7 @@ class SqlCandleStore:
                         {
                             "received_at": q.received_at,
                             "source": q.source.value,
+                            "feed_id": q.feed_id,
                             "symbol": q.symbol,
                             "timeframe": q.timeframe.value,
                             "reason": q.reason,
@@ -187,52 +197,55 @@ class SqlCandleStore:
                     ],
                 )
 
-    def _key(self, symbol: str, tf: Timeframe, source: DataSource):
+    def _key(self, symbol: str, tf: Timeframe, source: DataSource, feed: str):
         return and_(
             candles.c.symbol == symbol,
             candles.c.timeframe == tf.value,
             candles.c.source == source.value,
+            candles.c.feed_id == feed,
         )
 
-    def _latest(self, symbol, tf, source, *conds):
+    def _latest(self, symbol, tf, source, feed, *conds):
         sub = (
             select(candles.c.open_time, func.max(candles.c.revision).label("rev"))
-            .where(self._key(symbol, tf, source), *conds)
+            .where(self._key(symbol, tf, source, feed), *conds)
             .group_by(candles.c.open_time)
             .subquery()
         )
         return select(candles).join(
             sub,
             and_(
-                self._key(symbol, tf, source),
+                self._key(symbol, tf, source, feed),
                 candles.c.open_time == sub.c.open_time,
                 candles.c.revision == sub.c.rev,
             ),
         )
 
-    def latest_by_open_time(self, symbol, tf, source, lo, hi):
-        q = self._latest(symbol, tf, source, candles.c.open_time >= lo, candles.c.open_time <= hi)
+    def latest_by_open_time(self, symbol, tf, source, lo, hi, *, feed=""):
+        q = self._latest(
+            symbol, tf, source, feed, candles.c.open_time >= lo, candles.c.open_time <= hi
+        )
         with self.engine.connect() as conn:
             rows = conn.execute(q).all()
         return {c.open_time: c for c in map(_to_candle, rows)}
 
-    def last_before(self, symbol, tf, source, t):
+    def last_before(self, symbol, tf, source, t, *, feed=""):
         t_last = (
             select(func.max(candles.c.open_time))
-            .where(self._key(symbol, tf, source), candles.c.open_time < t)
+            .where(self._key(symbol, tf, source, feed), candles.c.open_time < t)
             .scalar_subquery()
         )
-        q = self._latest(symbol, tf, source, candles.c.open_time == t_last)
+        q = self._latest(symbol, tf, source, feed, candles.c.open_time == t_last)
         with self.engine.connect() as conn:
             row = conn.execute(q).first()
         return _to_candle(row) if row else None
 
-    def query(self, symbol, tf, source, *, as_of, end=None, limit=500):
+    def query(self, symbol, tf, source, *, as_of, end=None, limit=500, feed=""):
         conds = [candles.c.available_at <= as_of]
         if end is not None:
             conds.append(candles.c.open_time <= end)
         q = (
-            self._latest(symbol, tf, source, *conds)
+            self._latest(symbol, tf, source, feed, *conds)
             .order_by(candles.c.open_time.desc())
             .limit(limit)
         )
@@ -240,8 +253,8 @@ class SqlCandleStore:
             rows = conn.execute(q).all()
         return [_to_candle(r) for r in reversed(rows)]
 
-    def stats(self, symbol, tf, source):
-        key = self._key(symbol, tf, source)
+    def stats(self, symbol, tf, source, *, feed=""):
+        key = self._key(symbol, tf, source, feed)
         with self.engine.connect() as conn:
             count, first, last, last_ing = conn.execute(
                 select(
@@ -256,6 +269,7 @@ class SqlCandleStore:
                     candle_quarantine.c.symbol == symbol,
                     candle_quarantine.c.timeframe == tf.value,
                     candle_quarantine.c.source == source.value,
+                    candle_quarantine.c.feed_id == feed,
                 )
             ).scalar_one()
         return SeriesStats(count, _utc(first), _utc(last), _utc(last_ing), q)
@@ -272,6 +286,7 @@ class SqlCandleStore:
                 received_at=_utc(r.received_at),
                 reason=r.reason,
                 raw=r.raw,
+                feed_id=r.feed_id,
             )
             for r in rows
         ]

@@ -26,7 +26,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from gold_trading.common.ids import new_id
-from gold_trading.storage.repository import AuditEntry, Mt5Link, Repository
+from gold_trading.market.feeds import feed_id_for
+from gold_trading.storage.repository import AuditEntry, Mt5Link, PriceFeed, Repository
 
 if TYPE_CHECKING:
     from gold_trading.api.ingest import Heartbeat
@@ -133,6 +134,7 @@ def observe_identity(repo: Repository, account_id: str, hb: Heartbeat, token_id:
 # Mã lý do đứng đầu ``detail`` của lỗi 409 khi ghi nến, để Gateway nhận biết và chờ (không thoát).
 LINK_REQUIRED = "MT5_LINK_REQUIRED"
 LINK_MISMATCH = "MT5_LINK_MISMATCH"
+LINK_SYMBOL = "MT5_LINK_SYMBOL"
 
 
 class CandleLinkError(Exception):
@@ -158,7 +160,7 @@ def check_candle_identity(repo: Repository, account_id: str, seen: Observed | No
     held = held_link(repo, account_id)
     if seen is None:
         raise CandleLinkError(LINK_REQUIRED, "Lô nến không có danh tính MT5 (Gateway cũ): cập "
-                                             "nhật MT5 Gateway lên bản ≥ 0.4.0")
+                                             "nhật MT5 Gateway lên bản ≥ 0.5.0")
     if held is None:
         raise CandleLinkError(LINK_REQUIRED, "Tài khoản chưa liên kết MT5. Vào trang Tài khoản "
                                              "trên web, xác nhận MT5 rồi Gateway tự gửi tiếp")
@@ -173,3 +175,34 @@ def check_candle_identity(repo: Repository, account_id: str, seen: Observed | No
     if held.status == "DISCONNECTED":
         _reconnect(repo, held, now, "candles")
     return held
+
+
+def lock_feed(repo: Repository, link: Mt5Link, broker_symbol: str | None, now: datetime) -> str:
+    """MT-05: nguồn giá của lô nến = (server đã liên kết, symbol broker). Symbol khóa vào liên kết
+    ở lô đầu tiên; đổi symbol (vd. XAUUSD → XAUUSD.r) là nguồn khác → từ chối, phải gỡ + liên kết
+    lại (ING-15, không trộn). Trả ``feed_id``."""
+    if not broker_symbol:
+        raise CandleLinkError(LINK_REQUIRED, "Lô nến không có symbol broker (Gateway cũ): cập "
+                                             "nhật MT5 Gateway lên bản ≥ 0.5.0")
+    locked = repo.lock_link_symbol(link.account_id, link.link_id, broker_symbol)
+    if locked != broker_symbol:
+        raise CandleLinkError(LINK_SYMBOL, f"Symbol broker đổi từ {locked} sang {broker_symbol}: "
+                                           "đây là nguồn giá khác. Gỡ liên kết rồi xác nhận lại "
+                                           "nếu muốn dùng symbol mới")
+    feed = feed_id_for(link.mt5_server, broker_symbol)
+    repo.ensure_price_feed(PriceFeed(feed, link.mt5_server, broker_symbol, now))
+    if link.broker_symbol is None:
+        repo.append_audit(AuditEntry(
+            now, "gateway", "price_feed.bind", "ACCEPTED",
+            {"link_id": link.link_id, "server": link.mt5_server, "broker_symbol": broker_symbol,
+             "feed_id": feed}, "Liên kết bắt đầu ghi vào nguồn giá này", link.account_id))
+    return feed
+
+
+def account_feed(repo: Repository, account_id: str) -> str | None:
+    """Nguồn giá tài khoản đọc: của liên kết đang giữ, sau khi đã ghi lô đầu (có symbol). Không
+    có → None (không có dữ liệu; KHÔNG lấy nguồn của tài khoản khác)."""
+    held = held_link(repo, account_id)
+    if held is None or not held.broker_symbol:
+        return None
+    return feed_id_for(held.mt5_server, held.broker_symbol)

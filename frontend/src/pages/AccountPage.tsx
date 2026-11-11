@@ -178,6 +178,10 @@ function LinkSummary({ link }: { link: Mt5LinkOut }) {
         <div className="kv__label">{t("accountPage.mt5.type")}</div>
         <div className="kv__value">{t(`system.gateway.account.${link.trade_mode}`)}</div>
       </div>
+      <div>
+        <div className="kv__label">{t("accountPage.link.feed")}</div>
+        <div className="kv__value">{link.broker_symbol ?? t("accountPage.link.feedNone")}</div>
+      </div>
     </div>
   );
 }

@@ -9,7 +9,8 @@ from mt5_gateway.sync import Syncer
 from tests.fake_mt5 import FakeMt5
 from tests.test_gateway import NOW_WINTER, FakeBackend, cfg
 
-IDENT = {"mt5_login": 51234567, "mt5_server": "DemoBroker-Demo", "mt5_account_type": "DEMO"}
+IDENT = {"mt5_login": 51234567, "mt5_server": "DemoBroker-Demo", "mt5_account_type": "DEMO",
+         "broker_symbol": "XAUUSD"}
 
 
 def world(be=None, **c):
@@ -160,3 +161,14 @@ def test_after_link_block_gateway_backfills_again():
     be.posts.clear()
     s.run_forever(stop=stop)
     assert any(p["backfill"] for p in be.posts) and s.backfilled
+
+
+def test_broker_symbol_sent_is_configured_one():
+    """MT-05: symbol broker gửi kèm = GT_BROKER_SYMBOL (vd. XAUUSD.r), không phải XAUUSD."""
+    fake = FakeMt5(now_utc=NOW_WINTER, symbol="XAUUSD.r")
+    be = FakeBackend()
+    conf = cfg(broker_symbol="XAUUSD.r")
+    rep = checks.run_checks(conf, fake, be, now=lambda: NOW_WINTER, tick_wait_s=1)
+    assert rep.ok
+    assert be.posts and {p["identity"]["broker_symbol"] for p in be.posts} == {"XAUUSD.r"}
+    assert {p["symbol"] for p in be.posts} == {"XAUUSD"}

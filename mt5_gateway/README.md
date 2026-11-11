@@ -139,6 +139,7 @@ uv run mt5-gateway run
 | `HTTP 503` / `đồng hồ máy chủ lệch` | Đồng hồ máy chạy Docker lệch > 30 giây: khởi động lại Docker Desktop (hay gặp sau khi máy ngủ) |
 | `Múi giờ ... không khớp` | Làm theo gợi ý `Đặt GT_SERVER_TZ=...` rồi chạy lại `check` |
 | `MT5_LINK_REQUIRED` | MT5 chưa liên kết (hoặc Gateway bản cũ < 0.4.0): xác nhận MT5 trên trang **Tài khoản**; Gateway tự gửi tiếp, không cần chạy lại |
+| `MT5_LINK_SYMBOL` | Đã đổi `GT_BROKER_SYMBOL` (symbol khác = nguồn giá khác): đặt lại như cũ, hoặc **Gỡ liên kết** trên web rồi xác nhận lại để dùng symbol mới |
 | `MT5_LINK_MISMATCH` | Terminal đang đăng nhập MT5 khác MT5 đã liên kết: xem thẻ **Liên kết MT5** trên trang Tài khoản |
 | Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |
 

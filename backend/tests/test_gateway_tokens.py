@@ -13,7 +13,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository, Member, TradingAccount
 from tests.auth_helpers import client, login_owner, make_app
-from tests.mt5_helpers import link_active
+from tests.mt5_helpers import FEED, link_active
 from tests.test_ingest_api import HB, bars, batch
 
 LEGACY = "L" * 32
@@ -108,10 +108,11 @@ def test_gateway_of_a_cannot_write_into_b():
     r = trader.post("/api/ingest/mt5/candles", json=batch(bars(5)) | {"account_id": "default"},
                     headers=bearer(tok_b))
     assert r.status_code == 403
-    # acc_b chưa được ghi nến dùng chung (tới MT-05): nến bị từ chối, nhịp tim được nhận
+    # acc_b chưa liên kết MT5 (MT-05: mỗi tài khoản ghi nguồn của mình, phải có liên kết
+    # ACTIVE): nến bị từ chối, nhịp tim được nhận
     r = trader.post("/api/ingest/mt5/candles", json=batch(bars(5)), headers=bearer(tok_b))
-    assert r.status_code == 403
-    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5).count == 0
+    assert r.status_code == 409 and r.json()["detail"].startswith("MT5_LINK_REQUIRED")
+    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5, feed=FEED).count == 0
     assert trader.post(HB_PATH, json=HB, headers=bearer(tok_b)).status_code == 200
     # Trạng thái Gateway tách theo tài khoản
     assert bob.get("/api/accounts/acc_b/gateway/status").json()["state"] == "CONNECTED"
@@ -130,7 +131,7 @@ def test_locked_user_gateway_is_refused_and_unlock_reuses_same_token():
     assert trader.post(HB_PATH, json=HB, headers=bearer(tok)).status_code == 403
     r = trader.post("/api/ingest/mt5/candles", json=batch(bars(5)), headers=bearer(tok))
     assert r.status_code == 403
-    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5).count == 0
+    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5, feed=FEED).count == 0
     repo.set_user_status("sub-trader", "ACTIVE", utcnow())
     assert trader.post(HB_PATH, json=HB, headers=bearer(tok)).status_code == 200
 

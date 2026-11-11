@@ -18,7 +18,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository, SqlRepository
 from tests.auth_helpers import client, login_owner, make_app
-from tests.mt5_helpers import IDENT_FIELDS, LOGIN, SERVER, link_active
+from tests.mt5_helpers import FEED, IDENT_FIELDS, LOGIN, SERVER, link_active
 from tests.test_ingest_api import AUTH, HB, TOKEN, bars, batch
 
 HB_PATH = "/api/ingest/mt5/heartbeat"
@@ -77,7 +77,7 @@ class World:
         return self.repo.mt5_links("default")[-1].status
 
     def count(self):
-        return self.store.stats("XAUUSD", Timeframe.M15, DataSource.MT5).count
+        return self.store.stats("XAUUSD", Timeframe.M15, DataSource.MT5, feed=FEED).count
 
     def reverify(self, **over):
         cur = self.state()["current"]
@@ -120,7 +120,7 @@ def test_candles_without_identity_rejected_partial_identity_422(w):
         body.pop(k)
     r = w.gw.post(CANDLES, json=body, headers=AUTH)  # Gateway cũ
     assert r.status_code == 409 and r.json()["detail"].startswith("MT5_LINK_REQUIRED")
-    assert "0.4.0" in r.json()["detail"]
+    assert "0.5.0" in r.json()["detail"]
     r = w.gw.post(CANDLES, json=body | {"mt5_login": LOGIN}, headers=AUTH)
     assert r.status_code == 422
     assert w.count() == 0 and w.status() == "ACTIVE"

@@ -26,7 +26,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
 from tests.auth_helpers import user_client
-from tests.mt5_helpers import IDENT_FIELDS, link_active
+from tests.mt5_helpers import FEED, IDENT_FIELDS, link_active
 
 ATHENS = ZoneInfo("Europe/Athens")
 BROKER = BrokerSessions.parse("Mon-Fri 00:00-23:00", "Europe/Athens")
@@ -183,7 +183,7 @@ def ohlc(t, close=2405.0):
 
 
 def stored(store, tf=M15):
-    return store.query("XAUUSD", tf, DataSource.MT5, as_of=u(2030, 1, 1))
+    return store.query("XAUUSD", tf, DataSource.MT5, as_of=u(2030, 1, 1), feed=FEED)
 
 
 @pytest.fixture

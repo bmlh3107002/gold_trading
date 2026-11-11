@@ -131,6 +131,8 @@ class Mt5LinkOut(BaseModel):
     verified_by: str | None
     ended_at: datetime | None
     end_reason: str | None
+    broker_symbol: str | None = Field(
+        default=None, description="MT-05: symbol broker khóa ở lô nến đầu tiên (None = chưa ghi)")
 
 
 class TerminalIdentity(BaseModel):
@@ -182,7 +184,7 @@ def link_out(x: Mt5Link) -> Mt5LinkOut:
         link_id=x.link_id, status=x.status, login=x.mt5_login, server=x.mt5_server,
         company=x.mt5_company, trade_mode=x.trade_mode, gateway_id=x.gateway_id,
         created_at=x.created_at, verified_at=x.verified_at, verified_by=x.verified_by,
-        ended_at=x.ended_at, end_reason=x.end_reason,
+        ended_at=x.ended_at, end_reason=x.end_reason, broker_symbol=x.broker_symbol,
     )
 
 

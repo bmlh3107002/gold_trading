@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from gold_trading.common.ids import new_id
 from gold_trading.common.time import utcnow
+from gold_trading.market.feeds import feed_id_for
 from gold_trading.storage.repository import Mt5Link
 
 LOGIN = 51234567
 SERVER = "Broker-Demo"
-IDENT_FIELDS = {"mt5_login": LOGIN, "mt5_server": SERVER, "mt5_account_type": "DEMO"}
+BROKER_SYMBOL = "XAUUSD"
+IDENT_FIELDS = {"mt5_login": LOGIN, "mt5_server": SERVER, "mt5_account_type": "DEMO",
+                "broker_symbol": BROKER_SYMBOL}
+# MT-05: nguồn giá của liên kết mặc định trong test
+FEED = feed_id_for(SERVER, BROKER_SYMBOL)
 
 
 def link_active(repo, account_id: str = "default", login: int = LOGIN, server: str = SERVER,

@@ -40,6 +40,9 @@ class Candle(Contract):
     symbol: str = Field(min_length=1, max_length=32)
     timeframe: Timeframe
     source: DataSource
+    # MT-05: nguồn giá (feed) = một (server broker, symbol broker). "" = nguồn không gắn broker
+    # (SAMPLE, CSV). Nến của hai feed khác nhau KHÔNG BAO GIỜ trộn (DEC-14).
+    feed_id: str = Field(default="", max_length=64)
     open_time: UtcDatetime
     close_time: UtcDatetime
     open: float = Field(gt=0)

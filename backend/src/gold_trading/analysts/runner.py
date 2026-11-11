@@ -27,8 +27,9 @@ class TechnicalRunner:
     def tick(self, now: datetime | None = None) -> bool:
         """Trả True nếu vừa lưu một kết quả mới."""
         now = now or utcnow()
-        if self.market.source is None:
-            return False
+        feed = self.market.feed
+        if self.market.source is None or feed is None:
+            return False  # MT-05: chưa có nguồn giá (vd. chưa liên kết MT5) → không phân tích
         rows = self.market.candles(as_of=now, limit=technical.WINDOW + INDICATOR_WARMUP)
         out = technical.analyze(
             rows,
@@ -47,6 +48,7 @@ class TechnicalRunner:
             tf=self.market.timeframe,
             source=self.market.source,
             computed_at=now,
+            feed=feed,
         )
 
     def _run(self) -> None:

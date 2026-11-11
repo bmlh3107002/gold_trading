@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -53,22 +54,32 @@ class MarketDataService:
         symbol: str = "XAUUSD",
         timeframe: Timeframe = Timeframe.M15,
         calendar: MarketCalendar = REFERENCE,
+        feed_resolver: Callable[[], str | None] | None = None,
     ) -> None:
         self.store = store
         self.calendar = calendar
         self.source = source
         self.symbol = symbol
         self.timeframe = timeframe
+        # MT-05: nguồn giá đang đọc. None (không có resolver) = nguồn không gắn broker (""), dùng
+        # cho SAMPLE/CSV. Resolver trả None = chưa có nguồn nào (vd. chưa liên kết MT5) → không có
+        # dữ liệu, KHÔNG đọc nguồn khác thay thế.
+        self.feed_resolver = feed_resolver
+
+    @property
+    def feed(self) -> str | None:
+        return "" if self.feed_resolver is None else self.feed_resolver()
 
     @property
     def is_sample(self) -> bool:
         return self.source is not None and self.source.is_sample
 
     def candles(self, *, as_of: datetime, limit: int, end: datetime | None = None) -> list[Candle]:
-        if self.source is None:
+        feed = self.feed
+        if self.source is None or feed is None:
             return []
         return self.store.query(
-            self.symbol, self.timeframe, self.source, as_of=as_of, end=end, limit=limit
+            self.symbol, self.timeframe, self.source, as_of=as_of, end=end, limit=limit, feed=feed
         )
 
     def candles_with_indicators(
@@ -130,9 +141,14 @@ class MarketDataService:
         return Freshness.FRESH
 
     def stats(self) -> SeriesStats | None:
-        if self.source is None:
+        feed = self.feed
+        if self.source is None or feed is None:
             return None
-        return self.store.stats(self.symbol, self.timeframe, self.source)
+        return self.store.stats(self.symbol, self.timeframe, self.source, feed=feed)
 
     def quarantine(self, limit: int = 20) -> list[QuarantineEntry]:
-        return [q for q in self.store.quarantine(limit * 5) if q.symbol == self.symbol][:limit]
+        feed = self.feed
+        if feed is None:
+            return []
+        return [q for q in self.store.quarantine(limit * 5)
+                if q.symbol == self.symbol and q.feed_id == feed][:limit]

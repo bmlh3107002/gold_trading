@@ -27,12 +27,14 @@ from gold_trading.accounts.mt5_link import (
     check_candle_identity,
     held_link,
     link_status_for,
+    lock_feed,
     observe_identity,
 )
 from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar, TailStatus, tail_status
 from gold_trading.ingestion.sources.csv_file import SESSION_MISMATCH_MAX, check_sessions
+from gold_trading.market.feeds import feed_id_for
 from gold_trading.market.service import MarketDataService
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
@@ -76,6 +78,10 @@ class CandleBatch(BaseModel):
     mt5_login: int | None = Field(default=None, gt=0, le=2**63 - 1)
     mt5_server: str | None = Field(default=None, min_length=1, max_length=256)
     mt5_account_type: Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"] | None = None
+    # MT-05 (Gateway ≥ 0.5): tên symbol trong MT5 của broker (vd. XAUUSD.r). Cùng với server xác
+    # định nguồn giá. Bắt buộc khi ghi thật.
+    broker_symbol: str | None = Field(default=None, min_length=1, max_length=64,
+                                      pattern=r"^[\x21-\x7e]+$")
 
     @model_validator(mode="after")
     def _identity_all_or_none(self) -> CandleBatch:
@@ -295,10 +301,10 @@ def ingest_router(
         dry_run: Annotated[bool, Query()] = False,
     ) -> IngestReport:
         account_id, _ = authorize(authorization, batch.account_id)
-        acc = repo.account(account_id)
-        if acc is None or not acc.price_feed:
-            # Tới MT-05 (GĐ1) chỉ tài khoản nguồn giá được ghi vào kho nến dùng chung.
-            raise HTTPException(403, "Tài khoản này chưa được phép ghi nến dùng chung")
+        if repo.account(account_id) is None:
+            raise HTTPException(403, "Không có tài khoản giao dịch này")
+        # MT-05: mọi tài khoản có liên kết ACTIVE đều ghi được, nhưng CHỈ vào nguồn giá của
+        # (server, symbol broker) đã liên kết — không còn "kho nến dùng chung" duy nhất.
         if ingest_guard and (reason := ingest_guard()):
             raise HTTPException(503, reason)
         if batch.symbol != market.symbol:
@@ -326,13 +332,20 @@ def ingest_router(
         now = utcnow()
         seen = (Observed(batch.mt5_login, batch.mt5_server, batch.mt5_account_type)
                 if batch.mt5_login is not None else None)  # type: ignore[arg-type]
+        feed = ""
         if dry_run:
             held = held_link(repo, account_id)
             pending = any(x.status == "PENDING_CONFIRM" for x in repo.mt5_links(account_id))
             link_status = link_status_for(held, seen, pending)
+            if seen is not None and batch.broker_symbol:
+                try:
+                    feed = feed_id_for(seen.server, batch.broker_symbol)
+                except ValueError:
+                    feed = ""  # tên lạ: chạy thử vẫn kiểm nến, không so với nguồn nào
         else:
             try:
-                check_candle_identity(repo, account_id, seen, now)
+                link = check_candle_identity(repo, account_id, seen, now)
+                feed = lock_feed(repo, link, batch.broker_symbol, now)
             except CandleLinkError as e:
                 raise HTTPException(409, str(e)) from None
             except SQLAlchemyError as e:
@@ -383,6 +396,7 @@ def ingest_router(
                 ingested_at=now,
                 backfill=batch.backfill,
                 server_tz=server_tz,
+                feed=feed,
             )
         except SQLAlchemyError as e:
             # 0-C05: ổ đầy / DB lỗi. Cả lô nằm trong một transaction nên không ghi dở;
@@ -430,8 +444,8 @@ class _DryRunStore(InMemoryCandleStore):
         super().__init__()
         self._real = real
 
-    def latest_by_open_time(self, symbol, tf, source, lo, hi):
-        return self._real.latest_by_open_time(symbol, tf, source, lo, hi)
+    def latest_by_open_time(self, symbol, tf, source, lo, hi, *, feed=""):
+        return self._real.latest_by_open_time(symbol, tf, source, lo, hi, feed=feed)
 
-    def last_before(self, symbol, tf, source, t):
-        return self._real.last_before(symbol, tf, source, t)
+    def last_before(self, symbol, tf, source, t, *, feed=""):
+        return self._real.last_before(symbol, tf, source, t, feed=feed)

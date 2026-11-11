@@ -2121,6 +2121,20 @@
               }
             ],
             "title": "Mt5 Account Type"
+          },
+          "broker_symbol": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1,
+                "pattern": "^[\\x21-\\x7e]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Broker Symbol"
           }
         },
         "type": "object",
@@ -3530,6 +3544,18 @@
               }
             ],
             "title": "End Reason"
+          },
+          "broker_symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Broker Symbol",
+            "description": "MT-05: symbol broker khóa ở lô nến đầu tiên (None = chưa ghi)"
           }
         },
         "type": "object",

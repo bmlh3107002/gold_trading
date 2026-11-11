@@ -87,6 +87,15 @@
 - `run_forever`: nhịp tim gửi đúng lịch **trước** việc gửi nến, kể cả khi nến bị từ chối / backend hay MT5 lỗi (trước đây lỗi gửi nến làm bỏ nhịp tim). Gặp `409 MT5_LINK_*` → không thoát, không tăng backoff, ghi log một lần, thử lại sau 30 s; khi thông lại thì **nạp bù lại cả lịch sử** (backend khử trùng) để không hụt nến của thời gian bị chặn. Nạp bù cũng chạy trong vòng này (CLI không nạp bù riêng nữa).
 - Gateway < 0.4.0 gửi nến không có danh tính → bị từ chối (`MT5_LINK_REQUIRED`, có ghi "cập nhật lên ≥ 0.4.0"). Phải cập nhật Gateway cùng lúc với backend.
 
+### 5c. Nguồn giá theo broker (MT-05 phần lưu trữ, 2026-11-11, Gateway 0.5.0, migration 0009)
+
+- **Nguồn giá (feed)** = `(server broker, symbol broker)`; `feed_id = "pf_" + sha256(lower(server) + "\0" + broker_symbol)[:24]` (`market/feeds.py`). Server không phân biệt hoa/thường (như MT-13); symbol giữ nguyên chữ; tên có ký tự điều khiển / khoảng trắng đầu-cuối bị từ chối (soát lại tìm được: NUL làm hai cặp khác nhau ra cùng mã). Bảng `price_feeds` (chỉ thêm) lưu server + symbol để hiển thị.
+- Kho nến, cách ly, kết quả analyst có cột `feed_id`; khóa chính `candles` thêm `feed_id`. **Mọi** đọc/ghi đi theo đúng một feed (tham số `feed=` ở `CandleStore`, `CandleIngestor.ingest`, `AnalystOutputStore`); khử trùng, revision, cờ GAP chỉ so với nến cùng feed → hai broker không bao giờ trộn hay "sửa" nến của nhau. `""` = nguồn không gắn broker (SAMPLE / CSV).
+- Gateway 0.5.0 gửi thêm `broker_symbol` (= `GT_BROKER_SYMBOL`). Backend: lô ghi thật phải có (thiếu → `MT5_LINK_REQUIRED`, ghi "cập nhật ≥ 0.5.0"; chỉ nhận ký tự ASCII in được). Symbol **khóa vào liên kết** ở lô đầu tiên được ghi (`mt5_links.broker_symbol`, audit `price_feed.bind`); lô sau khác symbol → `409 MT5_LINK_SYMBOL` (nguồn khác — ING-15), phải gỡ + liên kết lại. Feed tính từ server **của liên kết** (không phải chuỗi trong lô).
+- Bỏ điều kiện "chỉ tài khoản `price_feed` được ghi": mọi tài khoản có liên kết ACTIVE ghi vào nguồn của mình; hai tài khoản cùng server + symbol ghi chung một nguồn (khử trùng).
+- **Dữ liệu cũ:** nến / cách ly / kết quả analyst MT5 trước 0009 không biết của broker nào → `feed_id = 'legacy-unknown-broker'`, giữ để tra cứu, **không** tài khoản nào đọc. Gateway nạp bù lại lịch sử vào đúng nguồn sau khi liên kết. Hạ cấp 0009 bị từ chối nếu đã có nhiều nguồn MT5.
+- **Đọc (chuyển tiếp, tới MT-05 phần đọc):** màn hình thị trường chung + Technical analyst đọc nguồn của **tài khoản cấp giá** (`price_feed = true`, tức tài khoản chính), qua liên kết đang giữ đã khóa symbol. Chưa có → không có dữ liệu (không mượn nguồn tài khoản khác).
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.

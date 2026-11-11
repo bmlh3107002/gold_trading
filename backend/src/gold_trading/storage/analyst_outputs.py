@@ -36,31 +36,32 @@ class AnalystOutputStore(Protocol):
         tf: Timeframe,
         source: DataSource,
         computed_at: datetime,
+        feed: str = "",
     ) -> bool: ...
     def latest(
-        self, analyst_id: str, *, symbol: str, tf: Timeframe, source: DataSource
+        self, analyst_id: str, *, symbol: str, tf: Timeframe, source: DataSource, feed: str = ""
     ) -> StoredOutput | None: ...
 
 
 class InMemoryAnalystOutputStore:
     def __init__(self) -> None:
-        self._rows: list[tuple[str, Timeframe, DataSource, StoredOutput]] = []
+        self._rows: list[tuple[str, Timeframe, DataSource, str, StoredOutput]] = []
         self._ids: set[str] = set()
         self._lock = threading.Lock()
 
-    def append(self, out, *, symbol, tf, source, computed_at):
+    def append(self, out, *, symbol, tf, source, computed_at, feed=""):
         with self._lock:
             if out.output_id in self._ids:
                 return False
             self._ids.add(out.output_id)
-            self._rows.append((symbol, tf, source, StoredOutput(out, computed_at, source)))
+            self._rows.append((symbol, tf, source, feed, StoredOutput(out, computed_at, source)))
             return True
 
-    def latest(self, analyst_id, *, symbol, tf, source):
+    def latest(self, analyst_id, *, symbol, tf, source, feed=""):
         rows = [
             r
-            for (s, t, src, r) in self._rows
-            if (s, t, src) == (symbol, tf, source) and r.output.analyst_id == analyst_id
+            for (s, t, src, f, r) in self._rows
+            if (s, t, src, f) == (symbol, tf, source, feed) and r.output.analyst_id == analyst_id
         ]
         return max(rows, key=lambda r: (r.output.as_of, r.computed_at)) if rows else None
 
@@ -73,8 +74,9 @@ class SqlAnalystOutputStore:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
 
-    def append(self, out, *, symbol, tf, source, computed_at):
+    def append(self, out, *, symbol, tf, source, computed_at, feed=""):
         row = dict(
+            feed_id=feed,
             output_id=out.output_id,
             analyst_id=out.analyst_id,
             version=out.version,
@@ -107,7 +109,7 @@ class SqlAnalystOutputStore:
                 return False
             return True
 
-    def latest(self, analyst_id, *, symbol, tf, source):
+    def latest(self, analyst_id, *, symbol, tf, source, feed=""):
         q = (
             select(analyst_outputs.c.payload, analyst_outputs.c.computed_at)
             .where(
@@ -115,6 +117,7 @@ class SqlAnalystOutputStore:
                 analyst_outputs.c.symbol == symbol,
                 analyst_outputs.c.timeframe == tf.value,
                 analyst_outputs.c.source == source.value,
+                analyst_outputs.c.feed_id == feed,
             )
             .order_by(analyst_outputs.c.as_of.desc(), analyst_outputs.c.seq.desc())
             .limit(1)

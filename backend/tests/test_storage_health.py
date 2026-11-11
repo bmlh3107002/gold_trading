@@ -17,7 +17,7 @@ from gold_trading.ops.storage_health import backup_info, disk
 from gold_trading.storage.candles import SqlCandleStore
 from gold_trading.storage.repository import SqlRepository
 from tests.auth_helpers import client, make_app
-from tests.mt5_helpers import link_active
+from tests.mt5_helpers import FEED, link_active
 from tests.test_ingest_api import bars, batch
 
 NOW = datetime(2026, 11, 6, 12, 0, tzinfo=UTC)
@@ -94,7 +94,7 @@ def test_disk_full_ingest_returns_clear_error_and_keeps_existing_data(tmp_path, 
     r = c.post("/api/ingest/mt5/candles", json=batch(first[100:]), headers=auth)
     assert r.status_code == 503 and "ổ đĩa" in r.json()["detail"]
     monkeypatch.setattr(store.engine, "begin", real_begin)
-    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5).count == 100
+    assert store.stats("XAUUSD", Timeframe.M15, DataSource.MT5, feed=FEED).count == 100
     # Ổ được giải phóng → Gateway gửi lại, nhận bình thường
     r = c.post("/api/ingest/mt5/candles", json=batch(first[100:]), headers=auth)
     assert r.status_code == 200 and r.json()["accepted"] == 200

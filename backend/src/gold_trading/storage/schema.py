@@ -198,6 +198,9 @@ mt5_links = Table(
     Column("ended_at", DateTime(timezone=True)),
     Column("ended_by", String(128)),
     Column("end_reason", String(128)),
+    # MT-05 (migration 0009): symbol của broker (vd. XAUUSD.r) khóa ở lô nến đầu tiên được ghi.
+    # Đổi symbol = nguồn giá khác → phải gỡ + liên kết lại (ING-15).
+    Column("broker_symbol", String(64)),
     CheckConstraint(
         "status IN ('PENDING_CONFIRM', 'ACTIVE', 'MISMATCH', 'DISCONNECTED', 'REVOKED', "
         "'CANCELLED')", name="ck_mt5_links_status",
@@ -222,6 +225,9 @@ candles = Table(
     Column("symbol", String(32), nullable=False),
     Column("timeframe", String(8), nullable=False),
     Column("source", String(16), nullable=False),
+    # MT-05 (migration 0009): nguồn giá. "" = không gắn broker (SAMPLE/CSV); nến MT5 có trước
+    # 0009 (không biết broker nào) = LEGACY_FEED, không dùng cho tài khoản nào.
+    Column("feed_id", String(64), nullable=False, server_default=""),
     Column("open_time", DateTime(timezone=True), nullable=False),
     Column("revision", Integer, nullable=False),
     Column("close_time", DateTime(timezone=True), nullable=False),
@@ -234,7 +240,7 @@ candles = Table(
     Column("ingested_at", DateTime(timezone=True), nullable=False),
     Column("available_at", DateTime(timezone=True), nullable=False),
     Column("flags", JsonType, nullable=False),
-    PrimaryKeyConstraint("symbol", "timeframe", "source", "open_time", "revision"),
+    PrimaryKeyConstraint("symbol", "timeframe", "source", "feed_id", "open_time", "revision"),
 )
 
 candle_quarantine = Table(
@@ -243,10 +249,26 @@ candle_quarantine = Table(
     Column("seq", SeqId, Identity(), primary_key=True),
     Column("received_at", DateTime(timezone=True), nullable=False),
     Column("source", String(16), nullable=False),
+    Column("feed_id", String(64), nullable=False, server_default=""),
     Column("symbol", String(32), nullable=False),
     Column("timeframe", String(8), nullable=False),
     Column("reason", String(64), nullable=False),
     Column("raw", JsonType, nullable=False),
+)
+
+
+# MT-05 (migration 0009): danh mục nguồn giá. feed_id = "pf_" + 24 ký tự hex của
+# sha256(lower(server) + "\0" + broker_symbol): cùng server + symbol → cùng feed (dùng chung giữa
+# các tài khoản), khác → khác (không trộn). Chỉ thêm dòng.
+LEGACY_FEED = "legacy-unknown-broker"
+
+price_feeds = Table(
+    "price_feeds",
+    metadata,
+    Column("feed_id", String(64), primary_key=True),
+    Column("mt5_server", String(256), nullable=False),
+    Column("broker_symbol", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
 
@@ -262,6 +284,7 @@ analyst_outputs = Table(
     Column("symbol", String(32), nullable=False),
     Column("timeframe", String(8), nullable=False),
     Column("source", String(16), nullable=False),
+    Column("feed_id", String(64), nullable=False, server_default=""),
     Column("as_of", DateTime(timezone=True), nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False),
     Column("computed_at", DateTime(timezone=True), nullable=False),
@@ -275,5 +298,6 @@ Index(
     analyst_outputs.c.symbol,
     analyst_outputs.c.timeframe,
     analyst_outputs.c.source,
+    analyst_outputs.c.feed_id,
     analyst_outputs.c.as_of,
 )

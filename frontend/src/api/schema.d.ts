@@ -815,6 +815,8 @@ export interface components {
             mt5_server?: string | null;
             /** Mt5 Account Type */
             mt5_account_type?: ("DEMO" | "CONTEST" | "REAL" | "UNKNOWN") | null;
+            /** Broker Symbol */
+            broker_symbol?: string | null;
         };
         /**
          * CandleFlag
@@ -1318,6 +1320,11 @@ export interface components {
             ended_at: string | null;
             /** End Reason */
             end_reason: string | null;
+            /**
+             * Broker Symbol
+             * @description MT-05: symbol broker khóa ở lô nến đầu tiên (None = chưa ghi)
+             */
+            broker_symbol?: string | null;
         };
         /** Mt5LinkRevoke */
         Mt5LinkRevoke: {

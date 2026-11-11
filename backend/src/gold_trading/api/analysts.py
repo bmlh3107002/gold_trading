@@ -32,10 +32,12 @@ def analysts_router(market: MarketDataService, store: AnalystOutputStore) -> API
     @r.get("/technical/latest", response_model=AnalystLatest)
     def technical_latest() -> AnalystLatest:
         now = utcnow()
-        if market.source is None:
+        feed = market.feed
+        if market.source is None or feed is None:
             return AnalystLatest(output=None, computed_at=None, valid_now=False, is_sample=False)
         got = store.latest(
-            technical.ANALYST_ID, symbol=market.symbol, tf=market.timeframe, source=market.source
+            technical.ANALYST_ID, symbol=market.symbol, tf=market.timeframe, source=market.source,
+            feed=feed,
         )
         if got is None:
             return AnalystLatest(

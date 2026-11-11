@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from gold_trading import __version__
+from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import accounts_router
@@ -201,10 +202,20 @@ def create_app(
             SqlAnalystOutputStore(engine) if engine is not None else InMemoryAnalystOutputStore()
         )
     source = data_source_from_env() if data_source == "env" else data_source
+    def price_feed_view() -> str | None:
+        """MT-05 (giai đoạn chuyển tiếp, tới khi mỗi tài khoản có trang giá riêng): màn hình
+        thị trường chung hiện nguồn giá của tài khoản cấp giá (``price_feed``). Không có liên kết
+        → None (không có dữ liệu), không đoán nguồn khác."""
+        for acc in repo.accounts():
+            if acc.price_feed:
+                return account_feed(repo, acc.account_id)
+        return None
+
     market = MarketDataService(
         candle_store,
         source=source,  # type: ignore[arg-type]
         calendar=calendar_from_env(source) if calendar == "env" else calendar,  # type: ignore[arg-type]
+        feed_resolver=price_feed_view if source is DataSource.MT5 else None,
     )
 
     def mode_guard(mode: TradingMode) -> str | None:
