@@ -508,10 +508,13 @@ def test_r1_uses_weekly_part_only():
 
 def test_api_r1_not_rejected_by_holiday_and_dry_run_uses_calendar():
     from tests.auth_helpers import user_client
+    from tests.mt5_helpers import IDENT_FIELDS, link_active
 
     token = "t" * 32
+    repo = InMemoryRepository()
+    link_active(repo)
     c = user_client(
-        InMemoryRepository(),
+        repo,
         candle_store=InMemoryCandleStore(),
         data_source=DataSource.MT5,
         run_sample_feed=False,
@@ -525,6 +528,7 @@ def test_api_r1_not_rejected_by_holiday_and_dry_run_uses_calendar():
         "timeframe": "M15",
         "backfill": True,
         "gateway_id": "win-1",
+        **IDENT_FIELDS,
         "bars": [
             {
                 "open_time": t.isoformat(),
@@ -561,10 +565,13 @@ def test_sample_generator_skips_holidays():
 def test_api_r1_uses_broker_weekly_hours():
     """CAL-04: R1 ở cổng nạp dùng giờ tuần của broker (trước đây chỉ lịch tham chiếu)."""
     from tests.auth_helpers import user_client
+    from tests.mt5_helpers import IDENT_FIELDS, link_active
 
     token = "t" * 32
+    repo = InMemoryRepository()
+    link_active(repo)
     c = user_client(
-        InMemoryRepository(),
+        repo,
         candle_store=InMemoryCandleStore(),
         data_source=DataSource.MT5,
         run_sample_feed=False,
@@ -579,6 +586,7 @@ def test_api_r1_uses_broker_weekly_hours():
         "timeframe": "M15",
         "backfill": True,
         "gateway_id": "win-1",
+        **IDENT_FIELDS,
         "bars": [
             {
                 "open_time": t.isoformat(),

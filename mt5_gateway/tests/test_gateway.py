@@ -61,6 +61,7 @@ class FakeBackend:
         timeframe="M15",
         server_tz=None,
         tail_bar=None,
+        identity=None,
     ):
         if dry_run and self.dry_status:
             raise BackendError(self.dry_status, "lỗi")
@@ -73,6 +74,7 @@ class FakeBackend:
                 timeframe=timeframe,
                 server_tz=server_tz,
                 tail_bar=tail_bar,
+                identity=identity,
             )
         )
         out = {

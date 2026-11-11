@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from mt5_gateway import snapshot
 from mt5_gateway.backend_client import BackendClient, BackendError
 from mt5_gateway.config import MIN_TOKEN_LEN, Config, history_bars_for
 from mt5_gateway.reader import Mt5Error, Mt5Reader
@@ -244,7 +245,7 @@ def run_checks(
     # 6. Chạy thử gửi dữ liệu (không lưu): xác thực token + R1 trên lịch sử
     try:
         progress("Đang chạy thử gửi lịch sử M15 lên backend (không lưu)...")
-        r = dry_run_all(cfg, client, bars)
+        r = dry_run_all(cfg, client, bars, identity=snapshot.batch_identity(reader))
         detail = (
             f"{r['received']} nến: hợp lệ {r['accepted'] + r['duplicates']}, "
             f"cách ly {r['quarantined']} {r['reasons'] or ''}; "
@@ -268,6 +269,23 @@ def run_checks(
                 fix = "Không tìm được múi giờ khớp: liên hệ broker để hỏi giờ server"
         rep.add("Chạy thử gửi dữ liệu (không lưu)", FAIL, detail, fix)
         return rep
+
+    # 6b. Liên kết MT5 (MT-14): chỉ cảnh báo — `run` vẫn chạy để gửi nhịp tim, nhờ đó web hiện MT5
+    # cho chủ tài khoản xác nhận. Nến chỉ được ghi sau khi liên kết ACTIVE.
+    link = r.get("link_status")
+    if link is not None:
+        msg = {
+            "ACTIVE": (PASS, "Đã liên kết đúng MT5 này", ""),
+            "NONE": (WARN, "Chưa liên kết MT5: chưa ghi nến",
+                     "Chạy mt5-gateway run, rồi vào trang Tài khoản trên web xác nhận MT5"),
+            "PENDING_CONFIRM": (WARN, "MT5 đang chờ bạn xác nhận trên web: chưa ghi nến",
+                                "Vào trang Tài khoản trên web, gõ lại số login để xác nhận"),
+            "MISMATCH": (WARN, "MT5 đang đăng nhập KHÁC MT5 đã liên kết: không ghi nến",
+                         "Đăng nhập lại đúng MT5 đã liên kết rồi bấm Xác minh lại trên web, "
+                         "hoặc gỡ liên kết để liên kết MT5 mới"),
+            "DISCONNECTED": (WARN, "Liên kết đang mất kết nối", "Chạy mt5-gateway run"),
+        }.get(link, (WARN, f"Trạng thái liên kết: {link}", ""))
+        rep.add("Liên kết MT5", msg[0], msg[1], msg[2])
 
     # 7. Khung lớn H1/H4/D1 (ING-14): đọc thẳng từ MT5, chạy thử ở backend. Không đạt thì chỉ
     # CẢNH BÁO và không đồng bộ khung đó (M15 vẫn chạy).
@@ -300,7 +318,8 @@ def check_higher_timeframes(
             problems.append(f"{tf}: MT5 chưa có lịch sử")
             continue
         try:
-            r = dry_run_all(cfg, client, bars, timeframe=tf)
+            r = dry_run_all(cfg, client, bars, timeframe=tf,
+                            identity=snapshot.batch_identity(reader))
         except BackendError as e:
             problems.append(f"{tf}: backend từ chối ({e.detail})")
             continue
@@ -330,7 +349,12 @@ def check_higher_timeframes(
 
 
 def dry_run_all(
-    cfg: Config, client: BackendClient, bars: list[Any], *, timeframe: str = "M15"
+    cfg: Config,
+    client: BackendClient,
+    bars: list[Any],
+    *,
+    timeframe: str = "M15",
+    identity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Chạy thử (không lưu) TOÀN BỘ lịch sử theo lô. Lô nào bị từ chối thì ném BackendError.
 
@@ -344,6 +368,7 @@ def dry_run_all(
         "quarantined": 0,
         "reasons": {},
         "session_outside_fraction": 0.0,
+        "link_status": None,
     }
     for i in range(0, len(bars), DRY_RUN_BARS):
         part = [b.to_json() for b in bars[i : i + DRY_RUN_BARS]]
@@ -355,7 +380,9 @@ def dry_run_all(
             dry_run=True,
             timeframe=timeframe,
             server_tz=cfg.server_tz,
+            identity=identity,
         )
+        total["link_status"] = r.get("link_status")  # None = backend cũ (chưa có MT-14)
         for k in ("received", "accepted", "duplicates", "quarantined"):
             total[k] += r[k]
         for k, v in (r.get("reasons") or {}).items():

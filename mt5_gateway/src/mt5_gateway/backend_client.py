@@ -53,6 +53,7 @@ class BackendClient:
         timeframe: str = "M15",
         server_tz: str | None = None,
         tail_bar: dict[str, Any] | None = None,
+        identity: dict[str, Any] | None = None,
     ) -> Any:
         q = "?dry_run=true" if dry_run else ""
         body: dict[str, Any] = {
@@ -66,6 +67,8 @@ class BackendClient:
             body["server_tz"] = server_tz  # bắt buộc với H4/D1 (backend căn theo giờ server)
         if tail_bar is not None:
             body["tail_bar"] = tail_bar  # 1A-C21: nến vị trí 0, backend tự quyết có nhận không
+        if identity:
+            body.update(identity)  # MT-14: mt5_login / mt5_server / mt5_account_type
         return self._call("POST", f"/api/ingest/mt5/candles{q}", body)
 
     def heartbeat(self, payload: dict[str, Any]) -> Any:

@@ -133,6 +133,12 @@ class Mt5LinkOut(BaseModel):
     end_reason: str | None
 
 
+class TerminalIdentity(BaseModel):
+    login: int
+    server: str
+    trade_mode: Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"]
+
+
 class Mt5LinkState(BaseModel):
     current: Mt5LinkOut | None = Field(
         description="Liên kết đang giữ (ACTIVE/MISMATCH/DISCONNECTED); None = chưa liên kết")
@@ -141,6 +147,16 @@ class Mt5LinkState(BaseModel):
         description="Nhịp tim mới nhất (còn hạn) đang báo đúng MT5 của liên kết chờ: chỉ khi "
                     "True mới xác nhận được")
     history: list[Mt5LinkOut] = Field(description="Liên kết đã kết thúc, mới nhất trước")
+    # MT-14
+    current_effective: Literal["ACTIVE", "MISMATCH", "DISCONNECTED"] | None = Field(
+        default=None,
+        description="Trạng thái hiển thị của liên kết đang giữ: ACTIVE mà nhịp tim quá hạn "
+                    "(Gateway tắt / mất mạng) → DISCONNECTED")
+    terminal: TerminalIdentity | None = Field(
+        default=None, description="MT5 terminal đang báo trong nhịp tim còn hạn (None = không có)")
+    terminal_matches_current: bool = Field(
+        default=False, description="Terminal đang báo đúng MT5 của liên kết đang giữ: điều kiện "
+                                   "để xác minh lại khi MISMATCH")
 
 
 class Mt5LinkConfirm(BaseModel):
@@ -499,12 +515,21 @@ def accounts_router(
         pending = next((x for x in reversed(links) if x.status == "PENDING_CONFIRM"), None)
         ended = [x for x in reversed(links) if not x.held and x.status != "PENDING_CONFIRM"]
         ident = terminal_identity(account_id)
+        effective = None
+        if current is not None:
+            effective = current.status
+            if current.status == "ACTIVE" and ident is None:
+                effective = "DISCONNECTED"  # nhịp tim quá hạn / đăng xuất chưa kịp ghi
         return Mt5LinkState(
             current=link_out(current) if current else None,
             pending=link_out(pending) if pending else None,
             terminal_matches_pending=bool(
                 pending and ident and pending.same_identity(*ident)),
             history=[link_out(x) for x in ended[:20]],
+            current_effective=effective,
+            terminal=TerminalIdentity(login=ident[0], server=ident[1], trade_mode=ident[2])
+            if ident else None,
+            terminal_matches_current=bool(current and ident and current.same_identity(*ident)),
         )
 
     @r.get("/api/accounts/{account_id}/mt5-link", response_model=Mt5LinkState)
@@ -547,6 +572,36 @@ def accounts_router(
         guard.audit(p, "mt5_link.confirm", "ACCEPTED",
                     {**payload, "trade_mode": done.trade_mode, "gateway_id": done.gateway_id},
                     None, account_id)
+        return link_state(account_id)
+
+    @r.post("/api/accounts/{account_id}/mt5-link/reverify", response_model=Mt5LinkState)
+    def reverify_mt5_link(account_id: str, cmd: Mt5LinkConfirm, p: CurrentUser) -> Mt5LinkState:
+        """MT-14: MISMATCH → ACTIVE khi terminal đã quay về ĐÚNG MT5 cũ và chủ tài khoản gõ lại
+        số login. Muốn dùng MT5 mới thì gỡ liên kết rồi liên kết mới (không có đường tắt)."""
+        guard.check(account_id, p, "mt5_link.reverify")
+        payload = cmd.model_dump()
+
+        def reject(code: int, msg: str) -> HTTPException:
+            guard.audit(p, "mt5_link.reverify", "REJECTED", payload, msg, account_id)
+            return HTTPException(code, msg)
+
+        link = next((x for x in repo.mt5_links(account_id) if x.link_id == cmd.link_id), None)
+        if link is None:
+            raise reject(404, "Không có liên kết MT5 này")
+        if link.status != "MISMATCH":
+            raise reject(409, "Liên kết này không ở trạng thái cần xác minh lại")
+        if (cmd.login, cmd.server) != (link.mt5_login, link.mt5_server):
+            raise reject(409, "Số login hoặc server bạn nhập không khớp MT5 đã liên kết")
+        ident = terminal_identity(account_id)
+        if ident is None or not link.same_identity(*ident):
+            raise reject(409, "Terminal chưa đăng nhập lại đúng MT5 đã liên kết (hoặc Gateway mất "
+                              "kết nối). Đăng nhập lại MT5 cũ, chờ vài giây rồi thử lại")
+        if link.trade_mode == "REAL" and not cmd.acknowledge_real:
+            raise reject(409, "Đây là tài khoản TIỀN THẬT: phải đánh dấu xác nhận đã hiểu")
+        if not repo.transition_link(account_id, link.link_id, "MISMATCH", "ACTIVE", utcnow(),
+                                    verified_by=p.username):
+            raise reject(409, "Liên kết vừa thay đổi, tải lại trang")
+        guard.audit(p, "mt5_link.reverify", "ACCEPTED", payload, None, account_id)
         return link_state(account_id)
 
     @r.post("/api/accounts/{account_id}/mt5-link/revoke", response_model=Mt5LinkState)

@@ -214,6 +214,13 @@ function Mt5LinkCard({ account }: { account: AccountSummary }) {
     }
   }
 
+  const effective = d?.current_effective ?? null;
+  const canReverify =
+    !!current &&
+    current.status === "MISMATCH" &&
+    d?.terminal_matches_current === true &&
+    typed.trim() === String(current.login) &&
+    (current.trade_mode !== "REAL" || real);
   const canConfirm =
     !!pending &&
     d?.terminal_matches_pending === true &&
@@ -225,9 +232,21 @@ function Mt5LinkCard({ account }: { account: AccountSummary }) {
       {d && !current && !pending && <p>{t("accountPage.link.none")}</p>}
       {current && (
         <>
-          <p className="tone-profit">
-            {t("accountPage.link.active")} · {t(`accountPage.link.status.${current.status}`)}
-          </p>
+          {effective === "ACTIVE" ? (
+            <p className="tone-profit">
+              {t("accountPage.link.active")} · {t("accountPage.link.status.ACTIVE")}
+            </p>
+          ) : (
+            <div className="banner banner--error" role="alert" style={{ marginBottom: 12 }}>
+              <span className="banner__body">
+                {effective === "MISMATCH"
+                  ? d?.terminal
+                    ? t("accountPage.link.mismatchSeen", { login: d.terminal.login, server: d.terminal.server })
+                    : t("accountPage.link.mismatch")
+                  : t("accountPage.link.disconnected")}
+              </span>
+            </div>
+          )}
           <LinkSummary link={current} />
           {current.verified_at && (
             <p className="header__label" style={{ marginTop: 12 }}>
@@ -236,6 +255,47 @@ function Mt5LinkCard({ account }: { account: AccountSummary }) {
                 time: formatDateTime(current.verified_at),
               })}
             </p>
+          )}
+          {current.status === "MISMATCH" && (
+            <div style={{ marginTop: 12 }}>
+              <p>{t("accountPage.link.reverifyHelp")}</p>
+              {!d?.terminal_matches_current && (
+                <p className="tone-gold">{t("accountPage.link.reverifyWait")}</p>
+              )}
+              <div style={{ maxWidth: 360 }}>
+                <Field
+                  label={t("accountPage.link.typeLogin")}
+                  hint={t("accountPage.link.typeLoginHint")}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                />
+              </div>
+              {current.trade_mode === "REAL" && (
+                <label className="check">
+                  <input type="checkbox" checked={real} onChange={(e) => setReal(e.target.checked)} />
+                  <span>{t("accountPage.link.realCheck")}</span>
+                </label>
+              )}
+              <Button
+                variant="primary"
+                icon={<Link2 size={14} aria-hidden="true" />}
+                disabled={busy || !canReverify}
+                onClick={() =>
+                  void run(() =>
+                    api.reverifyMt5Link(id, {
+                      link_id: current.link_id,
+                      login: Number(typed.trim()),
+                      server: current.server,
+                      acknowledge_real: current.trade_mode === "REAL" && real,
+                    }),
+                  )
+                }
+              >
+                {t("accountPage.link.reverify")}
+              </Button>
+            </div>
           )}
           <div style={{ marginTop: 12 }}>
             {!askRevoke ? (

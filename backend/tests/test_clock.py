@@ -15,6 +15,7 @@ from gold_trading.ops.clock import SOURCES, ClockMonitor, classify, measure_offs
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
 from tests.auth_helpers import client, make_app
+from tests.mt5_helpers import link_active
 from tests.test_ingest_api import HB, bars, batch
 
 LOCAL_NOW = 1_800_000_000.25  # đồng hồ backend (giây epoch)
@@ -87,7 +88,9 @@ def test_measure_offset_slow_responses_dropped():
 
 def ingest_world(mon: ClockMonitor):
     store = InMemoryCandleStore()
-    app, kc = make_app(InMemoryRepository(), candle_store=store, data_source=DataSource.MT5,
+    repo = InMemoryRepository()
+    link_active(repo)
+    app, kc = make_app(repo, candle_store=store, data_source=DataSource.MT5,
                        run_analysts=False, ingest_token=TOKEN, clock=mon)
     c = client(app)
     kc.login(c, "admin", admin=True)

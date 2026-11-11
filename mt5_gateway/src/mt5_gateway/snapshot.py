@@ -70,6 +70,15 @@ def identity(reader: Mt5Reader) -> dict[str, Any] | None:
     }
 
 
+def batch_identity(reader: Mt5Reader) -> dict[str, Any] | None:
+    """MT-14: danh tính gửi kèm lô nến (backend chỉ ghi khi khớp liên kết ACTIVE)."""
+    i = identity(reader)
+    if i is None:
+        return None
+    return {"mt5_login": i["login"], "mt5_server": i["server"],
+            "mt5_account_type": i["account_type"]}
+
+
 def account(reader: Mt5Reader) -> dict[str, Any] | None:
     """GW-09: số liệu tài khoản (chỉ đọc). ``None`` nếu không đọc được."""
     try:

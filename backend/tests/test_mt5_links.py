@@ -98,7 +98,8 @@ def actions(repo, acc):
 def test_no_identity_no_link(w):
     st = w.state()
     assert st == {"current": None, "pending": None, "terminal_matches_pending": False,
-                  "history": []}
+                  "history": [], "current_effective": None, "terminal": None,
+                  "terminal_matches_current": False}
     # Gateway cũ (không có identity) và terminal chưa đăng nhập → không tạo gì
     client(w.app).post(HB_PATH, json=HB, headers={"Authorization": f"Bearer {TOK_A}"})
     assert w.state()["pending"] is None

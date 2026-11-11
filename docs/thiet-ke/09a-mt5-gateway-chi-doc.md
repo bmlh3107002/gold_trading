@@ -78,7 +78,14 @@
 - Backend kiểm `identity.server == server` và `identity.account_type == account_type` (hai trường cũ giữ cho tương thích, cùng một lần đọc). Lệch, hoặc có `account` mà không có `identity` → 422, không chọn bừa một bên.
 - Gateway cũ (không có trường mới) vẫn được nhận: trường mới = `null` (không phải 0).
 - Hiển thị: trang **Tài khoản** của USER (thẻ "MT5 đang kết nối"); tài khoản REAL có cảnh báo. ADMIN và USER khác không xem được (`Guard.check`); danh sách Quản trị chỉ có trạng thái kết nối.
-- **Liên kết (MT-13, 2026-11-07):** danh tính trong nhịp tim tạo liên kết chờ xác nhận ở bảng `mt5_links` (xem `00-xac-thuc-phan-quyen.md` mục 14.5). **Chưa làm:** chuyển MISMATCH/chặn ghi khi đổi tài khoản (MT-14). Hiện tại terminal đăng xuất vẫn hiện CONNECTED nếu Gateway còn đọc được nến (chỉ `identity: null`) — MT-14 xử lý.
+- **Liên kết (MT-13, 2026-11-07):** danh tính trong nhịp tim tạo liên kết chờ xác nhận ở bảng `mt5_links` (xem `00-xac-thuc-phan-quyen.md` mục 14.5). Chuyển MISMATCH/chặn ghi khi đổi tài khoản: mục 5b (MT-14). Hiện tại terminal đăng xuất vẫn hiện CONNECTED nếu Gateway còn đọc được nến (chỉ `identity: null`) — MT-14 xử lý.
+
+### 5b. Danh tính MT5 trong lô nến + chờ liên kết (MT-14, 2026-11-11, Gateway 0.4.0)
+
+- Mỗi lô nến (cả nạp bù, realtime, chạy thử) gửi `mt5_login`, `mt5_server`, `mt5_account_type`. Gateway đọc danh tính **ngay trước và ngay sau** khi lấy nến (`Syncer._read`): chưa đăng nhập, hoặc hai lần đọc khác nhau (vừa đổi tài khoản giữa chừng) → **bỏ lô**, không gửi nến không rõ thuộc MT5 nào.
+- Backend chỉ **ghi** khi danh tính khớp liên kết `ACTIVE` của tài khoản (chi tiết `00-xac-thuc-phan-quyen.md` mục 14.6). Từ chối vì liên kết → `409` với `detail` bắt đầu bằng `MT5_LINK_REQUIRED` / `MT5_LINK_MISMATCH`. `dry_run` không chặn, trả thêm `link_status`; `check` hiện bước "Liên kết MT5" dạng **cảnh báo** (không chặn `run`, vì `run` cần gửi nhịp tim thì web mới hiện MT5 để xác nhận).
+- `run_forever`: nhịp tim gửi đúng lịch **trước** việc gửi nến, kể cả khi nến bị từ chối / backend hay MT5 lỗi (trước đây lỗi gửi nến làm bỏ nhịp tim). Gặp `409 MT5_LINK_*` → không thoát, không tăng backoff, ghi log một lần, thử lại sau 30 s; khi thông lại thì **nạp bù lại cả lịch sử** (backend khử trùng) để không hụt nến của thời gian bị chặn. Nạp bù cũng chạy trong vòng này (CLI không nạp bù riêng nữa).
+- Gateway < 0.4.0 gửi nến không có danh tính → bị từ chối (`MT5_LINK_REQUIRED`, có ghi "cập nhật lên ≥ 0.4.0"). Phải cập nhật Gateway cùng lúc với backend.
 
 ## 6. Lệnh cho người dùng
 

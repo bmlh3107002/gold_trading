@@ -26,6 +26,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
 from tests.auth_helpers import user_client
+from tests.mt5_helpers import IDENT_FIELDS, link_active
 
 ATHENS = ZoneInfo("Europe/Athens")
 BROKER = BrokerSessions.parse("Mon-Fri 00:00-23:00", "Europe/Athens")
@@ -188,8 +189,10 @@ def stored(store, tf=M15):
 @pytest.fixture
 def api(monkeypatch):
     store = InMemoryCandleStore()
+    repo = InMemoryRepository()
+    link_active(repo)
     c = user_client(
-        InMemoryRepository(),
+        repo,
         candle_store=store,
         data_source=DataSource.MT5,
         run_sample_feed=False,
@@ -210,6 +213,7 @@ def post(c, bars, tail, tf="M15", backfill=False, dry=False):
         "gateway_id": "win-1",
         "server_tz": "Europe/Athens",
         "bars": bars,
+        **IDENT_FIELDS,
     }
     if tail is not None:
         body["tail_bar"] = tail

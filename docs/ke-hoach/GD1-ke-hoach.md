@@ -10,6 +10,14 @@
 
 ---
 
+## Kiểm trên máy khi người dùng về (gom lại, làm theo thứ tự)
+
+> Người dùng vắng máy Windows từ 2026-11-10 và đồng ý làm tiếp các bước rồi kiểm sau. Mỗi bước code xong mà chưa kiểm ghi ở đây. Khi kiểm: hướng dẫn **từng lệnh một**. Lỗi ở mục trên thì sửa trước rồi mới kiểm mục dưới.
+
+1. **Cập nhật cùng lúc** backend + frontend (`docker compose build --no-cache backend frontend` → `docker compose up -d`) **và** Gateway (tải ZIP `develop`, chép đè `mt5_gateway\src`). Từ MT-14, Gateway < 0.4.0 không ghi được nến.
+2. **MT-13:** `uv run mt5-gateway check` → bước "Liên kết MT5" báo cảnh báo "chưa liên kết" (vẫn SẴN SÀNG) → `run` → Gateway in `Chưa gửi nến: MT5_LINK_REQUIRED` và không thoát → web, trang Tài khoản, thẻ "Liên kết MT5" hiện MetaQuotes-Demo "chờ xác nhận" → gõ lại login → "Đã liên kết" → khoảng 30 s sau Gateway nạp bù, trang Thị trường có nến mới.
+3. **MT-14:** trong MT5 đăng nhập một tài khoản demo khác (hoặc đăng xuất) → thẻ "Liên kết MT5" hiện băng đỏ, Gateway in `MT5_LINK_MISMATCH`, không có nến mới → đăng nhập lại tài khoản cũ → gõ login → "Xác minh lại" → nến chạy tiếp. Đăng xuất / đăng nhập lại đúng tài khoản → tự chạy lại.
+
 ## Việc còn treo trước khi bắt đầu bước 1
 
 - [x] **Người dùng:** trả token của **Lord Trade** vào `gateway.env` (2026-11-07: Gateway mới `check` SẴN SÀNG, nạp nến được) (nếu đã thay bằng token tài khoản khác) → Gateway `check` mục 9 đạt, có nến mới.
@@ -62,7 +70,7 @@
   - [x] Kiểm trên máy người dùng: cập nhật Gateway + build lại `backend frontend` → trang Tài khoản thấy đúng login/server MetaQuotes-Demo (2026-11-07)
 - [x] MT-13: liên kết MT5 (`mt5_links`), USER xác nhận "login X / server Y" → ACTIVE; một `(login, server)` không ACTIVE ở 2 tài khoản (MT-C11) (2026-11-07: code + test, migration 0008; thẻ "Liên kết MT5" trên trang Tài khoản)
   - [ ] Kiểm trên máy người dùng: build lại `backend frontend` → trang Tài khoản thấy MT5 "chờ xác nhận" → gõ lại login → "Đã liên kết"
-- [ ] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11)
+- [x] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11) (2026-11-11: code + test, Gateway 0.4.0; phần đổi symbol chuyển sang MT-05. Chờ kiểm trên máy)
 - [ ] MT-05: nguồn giá theo `(server, symbol)`; cùng server dùng chung; analyst chạy theo từng nguồn; bỏ khái niệm "nguồn giá chung" duy nhất
 - [ ] MT-15: nhiều terminal MT5 trên một máy Windows, mỗi terminal một token (mong muốn: một Gateway quản lý nhiều terminal)
 - [ ] Kiểm trên máy người dùng: tài khoản thứ hai có Gateway + MT5 riêng, ghi được nến của nguồn riêng, không ảnh hưởng Lord Trade

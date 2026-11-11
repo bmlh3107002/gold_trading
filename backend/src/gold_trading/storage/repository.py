@@ -148,7 +148,9 @@ class Mt5Link:
         return self.status in MT5_LINK_HELD
 
     def same_identity(self, login: int, server: str, trade_mode: str) -> bool:
-        return (self.mt5_login, self.mt5_server, self.trade_mode) == (login, server, trade_mode)
+        """Cùng MT5: login + server (không phân biệt hoa/thường) + loại tài khoản."""
+        return (self.mt5_login, self.mt5_server.lower(), self.trade_mode) == (
+            login, server.lower(), trade_mode)
 
 
 class Mt5LinkError(ConflictError):
@@ -157,6 +159,20 @@ class Mt5LinkError(ConflictError):
     def __init__(self, code: str, msg: str) -> None:
         super().__init__(msg)
         self.code = code
+
+
+# MT-14: chuyển trạng thái giữa các liên kết đang giữ. Kết thúc (REVOKED/CANCELLED) dùng end_link.
+LINK_TRANSITIONS = {
+    ("ACTIVE", "MISMATCH"), ("ACTIVE", "DISCONNECTED"), ("DISCONNECTED", "ACTIVE"),
+    ("DISCONNECTED", "MISMATCH"), ("MISMATCH", "ACTIVE"),
+}
+
+
+def _check_transition(expected: str, to: str, verified_by: str | None) -> None:
+    if (expected, to) not in LINK_TRANSITIONS:
+        raise ValueError(f"Không cho phép chuyển liên kết {expected} → {to}")
+    if expected == "MISMATCH" and not verified_by:
+        raise ValueError("MISMATCH → ACTIVE chỉ khi chủ tài khoản xác minh lại")
 
 
 def _check_link(link: Mt5Link) -> None:
@@ -232,6 +248,8 @@ class Repository(Protocol):
     def end_link(self, account_id: str, link_id: str, status: str, by: str, at: datetime,
                  reason: str) -> Mt5Link: ...
     def end_account_links(self, account_id: str, by: str, at: datetime, reason: str) -> int: ...
+    def transition_link(self, account_id: str, link_id: str, expected: str, to: str,
+                        at: datetime, verified_by: str | None = None) -> bool: ...
 
 
 _UNSET: Any = object()
@@ -585,6 +603,19 @@ class InMemoryRepository:
                         end_reason=reason[:128]))
                     n += 1
         return n
+
+    def transition_link(self, account_id: str, link_id: str, expected: str, to: str,
+                        at: datetime, verified_by: str | None = None) -> bool:
+        """Đổi trạng thái nếu liên kết đang đúng ``expected`` (kiểm lạc quan). False = đã đổi."""
+        _check_transition(expected, to, verified_by)
+        with self._lock:
+            x = next((x for x in self._links
+                      if x.link_id == link_id and x.account_id == account_id), None)
+            if x is None or x.status != expected:
+                return False
+            extra = {"verified_at": at, "verified_by": verified_by} if verified_by else {}
+            self._replace_link(replace(x, status=to, **extra))
+            return True
 
 
 def _row(r) -> dict[str, Any]:
@@ -1072,6 +1103,20 @@ class SqlRepository:
                 c.account_id == account_id, c.status == "PENDING_CONFIRM"))
                 .values(status="CANCELLED", **base)).rowcount
         return n
+
+    def transition_link(self, account_id: str, link_id: str, expected: str, to: str,
+                        at: datetime, verified_by: str | None = None) -> bool:
+        _check_transition(expected, to, verified_by)
+        c = mt5_links.c
+        vals: dict[str, Any] = {"status": to}
+        if verified_by:
+            vals |= {"verified_at": at, "verified_by": verified_by}
+        with self.engine.begin() as conn:
+            self._account_lock(conn, account_id)
+            n = conn.execute(update(mt5_links).where(and_(
+                c.link_id == link_id, c.account_id == account_id, c.status == expected))
+                .values(**vals)).rowcount
+        return n == 1
 
 
 def restore_safety_state(history: list[SafetyTransition]) -> tuple[SafetyState, str | None]:

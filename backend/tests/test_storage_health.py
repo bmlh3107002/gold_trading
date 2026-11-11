@@ -17,6 +17,7 @@ from gold_trading.ops.storage_health import backup_info, disk
 from gold_trading.storage.candles import SqlCandleStore
 from gold_trading.storage.repository import SqlRepository
 from tests.auth_helpers import client, make_app
+from tests.mt5_helpers import link_active
 from tests.test_ingest_api import bars, batch
 
 NOW = datetime(2026, 11, 6, 12, 0, tzinfo=UTC)
@@ -74,6 +75,7 @@ def test_disk_full_ingest_returns_clear_error_and_keeps_existing_data(tmp_path, 
     """0-C05: DB không ghi được → 503 rõ ràng; lô hỏng không ghi dở; dữ liệu cũ còn nguyên."""
     repo = SqlRepository.from_url(f"sqlite:///{tmp_path / 'gt.db'}")
     repo.create_all()
+    link_active(repo)
     store = SqlCandleStore(repo.engine)
     app, kc = make_app(repo, candle_store=store, data_source=DataSource.MT5,
                        run_analysts=False, ingest_token=TOKEN)

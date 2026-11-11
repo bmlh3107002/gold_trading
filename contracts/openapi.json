@@ -956,6 +956,59 @@
         }
       }
     },
+    "/api/accounts/{account_id}/mt5-link/reverify": {
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Reverify Mt5 Link",
+        "description": "MT-14: MISMATCH → ACTIVE khi terminal đã quay về ĐÚNG MT5 cũ và chủ tài khoản gõ lại\nsố login. Muốn dùng MT5 mới thì gỡ liên kết rồi liên kết mới (không có đường tắt).",
+        "operationId": "reverify_mt5_link_api_accounts__account_id__mt5_link_reverify_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Mt5LinkConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mt5LinkState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/accounts/{account_id}/mt5-link/revoke": {
       "post": {
         "tags": [
@@ -2025,6 +2078,49 @@
                 "type": "null"
               }
             ]
+          },
+          "mt5_login": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9.223372036854776e+18,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mt5 Login"
+          },
+          "mt5_server": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mt5 Server"
+          },
+          "mt5_account_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "DEMO",
+                  "CONTEST",
+                  "REAL",
+                  "UNKNOWN"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mt5 Account Type"
           }
         },
         "type": "object",
@@ -2808,6 +2904,17 @@
           "tail": {
             "$ref": "#/components/schemas/TailStatus",
             "default": "NONE"
+          },
+          "link_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Status"
           }
         },
         "type": "object",
@@ -3495,6 +3602,40 @@
             "type": "array",
             "title": "History",
             "description": "Liên kết đã kết thúc, mới nhất trước"
+          },
+          "current_effective": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "MISMATCH",
+                  "DISCONNECTED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Effective",
+            "description": "Trạng thái hiển thị của liên kết đang giữ: ACTIVE mà nhịp tim quá hạn (Gateway tắt / mất mạng) → DISCONNECTED"
+          },
+          "terminal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TerminalIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MT5 terminal đang báo trong nhịp tim còn hạn (None = không có)"
+          },
+          "terminal_matches_current": {
+            "type": "boolean",
+            "title": "Terminal Matches Current",
+            "description": "Terminal đang báo đúng MT5 của liên kết đang giữ: điều kiện để xác minh lại khi MISMATCH",
+            "default": false
           }
         },
         "type": "object",
@@ -3889,6 +4030,35 @@
           "HELD_NOT_LATEST"
         ],
         "title": "TailStatus"
+      },
+      "TerminalIdentity": {
+        "properties": {
+          "login": {
+            "type": "integer",
+            "title": "Login"
+          },
+          "server": {
+            "type": "string",
+            "title": "Server"
+          },
+          "trade_mode": {
+            "type": "string",
+            "enum": [
+              "DEMO",
+              "CONTEST",
+              "REAL",
+              "UNKNOWN"
+            ],
+            "title": "Trade Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "login",
+          "server",
+          "trade_mode"
+        ],
+        "title": "TerminalIdentity"
       },
       "Timeframe": {
         "type": "string",

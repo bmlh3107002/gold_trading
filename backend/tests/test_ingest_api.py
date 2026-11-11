@@ -6,16 +6,20 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository
 from tests.auth_helpers import user_client
+from tests.mt5_helpers import IDENT_FIELDS, link_active
 
 TOKEN = "t" * 32
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
 TF = Timeframe.M15
 
 
-def client(token=TOKEN):
+def client(token=TOKEN, linked=True):
     store = InMemoryCandleStore()
+    repo = InMemoryRepository()
+    if linked:
+        link_active(repo)
     c = user_client(
-        InMemoryRepository(),
+        repo,
         candle_store=store,
         data_source=DataSource.MT5,
         run_sample_feed=False,
@@ -50,6 +54,7 @@ def batch(b, backfill=True, symbol="XAUUSD"):
         "backfill": backfill,
         "gateway_id": "win-1",
         "bars": b,
+        **IDENT_FIELDS,
     }
 
 
@@ -239,8 +244,10 @@ def test_d1_server_tz_must_match_backend_broker_tz():
     from gold_trading.market.hours import BrokerSessions, MarketCalendar
 
     cal = MarketCalendar(BrokerSessions.parse("Mon-Fri 01:00-23:55", "Europe/Athens"))
+    repo = InMemoryRepository()
+    link_active(repo)
     c = user_client(
-        InMemoryRepository(),
+        repo,
         candle_store=InMemoryCandleStore(),
         data_source=DataSource.MT5,
         run_sample_feed=False,

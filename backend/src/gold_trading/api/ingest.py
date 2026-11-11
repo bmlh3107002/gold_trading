@@ -21,7 +21,14 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import SQLAlchemyError
 
 from gold_trading.accounts.access import account_locked
-from gold_trading.accounts.mt5_link import observe_identity
+from gold_trading.accounts.mt5_link import (
+    CandleLinkError,
+    Observed,
+    check_candle_identity,
+    held_link,
+    link_status_for,
+    observe_identity,
+)
 from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar, TailStatus, tail_status
@@ -64,6 +71,18 @@ class CandleBatch(BaseModel):
     # mình + lịch broker có coi là đã đóng không (xem ``tail_status``); không thì bỏ qua, không lưu.
     # Chỉ dùng với lô realtime (backfill=false).
     tail_bar: BarIn | None = None
+    # MT-14 (Gateway ≥ 0.4): danh tính MT5 Gateway đọc ngay trước VÀ sau khi lấy nến (khác nhau
+    # thì Gateway bỏ lô). Ghi thật chỉ khi khớp liên kết ACTIVE; thiếu → 409 (dry_run vẫn chạy).
+    mt5_login: int | None = Field(default=None, gt=0, le=2**63 - 1)
+    mt5_server: str | None = Field(default=None, min_length=1, max_length=256)
+    mt5_account_type: Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"] | None = None
+
+    @model_validator(mode="after")
+    def _identity_all_or_none(self) -> CandleBatch:
+        given = [self.mt5_login, self.mt5_server, self.mt5_account_type]
+        if any(v is not None for v in given) and any(v is None for v in given):
+            raise ValueError("mt5_login, mt5_server, mt5_account_type phải gửi đủ cả ba")
+        return self
 
 
 def _bar(b: BarIn) -> RawBar:
@@ -90,6 +109,9 @@ class IngestReport(BaseModel):
     session_best_shift_hours: int | None = None
     # 1A-C21: số phận của ``tail_bar`` (NONE nếu không gửi)
     tail: TailStatus = TailStatus.NONE
+    # MT-14: trạng thái liên kết MT5 nhìn từ lô này (NONE / PENDING_CONFIRM / ACTIVE / MISMATCH /
+    # DISCONNECTED). Lô ghi thật chỉ tới được đây khi ACTIVE.
+    link_status: str | None = None
 
 
 _FINITE = ConfigDict(allow_inf_nan=False)
@@ -301,8 +323,26 @@ def ingest_router(
                 f"server_tz của Gateway ({server_tz.key}) khác GT_BROKER_SERVER_TZ của backend "
                 f"({broker.tz.key}): sửa cho giống nhau",
             )
-        bars = [_bar(b) for b in batch.bars]
         now = utcnow()
+        seen = (Observed(batch.mt5_login, batch.mt5_server, batch.mt5_account_type)
+                if batch.mt5_login is not None else None)  # type: ignore[arg-type]
+        if dry_run:
+            held = held_link(repo, account_id)
+            pending = any(x.status == "PENDING_CONFIRM" for x in repo.mt5_links(account_id))
+            link_status = link_status_for(held, seen, pending)
+        else:
+            try:
+                check_candle_identity(repo, account_id, seen, now)
+            except CandleLinkError as e:
+                raise HTTPException(409, str(e)) from None
+            except SQLAlchemyError as e:
+                # Không kiểm được liên kết = không ghi (an toàn). Gateway sẽ gửi lại.
+                log.error("Không đọc được liên kết MT5: %s", type(e).__name__)
+                raise HTTPException(
+                    503, "Lưu trữ đang lỗi (có thể ổ đĩa đầy): chưa ghi lô nến này"
+                ) from e
+            link_status = "ACTIVE"
+        bars = [_bar(b) for b in batch.bars]
         tail = TailStatus.NONE
         if batch.tail_bar is not None:
             if batch.backfill:
@@ -360,6 +400,7 @@ def ingest_router(
             quarantined=res.quarantined,
             reasons=res.reasons,
             tail=tail,
+            link_status=link_status,
             **extra,
         )
 

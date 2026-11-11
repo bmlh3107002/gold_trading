@@ -13,6 +13,7 @@ from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import InMemoryRepository, Member, TradingAccount
 from tests.auth_helpers import client, login_owner, make_app
+from tests.mt5_helpers import link_active
 from tests.test_ingest_api import HB, bars, batch
 
 LEGACY = "L" * 32
@@ -21,6 +22,7 @@ HB_PATH = "/api/ingest/mt5/heartbeat"
 
 def world(legacy: str | None = LEGACY):
     repo = InMemoryRepository()
+    link_active(repo)
     store = InMemoryCandleStore()
     app, kc = make_app(repo, candle_store=store, data_source=DataSource.MT5,
                        run_analysts=False, ingest_token=legacy)

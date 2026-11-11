@@ -117,6 +117,9 @@ export const api = {
   mt5Link: (id: string) => request<Mt5LinkState>(`${acc(id)}/mt5-link`),
   confirmMt5Link: (id: string, body: Mt5LinkConfirm) =>
     request<Mt5LinkState>(`${acc(id)}/mt5-link/confirm`, post(body)),
+  /** MT-14: MISMATCH → ACTIVE khi terminal đã quay về đúng MT5 cũ. */
+  reverifyMt5Link: (id: string, body: Mt5LinkConfirm) =>
+    request<Mt5LinkState>(`${acc(id)}/mt5-link/reverify`, post(body)),
   revokeMt5Link: (id: string, linkId: string) =>
     request<Mt5LinkState>(`${acc(id)}/mt5-link/revoke`, post({ link_id: linkId })),
   // --- Quản trị (DEC-16, DEC-17): chỉ ADMIN; backend kiểm lại ---

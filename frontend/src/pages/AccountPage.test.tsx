@@ -200,4 +200,36 @@ describe("Liên kết MT5 (MT-13)", () => {
     expect(await screen.findByText(/Chưa liên kết\. Mở MT5/)).toBeInTheDocument();
     expect(bodies(fn)).toEqual([[`${ACC}/mt5-link/revoke`, { link_id: "mtl_1" }]]);
   });
+
+  it("MT-14 MISMATCH: cảnh báo đỏ có login terminal đang báo; xác minh lại chỉ khi terminal về đúng MT5", async () => {
+    const mism = { ...LINK, status: "MISMATCH", verified_by: "trader", verified_at: "2026-11-07T03:01:00Z" };
+    const base = { ...NO_LINK, current: mism, current_effective: "MISMATCH",
+      terminal: { login: 999, server: "Broker-Demo", trade_mode: "DEMO" }, terminal_matches_current: false };
+    const ok = { ...NO_LINK, current: { ...mism, status: "ACTIVE" }, current_effective: "ACTIVE",
+      terminal: { login: 51234567, server: "Broker-Demo", trade_mode: "DEMO" }, terminal_matches_current: true };
+    const fn = mockLink(base, ok);
+    const { unmount } = render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText(/terminal đang báo login 999/)).toBeInTheDocument();
+    expect(screen.getByText(/Terminal chưa báo lại đúng MT5/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Gõ lại số login/), "51234567");
+    expect(screen.getByRole("button", { name: "Xác minh lại MT5 này" })).toBeDisabled();
+    unmount();
+    mockLink({ ...base, terminal: ok.terminal, terminal_matches_current: true }, ok);
+    render(<AccountPage account={makeAccount()} />);
+    const btn = await screen.findByRole("button", { name: "Xác minh lại MT5 này" });
+    await userEvent.type(screen.getByLabelText(/Gõ lại số login/), "51234567");
+    expect(btn).toBeEnabled();
+    await userEvent.click(btn);
+    expect(await screen.findByText(/Đã liên kết · đang liên kết/)).toBeInTheDocument();
+    expect(fn.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("MT-14: ACTIVE nhưng nhịp tim quá hạn → báo mất kết nối, không có nút xác minh lại", async () => {
+    const act = { ...LINK, status: "ACTIVE", verified_by: "trader", verified_at: "2026-11-07T03:01:00Z" };
+    mockLink({ ...NO_LINK, current: act, current_effective: "DISCONNECTED", terminal: null, terminal_matches_current: false });
+    render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText(/Mất kết nối MT5/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Xác minh lại MT5 này" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gỡ liên kết" })).toBeInTheDocument();
+  });
 });

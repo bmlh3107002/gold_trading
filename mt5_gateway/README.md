@@ -113,6 +113,8 @@ uv run mt5-gateway run
 ```
 
 - Gateway chạy lại `check`. Chỉ khi tất cả đạt, nó mới nạp khoảng 5.000 nến lịch sử (khoảng 2 tháng), sau đó cứ 5 giây gửi các nến vừa đóng.
+- **Lần đầu (hoặc sau khi gỡ liên kết):** nến chỉ được ghi khi MT5 đã **liên kết**. Gateway in `Chưa gửi nến: MT5_LINK_REQUIRED …` và **vẫn chạy tiếp** (không tắt). Mở web → trang **Tài khoản** → thẻ **Liên kết MT5** → gõ lại số login → bấm **Xác nhận đây là MT5 của tôi**. Khoảng 30 giây sau Gateway tự nạp lịch sử.
+- **Đổi sang MT5 khác trong terminal khi đang chạy:** hệ thống **ngừng ghi** (`MT5_LINK_MISMATCH`), không tự chuyển. Đăng nhập lại MT5 cũ rồi bấm **Xác minh lại** trên web, hoặc **Gỡ liên kết** rồi xác nhận MT5 mới.
 - **Để cửa sổ PowerShell mở.** Muốn dừng thì bấm **Ctrl+C**.
 - Trên http://localhost:8080:
   - chân sidebar hiện **"MT5: đã kết nối · demo"**;
@@ -136,6 +138,8 @@ uv run mt5-gateway run
 | `HTTP 403` / `chưa được phép ghi nến dùng chung` | Token thuộc tài khoản giao dịch không phải "Tài khoản chính". Tới GĐ1 chỉ tài khoản chính được ghi nến |
 | `HTTP 503` / `đồng hồ máy chủ lệch` | Đồng hồ máy chạy Docker lệch > 30 giây: khởi động lại Docker Desktop (hay gặp sau khi máy ngủ) |
 | `Múi giờ ... không khớp` | Làm theo gợi ý `Đặt GT_SERVER_TZ=...` rồi chạy lại `check` |
+| `MT5_LINK_REQUIRED` | MT5 chưa liên kết (hoặc Gateway bản cũ < 0.4.0): xác nhận MT5 trên trang **Tài khoản**; Gateway tự gửi tiếp, không cần chạy lại |
+| `MT5_LINK_MISMATCH` | Terminal đang đăng nhập MT5 khác MT5 đã liên kết: xem thẻ **Liên kết MT5** trên trang Tài khoản |
 | Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |
 
 ## Giới hạn của bản này

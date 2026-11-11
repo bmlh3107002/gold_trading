@@ -385,6 +385,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/mt5-link/reverify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reverify Mt5 Link
+         * @description MT-14: MISMATCH → ACTIVE khi terminal đã quay về ĐÚNG MT5 cũ và chủ tài khoản gõ lại
+         *     số login. Muốn dùng MT5 mới thì gỡ liên kết rồi liên kết mới (không có đường tắt).
+         */
+        post: operations["reverify_mt5_link_api_accounts__account_id__mt5_link_reverify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/mt5-link/revoke": {
         parameters: {
             query?: never;
@@ -788,6 +809,12 @@ export interface components {
             /** Bars */
             bars: components["schemas"]["BarIn"][];
             tail_bar?: components["schemas"]["BarIn"] | null;
+            /** Mt5 Login */
+            mt5_login?: number | null;
+            /** Mt5 Server */
+            mt5_server?: string | null;
+            /** Mt5 Account Type */
+            mt5_account_type?: ("DEMO" | "CONTEST" | "REAL" | "UNKNOWN") | null;
         };
         /**
          * CandleFlag
@@ -1051,6 +1078,8 @@ export interface components {
             session_best_shift_hours?: number | null;
             /** @default NONE */
             tail: components["schemas"]["TailStatus"];
+            /** Link Status */
+            link_status?: string | null;
         };
         /** LiveRequestCreate */
         LiveRequestCreate: {
@@ -1311,6 +1340,19 @@ export interface components {
              * @description Liên kết đã kết thúc, mới nhất trước
              */
             history: components["schemas"]["Mt5LinkOut"][];
+            /**
+             * Current Effective
+             * @description Trạng thái hiển thị của liên kết đang giữ: ACTIVE mà nhịp tim quá hạn (Gateway tắt / mất mạng) → DISCONNECTED
+             */
+            current_effective?: ("ACTIVE" | "MISMATCH" | "DISCONNECTED") | null;
+            /** @description MT5 terminal đang báo trong nhịp tim còn hạn (None = không có) */
+            terminal?: components["schemas"]["TerminalIdentity"] | null;
+            /**
+             * Terminal Matches Current
+             * @description Terminal đang báo đúng MT5 của liên kết đang giữ: điều kiện để xác minh lại khi MISMATCH
+             * @default false
+             */
+            terminal_matches_current: boolean;
         };
         /**
          * OpsHealth
@@ -1465,6 +1507,18 @@ export interface components {
          * @enum {string}
          */
         TailStatus: "NONE" | "INCLUDED" | "HELD_NOT_CLOSED" | "HELD_MARKET_OPEN" | "HELD_NOT_LATEST";
+        /** TerminalIdentity */
+        TerminalIdentity: {
+            /** Login */
+            login: number;
+            /** Server */
+            server: string;
+            /**
+             * Trade Mode
+             * @enum {string}
+             */
+            trade_mode: "DEMO" | "CONTEST" | "REAL" | "UNKNOWN";
+        };
         /**
          * Timeframe
          * @enum {string}
@@ -2224,6 +2278,41 @@ export interface operations {
         };
     };
     confirm_mt5_link_api_accounts__account_id__mt5_link_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mt5LinkConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Mt5LinkState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reverify_mt5_link_api_accounts__account_id__mt5_link_reverify_post: {
         parameters: {
             query?: never;
             header?: never;
