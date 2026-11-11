@@ -1,6 +1,7 @@
 """Lưu kết quả analyst append-only.
 
-Cùng output_id (cùng phiên bản + as_of + hash đầu vào) thì không ghi lại.
+Cùng (nguồn giá, output_id) (cùng phiên bản + as_of + hash đầu vào) thì không ghi lại. MT-05:
+hai nguồn có nến giống hệt nhau vẫn mỗi nguồn một kết quả (migration 0010).
 """
 
 from __future__ import annotations
@@ -46,14 +47,14 @@ class AnalystOutputStore(Protocol):
 class InMemoryAnalystOutputStore:
     def __init__(self) -> None:
         self._rows: list[tuple[str, Timeframe, DataSource, str, StoredOutput]] = []
-        self._ids: set[str] = set()
+        self._ids: set[tuple[str, str]] = set()  # (feed, output_id)
         self._lock = threading.Lock()
 
     def append(self, out, *, symbol, tf, source, computed_at, feed=""):
         with self._lock:
-            if out.output_id in self._ids:
+            if (feed, out.output_id) in self._ids:
                 return False
-            self._ids.add(out.output_id)
+            self._ids.add((feed, out.output_id))
             self._rows.append((symbol, tf, source, feed, StoredOutput(out, computed_at, source)))
             return True
 
@@ -92,14 +93,19 @@ class SqlAnalystOutputStore:
         )
         with self.engine.begin() as conn:
             if self.engine.dialect.name == "postgresql":
+                # RETURNING thay cho rowcount: psycopg 3 trả rowcount = -1 cho câu này, nên trước
+                # đây append luôn báo False trên Postgres dù đã lưu (tìm được khi soát MT-05).
                 res = conn.execute(
                     pg_insert(analyst_outputs)
                     .values(**row)
-                    .on_conflict_do_nothing(index_elements=["output_id"])
+                    .on_conflict_do_nothing(index_elements=["feed_id", "output_id"])
+                    .returning(analyst_outputs.c.seq)
                 )
-                return res.rowcount == 1
+                return res.first() is not None
             exists = conn.execute(
-                select(analyst_outputs.c.seq).where(analyst_outputs.c.output_id == out.output_id)
+                select(analyst_outputs.c.seq).where(
+                    analyst_outputs.c.output_id == out.output_id, analyst_outputs.c.feed_id == feed
+                )
             ).first()
             if exists:
                 return False

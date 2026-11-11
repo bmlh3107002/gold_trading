@@ -23,10 +23,10 @@ from gold_trading import __version__
 from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.runner import TechnicalRunner
-from gold_trading.api.accounts import accounts_router
-from gold_trading.api.analysts import analysts_router
+from gold_trading.api.accounts import Guard, accounts_router
+from gold_trading.api.analysts import account_analysts_router, analysts_router
 from gold_trading.api.ingest import GatewayMonitors, ingest_router
-from gold_trading.api.market import market_router
+from gold_trading.api.market import account_market_router, market_router
 from gold_trading.api.users import users_router
 from gold_trading.auth.config import AuthConfig
 from gold_trading.auth.kc_admin import KeycloakAdmin
@@ -202,21 +202,25 @@ def create_app(
             SqlAnalystOutputStore(engine) if engine is not None else InMemoryAnalystOutputStore()
         )
     source = data_source_from_env() if data_source == "env" else data_source
-    def price_feed_view() -> str | None:
-        """MT-05 (giai đoạn chuyển tiếp, tới khi mỗi tài khoản có trang giá riêng): màn hình
-        thị trường chung hiện nguồn giá của tài khoản cấp giá (``price_feed``). Không có liên kết
-        → None (không có dữ liệu), không đoán nguồn khác."""
-        for acc in repo.accounts():
-            if acc.price_feed:
-                return account_feed(repo, acc.account_id)
-        return None
-
     market = MarketDataService(
         candle_store,
         source=source,  # type: ignore[arg-type]
         calendar=calendar_from_env(source) if calendar == "env" else calendar,  # type: ignore[arg-type]
-        feed_resolver=price_feed_view if source is DataSource.MT5 else None,
+        # MT-05 / DEC-14: với MT5 KHÔNG có nguồn giá chung — màn hình không gắn tài khoản không có
+        # dữ liệu; mỗi tài khoản đọc nguồn của mình qua ``market_for``.
+        feed_resolver=(lambda: None) if source is DataSource.MT5 else None,
     )
+
+    def market_for(account_id: str) -> MarketDataService:
+        if source is DataSource.MT5:
+            return market.with_feed(lambda: account_feed(repo, account_id))
+        return market.with_feed(None)  # SAMPLE / CSV: một nguồn không gắn broker
+
+    def active_feeds() -> list[str]:
+        """Nguồn giá cần chạy analyst: mỗi nguồn đang được ít nhất một tài khoản dùng."""
+        if source is not DataSource.MT5:
+            return [""]
+        return sorted({f for a in repo.accounts() if (f := account_feed(repo, a.account_id))})
 
     def mode_guard(mode: TradingMode) -> str | None:
         if market.is_sample and mode in SAMPLE_BLOCKED_MODES:
@@ -248,7 +252,7 @@ def create_app(
     if run_analysts is None:
         run_analysts = source is not None and os.environ.get("GT_RUN_ANALYSTS", "1") != "0"
     if run_analysts and source is not None:
-        runner = TechnicalRunner(market, analyst_store)
+        runner = TechnicalRunner(market, analyst_store, feeds=active_feeds)
 
     if clock is None:
         srcs = tuple(
@@ -335,6 +339,9 @@ def create_app(
     app.include_router(auth_service.router())
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
+    account_guard = Guard(repo, registry)
+    app.include_router(account_market_router(market_for, account_guard.check))
+    app.include_router(account_analysts_router(market_for, analyst_store, account_guard.check))
     token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
     monitors = GatewayMonitors()
     app.include_router(
@@ -374,6 +381,7 @@ def create_app(
         )
     )
     app.state.registry = registry
+    app.state.runner = runner  # MT-05: để kiểm tra / chẩn đoán analyst theo từng nguồn
 
     @app.get("/api/health")
     def health():

@@ -52,7 +52,8 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const sys = useSystemStatus(accounts.loading ? null : accountId);
   const system = usePolling(api.system, 15_000, 60_000);
   const ops = usePolling(api.opsHealth, 30_000, 120_000);
-  const market = useMarketSummary();
+  // ADMIN không có tài khoản giao dịch → không xem giá broker (không có "giá chung" MT5).
+  const market = useMarketSummary(me.is_admin || accounts.loading ? null : accountId);
   const hashRoute = useRoute();
   // DEC-16: ADMIN chỉ có trang Quản trị (không vào giao diện giao dịch); USER không có Quản trị.
   const route = me.is_admin ? "admin" : hashRoute === "admin" ? "overview" : hashRoute;
@@ -92,7 +93,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
         <OpsBanner health={ops.data} />
         <main>
           {route === "market" ? (
-            <MarketPage theme={theme} summary={market} />
+            <MarketPage theme={theme} summary={market} accountId={accounts.loading ? null : accountId} />
           ) : route === "admin" ? (
             <AdminPage me={me} multiUser={system.data?.multi_user_enabled ?? true} />
           ) : route === "account" ? (

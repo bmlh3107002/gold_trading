@@ -8,7 +8,7 @@ Chạy với cả kho bộ nhớ và SQL (SQLite).
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -183,28 +183,112 @@ def test_quarantine_tagged_with_feed(w):
     assert w.store.stats("XAUUSD", TF, DataSource.MT5, feed="").quarantined == 0
 
 
-# ---------- Màn hình thị trường chung (chuyển tiếp tới MT-05 phần đọc) ----------
+# ---------- MT-05 phần đọc: mỗi tài khoản đọc nguồn của mình ----------
 
 
-def test_market_view_reads_only_price_feed_accounts_feed(w):
-    # Chỉ acc_b (không phải tài khoản cấp giá) có dữ liệu → màn hình chung KHÔNG mượn nguồn đó
+def mk(c, acc, what="candles"):
+    return c.get(f"/api/accounts/{acc}/market/{what}")
+
+
+def test_each_account_reads_only_its_own_feed(w):
     link_active(w.repo, "acc_b", login=777, server="Other-Live")
     assert w.post(batch(bars(30)) | {"mt5_login": 777, "mt5_server": "Other-Live"},
                   tok=TOK_B).status_code == 200
-    q = w.a.get("/api/market/quality").json()
-    assert q["candle_count"] == 0
-    assert w.a.get("/api/market/candles").json()["candles"] == []
-    assert w.a.get("/api/market/summary").json()["last_price"] is None
-    # Tài khoản cấp giá (default) liên kết + ghi → màn hình chung hiện đúng nguồn đó
+    # alice chưa liên kết: không có dữ liệu, KHÔNG mượn nguồn của bob
+    assert mk(w.a, "default").json()["candles"] == []
+    assert mk(w.a, "default", "quality").json()["candle_count"] == 0
+    assert mk(w.a, "default", "summary").json()["last_price"] is None
+    assert len(mk(w.b, "acc_b").json()["candles"]) == 30
     link_active(w.repo)
     w.post(batch(shifted(bars(30), 100.0)))
-    c = w.a.get("/api/market/candles").json()["candles"]
-    assert len(c) == 30 and c[-1]["close"] == shifted(bars(30), 100.0)[-1]["close"]
+    a = mk(w.a, "default").json()["candles"]
+    b = mk(w.b, "acc_b").json()["candles"]
+    assert len(a) == 30 and len(b) == 30
+    assert a[-1]["close"] == b[-1]["close"] + 100.0
+    assert mk(w.a, "default", "quality").json()["candle_count"] == 30
+    assert mk(w.a, "default", "summary").json()["last_price"] == a[-1]["close"]
 
 
-def test_market_view_linked_but_not_yet_written_has_no_data(w):
-    link_active(w.repo)  # chưa có lô nến nào → chưa khóa symbol → chưa có nguồn
+def test_no_global_mt5_price(w):
+    """DEC-14: không có "nguồn giá chung" cho MT5 — màn hình không gắn tài khoản luôn rỗng."""
+    link_active(w.repo)
+    w.post(batch(bars(30)))
+    assert w.a.get("/api/market/candles").json()["candles"] == []
     assert w.a.get("/api/market/quality").json()["candle_count"] == 0
+    assert w.a.get("/api/analysts/technical/latest").json()["output"] is None
+
+
+def test_account_market_endpoints_owner_only(w):
+    link_active(w.repo)
+    w.post(batch(bars(10)))
+    admin = client(w.app)
+    w.kc.login(admin, "root", admin=True)
+    for path in ("market/candles", "market/summary", "market/quality",
+                 "analysts/technical/latest"):
+        url = f"/api/accounts/default/{path}"
+        assert w.b.get(url).status_code == 404  # tài khoản người khác
+        assert admin.get(url).status_code == 404  # ADMIN không vào tài khoản giao dịch
+        assert client(w.app).get(url).status_code == 401
+        assert w.a.get(url).status_code == 200
+    w.repo.set_user_status(w.a.sub, "LOCKED", utcnow())
+    assert w.a.get("/api/accounts/default/market/candles").status_code in (401, 403)
+
+
+def test_mismatched_link_still_shows_its_old_feed(w):
+    """MISMATCH chặn GHI; nến cũ của đúng nguồn vẫn xem được (độ mới sẽ báo cũ)."""
+    link_active(w.repo)
+    w.post(batch(bars(10)))
+    w.post(batch(bars(10)) | {"mt5_login": 999})  # MT5 khác → MISMATCH
+    assert w.repo.mt5_links("default")[-1].status == "MISMATCH"
+    assert len(mk(w.a, "default").json()["candles"]) == 10
+
+
+def test_market_linked_but_not_yet_written_has_no_data(w):
+    link_active(w.repo)  # chưa có lô nến nào → chưa khóa symbol → chưa có nguồn
+    assert mk(w.a, "default", "quality").json()["candle_count"] == 0
+
+
+def test_runner_analyses_each_feed_separately():
+    from gold_trading.analysts import technical
+    from gold_trading.ingestion.candles import CandleIngestor
+    from gold_trading.ingestion.sources import sample
+
+    store = InMemoryCandleStore()
+    end = datetime(2026, 1, 16, 12, 0, tzinfo=UTC)
+    raw = list(sample.generate(start=datetime(2026, 1, 2, tzinfo=UTC), end=end,
+                               tf=TF, prev_close=2400, seed=3))
+    from gold_trading.ingestion.candles import RawBar
+
+    ing = CandleIngestor(store)
+    for feed, d in (("pf_a", 0.0), ("pf_b", 50.0)):
+        ing.ingest([RawBar(b.open_time, b.open + d, b.high + d, b.low + d, b.close + d,
+                           b.tick_volume, b.spread_points) for b in raw],
+                   symbol="XAUUSD", timeframe=TF, source=DataSource.MT5,
+                   ingested_at=end, backfill=True, feed=feed)
+    market = MarketDataService(store, source=DataSource.MT5, feed_resolver=lambda: None)
+    out = InMemoryAnalystOutputStore()
+    feeds = {"v": ["pf_a", "pf_b"]}
+    runner = TechnicalRunner(market, out, feeds=lambda: feeds["v"])
+    assert runner.tick(raw[-1].open_time + TF.delta + timedelta(minutes=1)) is True
+    la = out.latest(technical.ANALYST_ID, symbol="XAUUSD", tf=TF, source=DataSource.MT5,
+                    feed="pf_a")
+    lb = out.latest(technical.ANALYST_ID, symbol="XAUUSD", tf=TF, source=DataSource.MT5,
+                    feed="pf_b")
+    assert la is not None and lb is not None and la.output.output_id != lb.output.output_id
+    assert out.latest(technical.ANALYST_ID, symbol="XAUUSD", tf=TF, source=DataSource.MT5,
+                      feed="") is None
+    # Một nguồn lỗi không chặn nguồn khác
+    feeds["v"] = ["pf_bad", "pf_a"]
+    orig = market.with_feed
+
+    def boom(resolver):
+        m = orig(resolver)
+        if resolver and resolver() == "pf_bad":
+            raise RuntimeError("hỏng")
+        return m
+
+    market.with_feed = boom
+    runner.tick(end)  # không ném lỗi ra ngoài
 
 
 def test_runner_skips_without_feed_and_stores_per_feed():
@@ -227,3 +311,36 @@ def test_runner_skips_without_feed_and_stores_per_feed():
 
 def test_identity_fields_contain_broker_symbol():
     assert IDENT_FIELDS["broker_symbol"] == BROKER_SYMBOL and IDENT_FIELDS["mt5_login"] == LOGIN
+
+
+@pytest.mark.parametrize("kind", ["memory", "sqlite"])
+def test_identical_candles_on_two_feeds_each_get_analyst_output(kind, tmp_path):
+    """Lỗi tìm được khi soát: hai broker có nến GIỐNG HỆT nhau → output_id trùng → nguồn thứ hai
+    không bao giờ có kết quả analyst. Giờ duy nhất theo (feed, output_id)."""
+    from gold_trading.analysts import technical
+    from gold_trading.ingestion.candles import CandleIngestor, RawBar
+    from gold_trading.ingestion.sources import sample
+    from gold_trading.storage.analyst_outputs import SqlAnalystOutputStore
+
+    if kind == "memory":
+        store, out = InMemoryCandleStore(), InMemoryAnalystOutputStore()
+    else:
+        repo = SqlRepository.from_url(f"sqlite:///{tmp_path / 'a.db'}")
+        repo.create_all()
+        store, out = SqlCandleStore(repo.engine), SqlAnalystOutputStore(repo.engine)
+    end = datetime(2026, 1, 16, 12, 0, tzinfo=UTC)
+    raw = list(sample.generate(start=datetime(2026, 1, 2, tzinfo=UTC), end=end, tf=TF,
+                               prev_close=2400, seed=3))
+    ing = CandleIngestor(store)
+    for feed in ("pf_a", "pf_b"):
+        ing.ingest([RawBar(b.open_time, b.open, b.high, b.low, b.close, b.tick_volume,
+                           b.spread_points) for b in raw], symbol="XAUUSD", timeframe=TF,
+                   source=DataSource.MT5, ingested_at=end, backfill=True, feed=feed)
+    market = MarketDataService(store, source=DataSource.MT5, feed_resolver=lambda: None)
+    runner = TechnicalRunner(market, out, feeds=lambda: ["pf_a", "pf_b"])
+    assert runner.tick(raw[-1].open_time + TF.delta + timedelta(minutes=1)) is True
+    got = [out.latest(technical.ANALYST_ID, symbol="XAUUSD", tf=TF, source=DataSource.MT5,
+                      feed=f) for f in ("pf_a", "pf_b")]
+    assert all(g is not None for g in got)
+    assert got[0].output.output_id == got[1].output.output_id  # cùng nội dung, mỗi nguồn một bản
+    assert runner.tick(raw[-1].open_time + TF.delta + timedelta(minutes=1)) is False

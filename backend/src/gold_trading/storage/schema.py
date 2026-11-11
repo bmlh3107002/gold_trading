@@ -21,6 +21,7 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     String,
     Table,
+    UniqueConstraint,
     func,
     text,
 )
@@ -278,7 +279,8 @@ analyst_outputs = Table(
     "analyst_outputs",
     metadata,
     Column("seq", SeqId, Identity(), primary_key=True),
-    Column("output_id", String(256), nullable=False, unique=True),
+    # migration 0010: duy nhất theo (feed_id, output_id) — hai broker có thể có nến giống hệt nhau
+    Column("output_id", String(256), nullable=False),
     Column("analyst_id", String(32), nullable=False),
     Column("version", String(32), nullable=False),
     Column("symbol", String(32), nullable=False),
@@ -291,6 +293,7 @@ analyst_outputs = Table(
     Column("source_status", String(16), nullable=False),
     Column("confidence", Float, nullable=False),
     Column("payload", JsonType, nullable=False),
+    UniqueConstraint("feed_id", "output_id", name="uq_analyst_outputs_feed_output"),
 )
 Index(
     "ix_analyst_outputs_lookup",

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { json, makeAccount, makeCandles, makeMe, makeQuality, makeStatus, makeSummary, makeSystem, makeTechnical } from "../test/fixtures";
@@ -33,10 +33,10 @@ function routes(over: Record<string, unknown> = {}) {
     "/api/accounts": [makeAccount()],
     "/api/accounts/default/status": makeStatus(),
     "/api/accounts/default/mode/live-requests": [],
-    "/api/market/summary": makeSummary(),
-    "/api/market/candles": makeCandles(),
-    "/api/market/quality": makeQuality(),
-    "/api/analysts/technical/latest": makeTechnical(),
+    "/api/accounts/default/market/summary": makeSummary(),
+    "/api/accounts/default/market/candles": makeCandles(),
+    "/api/accounts/default/market/quality": makeQuality(),
+    "/api/accounts/default/analysts/technical/latest": makeTechnical(),
     ...over,
   };
   vi.stubGlobal(
@@ -83,17 +83,17 @@ describe("Trang Thị trường", () => {
   });
 
   it("cảnh báo khi giá đã cũ trong giờ mở cửa", async () => {
-    routes({ "/api/market/summary": makeSummary({ freshness: "STALE" }) });
+    routes({ "/api/accounts/default/market/summary": makeSummary({ freshness: "STALE" }) });
     render(<App />);
     expect(await screen.findByText("Giá đã cũ", { selector: "div" })).toBeInTheDocument();
   });
 
   it("trạng thái chưa cấu hình nguồn và chưa có nến", async () => {
-    routes({ "/api/market/candles": makeCandles(0, { source: null, is_sample: false }) });
+    routes({ "/api/accounts/default/market/candles": makeCandles(0, { source: null, is_sample: false }) });
     const { unmount } = render(<App />);
     expect(await screen.findByText("Chưa cấu hình nguồn dữ liệu")).toBeInTheDocument();
     unmount();
-    routes({ "/api/market/candles": makeCandles(0) });
+    routes({ "/api/accounts/default/market/candles": makeCandles(0) });
     render(<App />);
     expect(await screen.findByText("Chưa có nến nào")).toBeInTheDocument();
   });
@@ -116,7 +116,7 @@ describe("Thẻ Phân tích kỹ thuật", () => {
 
   it("dữ liệu không đạt: hiện lý do, không hiện đặc trưng, không vẽ hỗ trợ/kháng cự", async () => {
     routes({
-      "/api/analysts/technical/latest": makeTechnical({}, {
+      "/api/accounts/default/analysts/technical/latest": makeTechnical({}, {
         quality_flags: ["LOW_COVERAGE"], source_status: "INVALID", confidence: 0, features: { input: {} },
       }),
     });
@@ -128,7 +128,7 @@ describe("Thẻ Phân tích kỹ thuật", () => {
   });
 
   it("kết quả hết hạn: cảnh báo và không vẽ hỗ trợ/kháng cự", async () => {
-    routes({ "/api/analysts/technical/latest": makeTechnical({ valid_now: false }) });
+    routes({ "/api/accounts/default/analysts/technical/latest": makeTechnical({ valid_now: false }) });
     render(<App />);
     expect(await screen.findByText("Đã hết hạn")).toBeInTheDocument();
     expect(screen.getByText(/quá thời hạn/)).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe("Thẻ Phân tích kỹ thuật", () => {
   });
 
   it("chưa có kết quả", async () => {
-    routes({ "/api/analysts/technical/latest": makeTechnical({ output: null, computed_at: null, valid_now: false }) });
+    routes({ "/api/accounts/default/analysts/technical/latest": makeTechnical({ output: null, computed_at: null, valid_now: false }) });
     render(<App />);
     expect(await screen.findByText("Chưa có kết quả phân tích")).toBeInTheDocument();
   });
@@ -153,5 +153,17 @@ describe("Trạng thái MT5 Gateway", () => {
     });
     render(<App />);
     expect(await screen.findByText(/MT5: đã kết nối · demo/)).toBeInTheDocument();
+  });
+
+  it("MT-05: chỉ gọi giá của tài khoản đang chọn, không gọi endpoint giá chung", async () => {
+    routes();
+    render(<App />);
+    const urls = () =>
+      (fetch as unknown as { mock: { calls: [RequestInfo | URL][] } }).mock.calls.map(([u]) => String(u));
+    await waitFor(() =>
+      expect(urls().some((u) => u.startsWith("/api/accounts/default/market/candles"))).toBe(true),
+    );
+    expect(urls().some((u) => u.startsWith("/api/accounts/default/analysts/technical/latest"))).toBe(true);
+    expect(urls().some((u) => u.startsWith("/api/market/") || u.startsWith("/api/analysts/"))).toBe(false);
   });
 });

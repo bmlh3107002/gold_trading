@@ -16,11 +16,19 @@ import { TechnicalCard } from "./market/TechnicalCard";
 
 type SummaryState = ReturnType<typeof useMarketSummary>;
 
-export function MarketPage({ theme, summary }: { theme: Theme; summary: SummaryState }) {
+export function MarketPage({
+  theme,
+  summary,
+  accountId,
+}: {
+  theme: Theme;
+  summary: SummaryState;
+  accountId: string | null;
+}) {
   const { t } = useTranslation();
-  const candles = useCandles(300);
-  const quality = useDataQuality();
-  const tech = useTechnical();
+  const candles = useCandles(accountId, 300);
+  const quality = useDataQuality(accountId);
+  const tech = useTechnical(accountId);
   // Chỉ vẽ hỗ trợ/kháng cự từ kết quả còn hiệu lực và không bị chặn bởi cổng chất lượng
   const techOut = tech.data?.output;
   const techUsable =

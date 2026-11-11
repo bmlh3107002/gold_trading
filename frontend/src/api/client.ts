@@ -104,10 +104,11 @@ export const api = {
   liveRequests: (id: string) => request<LiveRequest[]>(`${acc(id)}/mode/live-requests`),
   requestLive: (id: string, checklist: Record<string, boolean>) =>
     request<LiveRequest>(`${acc(id)}/mode/live-requests`, post({ checklist })),
-  marketSummary: () => request<MarketSummary>("/api/market/summary"),
-  candles: (limit = 300) => request<CandlesResponse>(`/api/market/candles?limit=${limit}`),
-  dataQuality: () => request<DataQuality>("/api/market/quality"),
-  technicalLatest: () => request<AnalystLatest>("/api/analysts/technical/latest"),
+  // MT-05 (DEC-14): giá + phân tích theo nguồn giá của CHÍNH tài khoản.
+  marketSummary: (id: string) => request<MarketSummary>(`${acc(id)}/market/summary`),
+  candles: (id: string, limit = 300) => request<CandlesResponse>(`${acc(id)}/market/candles?limit=${limit}`),
+  dataQuality: (id: string) => request<DataQuality>(`${acc(id)}/market/quality`),
+  technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
   /** DEC-17: USER xin cấp (lại) token Gateway; ADMIN cấp hoặc từ chối. */

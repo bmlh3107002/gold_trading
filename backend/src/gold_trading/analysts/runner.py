@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from datetime import datetime
 
 from gold_trading.analysts import technical
@@ -15,38 +16,59 @@ log = logging.getLogger("gold_trading.analysts")
 
 
 class TechnicalRunner:
+    """MT-05: ``feeds()`` trả các nguồn giá cần phân tích (mỗi nguồn một chuỗi kết quả riêng).
+    Không truyền = chỉ nguồn của ``market``."""
+
     def __init__(
-        self, market: MarketDataService, store: AnalystOutputStore, *, interval_s: float = 15.0
+        self,
+        market: MarketDataService,
+        store: AnalystOutputStore,
+        *,
+        interval_s: float = 15.0,
+        feeds: Callable[[], list[str]] | None = None,
     ) -> None:
         self.market = market
         self.store = store
+        self.feeds = feeds
         self.interval_s = interval_s
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
     def tick(self, now: datetime | None = None) -> bool:
-        """Trả True nếu vừa lưu một kết quả mới."""
+        """Trả True nếu vừa lưu ít nhất một kết quả mới."""
         now = now or utcnow()
-        feed = self.market.feed
-        if self.market.source is None or feed is None:
+        if self.feeds is None:
+            return self._tick_one(self.market, now)
+        stored = False
+        for f in self.feeds():
+            try:
+                stored |= self._tick_one(self.market.with_feed(lambda f=f: f), now)
+            except Exception:
+                # Lỗi ở một nguồn không được chặn các nguồn khác.
+                log.exception("technical analyst lỗi ở nguồn %s", f)
+        return stored
+
+    def _tick_one(self, market: MarketDataService, now: datetime) -> bool:
+        feed = market.feed
+        if market.source is None or feed is None:
             return False  # MT-05: chưa có nguồn giá (vd. chưa liên kết MT5) → không phân tích
-        rows = self.market.candles(as_of=now, limit=technical.WINDOW + INDICATOR_WARMUP)
+        rows = market.candles(as_of=now, limit=technical.WINDOW + INDICATOR_WARMUP)
         out = technical.analyze(
             rows,
-            symbol=self.market.symbol,
-            timeframe=self.market.timeframe,
-            source=self.market.source,
-            expected_last_close=self.market.expected_last_close(now),
+            symbol=market.symbol,
+            timeframe=market.timeframe,
+            source=market.source,
+            expected_last_close=market.expected_last_close(now),
             correlation_id=f"bar-close:{rows[-1].close_time.isoformat()}" if rows else "none",
-            calendar=self.market.calendar,
+            calendar=market.calendar,
         )
         if out is None:
             return False
         return self.store.append(
             out,
-            symbol=self.market.symbol,
-            tf=self.market.timeframe,
-            source=self.market.source,
+            symbol=market.symbol,
+            tf=market.timeframe,
+            source=market.source,
             computed_at=now,
             feed=feed,
         )

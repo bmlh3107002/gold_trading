@@ -2,23 +2,26 @@ import { useCallback } from "react";
 import { api } from "../api/client";
 import { usePolling } from "./usePolling";
 
+// MT-05: mọi hook giá nhận tài khoản đang chọn — mỗi tài khoản xem giá broker của chính mình.
+// Chưa có tài khoản (đang tải / ADMIN) → không gọi gì (không có "giá chung").
+
 /** Tóm tắt giá cho header: 5 giây/lần. */
-export function useMarketSummary() {
-  return usePolling(useCallback(() => api.marketSummary(), []), 5000, 20_000);
+export function useMarketSummary(accountId: string | null) {
+  return usePolling(useCallback(() => (accountId ? api.marketSummary(accountId) : Promise.resolve(null)), [accountId]), 5000, 20_000);
 }
 
 /** Nến + chỉ báo: 30 giây/lần (nến M15 chỉ đổi khi đóng nến). */
-export function useCandles(limit = 300) {
-  return usePolling(useCallback(() => api.candles(limit), [limit]), 30_000, 90_000);
+export function useCandles(accountId: string | null, limit = 300) {
+  return usePolling(useCallback(() => (accountId ? api.candles(accountId, limit) : Promise.resolve(null)), [accountId, limit]), 30_000, 90_000);
 }
 
-export function useDataQuality() {
-  return usePolling(useCallback(() => api.dataQuality(), []), 60_000, 180_000);
+export function useDataQuality(accountId: string | null) {
+  return usePolling(useCallback(() => (accountId ? api.dataQuality(accountId) : Promise.resolve(null)), [accountId]), 60_000, 180_000);
 }
 
 /** Kết quả Technical analyst: 30 giây/lần. */
-export function useTechnical() {
-  return usePolling(useCallback(() => api.technicalLatest(), []), 30_000, 90_000);
+export function useTechnical(accountId: string | null) {
+  return usePolling(useCallback(() => (accountId ? api.technicalLatest(accountId) : Promise.resolve(null)), [accountId]), 30_000, 90_000);
 }
 
 /** Trạng thái MT5 Gateway: 10 giây/lần. */

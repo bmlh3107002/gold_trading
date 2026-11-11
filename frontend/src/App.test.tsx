@@ -24,7 +24,7 @@ function mockFetch(
     if (url === "/api/accounts") return json([makeAccount()]);
     if (url === `${ACC}/mode/live-requests` && init?.method !== "POST") return json([]);
     if (url === "/api/system/health" && !handlesHealth) return json(OK_HEALTH);
-    if (url.startsWith("/api/market/summary")) {
+    if (url.startsWith("/api/accounts/default/market/summary")) {
       return json(makeSummary({ last_price: null, change: null, change_pct: null, is_sample: false }));
     }
     return handler(url, init);
@@ -151,7 +151,7 @@ describe("App", () => {
       if (url === "/api/status") return json(makeSystem());
       if (url === "/api/accounts") return json([makeAccount()]);
       if (url === `${ACC}/mode/live-requests`) return json(reqs);
-      if (url.startsWith("/api/market/summary")) return json(makeSummary({ last_price: null, change: null, change_pct: null }));
+      if (url.startsWith("/api/accounts/default/market/summary")) return json(makeSummary({ last_price: null, change: null, change_pct: null }));
       return json(makeStatus());
     });
     render(<App />);
@@ -192,7 +192,7 @@ describe("App", () => {
       if (url === "/api/accounts")
         return json([makeAccount(), makeAccount({ account_id: "acc_b", name: "MT5 thứ hai" })]);
       if (url.endsWith("/mode/live-requests") && init?.method !== "POST") return json([]);
-      if (url.startsWith("/api/market/summary")) return json(makeSummary({ last_price: null, change: null, change_pct: null }));
+      if (url.startsWith("/api/accounts/default/market/summary")) return json(makeSummary({ last_price: null, change: null, change_pct: null }));
       if (url === "/api/accounts/acc_b/status")
         return json(makeStatus({ account_id: "acc_b", name: "MT5 thứ hai", safety_state: "HALTED" }));
       return json(makeStatus());

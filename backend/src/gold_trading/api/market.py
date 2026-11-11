@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
+from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import CandleFlag, DataSource
 from gold_trading.market.hours import MarketSession
@@ -72,77 +74,117 @@ class DataQuality(BaseModel):
     recent_quarantine: list[QuarantineOut]
 
 
+def summary_of(market: MarketDataService) -> MarketSummary:
+    s = market.summary(utcnow())
+    return MarketSummary(
+        symbol=s.symbol,
+        timeframe=s.timeframe,
+        source=s.source,
+        is_sample=market.is_sample,
+        session=s.session,
+        freshness=s.freshness,
+        as_of=s.as_of,
+        last_price=s.last.close if s.last else None,
+        last_close_time=s.last.close_time if s.last else None,
+        change=s.change,
+        change_pct=s.change_pct,
+    )
+
+
+def candles_of(market: MarketDataService, limit: int, end: datetime | None) -> CandlesResponse:
+    now = utcnow()
+    rows, ind = market.candles_with_indicators(as_of=now, limit=limit, end=end)
+    return CandlesResponse(
+        symbol=market.symbol,
+        timeframe=market.timeframe,
+        source=market.source,
+        is_sample=market.is_sample,
+        as_of=now,
+        candles=[
+            CandleOut(
+                open_time=c.open_time,
+                close_time=c.close_time,
+                open=c.open,
+                high=c.high,
+                low=c.low,
+                close=c.close,
+                tick_volume=c.tick_volume,
+                spread_points=c.spread_points,
+                revision=c.revision,
+                flags=sorted(c.flags),
+            )
+            for c in rows
+        ],
+        ema20=[_r(v) for v in ind.ema20],
+        ema50=[_r(v) for v in ind.ema50],
+        rsi14=[_r(v) for v in ind.rsi14],
+    )
+
+
+def quality_of(market: MarketDataService) -> DataQuality:
+    st = market.stats()
+    return DataQuality(
+        source=market.source,
+        is_sample=market.is_sample,
+        candle_count=st.count if st else 0,
+        first_open_time=st.first_open_time if st else None,
+        last_open_time=st.last_open_time if st else None,
+        last_ingested_at=st.last_ingested_at if st else None,
+        quarantined=st.quarantined if st else 0,
+        recent_quarantine=[
+            QuarantineOut(received_at=q.received_at, source=q.source, reason=q.reason, raw=q.raw)
+            for q in market.quarantine()
+        ],
+    )
+
+
+Limit = Annotated[int, Query(ge=1, le=2000)]
+End = Annotated[datetime | None, Query(description="open_time tối đa (UTC)")]
+
+
 def market_router(market: MarketDataService) -> APIRouter:
+    """Màn hình thị trường KHÔNG gắn tài khoản. MT-05: với nguồn MT5 không có "giá chung" — các
+    endpoint này trả rỗng; giá broker đọc qua ``/api/accounts/{id}/market/*``."""
     r = APIRouter(prefix="/api/market", tags=["market"])
 
     @r.get("/summary", response_model=MarketSummary)
     def summary() -> MarketSummary:
-        s = market.summary(utcnow())
-        return MarketSummary(
-            symbol=s.symbol,
-            timeframe=s.timeframe,
-            source=s.source,
-            is_sample=market.is_sample,
-            session=s.session,
-            freshness=s.freshness,
-            as_of=s.as_of,
-            last_price=s.last.close if s.last else None,
-            last_close_time=s.last.close_time if s.last else None,
-            change=s.change,
-            change_pct=s.change_pct,
-        )
+        return summary_of(market)
 
     @r.get("/candles", response_model=CandlesResponse)
-    def candles(
-        limit: Annotated[int, Query(ge=1, le=2000)] = 300,
-        end: Annotated[datetime | None, Query(description="open_time tối đa (UTC)")] = None,
-    ) -> CandlesResponse:
-        now = utcnow()
-        rows, ind = market.candles_with_indicators(as_of=now, limit=limit, end=end)
-        return CandlesResponse(
-            symbol=market.symbol,
-            timeframe=market.timeframe,
-            source=market.source,
-            is_sample=market.is_sample,
-            as_of=now,
-            candles=[
-                CandleOut(
-                    open_time=c.open_time,
-                    close_time=c.close_time,
-                    open=c.open,
-                    high=c.high,
-                    low=c.low,
-                    close=c.close,
-                    tick_volume=c.tick_volume,
-                    spread_points=c.spread_points,
-                    revision=c.revision,
-                    flags=sorted(c.flags),
-                )
-                for c in rows
-            ],
-            ema20=[_r(v) for v in ind.ema20],
-            ema50=[_r(v) for v in ind.ema50],
-            rsi14=[_r(v) for v in ind.rsi14],
-        )
+    def candles(limit: Limit = 300, end: End = None) -> CandlesResponse:
+        return candles_of(market, limit, end)
 
     @r.get("/quality", response_model=DataQuality)
     def quality() -> DataQuality:
-        st = market.stats()
-        return DataQuality(
-            source=market.source,
-            is_sample=market.is_sample,
-            candle_count=st.count if st else 0,
-            first_open_time=st.first_open_time if st else None,
-            last_open_time=st.last_open_time if st else None,
-            last_ingested_at=st.last_ingested_at if st else None,
-            quarantined=st.quarantined if st else 0,
-            recent_quarantine=[
-                QuarantineOut(
-                    received_at=q.received_at, source=q.source, reason=q.reason, raw=q.raw
-                )
-                for q in market.quarantine()
-            ],
-        )
+        return quality_of(market)
+
+    return r
+
+
+def account_market_router(
+    market_for: Callable[[str], MarketDataService],
+    check: Callable[[str, Principal, str], object],
+) -> APIRouter:
+    """MT-05: giá theo nguồn của chính tài khoản (DEC-14). ``check`` = ``Guard.check`` (chỉ chủ
+    tài khoản đang ACTIVE); ``market_for(account_id)`` dựng dịch vụ đọc đúng nguồn của tài khoản."""
+    r = APIRouter(prefix="/api/accounts/{account_id}/market", tags=["market"])
+
+    @r.get("/summary", response_model=MarketSummary)
+    def acc_summary(account_id: str, p: CurrentUser) -> MarketSummary:
+        check(account_id, p, "market.summary")
+        return summary_of(market_for(account_id))
+
+    @r.get("/candles", response_model=CandlesResponse)
+    def acc_candles(account_id: str, p: CurrentUser, limit: Limit = 300,
+                    end: End = None) -> CandlesResponse:
+        check(account_id, p, "market.candles")
+        return candles_of(market_for(account_id), limit, end)
+
+    @r.get("/quality", response_model=DataQuality)
+    def acc_quality(account_id: str, p: CurrentUser) -> DataQuality:
+        check(account_id, p, "market.quality")
+        return quality_of(market_for(account_id))
 
     return r
 

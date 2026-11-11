@@ -16,7 +16,7 @@
 
 1. **Cập nhật cùng lúc** backend + frontend (`docker compose build --no-cache backend frontend` → `docker compose up -d`) **và** Gateway (tải ZIP `develop`, chép đè `mt5_gateway\src`). Từ MT-14, Gateway < 0.4.0 không ghi được nến.
 2. **MT-13:** `uv run mt5-gateway check` → bước "Liên kết MT5" báo cảnh báo "chưa liên kết" (vẫn SẴN SÀNG) → `run` → Gateway in `Chưa gửi nến: MT5_LINK_REQUIRED` và không thoát → web, trang Tài khoản, thẻ "Liên kết MT5" hiện MetaQuotes-Demo "chờ xác nhận" → gõ lại login → "Đã liên kết" → khoảng 30 s sau Gateway nạp bù, trang Thị trường có nến mới.
-3. **MT-05 (4a):** sau khi cập nhật, log backend không lỗi migration 0009 (TimescaleDB thật: đổi khóa chính hypertable); trang Thị trường **trống** cho tới khi liên kết (nến cũ đã tách thành legacy) → sau khi xác nhận liên kết, Gateway nạp lại, trang Thị trường có nến; thẻ "Liên kết MT5" hiện symbol broker `XAUUSD`.
+3. **MT-05:** sau khi cập nhật, log backend không lỗi migration 0009 + 0010 (TimescaleDB thật: đổi khóa chính hypertable); trang Thị trường **trống** cho tới khi liên kết (nến cũ đã tách thành legacy) → sau khi xác nhận liên kết, Gateway nạp lại, trang Thị trường có nến; thẻ "Liên kết MT5" hiện symbol broker `XAUUSD`; giá ở header và trang Thị trường hiện bình thường; khoảng 15 giây sau thẻ Phân tích kỹ thuật có kết quả; đăng nhập ADMIN không thấy giá.
 4. **MT-14:** trong MT5 đăng nhập một tài khoản demo khác (hoặc đăng xuất) → thẻ "Liên kết MT5" hiện băng đỏ, Gateway in `MT5_LINK_MISMATCH`, không có nến mới → đăng nhập lại tài khoản cũ → gõ login → "Xác minh lại" → nến chạy tiếp. Đăng xuất / đăng nhập lại đúng tài khoản → tự chạy lại.
 
 ## Việc còn treo trước khi bắt đầu bước 1
@@ -72,9 +72,9 @@
 - [x] MT-13: liên kết MT5 (`mt5_links`), USER xác nhận "login X / server Y" → ACTIVE; một `(login, server)` không ACTIVE ở 2 tài khoản (MT-C11) (2026-11-07: code + test, migration 0008; thẻ "Liên kết MT5" trên trang Tài khoản)
   - [ ] Kiểm trên máy người dùng: build lại `backend frontend` → trang Tài khoản thấy MT5 "chờ xác nhận" → gõ lại login → "Đã liên kết"
 - [x] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11) (2026-11-11: code + test, Gateway 0.4.0; phần đổi symbol chuyển sang MT-05. Chờ kiểm trên máy)
-- [ ] MT-05: nguồn giá theo `(server, symbol)`; cùng server dùng chung; analyst chạy theo từng nguồn; bỏ khái niệm "nguồn giá chung" duy nhất
+- [x] MT-05: nguồn giá theo `(server, symbol)`; cùng server dùng chung; analyst chạy theo từng nguồn; bỏ khái niệm "nguồn giá chung" duy nhất (2026-11-11: code + test, migration 0009 + 0010, Gateway 0.5.0; chờ kiểm trên máy)
   - [x] 4a lưu trữ: migration 0009, Gateway 0.5.0, symbol khóa vào liên kết, dữ liệu cũ → legacy (2026-11-11, chờ kiểm trên máy)
-  - [ ] 4b đọc: mỗi tài khoản xem giá + analyst theo nguồn của mình
+  - [x] 4b đọc: mỗi tài khoản xem giá + analyst theo nguồn của mình (2026-11-11, chờ kiểm trên máy)
 - [ ] MT-15: nhiều terminal MT5 trên một máy Windows, mỗi terminal một token (mong muốn: một Gateway quản lý nhiều terminal)
 - [ ] Kiểm trên máy người dùng: tài khoản thứ hai có Gateway + MT5 riêng, ghi được nến của nguồn riêng, không ảnh hưởng Lord Trade
 

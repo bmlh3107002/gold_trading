@@ -66,6 +66,12 @@ class MarketDataService:
         # dữ liệu, KHÔNG đọc nguồn khác thay thế.
         self.feed_resolver = feed_resolver
 
+    def with_feed(self, resolver: Callable[[], str | None] | None) -> MarketDataService:
+        """Cùng kho, lịch, nguồn dữ liệu nhưng đọc nguồn giá khác (MT-05)."""
+        return MarketDataService(self.store, source=self.source, symbol=self.symbol,
+                                 timeframe=self.timeframe, calendar=self.calendar,
+                                 feed_resolver=resolver)
+
     @property
     def feed(self) -> str | None:
         return "" if self.feed_resolver is None else self.feed_resolver()
