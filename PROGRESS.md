@@ -11,10 +11,9 @@
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–3 xong + đã kiểm trên máy (2026-11-07):** H1/H4/D1 (ING-14), lịch ngày lễ Mỹ + `GT_BROKER_SPECIAL_HOURS` (1B), nến cuối phiên `tail_bar` (1A-C21). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11. Gateway trên máy: `C:\gold-trading\code\gold_trading-develop`.
-- **Bước 4 (đa tài khoản) code xong 2026-11-12:** MT-12 + GW-09 (đã kiểm trên máy), MT-13 liên kết MT5, MT-14 MISMATCH chặn ghi, MT-05 nguồn giá theo (server, symbol broker), MT-15 nhiều MT5 một máy (`run-all`) — **chưa kiểm trên máy**. Người dùng vắng máy Windows từ 10/11, đồng ý làm tiếp rồi kiểm sau: danh sách ở file kế hoạch, mục "Kiểm trên máy khi người dùng về".
-- **Bước 5 (giá sống) code xong cả 4 phần 2026-11-12, chưa kiểm trên máy:** 5a backend lưu bid/ask/spread theo giây (migration 0011), 5b Gateway gom tick + phát hiện broker đổi múi giờ khi đang chạy, 5c thẻ "Giá sống", 5d nến M15 của 6 cặp tiền cho chỉ số USD (Gateway 0.8.0). 
-- **Bước 6 (Gateway bền vững) code xong cả 4 phần 2026-11-12, chưa kiểm trên máy:** 6a tự nạp bù sau gián đoạn dài, 6b đo + hiệu chỉnh lệch đồng hồ (ING-16), 6c băng đỏ mất kết nối + lý do (1A-C10), 6d tự chạy cùng Windows bằng Task Scheduler + log file + chống chạy trùng (GW-06). Gateway 0.10.0. **Tiếp theo: bước 7** (khung chung cho nguồn ngoài: DB-08, ING-13, ING-30..32).
-- **2026-11-12 sửa lỗi nghiêm trọng:** từ migration 0009 backend không khởi động bằng Docker/TimescaleDB (CI đỏ từ 11/11) → đã sửa 0009 (ngoại lệ có ghi lý do), kiểm trên TimescaleDB thật; **CI xanh lại** (run 65, cả job `docker`). Sau mỗi push phải kiểm CI.
+- **Bước 4–6 code xong 2026-11-12, phần lớn chưa kiểm trên máy** (người dùng vắng máy Windows từ 10/11): bước 4 đa tài khoản (MT-12..15), bước 5 giá sống bid/ask + 6 cặp tiền (migration 0011), bước 6 Gateway bền vững (nạp bù, lệch đồng hồ, băng đỏ mất kết nối, tự chạy cùng Windows; Gateway 0.10.0). Danh sách kiểm: file kế hoạch, mục "Kiểm trên máy khi người dùng về".
+- **Bước 7 (khung chung nguồn ngoài, chia 7a–7d):** 7a xong 2026-11-12 — DB-08 + ING-13: bảng `external_records` (migration 0012, point-in-time theo `known_at`), thiết kế `docs/thiet-ke/10-nguon-ngoai.md`. **Tiếp theo: 7b** (ING-30 trạng thái nguồn + TTL).
+- **2026-11-12:** sửa migration 0009 hỏng trên TimescaleDB (CI đỏ từ 11/11, nay xanh). Sau mỗi push phải kiểm CI.
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
@@ -54,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-12, bước 6d GĐ1): mt5_gateway 190 passed, ruff sạch; backend 687 passed (2 skipped), frontend 84 passed (bước 6c, lần này không đổi).
+Kết quả lần cuối (2026-11-12, bước 7a GĐ1): backend 738 passed (2 skipped), ruff sạch; mt5_gateway 190 passed, frontend 84 passed (bước 6, lần này không đổi).

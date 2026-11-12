@@ -300,6 +300,58 @@ quote_seconds = Table(
 )
 Index("ix_quote_seconds_available", quote_seconds.c.feed_id, quote_seconds.c.available_at)
 
+# --- Dữ liệu nguồn ngoài: lịch kinh tế, tin, vĩ mô, vị thế (DB-08, ING-13, migration 0012) ---
+# Chỉ thêm (trigger chặn UPDATE + DELETE). Mỗi dòng = một revision của một dữ kiện
+# (source, logical_key). known_at = max(ingested_at, available_at): đọc tại as_of chỉ thấy dòng có
+# known_at <= as_of. Quy tắc đầy đủ: docs/thiet-ke/10-nguon-ngoai.md.
+EXTERNAL_KINDS_SQL = "kind IN ('calendar', 'news', 'macro', 'positioning')"
+
+external_records = Table(
+    "external_records",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("record_id", String(256), nullable=False, unique=True),
+    Column("source", String(64), nullable=False),
+    Column("kind", String(16), nullable=False),
+    Column("logical_key", String(256), nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("event_time", DateTime(timezone=True), nullable=False),
+    Column("available_at", DateTime(timezone=True)),  # NULL = nguồn không cho giờ công bố
+    Column("ingested_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("source_status", String(16), nullable=False),
+    Column("payload_version", String(32), nullable=False),
+    Column("raw_ref", String(1024), nullable=False),
+    Column("fingerprint", String(64), nullable=False),
+    Column("quality_flags", JsonType, nullable=False),
+    Column("payload", JsonType, nullable=False),
+    Column("raw", JsonType),
+    UniqueConstraint("source", "logical_key", "revision", name="uq_external_records_identity"),
+    CheckConstraint(EXTERNAL_KINDS_SQL, name="ck_external_records_kind"),
+    CheckConstraint("revision >= 0", name="ck_external_records_revision"),
+    CheckConstraint("known_at >= ingested_at AND "
+                       "(available_at IS NULL OR known_at >= available_at)",
+                    name="ck_external_records_known_at"),
+    CheckConstraint("source_status IN ('HEALTHY', 'STALE', 'MISSING', 'INVALID')",
+                    name="ck_external_records_status"),
+)
+Index("ix_external_records_lookup", external_records.c.source, external_records.c.kind,
+      external_records.c.event_time)
+Index("ix_external_records_known", external_records.c.source, external_records.c.known_at)
+
+external_quarantine = Table(
+    "external_quarantine",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("received_at", DateTime(timezone=True), nullable=False),
+    Column("source", String(64), nullable=False),
+    Column("kind", String(16), nullable=False),
+    Column("reason", String(64), nullable=False),
+    Column("raw", JsonType, nullable=False),
+)
+Index("ix_external_quarantine_source", external_quarantine.c.source,
+      external_quarantine.c.received_at)
+
 # --- Kết quả analyst (migration 0003) ---
 
 analyst_outputs = Table(

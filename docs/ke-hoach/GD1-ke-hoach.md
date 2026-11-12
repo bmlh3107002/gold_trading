@@ -23,6 +23,7 @@
 7. **Bước 5d (6 cặp tiền):** `check` dòng "Cặp tiền chỉ số USD" — ghi lại có mấy cặp / thiếu cặp nào (nếu thiếu: Market Watch → Show All rồi `check` lại; tên khác thì đặt `GT_USD_PAIRS`). Sau vài phút `run`: `docker compose exec db psql -U gold -d gold_trading -c "select symbol, count(*), max(open_time) from candles where symbol <> 'XAUUSD' group by symbol"` → mỗi cặp có nến, giờ mới nhất gần hiện tại.
 8. **Bước 6a + 6b:** `check` có dòng "Đồng hồ máy" ĐẠT (nếu CẢNH BÁO: bật đồng bộ giờ Windows rồi `check` lại); trang Tài khoản thẻ MT5 hiện "Đồng hồ máy chạy Gateway: Khớp" và "Đồng hồ server MT5: Khớp". Thử gián đoạn: khi thị trường mở, `docker compose stop backend` khoảng 1 giờ rồi `docker compose start backend` → log Gateway có "Nạp bù sau gián đoạn", trang Thị trường không hở nến trong khoảng đó. **6c:** tắt cửa sổ Gateway → sau ~30 giây web hiện băng đỏ "Mất kết nối MT5" (lý do: không gửi tín hiệu); bật lại → hết băng. Rút mạng (hoặc tắt Wi-Fi) khi MT5 mở → băng đỏ lý do "MT5 mất kết nối tới máy chủ broker". Đăng xuất MT5 → lý do "chưa đăng nhập".
 9. **Bước 6d (tự chạy):** đóng cửa sổ `run` → `powershell -ExecutionPolicy Bypass -File scripts\cai-tu-chay.ps1` (thêm `-NhieuMT5` nếu dùng `terminals`) → báo "ĐÃ CÀI"; mở `logs\gateway.log` thấy nạp bù + nến mới; web không có băng đỏ. Mở thêm `uv run mt5-gateway run` → báo "Đã có một Gateway khác đang chạy". Khởi động lại máy, đăng nhập, chờ 2 phút → web có giá mới mà không mở cửa sổ nào. Gỡ: `scripts\go-tu-chay.ps1`.
+10. **Bước 7a:** sau khi cập nhật backend, log không lỗi migration 0012 (`docker compose logs backend | findstr 0012` thấy dòng chạy 0012, không có `Error`). Chưa có nguồn nào ghi vào bảng mới nên trên web chưa thấy gì khác.
 
 ## Việc còn treo trước khi bắt đầu bước 1
 
@@ -98,11 +99,11 @@ Chia 4 phần (2026-11-12):
 - [x] 6d — GW-06: tự chạy cùng Windows, ghi log ra file (2026-11-12: code + test, Task Scheduler + `scripts/cai-tu-chay.ps1`, Gateway 0.10.0; chờ kiểm trên máy)
 
 ### Bước 7 — Khung chung cho nguồn ngoài (1G)
-- [ ] DB-08: bảng lịch kinh tế / tin / series vĩ mô (append-only, point-in-time) — migration mới
-- [ ] ING-13: store point-in-time dùng chung (tái dùng `ingestion/point_in_time.py` hoặc thay)
-- [ ] ING-30: trạng thái HEALTHY/STALE/MISSING/INVALID, TTL riêng từng nguồn
-- [ ] ING-31: khóa API chỉ trong `.env`, không commit, không log
-- [ ] ING-32: ghi giấy phép/điều khoản từng nguồn ở `docs/thiet-ke/`
+Chia 4 phần (2026-11-12), thiết kế ở `docs/thiet-ke/10-nguon-ngoai.md`:
+- [x] 7a — DB-08 + ING-13: bảng `external_records` + `external_quarantine` (append-only, point-in-time, `known_at = max(ingested_at, available_at)`) — migration 0012; store SQL + bản trong bộ nhớ cùng quy tắc (2026-11-12: code + test, đã kiểm trên Postgres 16; TimescaleDB qua CI)
+- [ ] 7b — ING-30: trạng thái HEALTHY/STALE/MISSING/INVALID, TTL riêng từng nguồn
+- [ ] 7c — ING-31: khóa API chỉ trong `.env`, không commit, không log
+- [ ] 7d — ING-32: ghi giấy phép/điều khoản từng nguồn ở `docs/thiet-ke/`
 
 ### Bước 8 — Lịch kinh tế (1C) ← hướng dẫn đăng ký khóa **BLS**, **BEA**
 - [ ] Người dùng đăng ký khóa BLS, BEA (từng khóa một), dán vào `.env` trên máy
