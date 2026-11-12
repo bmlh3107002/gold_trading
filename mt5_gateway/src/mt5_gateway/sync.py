@@ -108,6 +108,7 @@ class Syncer:
         self.now_utc = lambda: self._raw_now() + self.clock_sync.offset
         self._gap_warned: set[tuple[str, Any]] = set()
         self._clock_warned = False
+        self._broker_ok: bool | None = None  # trạng thái kết nối broker lần nhịp tim trước
         # 1A-C08: theo dõi độ lệch giờ server khi đang chạy
         self.tzwatch = TzWatch(reader.tz)
         # GW-08: giá sống (chỉ khi check tự kiểm đạt)
@@ -430,10 +431,23 @@ class Syncer:
                 "broker rồi sửa GT_SERVER_TZ (chạy lại check)"
             )
 
+    def _note_broker(self, payload: dict[str, Any]) -> None:
+        """Ghi log khi MT5 mất / có lại kết nối tới broker (chạy nền thì chỉ log file thấy)."""
+        ok = bool(payload.get("terminal_connected")) and payload.get("identity") is not None
+        if self._broker_ok is not None and ok != self._broker_ok:
+            if ok:
+                log.info("MT5 đã kết nối lại máy chủ broker.")
+            else:
+                log.warning("MT5 mất kết nối tới máy chủ broker (hoặc chưa đăng nhập): giá và nến "
+                            "tạm dừng cho tới khi MT5 kết nối lại.")
+        self._broker_ok = ok
+
     def _heartbeat(self) -> None:
+        payload = self.heartbeat_payload()
+        self._note_broker(payload)
         try:
             sent = self._raw_now()
-            r = self.client.heartbeat(self.heartbeat_payload())
+            r = self.client.heartbeat(payload)
             received = self._raw_now()
         except BackendError as e:
             log.warning("Gửi nhịp tim lỗi: %s", e)

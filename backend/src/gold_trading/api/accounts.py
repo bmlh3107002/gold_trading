@@ -482,7 +482,16 @@ def accounts_router(
     @r.get("/api/accounts/{account_id}/gateway/status", response_model=GatewayStatus)
     def gateway_status(account_id: str, p: CurrentUser) -> GatewayStatus:
         guard.check(account_id, p, "gateway.status")
-        return monitors.get(account_id).status(utcnow())
+        st = monitors.get(account_id).status(utcnow())
+        links = repo.mt5_links(account_id)
+        held = next((x for x in reversed(links) if x.held), None)
+        if held is not None:
+            link = held.status
+        elif any(x.status == "PENDING_CONFIRM" for x in links):
+            link = "PENDING_CONFIRM"
+        else:
+            link = "NONE"
+        return st.model_copy(update={"link_status": link})
 
     @r.get("/api/accounts/{account_id}/gateway/token", response_model=GatewayTokenInfo)
     def gateway_token_info(account_id: str, p: CurrentUser) -> GatewayTokenInfo:

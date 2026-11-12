@@ -389,8 +389,12 @@ def check_quotes(reader: Mt5Reader, rep: CheckReport, tz: Any, now: Callable[[],
     rep.quotes_ok = True
     if got.seconds:
         last = got.seconds[-1]
+        # Khoảng gom tính từ mốc −60 s tới giây đã trọn mới nhất theo đồng hồ server MT5 (có thể
+        # dài hơn 60 s một chút) → ghi rõ khoảng thật, không viết "trong 60 giây qua".
+        t0 = got.seconds[0]["t"][11:19]
+        t1 = last["t"][11:19]
         rep.add("Giá sống (bid/ask)", PASS,
-                f"{len(got.seconds)} giây có giá trong 60 giây qua; gần nhất bid {last['bid']} / "
+                f"{len(got.seconds)} giây có giá ({t0} → {t1} UTC); gần nhất bid {last['bid']} / "
                 f"ask {last['ask']}" + (f"; bỏ {got.dropped}" if got.dropped else ""))
     else:
         rep.add("Giá sống (bid/ask)", WARN,

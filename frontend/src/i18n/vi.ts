@@ -388,12 +388,32 @@ const vi = {
   },
   gatewayBanner: {
     title: "Mất kết nối MT5: giá và nến KHÔNG cập nhật",
+    startingTitle: "MT5 Gateway đang khởi động: giá và nến chưa cập nhật",
     reason: {
       NO_HEARTBEAT: "MT5 Gateway không gửi tín hiệu quá 30 giây (cửa sổ Gateway bị tắt, máy Windows ngủ hoặc mất mạng).",
       TERMINAL_OFFLINE: "MT5 mất kết nối tới máy chủ broker, hoặc Gateway không đọc được MT5.",
       NOT_LOGGED_IN: "MT5 chưa đăng nhập tài khoản giao dịch.",
+      GATEWAY_STARTING: "Gateway đang kiểm tra MT5 trước khi chạy (thường 1–3 phút).",
+      START_FAILED:
+        "Gateway khởi động lại nhiều lần mà chưa chạy được (kiểm tra MT5 không đạt). Xem file log của Gateway (thư mục logs) hoặc chạy lệnh check.",
     },
     lastSeen: "Tín hiệu cuối lúc {{time}}.",
+    since: "Từ lúc {{time}}.",
+    link: {
+      action: "Mở trang Tài khoản → Liên kết MT5",
+      MISMATCH: {
+        title: "MT5 khác MT5 đã liên kết: hệ thống NGỪNG ghi giá",
+        desc: "Terminal vừa đăng nhập một tài khoản khác (hoặc đã đổi rồi quay lại). Giá và nến không cập nhật cho tới khi bạn xác minh lại.",
+      },
+      PENDING_CONFIRM: {
+        title: "Chưa xác nhận MT5: chưa ghi giá",
+        desc: "Gateway đã báo MT5, chờ bạn xác nhận đây là MT5 của bạn.",
+      },
+      NONE: {
+        title: "Chưa liên kết MT5: chưa ghi giá",
+        desc: "Gateway đang chạy nhưng tài khoản chưa có MT5 nào được xác nhận.",
+      },
+    },
     impact: "Không dùng giá trên màn hình để ra quyết định cho tới khi kết nối lại.",
   },
   quote: {

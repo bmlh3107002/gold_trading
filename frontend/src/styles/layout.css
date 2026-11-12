@@ -127,6 +127,15 @@
 .header__label {
   font-size: var(--fs-label);
   color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Giá là thông tin chính: không co, không cắt "3.…" (kiểm trên máy 2026-11-12: cửa sổ ~nửa màn
+   hình làm nhãn xuống dòng từng chữ và cắt mất giá). */
+.header__item--price {
+  flex-shrink: 0;
+}
+.header__item--price .header__value {
+  overflow: visible;
 }
 .header__value {
   font-weight: 600;
@@ -183,6 +192,18 @@
 .header__show-sm {
   display: none;
 }
+/* Màn hình vừa (còn thanh bên): bỏ bớt mục phụ để giá + trạng thái kết nối đủ chỗ. */
+@media (max-width: 1100px) {
+  /* ".header" đứng trước: thắng các lớp tự đặt display (vd. .header__user là flex) */
+  .header .header__hide-md {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .header .header__change {
+    display: none;
+  }
+}
 
 /* Drawer (mobile) */
 .drawer-backdrop {
@@ -232,7 +253,7 @@
   .header__ticker {
     gap: 12px;
   }
-  .header__hide-sm {
+  .header .header__hide-sm {
     display: none;
   }
   .header__show-sm {

@@ -201,6 +201,55 @@ describe("App", () => {
     expect(screen.queryByText("Mất kết nối MT5: giá và nến KHÔNG cập nhật")).not.toBeInTheDocument();
   });
 
+  function gatewayFetch(state: Record<string, unknown>) {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/auth/me") return json(makeMe());
+      if (url === "/api/status") return json(makeSystem({ data_source: "MT5", data_is_sample: false }));
+      if (url === "/api/accounts") return json([makeAccount()]);
+      if (url === `${ACC}/mode/live-requests`) return json([]);
+      if (url === "/api/system/health") return json(OK_HEALTH);
+      if (url === `${ACC}/gateway/status`) return json(state);
+      if (url.startsWith(`${ACC}/market/summary`)) return json(makeSummary({ is_sample: false }));
+      return json(makeStatus());
+    }));
+  }
+
+  it("MT5 mất kết nối broker: ghi 'Từ lúc' (mốc bắt đầu mất), không ghi 'Tín hiệu cuối'", async () => {
+    gatewayFetch({ state: "DISCONNECTED", reason: "TERMINAL_OFFLINE", reason_since: "2026-11-12T15:24:00Z",
+      last_seen_at: "2026-11-12T15:26:00Z", age_seconds: 2, heartbeat: null, link_status: "ACTIVE" });
+    render(<App />);
+    expect(await screen.findByText(/MT5 mất kết nối tới máy chủ broker/)).toBeInTheDocument();
+    expect(screen.getByText(/Từ lúc/)).toBeInTheDocument();
+    expect(screen.queryByText(/Tín hiệu cuối/)).not.toBeInTheDocument();
+  });
+
+  it("Gateway đang khởi động: băng vàng 'đang khởi động', không báo 'không gửi tín hiệu'", async () => {
+    gatewayFetch({ state: "DISCONNECTED", reason: "GATEWAY_STARTING", reason_since: "2026-11-12T15:24:00Z",
+      last_seen_at: "2026-11-12T15:24:00Z", age_seconds: 70, heartbeat: null, link_status: "ACTIVE" });
+    render(<App />);
+    expect(await screen.findByText("MT5 Gateway đang khởi động: giá và nến chưa cập nhật")).toBeInTheDocument();
+    expect(screen.getByText(/thường 1–3 phút/)).toBeInTheDocument();
+    expect(screen.queryByText(/không gửi tín hiệu/)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert").className).toContain("banner--warn");
+  });
+
+  it("Gateway kết nối nhưng liên kết MT5 lệch: băng đỏ chỉ đường tới trang Tài khoản", async () => {
+    gatewayFetch({ state: "CONNECTED", reason: null, last_seen_at: "2026-11-12T15:24:00Z", age_seconds: 2,
+      heartbeat: null, link_status: "MISMATCH" });
+    render(<App />);
+    expect(await screen.findByText("MT5 khác MT5 đã liên kết: hệ thống NGỪNG ghi giá")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Liên kết MT5/ })).toHaveAttribute("href", "#account");
+  });
+
+  it("liên kết ACTIVE + kết nối: không có băng nào", async () => {
+    gatewayFetch({ state: "CONNECTED", reason: null, last_seen_at: "2026-11-12T15:24:00Z", age_seconds: 2,
+      heartbeat: null, link_status: "ACTIVE" });
+    render(<App />);
+    expect(await screen.findByText(/MT5: đã kết nối/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("có từ 2 tài khoản giao dịch: hiện bộ chọn, đổi tài khoản thì đọc trạng thái tài khoản mới", async () => {
     const fn = mockFetch((url) =>
       url === "/api/accounts/acc_b/status"

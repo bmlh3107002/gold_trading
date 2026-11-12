@@ -1144,7 +1144,11 @@ export interface components {
              */
             state: "NEVER" | "CONNECTED" | "DISCONNECTED";
             /** Reason */
-            reason?: ("NO_HEARTBEAT" | "TERMINAL_OFFLINE" | "NOT_LOGGED_IN") | null;
+            reason?: ("NO_HEARTBEAT" | "TERMINAL_OFFLINE" | "NOT_LOGGED_IN" | "GATEWAY_STARTING" | "START_FAILED") | null;
+            /** Reason Since */
+            reason_since?: string | null;
+            /** Link Status */
+            link_status?: ("NONE" | "PENDING_CONFIRM" | "ACTIVE" | "MISMATCH" | "DISCONNECTED") | null;
             /** Last Seen At */
             last_seen_at: string | null;
             /** Age Seconds */
@@ -1242,6 +1246,12 @@ export interface components {
             gateway_time?: string | null;
             /** Mt5 Clock Residual S */
             mt5_clock_residual_s?: number | null;
+            /**
+             * Phase
+             * @default RUNNING
+             * @enum {string}
+             */
+            phase: "RUNNING" | "STARTING";
         };
         /** IngestReport */
         IngestReport: {

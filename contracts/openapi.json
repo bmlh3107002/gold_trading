@@ -3063,7 +3063,9 @@
                 "enum": [
                   "NO_HEARTBEAT",
                   "TERMINAL_OFFLINE",
-                  "NOT_LOGGED_IN"
+                  "NOT_LOGGED_IN",
+                  "GATEWAY_STARTING",
+                  "START_FAILED"
                 ]
               },
               {
@@ -3071,6 +3073,36 @@
               }
             ],
             "title": "Reason"
+          },
+          "reason_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Since"
+          },
+          "link_status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NONE",
+                  "PENDING_CONFIRM",
+                  "ACTIVE",
+                  "MISMATCH",
+                  "DISCONNECTED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link Status"
           },
           "last_seen_at": {
             "anyOf": [
@@ -3399,6 +3431,15 @@
               }
             ],
             "title": "Mt5 Clock Residual S"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "RUNNING",
+              "STARTING"
+            ],
+            "title": "Phase",
+            "default": "RUNNING"
           }
         },
         "type": "object",

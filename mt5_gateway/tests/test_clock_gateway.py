@@ -209,3 +209,47 @@ def test_check_without_clock_support_has_no_clock_line():
     fake = FakeMt5(now_utc=NOW_WINTER)
     rep = checks.run_checks(cfg(), fake, FakeBackend(), tick_wait_s=1)
     assert "Đồng hồ máy" not in {x.name for x in rep.steps}
+
+
+# --- 2026-11-12 kiểm trên máy: (a) nhịp tim khởi động, (b) log mất/có kết nối broker ---
+
+
+def test_send_starting_payload_and_failure():
+    from mt5_gateway.backend_client import BackendError
+    from mt5_gateway.cli import send_starting
+
+    class B:
+        sent: list = []
+
+        def heartbeat(self, p):
+            self.sent.append(p)
+            return {}
+
+    b = B()
+    assert send_starting(cfg(), b) is True
+    p = b.sent[-1]
+    assert p["phase"] == "STARTING" and p["terminal_connected"] is False
+    assert "identity" not in p and p["read_only"] is True  # không đọc MT5, không danh tính
+
+    class Down:
+        def heartbeat(self, p):
+            raise BackendError(None, "down")
+
+    assert send_starting(cfg(), Down()) is False  # backend chưa lên: bỏ qua, không làm sập
+
+
+def test_broker_loss_and_return_logged_once_each(caplog):
+    import logging
+
+    fake, be, s, _ = world(timedelta(0))
+    with caplog.at_level(logging.INFO, logger="mt5_gateway"):
+        loop(s, fake, n=2)
+        fake.connected = False  # MT5 mất mạng tới broker
+        loop(s, fake, n=3)
+        fake.connected = True
+        loop(s, fake, n=2)
+    msgs = [r.getMessage() for r in caplog.records]
+    lost = [m for m in msgs if "mất kết nối tới máy chủ broker" in m]
+    back = [m for m in msgs if "kết nối lại máy chủ broker" in m]
+    assert len(lost) == 1 and len(back) == 1
+    assert msgs.index(lost[0]) < msgs.index(back[0])

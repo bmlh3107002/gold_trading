@@ -12,6 +12,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def _mt5():
@@ -136,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     cfg = config.load(args.env_file, use_environ=args.name is None, name=args.name)
     mt5 = _mt5()
     client = BackendClient(cfg.backend_url, cfg.token)
+    if args.command == "run":
+        send_starting(cfg, client)
     say("Đang kiểm tra (có thể mất 1–2 phút, đừng tắt)...")
     rep = run_checks(cfg, mt5, client, progress=lambda m: say("  " + m))
     print_report(rep, out=say)
@@ -153,6 +156,28 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         rep.reader.shutdown()
     return 0
+
+
+def send_starting(cfg: Any, client: Any) -> bool:
+    """Báo backend "Gateway đang khởi động" trước khi check (1–3 phút chưa có nhịp tim thường):
+    web hiện "đang khởi động" thay vì "không gửi tín hiệu". Không đọc MT5, không có danh tính →
+    backend không đổi liên kết. Lỗi (backend chưa lên, bản cũ) → bỏ qua, check sẽ báo."""
+    from datetime import UTC, datetime
+
+    from mt5_gateway import __version__
+    from mt5_gateway.backend_client import BackendError
+
+    try:
+        client.heartbeat({
+            "gateway_id": cfg.gateway_id, "gateway_version": __version__, "read_only": True,
+            "terminal_connected": False, "account_type": "UNKNOWN",
+            "server_tz": cfg.server_tz or "", "phase": "STARTING",
+            "gateway_time": datetime.now(UTC).isoformat(),
+        })
+        return True
+    except BackendError as e:
+        logging.getLogger("mt5_gateway").debug("Không gửi được nhịp tim khởi động: %s", e)
+        return False
 
 
 if __name__ == "__main__":

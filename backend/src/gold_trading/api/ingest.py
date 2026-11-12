@@ -48,6 +48,10 @@ MIN_TOKEN_LEN = 24
 MAX_BARS = 2000
 MAX_QUOTE_SECONDS = 600
 HEARTBEAT_TIMEOUT = timedelta(seconds=30)
+# Gateway ≥ 0.10.3 gửi một nhịp tim phase=STARTING trước khi chạy check (1–3 phút, chưa gửi nhịp
+# tim thường được). Trong hạn này báo "đang khởi động" thay vì "không gửi tín hiệu". Khởi động lại
+# liên tục quá hạn này mà chưa chạy được (check hỏng, Task Scheduler chạy lại) → START_FAILED.
+STARTUP_GRACE = timedelta(minutes=5)
 # ING-16 / 1A-C20: lệch đồng hồ máy Gateway so với backend (đồng hồ backend kiểm NTP, OPS-12)
 GATEWAY_CLOCK_WARN_S = 2.0
 GATEWAY_CLOCK_BAD_S = 30.0
@@ -203,6 +207,8 @@ class Heartbeat(BaseModel):
     gateway_time: UtcDatetime | None = None
     mt5_clock_residual_s: float | None = Field(default=None, ge=-3600, le=3600,
                                                allow_inf_nan=False)
+    # STARTING: Gateway vừa mở, đang kiểm tra (chưa đọc MT5) — không dùng để suy ra danh tính.
+    phase: Literal["RUNNING", "STARTING"] = "RUNNING"
 
     def gateway_version_tuple(self) -> tuple[int, ...]:
         """"0.9.0" → (0, 9, 0); không đọc được → () (coi như cũ nhất)."""
@@ -283,7 +289,9 @@ class QuoteReport(BaseModel):
     calendar_mismatch: bool
 
 
-DisconnectReason = Literal["NO_HEARTBEAT", "TERMINAL_OFFLINE", "NOT_LOGGED_IN"]
+DisconnectReason = Literal["NO_HEARTBEAT", "TERMINAL_OFFLINE", "NOT_LOGGED_IN",
+                           "GATEWAY_STARTING", "START_FAILED"]
+LinkStatus = Literal["NONE", "PENDING_CONFIRM", "ACTIVE", "MISMATCH", "DISCONNECTED"]
 
 
 class GatewayStatus(BaseModel):
@@ -291,6 +299,13 @@ class GatewayStatus(BaseModel):
     # 1A-C10: vì sao DISCONNECTED — Gateway không gửi nhịp tim > 30 s / MT5 mất kết nối tới
     # broker hoặc lỗi đọc / MT5 chưa đăng nhập tài khoản (Gateway ≥ 0.3 gửi danh tính).
     reason: DisconnectReason | None = None
+    # Từ lúc nào lý do hiện tại bắt đầu (TERMINAL_OFFLINE / NOT_LOGGED_IN: nhịp tim đầu tiên báo
+    # mất; GATEWAY_STARTING / START_FAILED: lần khởi động đầu của chuỗi). NO_HEARTBEAT: None —
+    # dùng last_seen_at.
+    reason_since: datetime | None = None
+    # MT-13/MT-14: trạng thái liên kết MT5 của tài khoản (chỉ API trạng thái điền; None = không
+    # biết). MISMATCH / chưa xác nhận → không ghi giá dù Gateway vẫn kết nối.
+    link_status: LinkStatus | None = None
     last_seen_at: datetime | None
     age_seconds: float | None
     heartbeat: Heartbeat | None
@@ -320,9 +335,26 @@ class GatewayMonitor:
     def __post_init__(self) -> None:
         self._lock = threading.Lock()
         self._clock_states: tuple[ClockState, ClockState] = ("UNKNOWN", "UNKNOWN")
+        self._starting_since: datetime | None = None
+        self._offline_since: datetime | None = None
 
     def record(self, hb: Heartbeat, at: datetime) -> None:
         with self._lock:
+            prev, prev_at = self.last, self.last_seen_at
+            fresh = prev is None or prev_at is None or at - prev_at > STARTUP_GRACE
+            if hb.phase == "STARTING":
+                # Chuỗi khởi động liên tiếp (không có RUNNING xen giữa, không gián đoạn dài)
+                # giữ mốc đầu để phát hiện "khởi động mãi không xong".
+                if fresh or prev.phase != "STARTING" or self._starting_since is None:
+                    self._starting_since = at
+            else:
+                self._starting_since = None
+                if not _broker_ok(hb):
+                    if fresh or prev.phase != "RUNNING" or _broker_ok(prev) \
+                            or self._offline_since is None:
+                        self._offline_since = at
+                else:
+                    self._offline_since = None
             self.last, self.last_seen_at = hb, at
         st = self.status(at)
         now_states = (st.gateway_clock, st.mt5_clock)
@@ -342,12 +374,24 @@ class GatewayMonitor:
             age = now - self.last_seen_at
             hb = self.last
             reason: DisconnectReason | None = None
-            if age > HEARTBEAT_TIMEOUT or hb is None:
+            since: datetime | None = None
+            if hb is None:
+                reason = "NO_HEARTBEAT"
+            elif hb.phase == "STARTING":
+                if age > STARTUP_GRACE:
+                    reason = "NO_HEARTBEAT"
+                elif self._starting_since is not None \
+                        and now - self._starting_since > STARTUP_GRACE:
+                    reason, since = "START_FAILED", self._starting_since
+                else:
+                    reason, since = "GATEWAY_STARTING", self._starting_since
+            elif age > HEARTBEAT_TIMEOUT:
                 reason = "NO_HEARTBEAT"
             elif not hb.terminal_connected:
-                reason = "TERMINAL_OFFLINE"
+                reason, since = "TERMINAL_OFFLINE", self._offline_since
             elif hb.identity is None and hb.gateway_version_tuple() >= (0, 3):
-                reason = "NOT_LOGGED_IN"  # Gateway cũ < 0.3 không gửi danh tính: không kết luận
+                # Gateway cũ < 0.3 không gửi danh tính: không kết luận
+                reason, since = "NOT_LOGGED_IN", self._offline_since
             state = "CONNECTED" if reason is None else "DISCONNECTED"
             skew = (round((hb.gateway_time - self.last_seen_at).total_seconds(), 1)
                     if hb is not None and hb.gateway_time is not None else None)
@@ -355,6 +399,7 @@ class GatewayMonitor:
             return GatewayStatus(
                 state=state,
                 reason=reason,
+                reason_since=since,
                 last_seen_at=self.last_seen_at,
                 age_seconds=round(age.total_seconds(), 1),
                 heartbeat=hb,
@@ -363,6 +408,13 @@ class GatewayMonitor:
                 mt5_clock_residual_s=None if mt5 is None else round(mt5, 1),
                 mt5_clock=clock_state(mt5, None, MT5_CLOCK_BAD_S),
             )
+
+
+def _broker_ok(hb: Heartbeat) -> bool:
+    """Nhịp tim RUNNING báo MT5 đọc được + đăng nhập (cùng điều kiện status() dùng)."""
+    if not hb.terminal_connected:
+        return False
+    return not (hb.identity is None and hb.gateway_version_tuple() >= (0, 3))
 
 
 class GatewayMonitors:
@@ -639,6 +691,9 @@ def ingest_router(
         now = utcnow()
         monitor = monitors.get(account_id)
         monitor.record(hb, now)
+        if hb.phase == "STARTING":
+            # Chưa đọc MT5: không có danh tính để so (KHÔNG coi là đăng xuất → không đổi liên kết).
+            return monitor.status(now)
         try:
             # MT-13: danh tính MT5 mới → liên kết chờ chủ tài khoản xác nhận.
             observe_identity(repo, account_id, hb, token_id, now)

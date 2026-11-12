@@ -54,13 +54,13 @@ export function Header({
 
       <div className="header__ticker">
         <span className="header__symbol header__hide-sm">{t("header.symbol")}</span>
-        <div className="header__item header__hide-sm">
+        <div className="header__item header__hide-sm header__hide-md">
           <span className="header__label">{t("header.market")}</span>
           <span className="header__value tone-neutral">
             {market ? sessionLabel(t, market.session) : t("header.marketUnknown")}
           </span>
         </div>
-        <div className="header__item">
+        <div className="header__item header__item--price">
           <span className="header__label">
             <span className="header__hide-sm">{t("header.price")}</span>
             <span className="header__show-sm">{t("header.priceShort")}</span>
@@ -98,7 +98,7 @@ export function Header({
 
       <div className="header__actions">
         {lastSuccessAt && (
-          <span className="header__label header__hide-sm num">
+          <span className="header__label header__hide-sm header__hide-md num">
             {t("connection.updatedAt", { time: formatTime(new Date(lastSuccessAt)) })}
           </span>
         )}
@@ -121,7 +121,7 @@ export function Header({
           </label>
         )}
         <ConnectionBadge state={connection} />
-        <span className="header__user header__hide-sm" title={t("auth.signedInAs", { name: userName })}>
+        <span className="header__user header__hide-sm header__hide-md" title={t("auth.signedInAs", { name: userName })}>
           <User size={14} aria-hidden="true" />
           {userName}
           {isAdmin && <Badge tone="gold">{t("auth.admin")}</Badge>}
