@@ -18,7 +18,11 @@ TIMEFRAME_D1 = 16408
 _TF_SECONDS = {TIMEFRAME_H1: 3600, TIMEFRAME_H4: 14400, TIMEFRAME_D1: 86400}
 
 
+COPY_TICKS_INFO = 1
+
+
 class FakeMt5:
+    COPY_TICKS_INFO = COPY_TICKS_INFO
     TIMEFRAME_M15 = TIMEFRAME_M15
     TIMEFRAME_H1 = TIMEFRAME_H1
     TIMEFRAME_H4 = TIMEFRAME_H4
@@ -52,6 +56,11 @@ class FakeMt5:
         # MT-15: thư mục terminal mà initialize() thực sự nối tới (test đổi được)
         self.terminal_dir: str | None = r"C:\Program Files\MetaTrader 5"
         self.order_send_called = False
+        # GW-08: tick giả. None = tự sinh 2 tick/giây (bid 2400.0 / ask 2400.2) khi live_ticks;
+        # list = trả đúng các dòng này (lọc theo mốc). tick_requests ghi lại các lần gọi.
+        self.tick_rows: list[dict] | None = None
+        self.tick_requests: list[tuple[int, int]] = []
+        self.tick_shift_s = 0  # mô phỏng thư viện hiểu mốc lệch (giây)
         # MT-12/GW-09: danh tính + số liệu tài khoản (test đổi được giữa các nhịp tim)
         self.login = 51234567
         self.server = "DemoBroker-Demo"
@@ -142,6 +151,8 @@ class FakeMt5:
         if self.live_ticks:
             self._msc += 1
         t = self._server_epoch(self.now)
+        if not self.live_ticks:
+            t -= 300  # thị trường yên/đóng: tick cuối đã cũ
         return SimpleNamespace(time=t, time_msc=t * 1000 + self._msc, bid=2400.0, ask=2400.2)
 
     def _rows(self, tf):
@@ -187,6 +198,26 @@ class FakeMt5:
         rows = self._rows(tf)
         end = len(rows) - start
         return rows[max(0, end - count) : end]
+
+    def copy_ticks_from(self, name, date_from, count, flags):
+        self.tick_requests.append((int(date_from), count))
+        if name != self.symbol:
+            return None
+        start = (int(date_from) + self.tick_shift_s) * 1000
+        if self.tick_rows is not None:
+            rows = [r for r in self.tick_rows if r["time_msc"] >= start]
+            return rows[:count]
+        if not self.live_ticks:
+            return []
+        end = self._server_epoch(self.now)
+        rows = []
+        for s in range(start // 1000, end):
+            for ms, bid in ((100, 2400.0), (600, 2400.1)):
+                if s * 1000 + ms >= start:
+                    rows.append({"time": s, "time_msc": s * 1000 + ms, "bid": bid,
+                                 "ask": round(bid + 0.2, 2), "last": 0.0, "volume": 0,
+                                 "flags": 6})
+        return rows[:count]
 
     # --- hàm GIAO DỊCH: không bao giờ được gọi ---
     def order_send(self, request):

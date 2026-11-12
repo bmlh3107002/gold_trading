@@ -20,13 +20,16 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from mt5_gateway import __version__, snapshot
 from mt5_gateway.backend_client import BackendClient, BackendError
 from mt5_gateway.checks import CheckReport
 from mt5_gateway.config import Config, history_bars_for
+from mt5_gateway.quotes import QuoteCollector, TickRequestMismatch, TzWatch
 from mt5_gateway.reader import Bar, Mt5Error, Mt5Reader, TerminalMismatch
+from mt5_gateway.timeconv import tz_offset_hours
 
 log = logging.getLogger("mt5_gateway")
 BATCH = 1000
@@ -39,6 +42,10 @@ LINK_RETRY_S = 30.0
 
 class IdentityUnstable(RuntimeError):
     """Không biết chắc nến thuộc MT5 nào (chưa đăng nhập / vừa đổi tài khoản): không gửi."""
+
+
+class ServerTzChanged(RuntimeError):
+    """1A-C08: giờ server broker lệch khác GT_SERVER_TZ khi đang chạy: không gửi nến/giá."""
 
 
 def waiting_for_link(e: BackendError) -> bool:
@@ -59,6 +66,7 @@ class Syncer:
         *,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        now_utc: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.cfg, self.reader, self.client, self.report = cfg, reader, client, report
         self.sleep, self.clock = sleep, clock
@@ -73,6 +81,15 @@ class Syncer:
         self.backfilled = False
         self._backfill_retry_at = 0.0
         self._last_wait: str | None = None  # thông báo chờ liên kết gần nhất (tránh lặp log)
+        self.now_utc = now_utc
+        # 1A-C08: theo dõi độ lệch giờ server khi đang chạy
+        self.tzwatch = TzWatch(reader.tz)
+        # GW-08: giá sống (chỉ khi check tự kiểm đạt)
+        point = getattr(report.symbol_info, "point", None)
+        self.quotes: QuoteCollector | None = (
+            QuoteCollector(reader, reader.tz, float(point), now=now_utc)
+            if report.quotes_ok and isinstance(point, (int, float)) and point > 0 else None
+        )
 
     @property
     def timeframes(self) -> list[str]:
@@ -193,7 +210,10 @@ class Syncer:
             "identity": ident,
             "account": snapshot.account(self.reader),
             "server_tz": self.cfg.server_tz,
-            "server_offset_hours_now": self.report.offset_now,
+            "server_offset_hours_now": (
+                self.tzwatch.last_offset
+                if self.tzwatch.last_offset is not None else self.report.offset_now
+            ),
             "last_tick_time": last_tick,
             "symbol": snapshot.symbol(self.reader, self.cfg.broker_symbol),
             "last_sent_bar": self.last_sent.open_time_utc.isoformat() if self.last_sent else None,
@@ -258,6 +278,76 @@ class Syncer:
         self._after_post(tf, tail, r)
         self._next_resend[tf] = now + HIGHER_RESEND_S
 
+    def _quotes_off(self, why: str) -> None:
+        log.error("Tắt gửi giá sống: %s (nến vẫn chạy). Chạy lại run để thử lại.", why)
+        self.quotes = None
+
+    def push_quotes(self) -> dict[str, Any] | None:
+        """GW-08: gom tick thành giây đã trọn rồi gửi. Lỗi riêng của giá sống không làm ngừng
+        nến (trừ chờ liên kết / sai danh tính, xử lý chung ở vòng chạy)."""
+        if self.quotes is None:
+            return None
+        q = self.quotes
+        try:
+            got, ident = self._read(q.collect)
+        except TickRequestMismatch as e:
+            self._quotes_off(str(e))
+            return None
+        except TerminalMismatch:
+            raise
+        except Mt5Error as e:
+            log.warning("Đọc tick lỗi: %s (thử lại vòng sau)", e)
+            return None
+        if got.skipped_gap_s:
+            log.info("Bỏ qua %d giây giá sống cũ (gián đoạn dài); nến vẫn đầy đủ",
+                     got.skipped_gap_s)
+        if not got.seconds and not got.dropped:
+            q.cursor = got.next_cursor
+            return None
+        body = {
+            "symbol": self.cfg.symbol, "gateway_id": self.cfg.gateway_id,
+            "mt5_login": ident["mt5_login"], "mt5_server": ident["mt5_server"],
+            "mt5_account_type": ident["mt5_account_type"],
+            "broker_symbol": ident["broker_symbol"], "point": q.point,
+            "seconds": got.seconds, "gateway_dropped": got.dropped,
+        }
+        try:
+            r = self.client.post_quotes(body)
+        except BackendError as e:
+            if waiting_for_link(e):
+                raise
+            if e.status == 404:
+                self._quotes_off("backend chưa có cổng nhận giá sống (cần cập nhật backend)")
+                return None
+            log.warning("Gửi giá sống lỗi: %s (thử lại vòng sau)", e)
+            return None
+        q.cursor = got.next_cursor
+        if isinstance(r, dict) and (r.get("dropped") or got.dropped):
+            log.warning("Giá sống: backend bỏ %s, Gateway bỏ %s", r.get("dropped"), got.dropped)
+        return r
+
+    def watch_tz(self) -> None:
+        """1A-C08: so giờ tick mới nhất với đồng hồ máy; lệch kéo dài → ``ServerTzChanged``."""
+        msc = self.reader.last_tick_msc()
+        self.tzwatch.observe(msc / 1000 if msc is not None else None, self.now_utc())
+        if self.tzwatch.paused and not self.tzwatch.blocked:
+            raise ServerTzChanged(
+                f"SERVER_TZ_SUSPECT: tick mới báo giờ server GMT{self.tzwatch.last_offset:+d}, "
+                f"khác {self.cfg.server_tz}. Tạm dừng gửi nến + giá trong lúc xác nhận"
+            )
+        if self.tzwatch.blocked and self.tzwatch.last_offset == tz_offset_hours(
+                self.reader.tz, self.now_utc()):
+            raise ServerTzChanged(
+                "SERVER_TZ_CHANGED: giờ server đã khớp lại GT_SERVER_TZ, chờ xác nhận thêm vài "
+                "lần rồi tự gửi tiếp"
+            )
+        if self.tzwatch.blocked:
+            raise ServerTzChanged(
+                f"SERVER_TZ_CHANGED: giờ server broker đang lệch GMT{self.tzwatch.last_offset:+d}, "
+                f"khác {self.cfg.server_tz}. Ngừng gửi nến + giá để không sai giờ; kiểm tra giờ "
+                "broker rồi sửa GT_SERVER_TZ (chạy lại check)"
+            )
+
     def _heartbeat(self) -> None:
         try:
             self.client.heartbeat(self.heartbeat_payload())
@@ -279,17 +369,23 @@ class Syncer:
                 self._heartbeat()
                 next_hb = self.clock() + self.cfg.heartbeat_seconds
             try:
+                self.watch_tz()
                 if not self.backfilled:
                     if self.clock() >= self._backfill_retry_at:
                         self.backfill()
                         log.info("Đồng bộ nến %s (chỉ đọc).", ", ".join(self.timeframes))
                 else:
                     self.push_recent()
+                    self.push_quotes()
                 self.terminal_ok = True
                 backoff = 1.0
                 if self._last_wait is not None:
                     log.info("Đã gửi nến bình thường trở lại.")
                     self._last_wait = None
+            except ServerTzChanged as e:
+                self._wait_note(str(e))
+                self.backfilled = False  # khớp lại thì nạp bù lại (backend khử trùng)
+                self._backfill_retry_at = self.clock() + self.cfg.poll_seconds
             except IdentityUnstable as e:
                 self._wait_note(str(e))
                 self._backfill_retry_at = self.clock() + self.cfg.poll_seconds

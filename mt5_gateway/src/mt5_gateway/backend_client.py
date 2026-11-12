@@ -71,5 +71,9 @@ class BackendClient:
             body.update(identity)  # MT-14: mt5_login / mt5_server / mt5_account_type
         return self._call("POST", f"/api/ingest/mt5/candles{q}", body)
 
+    def post_quotes(self, body: dict[str, Any]) -> Any:
+        """GW-08: giá sống theo giây (ING-08)."""
+        return self._call("POST", "/api/ingest/mt5/quotes", body)
+
     def heartbeat(self, payload: dict[str, Any]) -> Any:
         return self._call("POST", "/api/ingest/mt5/heartbeat", payload)

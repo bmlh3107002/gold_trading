@@ -96,11 +96,14 @@ Lần đầu sẽ mất 1–2 phút để tải Python và thư viện. Kết qu
 [  ĐẠT   ] 7. Lịch sử nến M15: ... nến đã đóng ...
 [  ĐẠT   ] 8. Backend: http://localhost:8080 · lưu trữ postgres
 [  ĐẠT   ] 9. Chạy thử gửi dữ liệu (không lưu): ...
-[  ĐẠT   ] 10. Khung H1/H4/D1: H1 ... nến; H4 ... nến; D1 ... nến
+[  ĐẠT   ] 10. Liên kết MT5: Đã liên kết đúng MT5 này
+[  ĐẠT   ] 11. Khung H1/H4/D1: H1 ... nến; H4 ... nến; D1 ... nến
+[  ĐẠT   ] 12. Giá sống (bid/ask): 59 giây có giá trong 60 giây qua; gần nhất bid ... / ask ...
 KẾT QUẢ: SẴN SÀNG. Chạy: mt5-gateway run
 ```
 
-- Dòng 10 hiện **CẢNH BÁO** nếu MT5 chưa có lịch sử khung đó: mở chart XAUUSD ở khung H1, H4, D1 (mỗi khung một lần) rồi chạy lại `check`. Khung bị cảnh báo sẽ không được gửi; M15 vẫn chạy.
+- Dòng 12 (giá sống, Gateway ≥ 0.7.0) hiện **CẢNH BÁO** khi thị trường đóng cửa/yên (bình thường, giá sống tự gửi khi có tick) hoặc khi MT5 trả tick sai khoảng thời gian (khi đó **không** gửi giá sống, nến vẫn chạy — gửi lại kết quả check để được hỗ trợ).
+- Dòng 11 hiện **CẢNH BÁO** nếu MT5 chưa có lịch sử khung đó: mở chart XAUUSD ở khung H1, H4, D1 (mỗi khung một lần) rồi chạy lại `check`. Khung bị cảnh báo sẽ không được gửi; M15 vẫn chạy.
 - Dòng 6 hiện **CẢNH BÁO** khi thị trường đóng cửa (cuối tuần) là bình thường; dòng 9 vẫn kiểm tra múi giờ bằng lịch sử. Tốt nhất nên chạy khi thị trường mở.
 - Nếu có dòng **LỖI**, xem gợi ý "→ Cách xử lý" ngay bên dưới dòng đó. **Hãy copy toàn bộ kết quả gửi lại để được hỗ trợ.**
 
@@ -173,6 +176,8 @@ Mỗi người dùng vẫn phải **xác nhận liên kết MT5** trên trang T�
 | `MT5_LINK_REQUIRED` | MT5 chưa liên kết (hoặc Gateway bản cũ < 0.4.0): xác nhận MT5 trên trang **Tài khoản**; Gateway tự gửi tiếp, không cần chạy lại |
 | `MT5_LINK_SYMBOL` | Đã đổi `GT_BROKER_SYMBOL` (symbol khác = nguồn giá khác): đặt lại như cũ, hoặc **Gỡ liên kết** trên web rồi xác nhận lại để dùng symbol mới |
 | `MT5_LINK_MISMATCH` | Terminal đang đăng nhập MT5 khác MT5 đã liên kết: xem thẻ **Liên kết MT5** trên trang Tài khoản |
+| `SERVER_TZ_SUSPECT` / `SERVER_TZ_CHANGED` | Giờ server broker vừa lệch khác `GT_SERVER_TZ` khi đang chạy: Gateway **tạm ngừng gửi nến + giá** để không lưu sai giờ. Lệch thoáng qua thì tự chạy tiếp. Nếu broker đổi giờ thật: chạy lại `check`, làm theo gợi ý sửa `GT_SERVER_TZ` |
+| `Tắt gửi giá sống` | Giá sống tạm tắt (nến vẫn chạy). Nếu ghi "cần cập nhật backend": cập nhật Docker (`docker compose build --no-cache backend frontend`) |
 | `TERMINAL_MISMATCH` | Gateway nối vào MT5 khác với `GT_MT5_PATH`: sửa đường dẫn cho đúng `terminal64.exe` của MT5 này, và mỗi MT5 cài ở thư mục riêng |
 | `dùng CHUNG một token` / `CÙNG một terminal` (run-all) | Mỗi file trong `terminals` phải có token riêng và trỏ tới MT5 riêng |
 | Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |

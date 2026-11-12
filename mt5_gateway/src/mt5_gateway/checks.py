@@ -48,6 +48,8 @@ class CheckReport:
     offset_now: int | None = None
     # Khung được phép đồng bộ khi ``run`` (M15 luôn có; H1/H4/D1 chỉ khi bước kiểm tra đạt)
     timeframes_ok: list[str] = field(default_factory=lambda: ["M15"])
+    # GW-08: gửi giá sống khi ``run`` (tắt nếu tự kiểm mốc thời gian tick không đạt)
+    quotes_ok: bool = False
 
     def add(self, name: str, status: str, detail: str, fix: str = "") -> None:
         self.steps.append(Step(name, status, detail, fix))
@@ -305,7 +307,38 @@ def run_checks(
     extra = [t for t in cfg.timeframes if t != "M15"]
     if extra:
         check_higher_timeframes(cfg, reader, client, rep, extra, progress)
+    check_quotes(reader, rep, tz, now)
     return rep
+
+
+def check_quotes(reader: Mt5Reader, rep: CheckReport, tz: Any, now: Callable[[], datetime]) -> None:
+    """GW-08: thử gom giá sống 60 giây gần nhất. Không đạt chỉ CẢNH BÁO (nến vẫn chạy)."""
+    from mt5_gateway.quotes import QuoteCollector, TickRequestMismatch
+
+    point = getattr(rep.symbol_info, "point", None)
+    if not isinstance(point, (int, float)) or not point > 0:
+        rep.add("Giá sống (bid/ask)", WARN, "Không đọc được point của symbol: không gửi giá sống")
+        return
+    try:
+        got = QuoteCollector(reader, tz, float(point), now=now).collect()
+    except TickRequestMismatch as e:
+        rep.add("Giá sống (bid/ask)", WARN, str(e),
+                "Gửi lại toàn bộ kết quả check để được hỗ trợ. Nến vẫn chạy bình thường")
+        return
+    except Mt5Error as e:
+        rep.add("Giá sống (bid/ask)", WARN, f"{e}: không gửi giá sống",
+                "Mở chart XAUUSD trong MT5 rồi chạy lại check. Nến vẫn chạy bình thường")
+        return
+    rep.quotes_ok = True
+    if got.seconds:
+        last = got.seconds[-1]
+        rep.add("Giá sống (bid/ask)", PASS,
+                f"{len(got.seconds)} giây có giá trong 60 giây qua; gần nhất bid {last['bid']} / "
+                f"ask {last['ask']}" + (f"; bỏ {got.dropped}" if got.dropped else ""))
+    else:
+        rep.add("Giá sống (bid/ask)", WARN,
+                "Không có tick nào trong 60 giây qua (thị trường đóng cửa hoặc đang yên)",
+                "Giá sống sẽ tự gửi khi có tick")
 
 
 def check_higher_timeframes(

@@ -25,6 +25,7 @@ READ_ONLY_FUNCTIONS = frozenset(
         "symbol_select",
         "symbol_info_tick",
         "copy_rates_from_pos",
+        "copy_ticks_from",
         "symbols_get",
     }
 )
@@ -82,7 +83,7 @@ class _ReadOnly:
         self._mt5 = mt5
 
     def __getattr__(self, name: str) -> Any:
-        if name in READ_ONLY_FUNCTIONS or name.startswith("TIMEFRAME_"):
+        if name in READ_ONLY_FUNCTIONS or name.startswith(("TIMEFRAME_", "COPY_TICKS_")):
             return getattr(self._mt5, name)
         raise AttributeError(f"Gateway chỉ đọc: không được dùng mt5.{name}")
 
@@ -252,6 +253,28 @@ class Mt5Reader:
             raise self._err(f"Đọc nến {timeframe} (copy_rates_from_pos)")
         out = [b for b in (self._to_bar(r) for r in rates) if b is not None]
         return sorted(out, key=lambda b: b.open_time_utc)
+
+    def ticks_from(self, from_server_epoch: int, count: int) -> list[Any]:
+        """GW-08: tick bid/ask từ mốc ``from_server_epoch`` (giờ server viết như UTC, cùng hệ với
+        ``time`` MT5 trả về). Phần tử có ``time_msc``, ``bid``, ``ask``."""
+        rows = self.mt5.copy_ticks_from(self.symbol, int(from_server_epoch), count,
+                                        self.mt5.COPY_TICKS_INFO)
+        if rows is None:
+            raise self._err("Đọc tick (copy_ticks_from)")
+        return list(rows)
+
+    def last_tick_msc(self) -> int | None:
+        """Thời điểm tick mới nhất (ms, giờ server viết như UTC); None nếu không đọc được."""
+        try:
+            tick = self.mt5.symbol_info_tick(self.symbol)
+        except Exception:
+            return None
+        msc = getattr(tick, "time_msc", None) if tick is not None else None
+        try:
+            v = int(msc)  # thư viện thật có thể trả kiểu số của numpy
+        except (TypeError, ValueError):
+            return None
+        return v if v > 0 and not isinstance(msc, bool) else None
 
     def terminal_connected(self) -> bool:
         """Terminal đang nối với server broker không (lỗi đọc → False, an toàn)."""
