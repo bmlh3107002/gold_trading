@@ -105,6 +105,7 @@
 - [ ] ING-19 (revision), ING-20 (mức quan trọng có phiên bản)
 - [ ] 1C-C01..C08 (chưa công bố vs 0, hoãn/hủy, đổi giờ, DST Mỹ, nguồn chết lúc công bố → kéo dài cửa sổ chặn, trùng nguồn, không forecast, sửa số lớn)
 - [ ] Bật chạy sớm trên máy người dùng để kịp bắt một lần CPI/NFP thật
+- Việc để sau (không thuộc Gate GĐ1, người dùng đồng ý 2026-11-12): **nhập tay forecast** trước các kỳ công bố lớn. ForexFactory / Investing / FXStreet / Kitco không đưa vào GĐ1 (lý do ở ING-18 file GĐ1)
 
 ### Bước 9 — Vĩ mô + dòng tiền (1E + 1F) ← hướng dẫn đăng ký khóa **FRED**
 - [ ] Người dùng đăng ký khóa FRED, dán vào `.env`
