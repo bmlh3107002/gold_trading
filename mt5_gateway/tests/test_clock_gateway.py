@@ -140,3 +140,14 @@ def test_backend_client_reads_date_header():
     d = BackendClient(f"http://127.0.0.1:{srv.server_port}", "x").server_date()
     srv.server_close()
     assert d is not None and abs((d - datetime.now(UTC)).total_seconds()) < 5
+
+
+def test_heartbeat_reports_terminal_offline_when_mt5_loses_broker():
+    """1A-C10: MT5 vẫn mở nhưng mất mạng tới broker → không lỗi nào, nhưng phải báo mất kết nối."""
+    fake, be, s, _ = world(timedelta(0))
+    assert s.heartbeat_payload()["terminal_connected"] is True
+    fake.connected = False
+    assert s.heartbeat_payload()["terminal_connected"] is False
+    fake.connected = True
+    s.terminal_ok = False  # lỗi đọc MT5
+    assert s.heartbeat_payload()["terminal_connected"] is False

@@ -65,3 +65,25 @@ def test_bad_clock_logged_once_per_change(caplog):
     for _ in range(3):
         m.record(hb, NOW)
     assert sum("Đồng hồ lệch" in r.message for r in caplog.records) == 1
+
+
+# ---------- 1A-C10: lý do mất kết nối ----------
+
+
+@pytest.mark.parametrize("over, age, state, reason", [
+    ({}, 0, "CONNECTED", None),
+    ({}, 31, "DISCONNECTED", "NO_HEARTBEAT"),
+    ({}, 30, "CONNECTED", None),  # đúng 30 giây: chưa quá hạn
+    ({"terminal_connected": False}, 0, "DISCONNECTED", "TERMINAL_OFFLINE"),
+    ({"identity": None, "account": None, "gateway_version": "0.9.0"}, 0, "DISCONNECTED",
+     "NOT_LOGGED_IN"),
+    ({"identity": None, "account": None, "gateway_version": "0.2.0"}, 0, "CONNECTED", None),
+    ({"identity": None, "account": None, "gateway_version": "dev"}, 0, "CONNECTED", None),
+])
+def test_disconnect_reasons(over, age, state, reason):
+    m = GatewayMonitor()
+    base = HB | {"identity": {"login": 1, "server": HB["server"], "company": None,
+                              "account_type": HB["account_type"]}, "gateway_version": "0.9.0"}
+    m.record(Heartbeat.model_validate(base | over), NOW)
+    st = m.status(NOW + timedelta(seconds=age))
+    assert (st.state, st.reason) == (state, reason)

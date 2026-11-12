@@ -1143,6 +1143,8 @@ export interface components {
              * @enum {string}
              */
             state: "NEVER" | "CONNECTED" | "DISCONNECTED";
+            /** Reason */
+            reason?: ("NO_HEARTBEAT" | "TERMINAL_OFFLINE" | "NOT_LOGGED_IN") | null;
             /** Last Seen At */
             last_seen_at: string | null;
             /** Age Seconds */

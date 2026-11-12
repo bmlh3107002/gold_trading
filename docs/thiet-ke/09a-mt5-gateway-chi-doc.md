@@ -137,6 +137,7 @@
 
 - Thời gian **dữ liệu** luôn từ MT5 (quy đổi bằng `GT_SERVER_TZ`) và đồng hồ backend (`available_at`, kiểm NTP ở OPS-12) — không từ đồng hồ máy Gateway. Đồng hồ máy Gateway chỉ dùng cho các phép so "bây giờ": TzWatch (1A-C08), chốt giây giá sống, `check` giờ tick.
 - **Gateway hiệu chỉnh** (`clocksync.py`): mẫu lệch từ mỗi nhịp tim (`last_seen_at` của backend so với điểm giữa gửi/nhận, khứ hồi ≤ 2 s, bỏ lệch > 1 ngày), trung vị 5 mẫu; `Syncer.now_utc` = đồng hồ máy + lệch. Chưa có mẫu → dùng đồng hồ máy (đồng hồ sai thì TzWatch chặn — an toàn). `check` đo bằng header `Date` của `/api/health` trước khi so giờ tick.
+- **1A-C10 (6c, Gateway 0.9.1):** nhịp tim `terminal_connected` = không lỗi đọc MT5 **và** `terminal_info().connected` (MT5 mở nhưng mất mạng tới broker). Backend `GatewayStatus.reason`: `NO_HEARTBEAT` (> 30 s), `TERMINAL_OFFLINE`, `NOT_LOGGED_IN` (Gateway ≥ 0.3 gửi nhịp tim không danh tính). Frontend: băng đỏ mọi trang.
 - **Báo cáo:** nhịp tim gửi `gateway_time` (chưa hiệu chỉnh) + `mt5_clock_residual_s` (giờ tick vừa tới − giờ hiện tại đã hiệu chỉnh − độ lệch giờ chẵn). Backend tính `gateway_clock_skew_s`, trạng thái OK / WARN (> 2 s) / BAD (> 30 s); server MT5 BAD khi > 30 s. Trang Tài khoản hiển thị.
 
 ## 6. Lệnh cho người dùng

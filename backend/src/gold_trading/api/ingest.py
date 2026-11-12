@@ -204,6 +204,13 @@ class Heartbeat(BaseModel):
     mt5_clock_residual_s: float | None = Field(default=None, ge=-3600, le=3600,
                                                allow_inf_nan=False)
 
+    def gateway_version_tuple(self) -> tuple[int, ...]:
+        """"0.9.0" → (0, 9, 0); không đọc được → () (coi như cũ nhất)."""
+        try:
+            return tuple(int(x) for x in self.gateway_version.split(".")[:3])
+        except ValueError:
+            return ()
+
     @model_validator(mode="after")
     def _identity_consistent(self) -> Heartbeat:
         """Trường cũ (server/account_type) và ``identity`` phải cùng một lần đọc. Lệch → dữ liệu
@@ -276,8 +283,14 @@ class QuoteReport(BaseModel):
     calendar_mismatch: bool
 
 
+DisconnectReason = Literal["NO_HEARTBEAT", "TERMINAL_OFFLINE", "NOT_LOGGED_IN"]
+
+
 class GatewayStatus(BaseModel):
     state: Literal["NEVER", "CONNECTED", "DISCONNECTED"]
+    # 1A-C10: vì sao DISCONNECTED — Gateway không gửi nhịp tim > 30 s / MT5 mất kết nối tới
+    # broker hoặc lỗi đọc / MT5 chưa đăng nhập tài khoản (Gateway ≥ 0.3 gửi danh tính).
+    reason: DisconnectReason | None = None
     last_seen_at: datetime | None
     age_seconds: float | None
     heartbeat: Heartbeat | None
@@ -327,17 +340,21 @@ class GatewayMonitor:
                     state="NEVER", last_seen_at=None, age_seconds=None, heartbeat=None
                 )
             age = now - self.last_seen_at
-            state = (
-                "CONNECTED"
-                if age <= HEARTBEAT_TIMEOUT and self.last and self.last.terminal_connected
-                else "DISCONNECTED"
-            )
             hb = self.last
+            reason: DisconnectReason | None = None
+            if age > HEARTBEAT_TIMEOUT or hb is None:
+                reason = "NO_HEARTBEAT"
+            elif not hb.terminal_connected:
+                reason = "TERMINAL_OFFLINE"
+            elif hb.identity is None and hb.gateway_version_tuple() >= (0, 3):
+                reason = "NOT_LOGGED_IN"  # Gateway cũ < 0.3 không gửi danh tính: không kết luận
+            state = "CONNECTED" if reason is None else "DISCONNECTED"
             skew = (round((hb.gateway_time - self.last_seen_at).total_seconds(), 1)
                     if hb is not None and hb.gateway_time is not None else None)
             mt5 = hb.mt5_clock_residual_s if hb is not None else None
             return GatewayStatus(
                 state=state,
+                reason=reason,
                 last_seen_at=self.last_seen_at,
                 age_seconds=round(age.total_seconds(), 1),
                 heartbeat=hb,

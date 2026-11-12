@@ -232,7 +232,9 @@ class Syncer:
             "gateway_id": self.cfg.gateway_id,
             "gateway_version": __version__,
             "read_only": True,
-            "terminal_connected": self.terminal_ok,
+            # 1A-C10: lỗi đọc MT5 HOẶC terminal mất kết nối tới server broker (MT5 vẫn mở nhưng
+            # không có mạng → giá đứng yên mà không có lỗi nào)
+            "terminal_connected": self.terminal_ok and self.reader.terminal_connected(),
             # Ba trường cũ giữ cho backend bản trước; cùng nguồn với ``identity``.
             "account_type": ident["account_type"] if ident else "UNKNOWN",
             "server": ident["server"] if ident else None,

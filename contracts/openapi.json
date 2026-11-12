@@ -3056,6 +3056,22 @@
             ],
             "title": "State"
           },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "NO_HEARTBEAT",
+                  "TERMINAL_OFFLINE",
+                  "NOT_LOGGED_IN"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
           "last_seen_at": {
             "anyOf": [
               {

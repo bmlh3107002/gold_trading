@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Header } from "./components/layout/Header";
 import { OpsBanner } from "./components/layout/OpsBanner";
+import { GatewayBanner } from "./components/layout/GatewayBanner";
 import { Sidebar } from "./components/layout/Sidebar";
 import { useGatewayStatus, useMarketSummary } from "./hooks/useMarket";
 import { useRoute } from "./hooks/useRoute";
@@ -91,6 +92,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
           onSelectAccount={accounts.select}
         />
         <OpsBanner health={ops.data} />
+        {!me.is_admin && system.data?.data_source === "MT5" && <GatewayBanner status={gateway.data} />}
         <main>
           {route === "market" ? (
             <MarketPage theme={theme} summary={market} accountId={accounts.loading ? null : accountId} />

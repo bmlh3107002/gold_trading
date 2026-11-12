@@ -386,6 +386,16 @@ const vi = {
         "Giờ broker khác bảng ngày lễ: cần nhập giờ đặc biệt của broker (GT_BROKER_SPECIAL_HOURS)",
     },
   },
+  gatewayBanner: {
+    title: "Mất kết nối MT5: giá và nến KHÔNG cập nhật",
+    reason: {
+      NO_HEARTBEAT: "MT5 Gateway không gửi tín hiệu quá 30 giây (cửa sổ Gateway bị tắt, máy Windows ngủ hoặc mất mạng).",
+      TERMINAL_OFFLINE: "MT5 mất kết nối tới máy chủ broker, hoặc Gateway không đọc được MT5.",
+      NOT_LOGGED_IN: "MT5 chưa đăng nhập tài khoản giao dịch.",
+    },
+    lastSeen: "Tín hiệu cuối lúc {{time}}.",
+    impact: "Không dùng giá trên màn hình để ra quyết định cho tới khi kết nối lại.",
+  },
   quote: {
     title: "Giá sống",
     desc: "Giá mua/bán của broker, gom theo từng giây đã trọn (trễ vài giây so với MT5).",

@@ -178,6 +178,29 @@ describe("App", () => {
     expect(screen.getByText(/Lần sao lưu gần nhất THẤT BẠI/)).toBeInTheDocument();
   });
 
+  it("1A-C10: nguồn MT5 + Gateway mất kết nối → băng đỏ kèm lý do; kết nối lại → hết", async () => {
+    let state = { state: "DISCONNECTED", reason: "TERMINAL_OFFLINE", last_seen_at: "2026-11-12T03:00:00Z", age_seconds: 40, heartbeat: null };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/auth/me") return json(makeMe());
+      if (url === "/api/status") return json(makeSystem({ data_source: "MT5", data_is_sample: false }));
+      if (url === "/api/accounts") return json([makeAccount()]);
+      if (url === `${ACC}/mode/live-requests`) return json([]);
+      if (url === "/api/system/health") return json(OK_HEALTH);
+      if (url === `${ACC}/gateway/status`) return json(state);
+      if (url.startsWith(`${ACC}/market/summary`)) return json(makeSummary({ is_sample: false }));
+      return json(makeStatus());
+    }));
+    const { unmount } = render(<App />);
+    expect(await screen.findByText("Mất kết nối MT5: giá và nến KHÔNG cập nhật")).toBeInTheDocument();
+    expect(screen.getByText(/MT5 mất kết nối tới máy chủ broker/)).toBeInTheDocument();
+    unmount();
+    state = { ...state, state: "CONNECTED", reason: null as unknown as string };
+    render(<App />);
+    expect(await screen.findByText(/MT5: đã kết nối/)).toBeInTheDocument(); // trạng thái đã tải xong
+    expect(screen.queryByText("Mất kết nối MT5: giá và nến KHÔNG cập nhật")).not.toBeInTheDocument();
+  });
+
   it("có từ 2 tài khoản giao dịch: hiện bộ chọn, đổi tài khoản thì đọc trạng thái tài khoản mới", async () => {
     const fn = mockFetch((url) =>
       url === "/api/accounts/acc_b/status"
