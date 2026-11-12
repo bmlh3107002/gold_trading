@@ -51,16 +51,20 @@ python3 ops/scripts/e2e_auth.py --base http://localhost:8080 --user admin \
 
 echo "== 3. Sao lưu → phá → khôi phục"
 Q() { $DC exec -T db psql -U gold -d gold_trading -Atc "$1"; }
+# Nến mẫu (SAMPLE) tự sinh mỗi 15 phút: chỉ đếm nến nạp TRƯỚC lúc sao lưu, nếu không lần chạy
+# trùng mốc 15 phút sẽ hỏng ngẫu nhiên (CI run 76, 2026-11-12: 5873 → 5874 qua mốc 16:15).
+T0="$(Q 'select now()')"
 $DC exec -T backup /usr/local/bin/gt/backup.sh once 2>&1 | grep -v "pg_dump:" || true
-before="$(Q 'select count(*) from audit_log'):$(Q 'select count(*) from account_members'):$(Q 'select count(*) from candles')"
+CANDLES="select count(*) from candles where ingested_at <= '$T0'"
+before="$(Q 'select count(*) from audit_log'):$(Q 'select count(*) from account_members'):$(Q "$CANDLES")"
 Q "drop table account_members cascade" >/dev/null
 $DC stop backend keycloak
 $DC run --rm -T backup restore app latest 2>&1 | grep -v "pg_restore: \(warning\|detail\|hint\)"
 $DC run --rm -T backup restore keycloak latest
 $DC up -d --no-build
 wait_healthy
-after="$(Q 'select count(*) from audit_log'):$(Q 'select count(*) from account_members'):$(Q 'select count(*) from candles')"
-echo "trước=$before sau=$after"
+after="$(Q 'select count(*) from audit_log'):$(Q 'select count(*) from account_members'):$(Q "$CANDLES")"
+echo "trước=$before sau=$after (nến nạp trước $T0)"
 [ "$before" = "$after" ] || { echo "LỖI: dữ liệu sau khôi phục không khớp" >&2; exit 1; }
 if Q "update audit_log set actor='x'" >/dev/null 2>&1; then echo "LỖI: mất trigger append-only" >&2; exit 1; fi
 # Bỏ khóa brute force do bước 2 để đăng nhập lại kiểm tra DB Keycloak đã khôi phục
