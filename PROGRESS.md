@@ -12,7 +12,8 @@
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–3 xong + đã kiểm trên máy (2026-11-07):** H1/H4/D1 (ING-14), lịch ngày lễ Mỹ + `GT_BROKER_SPECIAL_HOURS` (1B), nến cuối phiên `tail_bar` (1A-C21). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11. Gateway trên máy: `C:\gold-trading\code\gold_trading-develop`.
 - **Bước 4 (đa tài khoản, 5 phần) code xong 2026-11-12.** Phần 1 MT-12 + GW-09 đã kiểm trên máy. Phần 2 MT-13 (liên kết MT5, migration 0008), phần 3 MT-14 (MT5 khác → MISMATCH chặn ghi), phần 4 MT-05 (nguồn giá theo server + symbol broker, migration 0009 + 0010) và phần 5 MT-15 (nhiều MT5 trên một máy: `run-all`, mỗi terminal một tiến trình + token riêng, Gateway 0.6.0) **chưa kiểm trên máy**. **Người dùng vắng máy Windows (từ 10/11), đồng ý làm tiếp rồi kiểm sau**: danh sách kiểm ở file kế hoạch, mục "Kiểm trên máy khi người dùng về". 
-- **Bước 5 (giá sống) code xong cả 4 phần 2026-11-12, chưa kiểm trên máy:** 5a backend lưu bid/ask/spread theo giây (migration 0011), 5b Gateway gom tick + phát hiện broker đổi múi giờ khi đang chạy, 5c thẻ "Giá sống", 5d nến M15 của 6 cặp tiền cho chỉ số USD (Gateway 0.8.0). **Tiếp theo: bước 6** (Gateway bền vững: GW-06 dịch vụ Windows, GW-07 hàng đợi trên đĩa, ING-16 lệch đồng hồ, 1A-C10 STALE).
+- **Bước 5 (giá sống) code xong cả 4 phần 2026-11-12, chưa kiểm trên máy:** 5a backend lưu bid/ask/spread theo giây (migration 0011), 5b Gateway gom tick + phát hiện broker đổi múi giờ khi đang chạy, 5c thẻ "Giá sống", 5d nến M15 của 6 cặp tiền cho chỉ số USD (Gateway 0.8.0). 
+- **Bước 6 (Gateway bền vững) chia 4 phần.** 6a xong code 2026-11-12: tự nạp bù sau gián đoạn dài khi Gateway vẫn chạy (trước đây hụt nến sau ~5 giờ), Gateway 0.8.1. **Tiếp theo: 6b** lệch đồng hồ (ING-16), rồi 6c STALE (1A-C10), 6d tự chạy cùng Windows (GW-06).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
@@ -52,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-12, bước 5d GĐ1): backend 672 passed (2 skipped), mt5_gateway 169 passed, ruff sạch; frontend 82 passed (bước 5c, lần này chỉ đổi `schema.d.ts`).
+Kết quả lần cuối (2026-11-12, bước 6a GĐ1): mt5_gateway 175 passed, ruff sạch; backend 672 passed (bước 5d, lần này không đổi); frontend không đổi.

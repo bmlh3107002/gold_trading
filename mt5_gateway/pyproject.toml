@@ -1,6 +1,6 @@
 [project]
 name = "mt5-gateway"
-version = "0.8.0"
+version = "0.8.1"
 description = "MT5 Gateway bản CHỈ ĐỌC: đưa nến XAUUSD M15 từ MetaTrader 5 vào backend. Không đặt lệnh."
 requires-python = ">=3.11,<3.14"
 dependencies = [

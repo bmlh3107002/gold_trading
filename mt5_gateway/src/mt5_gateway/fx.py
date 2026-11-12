@@ -74,13 +74,18 @@ class FxSync:
             st.next_resend = now + RESEND_S
             log.info("Nạp bù %s (%s): %d nến M15", st.pair, st.broker, len(bars))
             return
-        bars, ident = self.s._read(lambda: st.reader.closed_bars(FX_LIVE_BARS))
+        from mt5_gateway.sync import read_overlapping
+
+        (bars, _joined), ident = self.s._read(lambda: read_overlapping(
+            st.reader.closed_bars, st.last_sent, FX_LIVE_BARS,
+            max(FX_LIVE_BARS, self.s.cfg.history_bars)))
         if not bars:
             return
         is_new = st.last_sent is None or bars[-1].open_time_utc > st.last_sent.open_time_utc
         if not is_new and now < st.next_resend:
             return
-        self._post(st, bars, ident, backfill=False)
+        for i in range(0, len(bars), BATCH):  # sau gián đoạn có thể nhiều nến
+            self._post(st, bars[i:i + BATCH], ident, backfill=False)
         if is_new:
             st.last_sent = bars[-1]
         st.next_resend = now + RESEND_S

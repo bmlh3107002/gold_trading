@@ -40,6 +40,25 @@ MAX_BACKOFF_S = 30.0
 LINK_RETRY_S = 30.0
 
 
+def read_overlapping(read: Callable[[int], list[Bar]], last: Bar | None, base: int,
+                     cap: int) -> tuple[list[Bar], bool]:
+    """GW-07 / 1A-C09: đọc đủ xa để nối liền với nến đã gửi cuối (``last``) — không hụt nến sau
+    gián đoạn (backend tắt, mạng mất...). Đọc ``base`` nến; chưa chạm ``last`` thì đọc gấp 4,
+    tối đa ``cap``. KHÔNG dựa vào đồng hồ máy (đồng hồ chậm sẽ làm đọc thiếu). MT5 chính là
+    "hàng đợi bền vững": nến đã đóng nằm sẵn trong lịch sử terminal.
+
+    Trả (nến, đã_nối_liền). ``False`` = đọc tới ``cap`` vẫn chưa chạm nến đã gửi: CÓ THỂ thiếu."""
+    n = base
+    while True:
+        bars = read(n)
+        if last is None or not bars or bars[0].open_time_utc <= last.open_time_utc:
+            return bars, True
+        if n >= cap or len(bars) < n:
+            # hết lịch sử cấu hình / MT5 không có thêm: không nối được
+            return bars, False
+        n = min(cap, n * 4)
+
+
 class IdentityUnstable(RuntimeError):
     """Không biết chắc nến thuộc MT5 nào (chưa đăng nhập / vừa đổi tài khoản): không gửi."""
 
@@ -82,6 +101,7 @@ class Syncer:
         self._backfill_retry_at = 0.0
         self._last_wait: str | None = None  # thông báo chờ liên kết gần nhất (tránh lặp log)
         self.now_utc = now_utc
+        self._gap_warned: set[tuple[str, Any]] = set()
         # 1A-C08: theo dõi độ lệch giờ server khi đang chạy
         self.tzwatch = TzWatch(reader.tz)
         # GW-08: giá sống (chỉ khi check tự kiểm đạt)
@@ -224,13 +244,59 @@ class Syncer:
             "timeframes": self.timeframes,
         }
 
+    def _read_from_last(self, tf: str, base: int, read: Callable[[int], Any],
+                        split: Callable[[Any], list[Bar]]) -> tuple[Any, dict[str, Any]]:
+        """Đọc (kẹp danh tính) đủ xa để nối liền nến ``tf`` đã gửi cuối; báo rõ nếu vẫn hở."""
+        last = self.last_sent_tf.get(tf)
+        cap = max(base, history_bars_for(self.cfg, tf))
+        box: dict[str, Any] = {}
+
+        def one(n: int) -> list[Bar]:
+            box["out"] = read(n)
+            return split(box["out"])
+
+        (bars, joined), ident = self._read(lambda: read_overlapping(one, last, base, cap))
+        if last is not None and len(bars) > base:
+            log.info("Nạp bù sau gián đoạn: %d nến %s", len(bars), tf)
+        if not joined and last is not None:
+            key = (tf, last.open_time_utc)
+            if key not in self._gap_warned:
+                self._gap_warned.add(key)
+                log.warning(
+                    "Gián đoạn dài hơn lịch sử đọc được (%d nến %s): có thể THIẾU nến %s sau %s "
+                    "UTC. Tăng GT_HISTORY_BARS rồi chạy lại run để nạp đủ.",
+                    cap, tf, tf, f"{last.open_time_utc:%d/%m %H:%M}",
+                )
+        return box["out"], ident
+
+    def _post_chunks(self, tf: str, bars: list[Bar], *, tail: Bar | None,
+                     ident: dict[str, Any]) -> Any:
+        """Gửi theo lô ≤ BATCH (nạp bù sau gián đoạn có thể nhiều nến). Nến vị trí 0 (tail) đi
+        kèm lô cuối. Nến tới muộn gửi realtime (backfill=false) → available_at = lúc nhận."""
+        if len(bars) <= BATCH:
+            return self._post(tf, bars, backfill=False, tail=tail, ident=ident)
+        total: dict[str, Any] = {"accepted": 0, "quarantined": 0, "revised": 0, "duplicates": 0,
+                                 "reasons": {}}
+        parts = chunks(bars, BATCH)
+        for i, part in enumerate(parts):
+            r = self._post(tf, part, backfill=False, ident=ident,
+                           tail=tail if i == len(parts) - 1 else None)
+            for k in ("accepted", "quarantined", "revised", "duplicates"):
+                total[k] += r.get(k, 0)
+            for k, v in (r.get("reasons") or {}).items():
+                total["reasons"][k] = total["reasons"].get(k, 0) + v
+            if "tail" in r:
+                total["tail"] = r["tail"]
+        return total
+
     def push_recent(self) -> dict[str, Any] | None:
         self._connected = None
-        (bars, tail), ident = self._read(lambda: self.reader.bars_with_tail(LIVE_BARS))
+        (bars, tail), ident = self._read_from_last(
+            "M15", LIVE_BARS, self.reader.bars_with_tail, lambda o: o[0])
         tail = self._tail_to_send("M15", tail)
         r = None
         if bars or tail:
-            r = self._post("M15", bars, backfill=False, tail=tail, ident=ident)
+            r = self._post_chunks("M15", bars, tail=tail, ident=ident)
             if r["accepted"] or r["quarantined"]:
                 log.info(
                     "Nến M15 mới: +%d, cách ly %d %s", r["accepted"], r["quarantined"], r["reasons"]
@@ -259,7 +325,8 @@ class Syncer:
         now = self.clock()
         if now < self._retry_after.get(tf, 0.0):
             return
-        (bars, tail), ident = self._read(lambda: self.reader.bars_with_tail(LIVE_BARS_HIGHER, tf))
+        (bars, tail), ident = self._read_from_last(
+            tf, LIVE_BARS_HIGHER, lambda n: self.reader.bars_with_tail(n, tf), lambda o: o[0])
         if not bars:
             return
         prev = self.last_sent_tf.get(tf)
@@ -267,7 +334,7 @@ class Syncer:
         if not is_new and now < self._next_resend.get(tf, 0.0):
             return
         tail = self._tail_to_send(tf, tail)
-        r = self._post(tf, bars, backfill=False, tail=tail, ident=ident)
+        r = self._post_chunks(tf, bars, tail=tail, ident=ident)
         if r["accepted"] or r["quarantined"] or r.get("revised"):
             log.info(
                 "Nến %s: +%d, sửa %d, cách ly %d %s",

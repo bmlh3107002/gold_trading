@@ -188,4 +188,4 @@ Mỗi người dùng vẫn phải **xác nhận liên kết MT5** trên trang T�
 
 - Đây là **lần đầu chạy với MT5 thật**: Gateway đã được test kỹ với MT5 giả lập, nhưng chưa chạy trên MT5 thật. Nếu có lỗi lạ, gửi lại toàn bộ kết quả `check` hoặc log.
 - Chưa chạy nền như một dịch vụ của Windows (phải để cửa sổ PowerShell mở) và chưa đóng gói `.exe`.
-- Gateway tắt quá khoảng 5 giờ thì khi chạy lại, nến bị lỡ trong thời gian đó vẫn được nạp, nhưng chỉ khi chạy `run` lại từ đầu (bước nạp bù lịch sử).
+- Backend hoặc mạng mất lâu trong lúc Gateway vẫn chạy: khi thông lại, Gateway tự đọc lùi lịch sử MT5 và gửi bù đủ nến (Gateway ≥ 0.8.1). Nếu gián đoạn dài hơn `GT_HISTORY_BARS` nến M15 (mặc định 5.000 ≈ 2 tháng), log báo "có thể THIẾU nến": tăng `GT_HISTORY_BARS` rồi chạy lại `run`.

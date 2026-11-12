@@ -127,6 +127,12 @@
 - **Gateway** (`fx.py::FxSync`): mỗi cặp nạp bù `GT_HISTORY_BARS` nến M15 (lười, trong vòng chạy) rồi gửi 20 nến gần nhất khi có nến mới đóng hoặc mỗi 60 s (bắt bản sửa); mọi lô qua `Syncer._read` (đúng terminal + danh tính trước/sau). Lỗi một cặp → chỉ cặp đó thử lại sau 60 s; 409 liên kết → chờ chung; backend 404 → tắt 6 cặp. Sau khi bị chặn (chờ liên kết / giờ server lệch) → nạp bù lại.
 - **Backend** `POST /api/ingest/mt5/fx-candles` (`FxCandleBatch`): `pair` ∈ 6 cặp, `broker_symbol` phải chứa tên cặp (422 nếu nhầm), chỉ `M15`, danh tính MT5 bắt buộc, kiểm `check_candle_identity` như nến vàng. Nguồn = `feed_id_for(server của liên kết, broker_symbol)`; nến lưu trong bảng `candles` với `symbol` = tên chuẩn của cặp → không bao giờ lẫn với vàng hay cặp khác. Không kiểm R1 (giờ FX khác giờ vàng; múi giờ đã kiểm trên nến vàng cùng Gateway); cờ `GAP_BEFORE` dùng lịch vàng (chỉ đánh dấu, không chặn). Chưa có API đọc (ING-24).
 
+### 5g. Nạp bù sau gián đoạn khi Gateway vẫn chạy (GW-07 + 1A-C09, 2026-11-12, Gateway 0.8.1)
+
+- **Lịch sử MT5 là hàng đợi bền vững:** nến đã đóng nằm sẵn trong terminal, nên không cần file hàng đợi riêng trên đĩa. Mỗi lượt gửi realtime (M15, H1/H4/D1, 6 cặp tiền) đọc qua `read_overlapping`: đọc 20 nến (khung lớn 3), chưa chạm nến đã gửi cuối thì đọc gấp 4, tới trần `history_bars_for` (M15/cặp tiền: `GT_HISTORY_BARS`). Không dùng đồng hồ máy để ước lượng số nến (đồng hồ chậm sẽ đọc thiếu).
+- "Đã gửi" chỉ cập nhật khi backend trả thành công → backend tắt / mạng mất bao lâu cũng nối lại đúng chỗ. Lô > 1.000 nến chia nhỏ; `tail_bar` đi kèm lô cuối. Nến tới muộn gửi `backfill=false` → `available_at` = lúc nhận.
+- Đọc tới trần vẫn chưa nối → log cảnh báo một lần "có thể THIẾU nến … sau … UTC" (khoảng thiếu không tự nạp; tăng `GT_HISTORY_BARS` rồi chạy lại `run`). Gateway khởi động lại thì nạp bù toàn bộ như trước.
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.
@@ -147,7 +153,7 @@
 
 ## 8. Giới hạn v1
 
-- Chưa có hàng đợi bền vững trên đĩa (vòng lặp gửi lại 20 nến gần nhất nên không mất dữ liệu khi gián đoạn ngắn; gián đoạn > 5 giờ thì cần chạy lại để nạp bù).
+- Không có file hàng đợi riêng: lịch sử MT5 đóng vai trò đó (mục 5g, 2026-11-12). Khoảng thiếu dài hơn `GT_HISTORY_BARS` chỉ được báo, không tự nạp.
 - Chưa đóng gói `.exe` (PyInstaller phải build trên Windows). v1 chạy bằng `uv`, tự tải Python.
 - Chưa dùng lịch giao dịch riêng của broker.
 - **Chưa chạy trên MT5 thật trong môi trường phát triển.** Lần chạy đầu tiên của người dùng là lần kiểm chứng thật đầu tiên.
