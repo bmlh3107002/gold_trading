@@ -147,6 +147,7 @@ function Mt5Info({ account }: { account: AccountSummary }) {
               </div>
             ))}
           </div>
+          {st && <ClockRows st={st} />}
           {st?.last_seen_at && (
             <p className="header__label" style={{ marginTop: 12 }}>
               {t("accountPage.mt5.readAt", { time: formatDateTime(st.last_seen_at) })}
@@ -155,6 +156,48 @@ function Mt5Info({ account }: { account: AccountSummary }) {
         </>
       )}
     </Card>
+  );
+}
+
+/** ING-16 / 1A-C20: lệch đồng hồ máy Gateway (backend tự đo) và đồng hồ server MT5 (Gateway đo).
+ * Chưa đo được → không hiện (không nói là "khớp"). */
+function ClockRows({ st }: { st: GatewayStatus }) {
+  const { t } = useTranslation();
+  const fmt = (v: number | null | undefined, state: string) => {
+    if (v == null || state === "UNKNOWN") return null;
+    if (state === "OK") return t("accountPage.mt5.clockOk");
+    return t("accountPage.mt5.clockSkew", {
+      dir: v > 0 ? t("accountPage.mt5.clockFast") : t("accountPage.mt5.clockSlow"),
+      seconds: formatNumber(Math.abs(v), 0),
+    });
+  };
+  const gw = fmt(st.gateway_clock_skew_s, st.gateway_clock ?? "UNKNOWN");
+  const mt = fmt(st.mt5_clock_residual_s, st.mt5_clock ?? "UNKNOWN");
+  if (!gw && !mt) return null;
+  const bad = st.gateway_clock === "BAD" || st.mt5_clock === "BAD";
+  const tone = (s: string | undefined) => (s === "BAD" ? "tone-loss" : s === "WARN" ? "tone-gold" : "");
+  return (
+    <>
+      <div className="kv" style={{ marginTop: 12 }}>
+        {gw && (
+          <div>
+            <div className="kv__label">{t("accountPage.mt5.gatewayClock")}</div>
+            <div className={`kv__value ${tone(st.gateway_clock)}`}>{gw}</div>
+          </div>
+        )}
+        {mt && (
+          <div>
+            <div className="kv__label">{t("accountPage.mt5.mt5Clock")}</div>
+            <div className={`kv__value ${tone(st.mt5_clock)}`}>{mt}</div>
+          </div>
+        )}
+      </div>
+      {bad && (
+        <div className="banner banner--warn" role="status" style={{ marginTop: 12 }}>
+          <span className="banner__body">{t("accountPage.mt5.clockBad")}</span>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -88,6 +88,28 @@ describe("Trang Tài khoản (USER, DEC-17)", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("ING-16: đồng hồ lệch → hiện số giây + hướng dẫn; chưa đo được → không hiện", async () => {
+    const hb = {
+      gateway_id: "w", gateway_version: "0.9.0", read_only: true, terminal_connected: true,
+      account_type: "DEMO", server: "S", company: null, server_tz: "Europe/Athens",
+      identity: { login: 1, server: "S", company: null, account_type: "DEMO", terminal_name: null, terminal_path: null },
+      timeframes: [],
+    };
+    const base = { state: "CONNECTED", last_seen_at: "2026-11-07T03:00:00Z", age_seconds: 1, heartbeat: hb };
+    mock(BASE, BASE, 200, { ...base, gateway_clock_skew_s: -45.2, gateway_clock: "BAD", mt5_clock_residual_s: 1.2, mt5_clock: "OK" });
+    const { unmount } = render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText("Chậm 45 giây")).toBeInTheDocument();
+    expect(screen.getByText("Khớp")).toBeInTheDocument();
+    expect(screen.getByText(/Set time automatically/)).toBeInTheDocument();
+    unmount();
+    vi.unstubAllGlobals();
+    mock(BASE, BASE, 200, { ...base, gateway_clock: "UNKNOWN", mt5_clock: "UNKNOWN" });
+    render(<AccountPage account={makeAccount()} />);
+    expect(await screen.findByText("S")).toBeInTheDocument();
+    expect(screen.queryByText("Đồng hồ máy chạy Gateway")).not.toBeInTheDocument();
+    expect(screen.queryByText("Khớp")).not.toBeInTheDocument();
+  });
+
   it("tài khoản THẬT: cảnh báo rõ; MT5 chưa đăng nhập: báo không có danh tính", async () => {
     const base = { gateway_id: "w", gateway_version: "0.3.0", read_only: true, terminal_connected: true,
       server_tz: "Europe/Athens", timeframes: [] };

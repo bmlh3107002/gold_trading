@@ -39,6 +39,23 @@ class BackendClient:
         except (urllib.error.URLError, TimeoutError, OSError) as e:
             raise BackendError(None, f"Không kết nối được backend tại {self.base}: {e}") from e
 
+    def server_date(self) -> Any:
+        """ING-16: giờ máy chủ backend theo header ``Date`` (chính xác tới giây). None nếu thiếu."""
+        from email.utils import parsedate_to_datetime
+
+        req = urllib.request.Request(self.base + "/api/health", method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                raw = resp.headers.get("Date")
+        except urllib.error.HTTPError as e:
+            raw = e.headers.get("Date") if e.headers else None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            raise BackendError(None, f"Không kết nối được backend tại {self.base}: {e}") from e
+        try:
+            return parsedate_to_datetime(raw) if raw else None
+        except (TypeError, ValueError):
+            return None
+
     def health(self) -> Any:
         return self._call("GET", "/api/health", auth=False)
 

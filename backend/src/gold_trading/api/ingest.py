@@ -48,6 +48,13 @@ MIN_TOKEN_LEN = 24
 MAX_BARS = 2000
 MAX_QUOTE_SECONDS = 600
 HEARTBEAT_TIMEOUT = timedelta(seconds=30)
+# ING-16 / 1A-C20: lệch đồng hồ máy Gateway so với backend (đồng hồ backend kiểm NTP, OPS-12)
+GATEWAY_CLOCK_WARN_S = 2.0
+GATEWAY_CLOCK_BAD_S = 30.0
+# Lệch đồng hồ server MT5 (phần lẻ ngoài độ lệch giờ chẵn). Tick tới trễ ≤ chu kỳ Gateway (~5 s)
+# nên chỉ cảnh báo từ 30 s.
+MT5_CLOCK_BAD_S = 30.0
+ClockState = Literal["OK", "WARN", "BAD", "UNKNOWN"]
 
 
 class BarIn(BaseModel):
@@ -190,6 +197,12 @@ class Heartbeat(BaseModel):
     symbol: SymbolSpec | None = None
     last_sent_bar: UtcDatetime | None = None
     timeframes: list[Literal["M15", "H1", "H4", "D1"]] = Field(default_factory=list, max_length=4)
+    # ING-16 (Gateway ≥ 0.9): giờ đồng hồ máy Gateway lúc gửi (CHƯA hiệu chỉnh) → backend tự đo
+    # lệch; lệch của đồng hồ server MT5 (giây, phần lẻ ngoài độ lệch giờ chẵn) do Gateway đo trên
+    # tick vừa tới. None = Gateway cũ / chưa đo được.
+    gateway_time: UtcDatetime | None = None
+    mt5_clock_residual_s: float | None = Field(default=None, ge=-3600, le=3600,
+                                               allow_inf_nan=False)
 
     @model_validator(mode="after")
     def _identity_consistent(self) -> Heartbeat:
@@ -268,6 +281,22 @@ class GatewayStatus(BaseModel):
     last_seen_at: datetime | None
     age_seconds: float | None
     heartbeat: Heartbeat | None
+    # ING-16 / 1A-C20: dương = đồng hồ máy Gateway NHANH hơn backend. Backend luôn dùng đồng hồ
+    # của mình cho dữ liệu; đây chỉ để cảnh báo.
+    gateway_clock_skew_s: float | None = None
+    gateway_clock: ClockState = "UNKNOWN"
+    mt5_clock_residual_s: float | None = None
+    mt5_clock: ClockState = "UNKNOWN"
+
+
+def clock_state(skew: float | None, warn: float | None, bad: float) -> ClockState:
+    if skew is None:
+        return "UNKNOWN"
+    if abs(skew) > bad:
+        return "BAD"
+    if warn is not None and abs(skew) > warn:
+        return "WARN"
+    return "OK"
 
 
 @dataclass
@@ -277,10 +306,19 @@ class GatewayMonitor:
 
     def __post_init__(self) -> None:
         self._lock = threading.Lock()
+        self._clock_states: tuple[ClockState, ClockState] = ("UNKNOWN", "UNKNOWN")
 
     def record(self, hb: Heartbeat, at: datetime) -> None:
         with self._lock:
             self.last, self.last_seen_at = hb, at
+        st = self.status(at)
+        now_states = (st.gateway_clock, st.mt5_clock)
+        if now_states != self._clock_states:
+            self._clock_states = now_states
+            if "BAD" in now_states:
+                log.warning("Đồng hồ lệch: máy Gateway %s s (%s), server MT5 %s s (%s)",
+                            st.gateway_clock_skew_s, st.gateway_clock, st.mt5_clock_residual_s,
+                            st.mt5_clock)
 
     def status(self, now: datetime) -> GatewayStatus:
         with self._lock:
@@ -294,11 +332,19 @@ class GatewayMonitor:
                 if age <= HEARTBEAT_TIMEOUT and self.last and self.last.terminal_connected
                 else "DISCONNECTED"
             )
+            hb = self.last
+            skew = (round((hb.gateway_time - self.last_seen_at).total_seconds(), 1)
+                    if hb is not None and hb.gateway_time is not None else None)
+            mt5 = hb.mt5_clock_residual_s if hb is not None else None
             return GatewayStatus(
                 state=state,
                 last_seen_at=self.last_seen_at,
                 age_seconds=round(age.total_seconds(), 1),
-                heartbeat=self.last,
+                heartbeat=hb,
+                gateway_clock_skew_s=skew,
+                gateway_clock=clock_state(skew, GATEWAY_CLOCK_WARN_S, GATEWAY_CLOCK_BAD_S),
+                mt5_clock_residual_s=None if mt5 is None else round(mt5, 1),
+                mt5_clock=clock_state(mt5, None, MT5_CLOCK_BAD_S),
             )
 
 

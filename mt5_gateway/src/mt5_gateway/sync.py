@@ -100,8 +100,14 @@ class Syncer:
         self.backfilled = False
         self._backfill_retry_at = 0.0
         self._last_wait: str | None = None  # thông báo chờ liên kết gần nhất (tránh lặp log)
-        self.now_utc = now_utc
+        # ING-16: đồng hồ máy + hiệu chỉnh theo backend (đo qua nhịp tim)
+        from mt5_gateway.clocksync import ClockSync
+
+        self._raw_now = now_utc
+        self.clock_sync = ClockSync()
+        self.now_utc = lambda: self._raw_now() + self.clock_sync.offset
         self._gap_warned: set[tuple[str, Any]] = set()
+        self._clock_warned = False
         # 1A-C08: theo dõi độ lệch giờ server khi đang chạy
         self.tzwatch = TzWatch(reader.tz)
         # GW-08: giá sống (chỉ khi check tự kiểm đạt)
@@ -111,7 +117,7 @@ class Syncer:
 
         self.fx = FxSync(self, list(report.fx_pairs_ok))
         self.quotes: QuoteCollector | None = (
-            QuoteCollector(reader, reader.tz, float(point), now=now_utc)
+            QuoteCollector(reader, reader.tz, float(point), now=lambda: self.now_utc())
             if report.quotes_ok and isinstance(point, (int, float)) and point > 0 else None
         )
 
@@ -242,6 +248,9 @@ class Syncer:
             "symbol": snapshot.symbol(self.reader, self.cfg.broker_symbol),
             "last_sent_bar": self.last_sent.open_time_utc.isoformat() if self.last_sent else None,
             "timeframes": self.timeframes,
+            # ING-16: giờ máy CHƯA hiệu chỉnh (backend tự đo lệch); lệch đồng hồ server MT5
+            "gateway_time": self._raw_now().isoformat(),
+            "mt5_clock_residual_s": self.tzwatch.last_residual_s,
         }
 
     def _read_from_last(self, tf: str, base: int, read: Callable[[int], Any],
@@ -421,9 +430,26 @@ class Syncer:
 
     def _heartbeat(self) -> None:
         try:
-            self.client.heartbeat(self.heartbeat_payload())
+            sent = self._raw_now()
+            r = self.client.heartbeat(self.heartbeat_payload())
+            received = self._raw_now()
         except BackendError as e:
             log.warning("Gửi nhịp tim lỗi: %s", e)
+            return
+        seen = r.get("last_seen_at") if isinstance(r, dict) else None
+        if isinstance(seen, str):
+            try:
+                bt = datetime.fromisoformat(seen.replace("Z", "+00:00"))
+            except ValueError:
+                return
+            if bt.tzinfo is not None and self.clock_sync.sample(sent, received, bt):
+                off = self.clock_sync.offset.total_seconds()
+                if abs(off) > 30 and not self._clock_warned:
+                    self._clock_warned = True
+                    log.warning(
+                        "Đồng hồ máy này lệch %+.0f giây so với máy chủ: Gateway tự hiệu chỉnh "
+                        "khi so giờ, nhưng nên bật đồng bộ giờ của Windows (Settings → Time → "
+                        "Set time automatically).", -off)
 
     def _wait_note(self, msg: str) -> None:
         if msg != self._last_wait:

@@ -72,6 +72,12 @@ def run_checks(
 ) -> CheckReport:
     """``progress``: in tiến độ cho người dùng thấy (bước đọc MT5 có thể mất vài chục giây)."""
     rep = CheckReport()
+    # ING-16: đồng hồ máy so với backend (header Date). Hiệu chỉnh trước khi so giờ tick, để đồng
+    # hồ máy Windows sai không bị báo nhầm thành "sai múi giờ server".
+    clock_off = _backend_clock_offset(client, now)
+    if clock_off is not None:
+        raw_now = now
+        now = lambda: raw_now() + clock_off  # noqa: E731
 
     # 1. Cấu hình
     try:
@@ -259,6 +265,17 @@ def run_checks(
         )
         return rep
 
+    if clock_off is not None:
+        sec = clock_off.total_seconds()
+        if abs(sec) <= CLOCK_OK_S:
+            rep.add("Đồng hồ máy", PASS, "Khớp giờ máy chủ")
+        else:
+            rep.add("Đồng hồ máy", WARN,
+                    f"Đồng hồ máy này {'chậm' if sec > 0 else 'nhanh'} {abs(sec):.0f} giây so với "
+                    "máy chủ (Gateway đã tự hiệu chỉnh khi so giờ)",
+                    "Settings → Time & language → Date & time → bật Set time automatically, "
+                    "bấm Sync now")
+
     # 6. Chạy thử gửi dữ liệu (không lưu): xác thực token + R1 trên lịch sử
     try:
         progress("Đang chạy thử gửi lịch sử M15 lên backend (không lưu)...")
@@ -374,6 +391,27 @@ def check_quotes(reader: Mt5Reader, rep: CheckReport, tz: Any, now: Callable[[],
         rep.add("Giá sống (bid/ask)", WARN,
                 "Không có tick nào trong 60 giây qua (thị trường đóng cửa hoặc đang yên)",
                 "Giá sống sẽ tự gửi khi có tick")
+
+
+CLOCK_OK_S = 3.0  # header Date chỉ chính xác tới giây + thời gian khứ hồi
+
+
+def _backend_clock_offset(client: Any, now: Callable[[], datetime]) -> Any:
+    """Giờ backend − giờ máy (timedelta), None nếu không đo được."""
+    from datetime import timedelta
+
+    fn = getattr(client, "server_date", None)
+    if fn is None:
+        return None
+    try:
+        t0 = now()
+        bt = fn()
+        t1 = now()
+    except BackendError:
+        return None
+    if bt is None or bt.tzinfo is None or (t1 - t0).total_seconds() > 2:
+        return None
+    return bt + timedelta(seconds=0.5) - (t0 + (t1 - t0) / 2)  # Date làm tròn xuống giây
 
 
 def check_higher_timeframes(

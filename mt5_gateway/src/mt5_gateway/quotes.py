@@ -167,6 +167,8 @@ class TzWatch:
     min_span_s: float = 60.0
     blocked: bool = False
     last_offset: int | None = None
+    # ING-16: lệch đồng hồ server MT5 (giây) ngoài độ lệch giờ chẵn, đo trên tick vừa tới
+    last_residual_s: float | None = None
     _bad: list[float] = field(default_factory=list)
     _good: int = 0
     _prev: float | None = None
@@ -188,6 +190,7 @@ class TzWatch:
         if off is None:
             return
         self.last_offset = off
+        self.last_residual_s = round(tick_server_epoch - now_utc.timestamp() - off * 3600, 1)
         expected = tz_offset_hours(self.tz, now_utc)
         if off == expected:
             self._good += 1

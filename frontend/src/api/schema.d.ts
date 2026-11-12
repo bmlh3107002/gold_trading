@@ -1148,6 +1148,22 @@ export interface components {
             /** Age Seconds */
             age_seconds: number | null;
             heartbeat: components["schemas"]["Heartbeat"] | null;
+            /** Gateway Clock Skew S */
+            gateway_clock_skew_s?: number | null;
+            /**
+             * Gateway Clock
+             * @default UNKNOWN
+             * @enum {string}
+             */
+            gateway_clock: "OK" | "WARN" | "BAD" | "UNKNOWN";
+            /** Mt5 Clock Residual S */
+            mt5_clock_residual_s?: number | null;
+            /**
+             * Mt5 Clock
+             * @default UNKNOWN
+             * @enum {string}
+             */
+            mt5_clock: "OK" | "WARN" | "BAD" | "UNKNOWN";
         };
         /** GatewayTokenInfo */
         GatewayTokenInfo: {
@@ -1220,6 +1236,10 @@ export interface components {
             last_sent_bar?: string | null;
             /** Timeframes */
             timeframes?: ("M15" | "H1" | "H4" | "D1")[];
+            /** Gateway Time */
+            gateway_time?: string | null;
+            /** Mt5 Clock Residual S */
+            mt5_clock_residual_s?: number | null;
         };
         /** IngestReport */
         IngestReport: {

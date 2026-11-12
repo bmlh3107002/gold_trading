@@ -102,6 +102,14 @@ const vi = {
       stopsFreeze: "Khoảng cách SL/TP tối thiểu / vùng đóng băng (point)",
       swap: "Swap mua / bán",
       readAt: "Đọc lúc {{time}}",
+      gatewayClock: "Đồng hồ máy chạy Gateway",
+      mt5Clock: "Đồng hồ server MT5",
+      clockOk: "Khớp",
+      clockSkew: "{{dir}} {{seconds}} giây",
+      clockFast: "Nhanh",
+      clockSlow: "Chậm",
+      clockBad:
+        "Đồng hồ lệch nhiều. Hệ thống luôn dùng giờ máy chủ cho dữ liệu, nhưng nên sửa: trên máy Windows vào Settings → Time & language → Date & time → bật Set time automatically, bấm Sync now. Nếu là đồng hồ server MT5 lệch, hãy báo broker.",
       realWarning: "Đây là TÀI KHOẢN THẬT. Gateway chỉ đọc, không đặt lệnh, nhưng hãy chắc chắn đây đúng là MT5 bạn muốn dùng.",
     },
     link: {

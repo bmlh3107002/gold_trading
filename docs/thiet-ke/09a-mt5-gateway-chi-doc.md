@@ -133,6 +133,12 @@
 - "Đã gửi" chỉ cập nhật khi backend trả thành công → backend tắt / mạng mất bao lâu cũng nối lại đúng chỗ. Lô > 1.000 nến chia nhỏ; `tail_bar` đi kèm lô cuối. Nến tới muộn gửi `backfill=false` → `available_at` = lúc nhận.
 - Đọc tới trần vẫn chưa nối → log cảnh báo một lần "có thể THIẾU nến … sau … UTC" (khoảng thiếu không tự nạp; tăng `GT_HISTORY_BARS` rồi chạy lại `run`). Gateway khởi động lại thì nạp bù toàn bộ như trước.
 
+### 5h. Lệch đồng hồ (ING-16 + 1A-C20, 2026-11-12, Gateway 0.9.0)
+
+- Thời gian **dữ liệu** luôn từ MT5 (quy đổi bằng `GT_SERVER_TZ`) và đồng hồ backend (`available_at`, kiểm NTP ở OPS-12) — không từ đồng hồ máy Gateway. Đồng hồ máy Gateway chỉ dùng cho các phép so "bây giờ": TzWatch (1A-C08), chốt giây giá sống, `check` giờ tick.
+- **Gateway hiệu chỉnh** (`clocksync.py`): mẫu lệch từ mỗi nhịp tim (`last_seen_at` của backend so với điểm giữa gửi/nhận, khứ hồi ≤ 2 s, bỏ lệch > 1 ngày), trung vị 5 mẫu; `Syncer.now_utc` = đồng hồ máy + lệch. Chưa có mẫu → dùng đồng hồ máy (đồng hồ sai thì TzWatch chặn — an toàn). `check` đo bằng header `Date` của `/api/health` trước khi so giờ tick.
+- **Báo cáo:** nhịp tim gửi `gateway_time` (chưa hiệu chỉnh) + `mt5_clock_residual_s` (giờ tick vừa tới − giờ hiện tại đã hiệu chỉnh − độ lệch giờ chẵn). Backend tính `gateway_clock_skew_s`, trạng thái OK / WARN (> 2 s) / BAD (> 30 s); server MT5 BAD khi > 30 s. Trang Tài khoản hiển thị.
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.

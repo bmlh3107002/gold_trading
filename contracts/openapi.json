@@ -3088,6 +3088,50 @@
                 "type": "null"
               }
             ]
+          },
+          "gateway_clock_skew_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Clock Skew S"
+          },
+          "gateway_clock": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "WARN",
+              "BAD",
+              "UNKNOWN"
+            ],
+            "title": "Gateway Clock",
+            "default": "UNKNOWN"
+          },
+          "mt5_clock_residual_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mt5 Clock Residual S"
+          },
+          "mt5_clock": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "WARN",
+              "BAD",
+              "UNKNOWN"
+            ],
+            "title": "Mt5 Clock",
+            "default": "UNKNOWN"
           }
         },
         "type": "object",
@@ -3314,6 +3358,31 @@
             "type": "array",
             "maxItems": 4,
             "title": "Timeframes"
+          },
+          "gateway_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateway Time"
+          },
+          "mt5_clock_residual_s": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 3600.0,
+                "minimum": -3600.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mt5 Clock Residual S"
           }
         },
         "type": "object",
