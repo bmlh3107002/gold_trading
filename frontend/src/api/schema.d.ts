@@ -208,6 +208,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/mt5/fx-candles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Fx Candles
+         * @description 5d: nến M15 của 6 cặp tiền chỉ số USD. Cùng kiểm token + danh tính MT5 như nến vàng;
+         *     nguồn = (server đã liên kết, symbol broker của cặp). Không kiểm R1 (giờ FX khác giờ
+         *     vàng; múi giờ đã kiểm trên nến vàng của cùng Gateway).
+         */
+        post: operations["ingest_fx_candles_api_ingest_mt5_fx_candles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/mt5/quotes": {
         parameters: {
             query?: never;
@@ -1060,6 +1082,43 @@ export interface components {
          * @enum {string}
          */
         Freshness: "NO_DATA" | "FRESH" | "STALE" | "MARKET_CLOSED";
+        /**
+         * FxCandleBatch
+         * @description 5d (chuẩn bị ING-24): nến M15 ĐÃ ĐÓNG của một cặp tiền trong chỉ số USD.
+         */
+        FxCandleBatch: {
+            /** Account Id */
+            account_id?: string | null;
+            /**
+             * Pair
+             * @enum {string}
+             */
+            pair: "EURUSD" | "USDJPY" | "GBPUSD" | "USDCAD" | "USDSEK" | "USDCHF";
+            /** Broker Symbol */
+            broker_symbol: string;
+            /**
+             * Timeframe
+             * @constant
+             */
+            timeframe: "M15";
+            /** Server Tz */
+            server_tz?: string | null;
+            /** Backfill */
+            backfill: boolean;
+            /** Gateway Id */
+            gateway_id: string;
+            /** Bars */
+            bars: components["schemas"]["BarIn"][];
+            /** Mt5 Login */
+            mt5_login: number;
+            /** Mt5 Server */
+            mt5_server: string;
+            /**
+             * Mt5 Account Type
+             * @enum {string}
+             */
+            mt5_account_type: "DEMO" | "CONTEST" | "REAL" | "UNKNOWN";
+        };
         /**
          * GatewayCredential
          * @description Token gốc: CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN) của Gateway USER.
@@ -2175,6 +2234,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CandleBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IngestReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_fx_candles_api_ingest_mt5_fx_candles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FxCandleBatch"];
             };
         };
         responses: {

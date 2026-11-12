@@ -86,6 +86,10 @@ class Syncer:
         self.tzwatch = TzWatch(reader.tz)
         # GW-08: giá sống (chỉ khi check tự kiểm đạt)
         point = getattr(report.symbol_info, "point", None)
+        # 5d: 6 cặp tiền chỉ số USD (chỉ những cặp check thấy có trong MT5)
+        from mt5_gateway.fx import FxSync
+
+        self.fx = FxSync(self, list(report.fx_pairs_ok))
         self.quotes: QuoteCollector | None = (
             QuoteCollector(reader, reader.tz, float(point), now=now_utc)
             if report.quotes_ok and isinstance(point, (int, float)) and point > 0 else None
@@ -377,6 +381,7 @@ class Syncer:
                 else:
                     self.push_recent()
                     self.push_quotes()
+                    self.fx.push(self.clock)
                 self.terminal_ok = True
                 backoff = 1.0
                 if self._last_wait is not None:
@@ -385,6 +390,7 @@ class Syncer:
             except ServerTzChanged as e:
                 self._wait_note(str(e))
                 self.backfilled = False  # khớp lại thì nạp bù lại (backend khử trùng)
+                self.fx.reset()
                 self._backfill_retry_at = self.clock() + self.cfg.poll_seconds
             except IdentityUnstable as e:
                 self._wait_note(str(e))
@@ -406,6 +412,7 @@ class Syncer:
                     # Khi thông lại: nạp bù lại cả lịch sử (backend khử trùng), không chỉ 20 nến
                     # gần nhất, để không hụt nến của khoảng thời gian bị chặn.
                     self.backfilled = False
+                    self.fx.reset()
                     self._backfill_retry_at = self.clock() + LINK_RETRY_S
                     self.sleep(self.cfg.poll_seconds)
                     continue

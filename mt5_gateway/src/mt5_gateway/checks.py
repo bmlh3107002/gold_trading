@@ -50,6 +50,8 @@ class CheckReport:
     timeframes_ok: list[str] = field(default_factory=lambda: ["M15"])
     # GW-08: gửi giá sống khi ``run`` (tắt nếu tự kiểm mốc thời gian tick không đạt)
     quotes_ok: bool = False
+    # 5d: (cặp chuẩn, symbol MT5) của các cặp chỉ số USD có trong MT5
+    fx_pairs_ok: list[tuple[str, str]] = field(default_factory=list)
 
     def add(self, name: str, status: str, detail: str, fix: str = "") -> None:
         self.steps.append(Step(name, status, detail, fix))
@@ -308,7 +310,40 @@ def run_checks(
     if extra:
         check_higher_timeframes(cfg, reader, client, rep, extra, progress)
     check_quotes(reader, rep, tz, now)
+    check_usd_pairs(cfg, reader, rep, tz)
     return rep
+
+
+def check_usd_pairs(cfg: Config, reader: Mt5Reader, rep: CheckReport, tz: Any) -> None:
+    """5d: 6 cặp tiền chỉ số USD có trong MT5 + có lịch sử M15 không. Thiếu chỉ CẢNH BÁO: vàng
+    vẫn chạy; chỉ số USD (ING-24) sẽ báo không đủ dữ liệu, không đoán."""
+    name = "Cặp tiền chỉ số USD"
+    if not cfg.usd_pairs:
+        rep.add(name, WARN, "Đã tắt (GT_USD_PAIRS=off): sẽ không tính được chỉ số USD")
+        return
+    ok: list[tuple[str, str]] = []
+    bad: list[str] = []
+    for pair, broker in cfg.usd_pairs:
+        r = Mt5Reader(reader.mt5, broker_symbol=broker, server_tz=tz)
+        try:
+            if r.symbol_info() is None:
+                bad.append(f"{pair}: không có {broker}")
+                continue
+            if not r.closed_bars(10):
+                bad.append(f"{pair}: {broker} chưa có lịch sử M15")
+                continue
+        except Mt5Error as e:
+            bad.append(f"{pair}: {e}")
+            continue
+        ok.append((pair, broker))
+    rep.fx_pairs_ok = ok
+    have = ", ".join(b for _, b in ok) or "không cặp nào"
+    if bad:
+        rep.add(name, WARN, f"Có {len(ok)}/6 ({have}). Thiếu: {'; '.join(bad)}",
+                "Mở Market Watch (Ctrl+M) → chuột phải → Show All. Tên khác thì đặt GT_USD_PAIRS, "
+                "ví dụ EURUSD=EURUSD.x. Thiếu cặp → chỉ số USD báo không đủ dữ liệu; vàng vẫn chạy")
+    else:
+        rep.add(name, PASS, f"Đủ 6/6: {have}")
 
 
 def check_quotes(reader: Mt5Reader, rep: CheckReport, tz: Any, now: Callable[[], datetime]) -> None:

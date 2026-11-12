@@ -61,6 +61,9 @@ class FakeMt5:
         self.tick_rows: list[dict] | None = None
         self.tick_requests: list[tuple[int, int]] = []
         self.tick_shift_s = 0  # mô phỏng thư viện hiểu mốc lệch (giây)
+        # 5d: symbol khác trong Market Watch (vd. EURUSD) → hệ số nhân giá so với vàng
+        self.extra_symbols: dict[str, float] = {}
+        self.no_history: set[str] = set()
         # MT-12/GW-09: danh tính + số liệu tài khoản (test đổi được giữa các nhịp tim)
         self.login = 51234567
         self.server = "DemoBroker-Demo"
@@ -120,6 +123,10 @@ class FakeMt5:
         )
 
     def symbol_info(self, name):
+        if name in self.extra_symbols:
+            return SimpleNamespace(visible=True, digits=5, point=0.00001, trade_contract_size=1e5,
+                                   volume_min=0.01, volume_max=100.0, volume_step=0.01,
+                                   currency_profit="USD")
         if name != self.symbol:
             return None
         fields = dict(
@@ -191,6 +198,15 @@ class FakeMt5:
 
     def copy_rates_from_pos(self, name, tf, start, count):
         self.rate_requests.append((tf, count))
+        if name in self.extra_symbols:
+            if name in self.no_history:
+                return []
+            k = self.extra_symbols[name]
+            rows = self._rows(tf)
+            end = len(rows) - start
+            return [dict(r, open=round(r["open"] * k, 5), high=round(r["high"] * k, 5),
+                         low=round(r["low"] * k, 5), close=round(r["close"] * k, 5))
+                    for r in rows[max(0, end - count) : end]]
         if name != self.symbol or tf in self.missing_tfs:
             return None
         if tf != TIMEFRAME_M15 and tf not in _TF_SECONDS:

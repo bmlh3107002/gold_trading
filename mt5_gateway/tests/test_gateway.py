@@ -90,6 +90,11 @@ class FakeBackend:
             out["tail"] = self.tail_answer
         return out
 
+    def post_quotes(self, body):
+        n = len(body["seconds"])
+        return {"received": n, "accepted": n, "duplicates": 0, "conflicts": 0, "dropped": {},
+                "wide_spread": 0, "calendar_closed": 0, "calendar_mismatch": False}
+
     def heartbeat(self, payload):
         self.heartbeats.append(payload)
         return {"state": "CONNECTED"}

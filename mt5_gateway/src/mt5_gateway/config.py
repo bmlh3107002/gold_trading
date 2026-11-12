@@ -15,6 +15,32 @@ DEFAULT_TIMEFRAMES = "M15,H1,H4,D1"
 # Số nến lịch sử tối đa cho khung lớn. Xin quá nhiều (vd 5.000 nến D1 ≈ 20 năm) làm MT5 đứng rất
 # lâu để tải từ server (phát hiện 2026-11-07 trên máy người dùng). Đủ cho bối cảnh khung lớn.
 HIGHER_HISTORY_BARS = {"H1": 2000, "H4": 1000, "D1": 500}
+# 5d (chuẩn bị ING-24, DEC-03): 6 cặp tiền của chỉ số USD tự tính.
+USD_INDEX_PAIRS = ("EURUSD", "USDJPY", "GBPUSD", "USDCAD", "USDSEK", "USDCHF")
+
+
+def parse_usd_pairs(raw: str, gold_broker_symbol: str) -> tuple[tuple[str, str], ...]:
+    """``GT_USD_PAIRS``: trống → 6 cặp, tên broker = tên chuẩn + HẬU TỐ của symbol vàng (vd.
+    XAUUSD.r → EURUSD.r; XAUUSDm → EURUSDm). ``off`` → tắt. ``EURUSD=EURUSD.x,USDJPY=JPY.x`` →
+    đặt riêng từng cặp (cặp không ghi vẫn theo mặc định). Tên broker phải chứa tên cặp (tránh
+    nhầm cặp); sai → báo lỗi, không đoán."""
+    raw = raw.strip()
+    if raw.lower() in ("off", "0", "none", "tat", "tắt"):
+        return ()
+    g = gold_broker_symbol.strip()
+    suffix = g[len("XAUUSD"):] if g.upper().startswith("XAUUSD") else ""
+    out = {p: p + suffix for p in USD_INDEX_PAIRS}
+    for part in (x.strip() for x in raw.split(",") if x.strip()):
+        if "=" not in part:
+            raise ValueError(f"GT_USD_PAIRS: '{part}' phải có dạng CẶP=TÊN_TRONG_MT5")
+        pair, name = (s.strip() for s in part.split("=", 1))
+        pair = pair.upper()
+        if pair not in out:
+            raise ValueError(f"GT_USD_PAIRS: {pair} không thuộc 6 cặp {', '.join(USD_INDEX_PAIRS)}")
+        if not name or pair not in name.upper() or not name.isprintable() or " " in name:
+            raise ValueError(f"GT_USD_PAIRS: tên '{name}' không phải cặp {pair}")
+        out[pair] = name
+    return tuple((p, out[p]) for p in USD_INDEX_PAIRS)
 
 
 def history_bars_for(cfg: Config, tf: str) -> int:
@@ -37,6 +63,8 @@ class Config:
     heartbeat_seconds: float
     gateway_id: str
     timeframes: tuple[str, ...] = ("M15",)
+    # 5d: (cặp chuẩn, symbol trong MT5) của 6 cặp chỉ số USD; () = tắt
+    usd_pairs: tuple[tuple[str, str], ...] = ()
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -95,4 +123,5 @@ def load(
         heartbeat_seconds=float(get("GT_HEARTBEAT_SECONDS", "10")),
         gateway_id=get("GT_GATEWAY_ID", default_gateway_id(name)),
         timeframes=parse_timeframes(get("GT_TIMEFRAMES", DEFAULT_TIMEFRAMES)),
+        usd_pairs=parse_usd_pairs(get("GT_USD_PAIRS"), get("GT_BROKER_SYMBOL", "XAUUSD")),
     )

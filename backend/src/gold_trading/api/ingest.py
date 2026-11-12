@@ -34,12 +34,12 @@ from gold_trading.common.time import UtcDatetime, utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar, TailStatus, tail_status
 from gold_trading.ingestion.sources.csv_file import SESSION_MISMATCH_MAX, check_sessions
-from gold_trading.market.feeds import feed_id_for
+from gold_trading.market.feeds import USD_INDEX_PAIRS, feed_id_for
 from gold_trading.market.quotes import QuoteIn, QuoteIngestor
 from gold_trading.market.service import MarketDataService
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
-from gold_trading.storage.repository import Repository
+from gold_trading.storage.repository import PriceFeed, Repository
 from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
 
 log = logging.getLogger("gold_trading.ingest")
@@ -201,6 +201,26 @@ class Heartbeat(BaseModel):
         if i is None and self.account is not None:
             raise ValueError("có số liệu tài khoản nhưng không có danh tính MT5")
         return self
+
+
+FxPair = Literal["EURUSD", "USDJPY", "GBPUSD", "USDCAD", "USDSEK", "USDCHF"]
+assert set(FxPair.__args__) == set(USD_INDEX_PAIRS)  # type: ignore[attr-defined]
+
+
+class FxCandleBatch(BaseModel):
+    """5d (chuẩn bị ING-24): nến M15 ĐÃ ĐÓNG của một cặp tiền trong chỉ số USD."""
+
+    account_id: str | None = Field(default=None, max_length=64)
+    pair: FxPair  # tên chuẩn
+    broker_symbol: str = Field(min_length=1, max_length=64, pattern=r"^[\x21-\x7e]+$")
+    timeframe: Literal["M15"]
+    server_tz: str | None = Field(default=None, max_length=64)
+    backfill: bool
+    gateway_id: str = Field(min_length=1, max_length=64)
+    bars: list[BarIn] = Field(max_length=MAX_BARS)
+    mt5_login: int = Field(gt=0, le=2**63 - 1)
+    mt5_server: str = Field(min_length=1, max_length=256)
+    mt5_account_type: Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"]
 
 
 class QuoteSecondIn(BaseModel):
@@ -459,6 +479,54 @@ def ingest_router(
             tail=tail,
             link_status=link_status,
             **extra,
+        )
+
+    @r.post("/api/ingest/mt5/fx-candles", response_model=IngestReport)
+    def ingest_fx_candles(
+        batch: FxCandleBatch, authorization: Annotated[str | None, Header()] = None
+    ) -> IngestReport:
+        """5d: nến M15 của 6 cặp tiền chỉ số USD. Cùng kiểm token + danh tính MT5 như nến vàng;
+        nguồn = (server đã liên kết, symbol broker của cặp). Không kiểm R1 (giờ FX khác giờ
+        vàng; múi giờ đã kiểm trên nến vàng của cùng Gateway)."""
+        account_id, _ = authorize(authorization, batch.account_id)
+        if repo.account(account_id) is None:
+            raise HTTPException(403, "Không có tài khoản giao dịch này")
+        if ingest_guard and (reason := ingest_guard()):
+            raise HTTPException(503, reason)
+        if batch.pair not in batch.broker_symbol.upper():
+            # Chặn cấu hình nhầm (vd. gửi GBPUSD dưới tên EURUSD): symbol broker phải chứa tên cặp
+            raise HTTPException(422, f"Symbol broker {batch.broker_symbol!r} không phải cặp "
+                                     f"{batch.pair}")
+        server_tz = None
+        if batch.server_tz is not None:
+            try:
+                server_tz = ZoneInfo(batch.server_tz)
+            except (ZoneInfoNotFoundError, ValueError):
+                raise HTTPException(422, "server_tz không hợp lệ") from None
+        now = utcnow()
+        seen = Observed(batch.mt5_login, batch.mt5_server, batch.mt5_account_type)
+        try:
+            link = check_candle_identity(repo, account_id, seen, now)
+            feed = feed_id_for(link.mt5_server, batch.broker_symbol)
+            repo.ensure_price_feed(PriceFeed(feed, link.mt5_server, batch.broker_symbol, now))
+            res = ingestor.ingest(
+                [_bar(b) for b in batch.bars], symbol=batch.pair, timeframe=Timeframe.M15,
+                source=DataSource.MT5, ingested_at=now, backfill=batch.backfill,
+                server_tz=server_tz, feed=feed,
+            )
+        except CandleLinkError as e:
+            raise HTTPException(409, str(e)) from None
+        except ValueError:
+            raise HTTPException(422, "Symbol broker không hợp lệ") from None
+        except SQLAlchemyError as e:
+            log.error("Không ghi được nến cặp tiền: %s", type(e).__name__)
+            raise HTTPException(
+                503, "Lưu trữ đang lỗi (có thể ổ đĩa đầy): chưa ghi lô nến này"
+            ) from e
+        return IngestReport(
+            dry_run=False, received=len(batch.bars), accepted=res.accepted,
+            duplicates=res.duplicates, revised=res.revised, quarantined=res.quarantined,
+            reasons=res.reasons, link_status="ACTIVE",
         )
 
     @r.post("/api/ingest/mt5/quotes", response_model=QuoteReport)

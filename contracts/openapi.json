@@ -484,6 +484,66 @@
         }
       }
     },
+    "/api/ingest/mt5/fx-candles": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest Fx Candles",
+        "description": "5d: nến M15 của 6 cặp tiền chỉ số USD. Cùng kiểm token + danh tính MT5 như nến vàng;\nnguồn = (server đã liên kết, symbol broker của cặp). Không kiểm R1 (giờ FX khác giờ\nvàng; múi giờ đã kiểm trên nến vàng của cùng Gateway).",
+        "operationId": "ingest_fx_candles_api_ingest_mt5_fx_candles_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FxCandleBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/mt5/quotes": {
       "post": {
         "tags": [
@@ -2848,6 +2908,112 @@
           "MARKET_CLOSED"
         ],
         "title": "Freshness"
+      },
+      "FxCandleBatch": {
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "pair": {
+            "type": "string",
+            "enum": [
+              "EURUSD",
+              "USDJPY",
+              "GBPUSD",
+              "USDCAD",
+              "USDSEK",
+              "USDCHF"
+            ],
+            "title": "Pair"
+          },
+          "broker_symbol": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[\\x21-\\x7e]+$",
+            "title": "Broker Symbol"
+          },
+          "timeframe": {
+            "type": "string",
+            "const": "M15",
+            "title": "Timeframe"
+          },
+          "server_tz": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Tz"
+          },
+          "backfill": {
+            "type": "boolean",
+            "title": "Backfill"
+          },
+          "gateway_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Gateway Id"
+          },
+          "bars": {
+            "items": {
+              "$ref": "#/components/schemas/BarIn"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "title": "Bars"
+          },
+          "mt5_login": {
+            "type": "integer",
+            "maximum": 9.223372036854776e+18,
+            "exclusiveMinimum": 0.0,
+            "title": "Mt5 Login"
+          },
+          "mt5_server": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Mt5 Server"
+          },
+          "mt5_account_type": {
+            "type": "string",
+            "enum": [
+              "DEMO",
+              "CONTEST",
+              "REAL",
+              "UNKNOWN"
+            ],
+            "title": "Mt5 Account Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pair",
+          "broker_symbol",
+          "timeframe",
+          "backfill",
+          "gateway_id",
+          "bars",
+          "mt5_login",
+          "mt5_server",
+          "mt5_account_type"
+        ],
+        "title": "FxCandleBatch",
+        "description": "5d (chuẩn bị ING-24): nến M15 ĐÃ ĐÓNG của một cặp tiền trong chỉ số USD."
       },
       "GatewayCredential": {
         "properties": {

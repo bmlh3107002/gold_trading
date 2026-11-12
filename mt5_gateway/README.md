@@ -99,10 +99,12 @@ Lần đầu sẽ mất 1–2 phút để tải Python và thư viện. Kết qu
 [  ĐẠT   ] 10. Liên kết MT5: Đã liên kết đúng MT5 này
 [  ĐẠT   ] 11. Khung H1/H4/D1: H1 ... nến; H4 ... nến; D1 ... nến
 [  ĐẠT   ] 12. Giá sống (bid/ask): 59 giây có giá trong 60 giây qua; gần nhất bid ... / ask ...
+[  ĐẠT   ] 13. Cặp tiền chỉ số USD: Đủ 6/6: EURUSD, USDJPY, GBPUSD, USDCAD, USDSEK, USDCHF
 KẾT QUẢ: SẴN SÀNG. Chạy: mt5-gateway run
 ```
 
 - Dòng 12 (giá sống, Gateway ≥ 0.7.0) hiện **CẢNH BÁO** khi thị trường đóng cửa/yên (bình thường, giá sống tự gửi khi có tick) hoặc khi MT5 trả tick sai khoảng thời gian (khi đó **không** gửi giá sống, nến vẫn chạy — gửi lại kết quả check để được hỗ trợ).
+- Dòng 13 (Gateway ≥ 0.8.0) hiện **CẢNH BÁO** nếu MT5 thiếu cặp tiền nào: Market Watch (Ctrl+M) → chuột phải → **Show All**, rồi chạy lại `check`. Broker đặt tên khác thì ghi `GT_USD_PAIRS` trong `gateway.env` (xem `gateway.env.example`). Thiếu cặp chỉ làm chỉ số USD (làm ở bước sau) báo "không đủ dữ liệu"; vàng vẫn chạy.
 - Dòng 11 hiện **CẢNH BÁO** nếu MT5 chưa có lịch sử khung đó: mở chart XAUUSD ở khung H1, H4, D1 (mỗi khung một lần) rồi chạy lại `check`. Khung bị cảnh báo sẽ không được gửi; M15 vẫn chạy.
 - Dòng 6 hiện **CẢNH BÁO** khi thị trường đóng cửa (cuối tuần) là bình thường; dòng 9 vẫn kiểm tra múi giờ bằng lịch sử. Tốt nhất nên chạy khi thị trường mở.
 - Nếu có dòng **LỖI**, xem gợi ý "→ Cách xử lý" ngay bên dưới dòng đó. **Hãy copy toàn bộ kết quả gửi lại để được hỗ trợ.**

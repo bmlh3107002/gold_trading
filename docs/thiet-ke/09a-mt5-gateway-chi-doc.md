@@ -119,6 +119,14 @@
 - **1A-C08 (`TzWatch`):** mỗi vòng đọc `symbol_info_tick().time_msc`; chỉ xét khi khác lần trước (tick vừa tới, nên giờ server của nó − giờ UTC máy ≈ độ lệch thật; tick đứng yên sau giờ đóng cửa có thể lệch đúng 1 giờ → bỏ qua). Lệch khác `GT_SERVER_TZ` → **tạm dừng** gửi nến + giá ngay (`SERVER_TZ_SUSPECT`); 3 lần liên tiếp trải ≥ 60 s → chặn (`SERVER_TZ_CHANGED`), chỉ gỡ khi khớp 3 lần liên tiếp; khớp lại thì nạp bù lại nến (backend khử trùng). Nhịp tim gửi `server_offset_hours_now` đang thấy. So "khác" chứ không "lớn hơn": broker lùi giờ thì tick mới có giờ server nhỏ hơn.
 - **Đọc (DSH-07, 5c):** `GET /api/accounts/{id}/market/quote` → `LiveQuote` (`api/market.py::live_quote`): giây gần nhất có `available_at ≤ now` của nguồn tài khoản; `NO_FEED` / `NO_DATA` / `LIVE` (≤ 15 s) / `STALE` (cũ hơn, lịch mở) / `CLOSED` (cũ hơn, lịch đóng). Chỉ nguồn MT5; SAMPLE/CSV → `NO_FEED`. Thẻ "Giá sống" (trang Thị trường) hỏi 2 s/lần.
 
+### 5f. Nến M15 của 6 cặp tiền chỉ số USD (bước 5d, chuẩn bị ING-24, 2026-11-12, Gateway 0.8.0)
+
+- **Vì sao nến M15 chứ không phải giá từng giây:** chỉ số USD tự tính (DEC-03, ING-24 ở bước 9) cần giá 6 cặp **tại cùng thời điểm**; nến M15 đã đóng cho đúng điều đó với 1/900 số dòng so với giá theo giây. Không làm H1/H4/D1 cho cặp tiền (tự gom được từ M15 khi cần — ING-24 quyết định).
+- **Cấu hình** `GT_USD_PAIRS` (`config.parse_usd_pairs`): trống → 6 cặp, tên MT5 = tên chuẩn + hậu tố của `GT_BROKER_SYMBOL` (`XAUUSD.r` → `EURUSD.r`; symbol vàng không bắt đầu bằng `XAUUSD` → không đoán hậu tố); `CẶP=TÊN` đặt riêng; `off` tắt. Tên MT5 phải **chứa** tên cặp, cặp ngoài 6 cặp → lỗi cấu hình (không đoán).
+- **`check`** bước "Cặp tiền chỉ số USD": mỗi cặp phải có trong MT5 + có lịch sử M15; thiếu → CẢNH BÁO kèm danh sách, chỉ cặp có mới được đồng bộ; vàng không bị ảnh hưởng.
+- **Gateway** (`fx.py::FxSync`): mỗi cặp nạp bù `GT_HISTORY_BARS` nến M15 (lười, trong vòng chạy) rồi gửi 20 nến gần nhất khi có nến mới đóng hoặc mỗi 60 s (bắt bản sửa); mọi lô qua `Syncer._read` (đúng terminal + danh tính trước/sau). Lỗi một cặp → chỉ cặp đó thử lại sau 60 s; 409 liên kết → chờ chung; backend 404 → tắt 6 cặp. Sau khi bị chặn (chờ liên kết / giờ server lệch) → nạp bù lại.
+- **Backend** `POST /api/ingest/mt5/fx-candles` (`FxCandleBatch`): `pair` ∈ 6 cặp, `broker_symbol` phải chứa tên cặp (422 nếu nhầm), chỉ `M15`, danh tính MT5 bắt buộc, kiểm `check_candle_identity` như nến vàng. Nguồn = `feed_id_for(server của liên kết, broker_symbol)`; nến lưu trong bảng `candles` với `symbol` = tên chuẩn của cặp → không bao giờ lẫn với vàng hay cặp khác. Không kiểm R1 (giờ FX khác giờ vàng; múi giờ đã kiểm trên nến vàng cùng Gateway); cờ `GAP_BEFORE` dùng lịch vàng (chỉ đánh dấu, không chặn). Chưa có API đọc (ING-24).
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.

@@ -12,7 +12,11 @@ import hashlib
 
 from gold_trading.storage.schema import LEGACY_FEED
 
-__all__ = ["LEGACY_FEED", "feed_id_for"]
+__all__ = ["LEGACY_FEED", "USD_INDEX_PAIRS", "feed_id_for"]
+
+# DEC-03 / ING-24: 6 cặp tiền của công thức chỉ số USD (cùng thành phần với DXY công khai). Mỗi cặp
+# là một nguồn giá riêng (server, symbol broker của cặp đó) — nến lưu với symbol = tên chuẩn.
+USD_INDEX_PAIRS = ("EURUSD", "USDJPY", "GBPUSD", "USDCAD", "USDSEK", "USDCHF")
 
 
 def feed_id_for(server: str, broker_symbol: str) -> str:
