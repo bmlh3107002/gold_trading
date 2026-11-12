@@ -157,6 +157,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/market/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Acc Quote */
+        get: operations["acc_quote_api_accounts__account_id__market_quote_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/analysts/technical/latest": {
         parameters: {
             query?: never;
@@ -1172,6 +1189,44 @@ export interface components {
             /** Link Status */
             link_status?: string | null;
         };
+        /**
+         * LiveQuote
+         * @description Giây gần nhất đã nhận của nguồn giá của tài khoản (point-in-time: available_at ≤ now).
+         *
+         *     ``state``: NO_FEED (chưa có nguồn giá: chưa liên kết MT5 / dữ liệu mẫu), NO_DATA (chưa có giá
+         *     sống), LIVE (giây gần nhất cách ≤ 15 s), STALE (cũ hơn trong khi lịch nói thị trường mở —
+         *     giá KHÔNG còn đúng), CLOSED (cũ hơn, lịch nói đóng cửa: giá cuối phiên).
+         */
+        LiveQuote: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "NO_FEED" | "NO_DATA" | "LIVE" | "STALE" | "CLOSED";
+            /** Market Open */
+            market_open: boolean;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** T */
+            t?: string | null;
+            /** Age Seconds */
+            age_seconds?: number | null;
+            /** Bid */
+            bid?: number | null;
+            /** Ask */
+            ask?: number | null;
+            /** Spread Points */
+            spread_points?: number | null;
+            /** Spread Max Points */
+            spread_max_points?: number | null;
+            /** Ticks */
+            ticks?: number | null;
+            /** Flags */
+            flags?: string[];
+        };
         /** LiveRequestCreate */
         LiveRequestCreate: {
             /** Checklist */
@@ -2031,6 +2086,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataQuality"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acc_quote_api_accounts__account_id__market_quote_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveQuote"];
                 };
             };
             /** @description Validation Error */

@@ -373,3 +373,68 @@ def test_api_validation_error_does_not_echo_values():
     c, _, _ = api()
     r = post(c, body([wire(now_s())], point="bí-mật"))
     assert r.status_code == 422 and "bí-mật" not in r.text
+
+
+# ---------- DSH-07: đọc giá sống theo tài khoản ----------
+
+from gold_trading.api.market import QUOTE_STALE_AFTER, live_quote  # noqa: E402
+from gold_trading.market.quotes import QuoteSecond  # noqa: E402
+
+QURL = "/api/accounts/default/market/quote"
+
+
+def row(t, avail=None, flags=()):
+    return QuoteSecond(F, t, 2400.1, 2400.3, 2400.0, 2400.4, 20, 40, 3, tuple(flags), t,
+                       avail or t)
+
+
+def test_live_quote_states_reference():
+    st = InMemoryQuoteStore()
+    assert live_quote(None, st, Cal(), NOW).state == "NO_FEED"
+    assert live_quote(F, st, Cal(), NOW).state == "NO_DATA"
+    st.append([row(NOW - QUOTE_STALE_AFTER)])
+    q = live_quote(F, st, Cal(), NOW)
+    assert (q.state, q.age_seconds, q.bid, q.ask, q.spread_points, q.spread_max_points) == \
+        ("LIVE", 15.0, 2400.1, 2400.3, 20, 40)
+    later = NOW + timedelta(seconds=1)
+    assert live_quote(F, st, Cal(), later).state == "STALE"  # thị trường mở mà giá cũ > 15 s
+    assert live_quote(F, st, Cal({later}), later).state == "CLOSED"  # lịch đóng cửa
+    assert live_quote(F, st, Cal({later}), later).market_open is False
+
+
+def test_live_quote_point_in_time_and_flags():
+    st = InMemoryQuoteStore()
+    st.append([row(NOW - timedelta(seconds=5), flags=(WIDE_SPREAD,)),
+               row(NOW - timedelta(seconds=1), avail=NOW + timedelta(seconds=3))])
+    q = live_quote(F, st, Cal(), NOW)
+    assert q.t == NOW - timedelta(seconds=5) and q.flags == [WIDE_SPREAD]  # chưa "biết" giây sau
+
+
+def test_api_quote_flow_owner_only():
+    c, store, repo = api()
+    assert c.get(QURL).json()["state"] == "NO_FEED"  # liên kết chưa ghi lô đầu (chưa khóa symbol)
+    t = now_s() - timedelta(seconds=1)
+    assert post(c, body([wire(t, bid=2400.10, ask=2400.35, smax=30)])).status_code == 200
+    j = c.get(QURL).json()
+    assert j["state"] == "LIVE" and j["bid"] == 2400.10 and j["ask"] == 2400.35
+    assert j["spread_points"] == 25 and j["spread_max_points"] == 30
+    assert SPREAD_UNRATED in j["flags"]
+    # người khác / ADMIN không xem được
+    from tests.auth_helpers import client as http_client
+    from tests.auth_helpers import login_owner
+
+    other = login_owner(c.app, c.kc, repo, "bob", "acc_other")
+    assert other.get(QURL).status_code == 404
+    assert other.get("/api/accounts/acc_other/market/quote").json()["state"] == "NO_FEED"
+    adm = http_client(c.app)
+    c.kc.login(adm, "admin", admin=True)
+    assert adm.get(QURL).status_code == 404
+    assert http_client(c.app).get(QURL).status_code == 401
+
+
+def test_api_quote_sample_source_has_no_live_quote():
+    repo = InMemoryRepository()
+    link_active(repo)
+    c = user_client(repo, data_source=DataSource.SAMPLE, run_sample_feed=False,
+                    run_analysts=False, ingest_token=TOKEN)
+    assert c.get(QURL).json()["state"] == "NO_FEED"  # không bịa bid/ask từ nến mẫu

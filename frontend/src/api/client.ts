@@ -15,6 +15,7 @@ export type MarketSummary = components["schemas"]["MarketSummary"];
 export type CandlesResponse = components["schemas"]["CandlesResponse"];
 export type CandleOut = components["schemas"]["CandleOut"];
 export type DataQuality = components["schemas"]["DataQuality"];
+export type LiveQuote = components["schemas"]["LiveQuote"];
 export type AnalystLatest = components["schemas"]["AnalystLatest"];
 export type GatewayStatus = components["schemas"]["GatewayStatus"];
 export type AnalystOutputDto = components["schemas"]["AnalystOutput"];
@@ -108,6 +109,8 @@ export const api = {
   marketSummary: (id: string) => request<MarketSummary>(`${acc(id)}/market/summary`),
   candles: (id: string, limit = 300) => request<CandlesResponse>(`${acc(id)}/market/candles?limit=${limit}`),
   dataQuality: (id: string) => request<DataQuality>(`${acc(id)}/market/quality`),
+  /** DSH-07: giá sống bid/ask/spread của nguồn giá chính tài khoản. */
+  liveQuote: (id: string) => request<LiveQuote>(`${acc(id)}/market/quote`),
   technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),

@@ -331,6 +331,48 @@
         }
       }
     },
+    "/api/accounts/{account_id}/market/quote": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Acc Quote",
+        "operationId": "acc_quote_api_accounts__account_id__market_quote_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveQuote"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/accounts/{account_id}/analysts/technical/latest": {
       "get": {
         "tags": [
@@ -3201,6 +3243,123 @@
           "reasons"
         ],
         "title": "IngestReport"
+      },
+      "LiveQuote": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "NO_FEED",
+              "NO_DATA",
+              "LIVE",
+              "STALE",
+              "CLOSED"
+            ],
+            "title": "State"
+          },
+          "market_open": {
+            "type": "boolean",
+            "title": "Market Open"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "t": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "T"
+          },
+          "age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Seconds"
+          },
+          "bid": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bid"
+          },
+          "ask": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ask"
+          },
+          "spread_points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Points"
+          },
+          "spread_max_points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Max Points"
+          },
+          "ticks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticks"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "market_open",
+          "as_of"
+        ],
+        "title": "LiveQuote",
+        "description": "Giây gần nhất đã nhận của nguồn giá của tài khoản (point-in-time: available_at ≤ now).\n\n``state``: NO_FEED (chưa có nguồn giá: chưa liên kết MT5 / dữ liệu mẫu), NO_DATA (chưa có giá\nsống), LIVE (giây gần nhất cách ≤ 15 s), STALE (cũ hơn trong khi lịch nói thị trường mở —\ngiá KHÔNG còn đúng), CLOSED (cũ hơn, lịch nói đóng cửa: giá cuối phiên)."
       },
       "LiveRequestCreate": {
         "properties": {

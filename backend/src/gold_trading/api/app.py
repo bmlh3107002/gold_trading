@@ -26,7 +26,7 @@ from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import Guard, accounts_router
 from gold_trading.api.analysts import account_analysts_router, analysts_router
 from gold_trading.api.ingest import GatewayMonitors, ingest_router
-from gold_trading.api.market import account_market_router, market_router
+from gold_trading.api.market import account_market_router, account_quote_router, market_router
 from gold_trading.api.users import users_router
 from gold_trading.auth.config import AuthConfig
 from gold_trading.auth.kc_admin import KeycloakAdmin
@@ -356,6 +356,11 @@ def create_app(
     app.include_router(analysts_router(market, analyst_store))
     account_guard = Guard(repo, registry)
     app.include_router(account_market_router(market_for, account_guard.check))
+    app.include_router(account_quote_router(
+        # Chỉ MT5 có giá sống; SAMPLE/CSV → không có nguồn (không bịa bid/ask từ nến).
+        lambda a: account_feed(repo, a) if source is DataSource.MT5 else None,
+        quote_store, market.calendar, account_guard.check,
+    ))
     app.include_router(account_analysts_router(market_for, analyst_store, account_guard.check))
     token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
     monitors = GatewayMonitors()

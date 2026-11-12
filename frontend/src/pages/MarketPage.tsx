@@ -6,12 +6,13 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { InfoTip } from "../components/ui/InfoTip";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StateView";
-import { useCandles, useDataQuality, useMarketSummary, useTechnical } from "../hooks/useMarket";
+import { useCandles, useDataQuality, useLiveQuote, useMarketSummary, useTechnical } from "../hooks/useMarket";
 import type { Theme } from "../hooks/useTheme";
 import { formatDateTime, formatNumber, formatTime } from "../lib/format";
 import { flagLabel } from "../lib/labels";
 import { readTechnical } from "../lib/technical";
 import { DataQualityCard } from "./market/DataQualityCard";
+import { LiveQuoteCard } from "./market/LiveQuoteCard";
 import { TechnicalCard } from "./market/TechnicalCard";
 
 type SummaryState = ReturnType<typeof useMarketSummary>;
@@ -29,6 +30,7 @@ export function MarketPage({
   const candles = useCandles(accountId, 300);
   const quality = useDataQuality(accountId);
   const tech = useTechnical(accountId);
+  const quote = useLiveQuote(accountId);
   // Chỉ vẽ hỗ trợ/kháng cự từ kết quả còn hiệu lực và không bị chặn bởi cổng chất lượng
   const techOut = tech.data?.output;
   const techUsable =
@@ -88,6 +90,8 @@ export function MarketPage({
           </Button>
         </div>
       )}
+
+      <LiveQuoteCard q={quote.data} loading={quote.loading} />
 
       <Card
         title={

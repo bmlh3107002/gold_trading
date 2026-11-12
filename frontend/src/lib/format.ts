@@ -33,6 +33,14 @@ export function formatNumber(value: number | null | undefined, digits = 2): stri
   }).format(value);
 }
 
+const price = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 5 });
+
+/** Giá broker: giữ đủ chữ số thật (2–5 số lẻ), không làm tròn về 2 số như số tiền. */
+export function formatPrice(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return EMPTY;
+  return price.format(value);
+}
+
 /** value là tỷ lệ 0..1 */
 export function formatPercent(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return EMPTY;

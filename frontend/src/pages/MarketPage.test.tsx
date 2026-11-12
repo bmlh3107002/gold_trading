@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { json, makeAccount, makeCandles, makeMe, makeQuality, makeStatus, makeSummary, makeSystem, makeTechnical } from "../test/fixtures";
+import { json, makeAccount, makeCandles, makeLiveQuote, makeMe, makeQuality, makeStatus, makeSummary, makeSystem, makeTechnical } from "../test/fixtures";
 
 // jsdom không có canvas: thay biểu đồ bằng stub, chỉ kiểm tra dữ liệu được đưa vào.
 const setData = vi.fn();
@@ -165,5 +165,35 @@ describe("Trạng thái MT5 Gateway", () => {
     );
     expect(urls().some((u) => u.startsWith("/api/accounts/default/analysts/technical/latest"))).toBe(true);
     expect(urls().some((u) => u.startsWith("/api/market/") || u.startsWith("/api/analysts/"))).toBe(false);
+  });
+
+  it("DSH-07: thẻ giá sống hiện bid/ask/spread đúng chữ số của broker", async () => {
+    routes({ "/api/accounts/default/market/quote": makeLiveQuote({ bid: 2412.355, ask: 2412.605, spread_max_points: 40 }) });
+    render(<App />);
+    expect(await screen.findByText("Đang cập nhật")).toBeInTheDocument();
+    expect(screen.getByText("2.412,355")).toBeInTheDocument(); // không làm tròn về 2 số lẻ
+    expect(screen.getByText("2.412,605")).toBeInTheDocument();
+    expect(screen.getByText("25 point (0,25)")).toBeInTheDocument();
+    expect(screen.getByText("lớn nhất trong giây: 40 point")).toBeInTheDocument();
+  });
+
+  it("DSH-07: giá cũ khi thị trường mở → báo đỏ, không im lặng", async () => {
+    routes({ "/api/accounts/default/market/quote": makeLiveQuote({ state: "STALE", age_seconds: 95 }) });
+    render(<App />);
+    expect(await screen.findByText("Giá sống đã cũ: không dùng để ra quyết định")).toBeInTheDocument();
+    expect(screen.getByText(/đã 95 giây/)).toBeInTheDocument();
+  });
+
+  it("DSH-07: đóng cửa, cờ spread giãn, chưa có nguồn", async () => {
+    routes({ "/api/accounts/default/market/quote": makeLiveQuote({ state: "CLOSED", market_open: false, flags: ["WIDE_SPREAD"] }) });
+    const { unmount } = render(<App />);
+    expect(await screen.findByText("Thị trường đóng cửa")).toBeInTheDocument();
+    expect(screen.getByText("Đây là giá cuối cùng trước khi đóng cửa.")).toBeInTheDocument();
+    expect(screen.getByText("Spread giãn bất thường")).toBeInTheDocument();
+    unmount();
+    routes({ "/api/accounts/default/market/quote": makeLiveQuote({ state: "NO_FEED", t: null, bid: null, ask: null, spread_points: null }) });
+    render(<App />);
+    expect((await screen.findAllByText("Chưa có nguồn giá")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Bid (giá bán ra)")).not.toBeInTheDocument();
   });
 });

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
-from typing import Annotated, Any
+from datetime import datetime, timedelta
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
@@ -13,6 +13,7 @@ from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import CandleFlag, DataSource
 from gold_trading.market.hours import MarketSession
+from gold_trading.market.quotes import Calendar, QuoteStore
 from gold_trading.market.service import Freshness, MarketDataService
 from gold_trading.market.timeframes import Timeframe
 
@@ -191,3 +192,68 @@ def account_market_router(
 
 def _r(v: float | None) -> float | None:
     return None if v is None else round(v, 4)
+
+
+# --- DSH-07: giá sống bid/ask/spread (ING-08) ---
+
+QUOTE_STALE_AFTER = timedelta(seconds=15)
+
+QuoteState = Literal["NO_FEED", "NO_DATA", "LIVE", "STALE", "CLOSED"]
+
+
+class LiveQuote(BaseModel):
+    """Giây gần nhất đã nhận của nguồn giá của tài khoản (point-in-time: available_at ≤ now).
+
+    ``state``: NO_FEED (chưa có nguồn giá: chưa liên kết MT5 / dữ liệu mẫu), NO_DATA (chưa có giá
+    sống), LIVE (giây gần nhất cách ≤ 15 s), STALE (cũ hơn trong khi lịch nói thị trường mở —
+    giá KHÔNG còn đúng), CLOSED (cũ hơn, lịch nói đóng cửa: giá cuối phiên)."""
+
+    state: QuoteState
+    market_open: bool
+    as_of: datetime
+    t: datetime | None = None
+    age_seconds: float | None = None
+    bid: float | None = None
+    ask: float | None = None
+    spread_points: int | None = None
+    spread_max_points: int | None = None
+    ticks: int | None = None
+    flags: list[str] = Field(default_factory=list)
+
+
+def live_quote(feed: str | None, store: QuoteStore, calendar: Calendar,
+               now: datetime) -> LiveQuote:
+    market_open = calendar.is_open(now)
+    if not feed:
+        return LiveQuote(state="NO_FEED", market_open=market_open, as_of=now)
+    q = store.latest(feed, now)
+    if q is None:
+        return LiveQuote(state="NO_DATA", market_open=market_open, as_of=now)
+    age = now - q.t
+    if age <= QUOTE_STALE_AFTER:
+        state: QuoteState = "LIVE"
+    else:
+        state = "STALE" if market_open else "CLOSED"
+    return LiveQuote(
+        state=state, market_open=market_open, as_of=now, t=q.t,
+        age_seconds=round(age.total_seconds(), 1), bid=q.bid, ask=q.ask,
+        spread_points=q.spread_points, spread_max_points=q.spread_max_points, ticks=q.ticks,
+        flags=list(q.flags),
+    )
+
+
+def account_quote_router(
+    feed_of: Callable[[str], str | None],
+    store: QuoteStore,
+    calendar: Calendar,
+    check: Callable[[str, Principal, str], object],
+) -> APIRouter:
+    """DSH-07: giá sống của nguồn giá CHÍNH tài khoản (chỉ chủ tài khoản ACTIVE)."""
+    r = APIRouter(prefix="/api/accounts/{account_id}/market", tags=["market"])
+
+    @r.get("/quote", response_model=LiveQuote)
+    def acc_quote(account_id: str, p: CurrentUser) -> LiveQuote:
+        check(account_id, p, "market.quote")
+        return live_quote(feed_of(account_id), store, calendar, utcnow())
+
+    return r

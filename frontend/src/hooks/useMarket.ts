@@ -10,6 +10,11 @@ export function useMarketSummary(accountId: string | null) {
   return usePolling(useCallback(() => (accountId ? api.marketSummary(accountId) : Promise.resolve(null)), [accountId]), 5000, 20_000);
 }
 
+/** DSH-07: giá sống bid/ask/spread, 2 giây/lần (Gateway gửi theo chu kỳ ~5 giây). */
+export function useLiveQuote(accountId: string | null) {
+  return usePolling(useCallback(() => (accountId ? api.liveQuote(accountId) : Promise.resolve(null)), [accountId]), 2000, 10_000);
+}
+
 /** Nến + chỉ báo: 30 giây/lần (nến M15 chỉ đổi khi đóng nến). */
 export function useCandles(accountId: string | null, limit = 300) {
   return usePolling(useCallback(() => (accountId ? api.candles(accountId, limit) : Promise.resolve(null)), [accountId, limit]), 30_000, 90_000);

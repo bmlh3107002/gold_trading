@@ -19,7 +19,7 @@
 3. **MT-05:** sau khi cập nhật, log backend không lỗi migration 0009 + 0010 (TimescaleDB thật: đổi khóa chính hypertable); trang Thị trường **trống** cho tới khi liên kết (nến cũ đã tách thành legacy) → sau khi xác nhận liên kết, Gateway nạp lại, trang Thị trường có nến; thẻ "Liên kết MT5" hiện symbol broker `XAUUSD`; giá ở header và trang Thị trường hiện bình thường; khoảng 15 giây sau thẻ Phân tích kỹ thuật có kết quả; đăng nhập ADMIN không thấy giá.
 4. **MT-14:** trong MT5 đăng nhập một tài khoản demo khác (hoặc đăng xuất) → thẻ "Liên kết MT5" hiện băng đỏ, Gateway in `MT5_LINK_MISMATCH`, không có nến mới → đăng nhập lại tài khoản cũ → gõ login → "Xác minh lại" → nến chạy tiếp. Đăng xuất / đăng nhập lại đúng tài khoản → tự chạy lại.
 5. **MT-15:** (a) máy một MT5: `check` dòng "Kết nối MT5" hiện thư mục MT5 nếu đã đặt `GT_MT5_PATH`; (b) khi có MT5 thứ hai (cài thư mục riêng, tài khoản thứ hai): tạo `terminals\lordtrade.env` + `terminals\<tên>.env` theo README mục "Nhiều MT5 trên một máy" → `check-all` cả hai SẴN SÀNG → `run-all` → mỗi người xác nhận liên kết trên trang Tài khoản của mình → mỗi người thấy giá broker mình; thử cố ý chép cùng token sang hai file → `run-all` từ chối, không chạy MT5 nào.
-6. **Bước 5a + 5b (giá sống):** log backend không lỗi migration 0011 (TimescaleDB thật: hypertable `quote_seconds`); `check` dòng "Giá sống (bid/ask)" ĐẠT khi thị trường mở (CẢNH BÁO "tick sai khoảng thời gian" → gửi lại kết quả check, đây là điểm chưa kiểm được với MT5 thật); `run` không có log `Tắt gửi giá sống`; sau vài phút đếm dòng: `docker compose exec db psql -U gold -d gold_trading -c "select count(*), max(t) from quote_seconds"` (mặc định; nếu `.env` đặt `POSTGRES_USER`/`POSTGRES_DB` khác thì dùng tên đó) → số tăng dần, `max(t)` cách giờ UTC hiện tại vài giây.
+6. **Bước 5a + 5b (giá sống):** log backend không lỗi migration 0011 (TimescaleDB thật: hypertable `quote_seconds`); `check` dòng "Giá sống (bid/ask)" ĐẠT khi thị trường mở (CẢNH BÁO "tick sai khoảng thời gian" → gửi lại kết quả check, đây là điểm chưa kiểm được với MT5 thật); `run` không có log `Tắt gửi giá sống`; sau vài phút đếm dòng: `docker compose exec db psql -U gold -d gold_trading -c "select count(*), max(t) from quote_seconds"` (mặc định; nếu `.env` đặt `POSTGRES_USER`/`POSTGRES_DB` khác thì dùng tên đó) → số tăng dần, `max(t)` cách giờ UTC hiện tại vài giây; trang Thị trường thẻ "Giá sống" hiện "Đang cập nhật", bid/ask khớp Market Watch của MT5 (trễ vài giây), spread khớp; tắt Gateway ~20 giây khi thị trường mở → thẻ báo đỏ "Giá sống đã cũ".
 
 ## Việc còn treo trước khi bắt đầu bước 1
 
@@ -84,7 +84,7 @@
 Chia 4 phần (2026-11-12):
 - [x] 5a — ING-08 phía backend: lưu gọn point-in-time (gom theo giây), giữ `GT_QUOTE_RETENTION_DAYS`; 1A-C13 (backend kiểm lại), 1A-C14 (`WIDE_SPREAD`), 1A-C15 (`CALENDAR_CLOSED` / `CALENDAR_MISMATCH`) (2026-11-12: code + test, migration 0011; chờ kiểm trên máy)
 - [x] 5b — GW-08: Gateway gom tick → gửi bid/ask/spread theo giây (chỉ đọc); 1A-C13 phía Gateway; 1A-C08 (broker đổi múi giờ khi đang chạy) (2026-11-12: code + test, Gateway 0.7.0; chờ kiểm trên máy)
-- [ ] 5c — DSH-07: hiển thị bid/ask/spread trên web
+- [x] 5c — DSH-07: hiển thị bid/ask/spread trên web (2026-11-12: code + test, thẻ "Giá sống" trang Thị trường; chờ kiểm trên máy)
 - [ ] 5d — thêm 6 cặp tiền cho chỉ số USD (chuẩn bị ING-24)
 
 ### Bước 6 — Gateway bền vững

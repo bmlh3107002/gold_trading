@@ -6,8 +6,7 @@ import type {
   CandlesResponse,
   DataQuality,
   MarketSummary,
-  SystemStatus,
-} from "../api/client";
+  SystemStatus, LiveQuote } from "../api/client";
 
 export function makeMe(over: Partial<Me> = {}): Me {
   return {
@@ -100,6 +99,23 @@ export function makeCandles(n = 3, over: Partial<CandlesResponse> = {}): Candles
     ema20: candles.map(() => 2400),
     ema50: candles.map(() => null),
     rsi14: candles.map(() => 55),
+    ...over,
+  };
+}
+
+export function makeLiveQuote(over: Partial<LiveQuote> = {}): LiveQuote {
+  return {
+    state: "LIVE",
+    market_open: true,
+    as_of: "2026-01-14T10:00:05Z",
+    t: "2026-01-14T10:00:03Z",
+    age_seconds: 2,
+    bid: 2412.35,
+    ask: 2412.6,
+    spread_points: 25,
+    spread_max_points: 25,
+    ticks: 4,
+    flags: [],
     ...over,
   };
 }
