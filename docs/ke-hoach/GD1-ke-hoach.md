@@ -12,7 +12,7 @@
 
 ## Kiểm trên máy khi người dùng về (gom lại, làm theo thứ tự)
 
-> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 7, 9, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ; mục 8 đạt 6b + 6c, còn 6a (dừng backend qua đêm > 5 giờ); còn mục 5 (MT5 thứ hai). Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
+> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 5, 7, 9, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ; mục 8 đạt 6b + 6c, **còn 6a** (dừng backend qua đêm > 5 giờ). Máy người dùng chạy `run-all` 2 MT5 (lordtrade + taikhoan2). Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
 
 > Người dùng vắng máy Windows từ 2026-11-10 và đồng ý làm tiếp các bước rồi kiểm sau. Mỗi bước code xong mà chưa kiểm ghi ở đây. Khi kiểm: hướng dẫn **từng lệnh một**. Lỗi ở mục trên thì sửa trước rồi mới kiểm mục dưới.
 
@@ -84,7 +84,7 @@
   - [x] 4a lưu trữ: migration 0009, Gateway 0.5.0, symbol khóa vào liên kết, dữ liệu cũ → legacy (2026-11-11, chờ kiểm trên máy)
   - [x] 4b đọc: mỗi tài khoản xem giá + analyst theo nguồn của mình (2026-11-11, chờ kiểm trên máy)
 - [x] MT-15: nhiều terminal MT5 trên một máy Windows, mỗi terminal một token (mong muốn: một Gateway quản lý nhiều terminal) (2026-11-12: code + test, Gateway 0.6.0 `run-all`; chờ kiểm trên máy)
-- [ ] Kiểm trên máy người dùng: tài khoản thứ hai có Gateway + MT5 riêng, ghi được nến của nguồn riêng, không ảnh hưởng Lord Trade
+- [x] Kiểm trên máy người dùng: tài khoản thứ hai có Gateway + MT5 riêng, ghi được nến của nguồn riêng, không ảnh hưởng Lord Trade (2026-11-12: đạt, `run-all` 2 MT5 cùng MetaQuotes-Demo → dùng chung feed; cấu hình trùng token/MT5 bị từ chối)
 
 ### Bước 5 — Giá sống bid/ask/spread
 Chia 4 phần (2026-11-12):
