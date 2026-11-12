@@ -12,6 +12,8 @@
 
 ## Kiểm trên máy khi người dùng về (gom lại, làm theo thứ tự)
 
+> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 7, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ (chưa so `check` lúc tick lệch); mục 8 đạt phần 6c, còn 6a (dừng backend 1 giờ) + 6b (thẻ đồng hồ trên trang Tài khoản); còn mục 5 (MT5 thứ hai), 9 (tự chạy). Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
+
 > Người dùng vắng máy Windows từ 2026-11-10 và đồng ý làm tiếp các bước rồi kiểm sau. Mỗi bước code xong mà chưa kiểm ghi ở đây. Khi kiểm: hướng dẫn **từng lệnh một**. Lỗi ở mục trên thì sửa trước rồi mới kiểm mục dưới.
 
 1. **Cập nhật cùng lúc** backend + frontend (`docker compose build --no-cache backend frontend` → `docker compose up -d`) **và** Gateway (tải ZIP `develop`, chép đè `mt5_gateway\src`). Từ MT-14, Gateway < 0.4.0 không ghi được nến. Bản Gateway mới nhất: 0.10.2 (0.10.2 chỉ sửa một dòng log, không gấp). (2026-11-12: backend + DB lên 0012 đạt; Gateway mới `check` SẴN SÀNG; sửa `localhost` chậm 2 s → 0.10.1, cần tải lại Gateway.)
@@ -77,7 +79,7 @@
   - [x] Kiểm trên máy người dùng: cập nhật Gateway + build lại `backend frontend` → trang Tài khoản thấy đúng login/server MetaQuotes-Demo (2026-11-07)
 - [x] MT-13: liên kết MT5 (`mt5_links`), USER xác nhận "login X / server Y" → ACTIVE; một `(login, server)` không ACTIVE ở 2 tài khoản (MT-C11) (2026-11-07: code + test, migration 0008; thẻ "Liên kết MT5" trên trang Tài khoản)
   - [x] Kiểm trên máy người dùng: build lại `backend frontend` → trang Tài khoản thấy MT5 "chờ xác nhận" → gõ lại login → "Đã liên kết" (2026-11-12: đạt, Gateway nạp bù 5.000/2.000/1.000/500 nến + 6 cặp tiền, 0 cách ly)
-- [x] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11) (2026-11-11: code + test, Gateway 0.4.0; phần đổi symbol chuyển sang MT-05. Chờ kiểm trên máy)
+- [x] MT-14 + ING-15: phát hiện đổi tài khoản/broker/symbol → MISMATCH, chặn ghi, cảnh báo, không tự chuyển (MT-C08, MT-C14, 1A-C11) (2026-11-11: code + test, Gateway 0.4.0; phần đổi symbol chuyển sang MT-05. **Đã kiểm trên máy 2026-11-12: đạt**)
 - [x] MT-05: nguồn giá theo `(server, symbol)`; cùng server dùng chung; analyst chạy theo từng nguồn; bỏ khái niệm "nguồn giá chung" duy nhất (2026-11-11: code + test, migration 0009 + 0010, Gateway 0.5.0; chờ kiểm trên máy)
   - [x] 4a lưu trữ: migration 0009, Gateway 0.5.0, symbol khóa vào liên kết, dữ liệu cũ → legacy (2026-11-11, chờ kiểm trên máy)
   - [x] 4b đọc: mỗi tài khoản xem giá + analyst theo nguồn của mình (2026-11-11, chờ kiểm trên máy)
