@@ -83,6 +83,9 @@ Lần đầu mất vài phút (Docker tải code từ GitHub và build; Keycloak
 | **Dừng khẩn cấp khi không đăng nhập được** | `docker compose exec backend gt-break-glass halt --all --reason KEYCLOAK_DOWN` |
 | Xem trạng thái Safety không cần đăng nhập | `docker compose exec backend gt-break-glass status` |
 | Sao lưu ngay | `docker compose exec backup /usr/local/bin/gt/backup.sh once` |
+| Quên mật khẩu `admin` (trang quản trị Keycloak) | `docker compose exec keycloak /opt/keycloak/bin/kcadm.sh config credentials --config /tmp/kcadm.config --server http://localhost:8080/auth --realm master --user kcadmin` (mật khẩu `KC_ADMIN_PASSWORD` trong `.env`), rồi `docker compose exec keycloak /opt/keycloak/bin/kcadm.sh set-password --config /tmp/kcadm.config -r gold-trading --username admin --temporary` |
+| Mở khóa tài khoản bị khóa tạm do sai mật khẩu nhiều lần | (sau lệnh `config credentials` ở trên) `docker compose exec keycloak /opt/keycloak/bin/kcadm.sh delete attack-detection/brute-force/users --config /tmp/kcadm.config -r gold-trading` |
+| Đổi mật khẩu `kcadmin` | `kcadm.sh set-password -r master --username kcadmin` **và** sửa `KC_ADMIN_PASSWORD` trong `.env` cho khớp (đổi `.env` một mình không đổi mật khẩu trong Keycloak) |
 
 ## Truy cập từ điện thoại / máy khác (HTTPS qua Tailscale Serve)
 
