@@ -80,10 +80,11 @@
 - [ ] Kiểm trên máy người dùng: tài khoản thứ hai có Gateway + MT5 riêng, ghi được nến của nguồn riêng, không ảnh hưởng Lord Trade
 
 ### Bước 5 — Giá sống bid/ask/spread
-- [ ] GW-08: Gateway gửi tick/bid/ask/spread (chỉ đọc); thêm 6 cặp tiền cho chỉ số USD (chuẩn bị ING-24)
-- [ ] ING-08: lưu gọn point-in-time (lấy mẫu/tổng hợp theo giây), có chính sách giữ dữ liệu
-- [ ] 1A-C13 (tick lỗi/đảo thứ tự), 1A-C14 (`WIDE_SPREAD`), 1A-C15 (tick khi lịch đóng cửa), 1A-C08 (broker đổi múi giờ khi đang chạy)
-- [ ] DSH-07: hiển thị bid/ask/spread trên web
+Chia 4 phần (2026-11-12):
+- [x] 5a — ING-08 phía backend: lưu gọn point-in-time (gom theo giây), giữ `GT_QUOTE_RETENTION_DAYS`; 1A-C13 (backend kiểm lại), 1A-C14 (`WIDE_SPREAD`), 1A-C15 (`CALENDAR_CLOSED` / `CALENDAR_MISMATCH`) (2026-11-12: code + test, migration 0011; chờ kiểm trên máy)
+- [ ] 5b — GW-08: Gateway gom tick → gửi bid/ask/spread theo giây (chỉ đọc); 1A-C13 phía Gateway; 1A-C08 (broker đổi múi giờ khi đang chạy)
+- [ ] 5c — DSH-07: hiển thị bid/ask/spread trên web
+- [ ] 5d — thêm 6 cặp tiền cho chỉ số USD (chuẩn bị ING-24)
 
 ### Bước 6 — Gateway bền vững
 - [ ] GW-06: chạy như dịch vụ Windows, tự khởi động cùng máy

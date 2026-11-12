@@ -39,6 +39,7 @@ from gold_trading.contracts.market_view import MarketView
 from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
+from gold_trading.market.quotes import QuoteIngestor, QuoteStore
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST
 from gold_trading.ops.clock import ClockMonitor
@@ -50,6 +51,7 @@ from gold_trading.storage.analyst_outputs import (
     SqlAnalystOutputStore,
 )
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
+from gold_trading.storage.quotes import InMemoryQuoteStore, SqlQuoteStore
 from gold_trading.storage.repository import (
     AuditEntry,
     InMemoryRepository,
@@ -173,6 +175,15 @@ def _warn_holiday_coverage(cal: MarketCalendar, now: datetime | None = None) -> 
 SAMPLE_BLOCKED_MODES = (TradingMode.SHADOW, TradingMode.LIVE)
 
 
+def quote_retention_days() -> int:
+    """ING-08: số ngày giữ giá sống theo giây (mặc định 30, tối thiểu 1, tối đa 365)."""
+    raw = os.environ.get("GT_QUOTE_RETENTION_DAYS", "").strip()
+    days = int(raw) if raw else 30
+    if not 1 <= days <= 365:
+        raise ValueError("GT_QUOTE_RETENTION_DAYS phải từ 1 tới 365")
+    return days
+
+
 def create_app(
     repo: Repository | None = None,
     *,
@@ -181,6 +192,7 @@ def create_app(
     run_sample_feed: bool | None = None,
     run_analysts: bool | None = None,
     analyst_store: AnalystOutputStore | None = None,
+    quote_store: QuoteStore | None = None,
     ingest_token: str | None | Literal["env"] = "env",
     live_unlocked: bool = False,
     calendar: MarketCalendar | Literal["env"] = "env",
@@ -201,6 +213,9 @@ def create_app(
         analyst_store = (
             SqlAnalystOutputStore(engine) if engine is not None else InMemoryAnalystOutputStore()
         )
+    if quote_store is None:
+        engine = getattr(repo, "engine", None)
+        quote_store = SqlQuoteStore(engine) if engine is not None else InMemoryQuoteStore()
     source = data_source_from_env() if data_source == "env" else data_source
     market = MarketDataService(
         candle_store,
@@ -352,6 +367,8 @@ def create_app(
             token or None,
             repo,
             ingest_guard=clock.ingest_block_reason,
+            quotes=QuoteIngestor(quote_store, market.calendar,
+                                 retention=timedelta(days=quote_retention_days())),
         )
     )
     # Chống DNS rebinding: chỉ nhận Host của địa chỉ công khai, localhost và tên nội bộ.

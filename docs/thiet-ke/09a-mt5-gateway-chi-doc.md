@@ -108,6 +108,15 @@
 - **Không đổi backend / schema / contract.**
 - **Giới hạn:** lịch phiên broker vẫn một cấu hình chung (mục 5c) — nhiều broker khác giờ server cần lịch theo nguồn; terminal có `check` chưa đạt thì không gửi nhịp tim, web của người dùng đó chỉ thấy "chưa kết nối" (chi tiết lỗi ở cửa sổ Gateway); chưa chạy như dịch vụ Windows (GW-06, bước 6); chưa chạy với nhiều MT5 thật.
 
+### 5e. Giá sống bid/ask/spread theo giây (ING-08, 2026-11-12, migration 0011)
+
+- **Vì sao gom theo giây:** XAUUSD có thể nhiều tick mỗi giây; lưu từng tick tốn chỗ mà không cần cho giao dịch khung M15 trở lên. Mỗi `(nguồn giá, giây)` một dòng: giá **cuối** giây (bid, ask, spread), bid **thấp nhất**, ask **cao nhất**, spread **lớn nhất**, số tick. Gateway chỉ gửi giây **đã trọn** (giây đang chạy chưa gửi). Giá trị luôn là giá thật broker báo, không làm tròn, không nội suy giây thiếu (giây không có tick thì không có dòng).
+- **`POST /api/ingest/mt5/quotes`** (≤ 600 giây/lô): `symbol`, `gateway_id`, danh tính MT5 + `broker_symbol` (bắt buộc), `point`, `seconds[]`, `gateway_dropped` (Gateway tự đếm tick bỏ). Kiểm danh tính + khóa symbol **y như lô nến** (`check_candle_identity`, `lock_feed`): chưa liên kết / MT5 khác / symbol khác → 409. Trả `received/accepted/duplicates/conflicts/dropped/wide_spread/calendar_closed/calendar_mismatch`.
+- **Kiểm lại từng giây** (`market/quotes.py::check_quote`, 1A-C13) — bỏ + đếm theo lý do, không sửa giá trị: `NOT_WHOLE_SECOND`, `FUTURE` (> giờ backend + 2 s), `TOO_OLD` (quá hạn giữ), `NON_POSITIVE`, `CROSSED` (bid > ask), `INCONSISTENT` (bid thấp nhất > bid, ask cao nhất < ask, spread lớn nhất < spread cuối − 1 point, tick < 1), `DUPLICATE_IN_BATCH` (giữ bản đầu). Giây đã lưu → giữ bản đầu (`duplicates`; khác giá trị → `conflicts`, ví dụ hai tài khoản cùng broker). Giây tới muộn vẫn lưu đúng giây của nó, `available_at` = lúc nhận (point-in-time, không viết lại quá khứ). DB thêm ràng buộc `bid > 0 AND ask >= bid ...`.
+- **Cờ** (ghi nhận, chưa nối Safety): `WIDE_SPREAD` khi spread lớn nhất trong giây > `WIDE_SPREAD_MULTIPLE` (3, cùng ngưỡng R5 của nến) × trung vị spread cuối giây của **1 giờ trước** cùng nguồn (bỏ các giây lịch đóng cửa); < 60 mẫu → `SPREAD_UNRATED` (không kết luận là bình thường). `CALENDAR_CLOSED` khi lịch (`MarketCalendar.is_open`) nói đóng cửa — vẫn lưu, không coi là thị trường mở; ≥ 30 giây như vậy trong 10 phút gần nhất → `calendar_mismatch` + log `CALENDAR_MISMATCH`. Ngưỡng chưa hiệu chỉnh trên dữ liệu thật.
+- **Giữ dữ liệu:** `GT_QUOTE_RETENTION_DAYS` (mặc định 30, 1–365). Việc xóa chạy kèm lúc nhận, tối đa mỗi giờ một lần. Đây là **ngoại lệ append-only duy nhất**: trigger `quote_seconds_no_update` chỉ chặn UPDATE; DELETE chỉ do `purge_before`. Ước tính ~1 dòng/giây mở cửa ≈ 2 triệu dòng/nguồn/tháng.
+- **Chưa có:** Gateway gửi (bước 5b), màn hình (5c), đọc theo tài khoản (5c).
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.

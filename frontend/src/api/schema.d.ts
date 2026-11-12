@@ -191,6 +191,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/ingest/mt5/quotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ingest Quotes
+         * @description ING-08: giá sống theo giây. Chỉ ghi khi MT5 khớp liên kết ACTIVE, vào đúng nguồn giá
+         *     (server + symbol broker) của liên kết — như lô nến.
+         */
+        post: operations["ingest_quotes_api_ingest_mt5_quotes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/mt5/heartbeat": {
         parameters: {
             query?: never;
@@ -1466,6 +1487,78 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** QuoteBatch */
+        QuoteBatch: {
+            /** Account Id */
+            account_id?: string | null;
+            /** Symbol */
+            symbol: string;
+            /** Gateway Id */
+            gateway_id: string;
+            /** Mt5 Login */
+            mt5_login: number;
+            /** Mt5 Server */
+            mt5_server: string;
+            /**
+             * Mt5 Account Type
+             * @enum {string}
+             */
+            mt5_account_type: "DEMO" | "CONTEST" | "REAL" | "UNKNOWN";
+            /** Broker Symbol */
+            broker_symbol: string;
+            /** Point */
+            point: number;
+            /** Seconds */
+            seconds: components["schemas"]["QuoteSecondIn"][];
+            /** Gateway Dropped */
+            gateway_dropped?: {
+                [key: string]: number;
+            };
+        };
+        /** QuoteReport */
+        QuoteReport: {
+            /** Received */
+            received: number;
+            /** Accepted */
+            accepted: number;
+            /** Duplicates */
+            duplicates: number;
+            /** Conflicts */
+            conflicts: number;
+            /** Dropped */
+            dropped: {
+                [key: string]: number;
+            };
+            /** Wide Spread */
+            wide_spread: number;
+            /** Calendar Closed */
+            calendar_closed: number;
+            /** Calendar Mismatch */
+            calendar_mismatch: boolean;
+        };
+        /**
+         * QuoteSecondIn
+         * @description ING-08 / GW-08: một giây ĐÃ TRỌN do Gateway gom từ tick (giá cuối giây + cực trị).
+         */
+        QuoteSecondIn: {
+            /**
+             * T
+             * Format: date-time
+             */
+            t: string;
+            /** Bid */
+            bid: number;
+            /** Ask */
+            ask: number;
+            /** Bid Low */
+            bid_low: number;
+            /** Ask High */
+            ask_high: number;
+            /** Spread Max Points */
+            spread_max_points: number;
+            /** Ticks */
+            ticks: number;
+        };
         /**
          * Regime
          * @enum {string}
@@ -2006,6 +2099,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ingest_quotes_api_ingest_mt5_quotes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteReport"];
                 };
             };
             /** @description Validation Error */

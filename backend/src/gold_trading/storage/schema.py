@@ -273,6 +273,33 @@ price_feeds = Table(
 )
 
 
+# --- Giá sống bid/ask/spread (ING-08, migration 0011) ---
+# Gom theo GIÂY (Gateway gom tick của một giây đã trọn): mỗi (nguồn giá, giây) một dòng, ghi một
+# lần (không sửa). Ngoại lệ append-only DUY NHẤT: xóa dòng cũ hơn hạn giữ (GT_QUOTE_RETENTION_DAYS)
+# — trigger chỉ chặn UPDATE. Point-in-time: available_at = lúc backend nhận.
+quote_seconds = Table(
+    "quote_seconds",
+    metadata,
+    Column("feed_id", String(64), nullable=False),
+    Column("t", DateTime(timezone=True), nullable=False),  # đầu giây, UTC
+    Column("bid", Float, nullable=False),  # giá cuối giây
+    Column("ask", Float, nullable=False),
+    Column("bid_low", Float, nullable=False),
+    Column("ask_high", Float, nullable=False),
+    Column("spread_points", Integer, nullable=False),  # spread cuối giây
+    Column("spread_max_points", Integer, nullable=False),
+    Column("ticks", Integer, nullable=False),
+    Column("flags", JsonType, nullable=False),
+    Column("ingested_at", DateTime(timezone=True), nullable=False),
+    Column("available_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("feed_id", "t"),
+    CheckConstraint("bid > 0 AND ask >= bid AND bid_low > 0 AND bid_low <= bid "
+                    "AND ask_high >= ask", name="ck_quote_seconds_price"),
+    CheckConstraint("spread_points >= 0 AND spread_max_points >= 0 AND ticks >= 1",
+                    name="ck_quote_seconds_counts"),
+)
+Index("ix_quote_seconds_available", quote_seconds.c.feed_id, quote_seconds.c.available_at)
+
 # --- Kết quả analyst (migration 0003) ---
 
 analyst_outputs = Table(

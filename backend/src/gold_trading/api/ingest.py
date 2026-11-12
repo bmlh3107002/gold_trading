@@ -35,6 +35,7 @@ from gold_trading.contracts.candle import DataSource
 from gold_trading.ingestion.candles import CandleIngestor, RawBar, TailStatus, tail_status
 from gold_trading.ingestion.sources.csv_file import SESSION_MISMATCH_MAX, check_sessions
 from gold_trading.market.feeds import feed_id_for
+from gold_trading.market.quotes import QuoteIn, QuoteIngestor
 from gold_trading.market.service import MarketDataService
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.storage.candles import InMemoryCandleStore
@@ -45,6 +46,7 @@ log = logging.getLogger("gold_trading.ingest")
 
 MIN_TOKEN_LEN = 24
 MAX_BARS = 2000
+MAX_QUOTE_SECONDS = 600
 HEARTBEAT_TIMEOUT = timedelta(seconds=30)
 
 
@@ -201,6 +203,46 @@ class Heartbeat(BaseModel):
         return self
 
 
+class QuoteSecondIn(BaseModel):
+    """ING-08 / GW-08: một giây ĐÃ TRỌN do Gateway gom từ tick (giá cuối giây + cực trị)."""
+
+    model_config = _FINITE
+    t: UtcDatetime  # đầu giây (UTC, tròn giây)
+    bid: float
+    ask: float
+    bid_low: float  # bid thấp nhất trong giây
+    ask_high: float  # ask cao nhất trong giây
+    spread_max_points: int  # spread lớn nhất trong giây (point)
+    ticks: int
+
+
+class QuoteBatch(BaseModel):
+    model_config = _FINITE
+    account_id: str | None = Field(default=None, max_length=64)
+    symbol: str
+    gateway_id: str = Field(min_length=1, max_length=64)
+    # Danh tính MT5 + symbol broker: bắt buộc (cùng kiểm như lô nến, MT-14 / MT-05).
+    mt5_login: int = Field(gt=0, le=2**63 - 1)
+    mt5_server: str = Field(min_length=1, max_length=256)
+    mt5_account_type: Literal["DEMO", "CONTEST", "REAL", "UNKNOWN"]
+    broker_symbol: str = Field(min_length=1, max_length=64, pattern=r"^[\x21-\x7e]+$")
+    point: float = Field(gt=0)  # symbol_info().point, để tính spread theo point
+    seconds: list[QuoteSecondIn] = Field(max_length=MAX_QUOTE_SECONDS)
+    # Số tick Gateway đã bỏ khi gom (1A-C13 phía Gateway), theo lý do. Chỉ để đếm + log.
+    gateway_dropped: dict[str, int] = Field(default_factory=dict, max_length=16)
+
+
+class QuoteReport(BaseModel):
+    received: int
+    accepted: int
+    duplicates: int
+    conflicts: int
+    dropped: dict[str, int]
+    wide_spread: int
+    calendar_closed: int
+    calendar_mismatch: bool
+
+
 class GatewayStatus(BaseModel):
     state: Literal["NEVER", "CONNECTED", "DISCONNECTED"]
     last_seen_at: datetime | None
@@ -259,6 +301,7 @@ def ingest_router(
     token: str | None,
     repo: Repository,
     ingest_guard: Callable[[], str | None] | None = None,
+    quotes: QuoteIngestor | None = None,
 ) -> APIRouter:
     """``ingest_guard()`` trả lý do nếu phải ngừng nhận nến (ví dụ đồng hồ lệch, OPS-12)."""
     r = APIRouter(tags=["ingest"])
@@ -417,6 +460,45 @@ def ingest_router(
             link_status=link_status,
             **extra,
         )
+
+    @r.post("/api/ingest/mt5/quotes", response_model=QuoteReport)
+    def ingest_quotes(
+        batch: QuoteBatch, authorization: Annotated[str | None, Header()] = None
+    ) -> QuoteReport:
+        """ING-08: giá sống theo giây. Chỉ ghi khi MT5 khớp liên kết ACTIVE, vào đúng nguồn giá
+        (server + symbol broker) của liên kết — như lô nến."""
+        account_id, _ = authorize(authorization, batch.account_id)
+        if quotes is None:
+            raise HTTPException(503, "Backend chưa bật nhận giá sống")
+        if repo.account(account_id) is None:
+            raise HTTPException(403, "Không có tài khoản giao dịch này")
+        if ingest_guard and (reason := ingest_guard()):
+            raise HTTPException(503, reason)
+        if batch.symbol != market.symbol:
+            raise HTTPException(422, f"Symbol phải là {market.symbol}")
+        now = utcnow()
+        seen = Observed(batch.mt5_login, batch.mt5_server, batch.mt5_account_type)
+        try:
+            link = check_candle_identity(repo, account_id, seen, now)
+            feed = lock_feed(repo, link, batch.broker_symbol, now)
+            res = quotes.ingest(
+                (QuoteIn(q.t, q.bid, q.ask, q.bid_low, q.ask_high, q.spread_max_points, q.ticks)
+                 for q in batch.seconds),
+                feed=feed, point=batch.point, now=now,
+            )
+        except CandleLinkError as e:
+            raise HTTPException(409, str(e)) from None
+        except SQLAlchemyError as e:
+            log.error("Không ghi được giá sống: %s", type(e).__name__)
+            raise HTTPException(
+                503, "Lưu trữ đang lỗi (có thể ổ đĩa đầy): chưa ghi lô giá này"
+            ) from e
+        if res.dropped or batch.gateway_dropped:
+            log.warning("Giá sống %s: bỏ %s (Gateway bỏ thêm %s)", account_id, res.dropped,
+                        batch.gateway_dropped)
+        if res.calendar_mismatch:
+            log.warning("CALENDAR_MISMATCH: nguồn %s vẫn có giá khi lịch nói đóng cửa", feed)
+        return QuoteReport(**res.__dict__)
 
     @r.post("/api/ingest/mt5/heartbeat", response_model=GatewayStatus)
     def heartbeat(

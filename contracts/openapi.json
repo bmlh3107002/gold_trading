@@ -442,6 +442,66 @@
         }
       }
     },
+    "/api/ingest/mt5/quotes": {
+      "post": {
+        "tags": [
+          "ingest"
+        ],
+        "summary": "Ingest Quotes",
+        "description": "ING-08: giá sống theo giây. Chỉ ghi khi MT5 khớp liên kết ACTIVE, vào đúng nguồn giá\n(server + symbol broker) của liên kết — như lô nến.",
+        "operationId": "ingest_quotes_api_ingest_mt5_quotes_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/mt5/heartbeat": {
       "post": {
         "tags": [
@@ -3949,6 +4009,190 @@
           "raw"
         ],
         "title": "QuarantineOut"
+      },
+      "QuoteBatch": {
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "gateway_id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Gateway Id"
+          },
+          "mt5_login": {
+            "type": "integer",
+            "maximum": 9.223372036854776e+18,
+            "exclusiveMinimum": 0.0,
+            "title": "Mt5 Login"
+          },
+          "mt5_server": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Mt5 Server"
+          },
+          "mt5_account_type": {
+            "type": "string",
+            "enum": [
+              "DEMO",
+              "CONTEST",
+              "REAL",
+              "UNKNOWN"
+            ],
+            "title": "Mt5 Account Type"
+          },
+          "broker_symbol": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[\\x21-\\x7e]+$",
+            "title": "Broker Symbol"
+          },
+          "point": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Point"
+          },
+          "seconds": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteSecondIn"
+            },
+            "type": "array",
+            "maxItems": 600,
+            "title": "Seconds"
+          },
+          "gateway_dropped": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "maxProperties": 16,
+            "title": "Gateway Dropped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "gateway_id",
+          "mt5_login",
+          "mt5_server",
+          "mt5_account_type",
+          "broker_symbol",
+          "point",
+          "seconds"
+        ],
+        "title": "QuoteBatch"
+      },
+      "QuoteReport": {
+        "properties": {
+          "received": {
+            "type": "integer",
+            "title": "Received"
+          },
+          "accepted": {
+            "type": "integer",
+            "title": "Accepted"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates"
+          },
+          "conflicts": {
+            "type": "integer",
+            "title": "Conflicts"
+          },
+          "dropped": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Dropped"
+          },
+          "wide_spread": {
+            "type": "integer",
+            "title": "Wide Spread"
+          },
+          "calendar_closed": {
+            "type": "integer",
+            "title": "Calendar Closed"
+          },
+          "calendar_mismatch": {
+            "type": "boolean",
+            "title": "Calendar Mismatch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "received",
+          "accepted",
+          "duplicates",
+          "conflicts",
+          "dropped",
+          "wide_spread",
+          "calendar_closed",
+          "calendar_mismatch"
+        ],
+        "title": "QuoteReport"
+      },
+      "QuoteSecondIn": {
+        "properties": {
+          "t": {
+            "type": "string",
+            "format": "date-time",
+            "title": "T"
+          },
+          "bid": {
+            "type": "number",
+            "title": "Bid"
+          },
+          "ask": {
+            "type": "number",
+            "title": "Ask"
+          },
+          "bid_low": {
+            "type": "number",
+            "title": "Bid Low"
+          },
+          "ask_high": {
+            "type": "number",
+            "title": "Ask High"
+          },
+          "spread_max_points": {
+            "type": "integer",
+            "title": "Spread Max Points"
+          },
+          "ticks": {
+            "type": "integer",
+            "title": "Ticks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t",
+          "bid",
+          "ask",
+          "bid_low",
+          "ask_high",
+          "spread_max_points",
+          "ticks"
+        ],
+        "title": "QuoteSecondIn",
+        "description": "ING-08 / GW-08: một giây ĐÃ TRỌN do Gateway gom từ tick (giá cuối giây + cực trị)."
       },
       "Regime": {
         "type": "string",
