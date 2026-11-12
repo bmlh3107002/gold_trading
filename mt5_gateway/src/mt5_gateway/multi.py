@@ -19,7 +19,7 @@ import re
 import subprocess
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -136,10 +136,10 @@ def gt_vars_in_environ(base: dict[str, str] | None = None) -> list[str]:
     return sorted(k for k in env if k.upper().startswith("GT_"))
 
 
-def child_command(t: Terminal, command: str = "run") -> list[str]:
+def child_command(t: Terminal, command: str = "run", extra: Sequence[str] = ()) -> list[str]:
     return [
         sys.executable, "-m", "mt5_gateway.cli", command,
-        "--env-file", str(t.env_file), "--name", t.name,
+        "--env-file", str(t.env_file), "--name", t.name, *extra,
     ]
 
 
@@ -150,8 +150,8 @@ class Proc(Protocol):
     def wait(self, timeout: float | None = None) -> int: ...
 
 
-def popen(t: Terminal, command: str = "run") -> Proc:
-    return subprocess.Popen(child_command(t, command), env=child_env())
+def popen(t: Terminal, command: str = "run", extra: Sequence[str] = ()) -> Proc:
+    return subprocess.Popen(child_command(t, command, extra), env=child_env())
 
 
 @dataclass

@@ -128,6 +128,33 @@ uv run mt5-gateway run
 
 ---
 
+## Tự chạy cùng Windows (GW-06, Gateway ≥ 0.10.0)
+
+Sau khi `run` chạy ổn, có thể cho Gateway **tự chạy ẩn mỗi lần bạn đăng nhập Windows** (không cần để cửa sổ PowerShell mở). Gateway tự chạy lại sau 1 phút nếu dừng vì lỗi.
+
+1. Đóng cửa sổ `run` đang mở (Ctrl+C).
+2. Trong PowerShell, ở thư mục `mt5_gateway`:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\cai-tu-chay.ps1
+   ```
+
+   Máy chạy nhiều MT5 (thư mục `terminals`): thêm `-NhieuMT5` vào cuối lệnh. Script chạy `check` trước; chưa đạt thì **không cài**.
+3. Xem log bằng Notepad trong thư mục `mt5_gateway\logs` (`gateway.log`; nhiều MT5: `run-all.log` + một file cho mỗi MT5). Log tự xoay vòng, tối đa 5 file × 5 MB.
+4. Gỡ tự chạy:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\go-tu-chay.ps1
+   ```
+
+Lưu ý:
+- Dùng Task Scheduler chứ không dùng "Windows Service": service chạy ở phiên hệ thống, không thấy được MT5 đang mở trong phiên của bạn.
+- Máy phải **đăng nhập Windows** và **không ngủ** (Settings → System → Power → Sleep: Never). Nên cho MT5 tự mở khi đăng nhập (Win+R → `shell:startup` → kéo shortcut MT5 vào).
+- Đang tự chạy nền mà mở thêm `run` cho cùng cấu hình → báo "Đã có một Gateway khác đang chạy" và thoát (không chạy trùng).
+- Sau khi cập nhật Gateway (chép đè `src`): chạy lại script cài để kiểm tra và khởi động lại.
+
+---
+
 ## Nhiều MT5 trên một máy (MT-15, Gateway 0.6.0)
 
 Dùng khi máy chạy **nhiều MetaTrader 5 cùng lúc**, mỗi MT5 cho một tài khoản giao dịch (một người dùng). Một cửa sổ Gateway trông coi tất cả; bên trong mỗi MT5 chạy một tiến trình riêng (thư viện MetaTrader5 chỉ nối được một MT5 mỗi tiến trình).
@@ -180,6 +207,7 @@ Mỗi người dùng vẫn phải **xác nhận liên kết MT5** trên trang T�
 | `MT5_LINK_MISMATCH` | Terminal đang đăng nhập MT5 khác MT5 đã liên kết: xem thẻ **Liên kết MT5** trên trang Tài khoản |
 | `SERVER_TZ_SUSPECT` / `SERVER_TZ_CHANGED` | Giờ server broker vừa lệch khác `GT_SERVER_TZ` khi đang chạy: Gateway **tạm ngừng gửi nến + giá** để không lưu sai giờ. Lệch thoáng qua thì tự chạy tiếp. Nếu broker đổi giờ thật: chạy lại `check`, làm theo gợi ý sửa `GT_SERVER_TZ` |
 | `Tắt gửi giá sống` | Giá sống tạm tắt (nến vẫn chạy). Nếu ghi "cần cập nhật backend": cập nhật Docker (`docker compose build --no-cache backend frontend`) |
+| `Đã có một Gateway khác đang chạy` | Gateway cho cấu hình này đang chạy (thường là tự chạy nền). Xem log trong `logs`, hoặc gỡ tự chạy trước khi chạy tay |
 | `TERMINAL_MISMATCH` | Gateway nối vào MT5 khác với `GT_MT5_PATH`: sửa đường dẫn cho đúng `terminal64.exe` của MT5 này, và mỗi MT5 cài ở thư mục riêng |
 | `dùng CHUNG một token` / `CÙNG một terminal` (run-all) | Mỗi file trong `terminals` phải có token riêng và trỏ tới MT5 riêng |
 | Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |
@@ -187,5 +215,5 @@ Mỗi người dùng vẫn phải **xác nhận liên kết MT5** trên trang T�
 ## Giới hạn của bản này
 
 - Đây là **lần đầu chạy với MT5 thật**: Gateway đã được test kỹ với MT5 giả lập, nhưng chưa chạy trên MT5 thật. Nếu có lỗi lạ, gửi lại toàn bộ kết quả `check` hoặc log.
-- Chưa chạy nền như một dịch vụ của Windows (phải để cửa sổ PowerShell mở) và chưa đóng gói `.exe`.
+- Chưa đóng gói `.exe`: chạy bằng `uv` (tự tải Python). Tự chạy nền dùng Task Scheduler (mục "Tự chạy cùng Windows").
 - Backend hoặc mạng mất lâu trong lúc Gateway vẫn chạy: khi thông lại, Gateway tự đọc lùi lịch sử MT5 và gửi bù đủ nến (Gateway ≥ 0.8.1). Nếu gián đoạn dài hơn `GT_HISTORY_BARS` nến M15 (mặc định 5.000 ≈ 2 tháng), log báo "có thể THIẾU nến": tăng `GT_HISTORY_BARS` rồi chạy lại `run`.

@@ -14,7 +14,7 @@
 
 > Người dùng vắng máy Windows từ 2026-11-10 và đồng ý làm tiếp các bước rồi kiểm sau. Mỗi bước code xong mà chưa kiểm ghi ở đây. Khi kiểm: hướng dẫn **từng lệnh một**. Lỗi ở mục trên thì sửa trước rồi mới kiểm mục dưới.
 
-1. **Cập nhật cùng lúc** backend + frontend (`docker compose build --no-cache backend frontend` → `docker compose up -d`) **và** Gateway (tải ZIP `develop`, chép đè `mt5_gateway\src`). Từ MT-14, Gateway < 0.4.0 không ghi được nến. Bản Gateway mới nhất: 0.9.1.
+1. **Cập nhật cùng lúc** backend + frontend (`docker compose build --no-cache backend frontend` → `docker compose up -d`) **và** Gateway (tải ZIP `develop`, chép đè `mt5_gateway\src`). Từ MT-14, Gateway < 0.4.0 không ghi được nến. Bản Gateway mới nhất: 0.10.0.
 2. **MT-13:** `uv run mt5-gateway check` → bước "Liên kết MT5" báo cảnh báo "chưa liên kết" (vẫn SẴN SÀNG) → `run` → Gateway in `Chưa gửi nến: MT5_LINK_REQUIRED` và không thoát → web, trang Tài khoản, thẻ "Liên kết MT5" hiện MetaQuotes-Demo "chờ xác nhận" → gõ lại login → "Đã liên kết" → khoảng 30 s sau Gateway nạp bù, trang Thị trường có nến mới.
 3. **MT-05:** sau khi cập nhật, log backend không lỗi migration 0009 + 0010 (TimescaleDB thật: đổi khóa chính hypertable); trang Thị trường **trống** cho tới khi liên kết (nến cũ đã tách thành legacy) → sau khi xác nhận liên kết, Gateway nạp lại, trang Thị trường có nến; thẻ "Liên kết MT5" hiện symbol broker `XAUUSD`; giá ở header và trang Thị trường hiện bình thường; khoảng 15 giây sau thẻ Phân tích kỹ thuật có kết quả; đăng nhập ADMIN không thấy giá.
 4. **MT-14:** trong MT5 đăng nhập một tài khoản demo khác (hoặc đăng xuất) → thẻ "Liên kết MT5" hiện băng đỏ, Gateway in `MT5_LINK_MISMATCH`, không có nến mới → đăng nhập lại tài khoản cũ → gõ login → "Xác minh lại" → nến chạy tiếp. Đăng xuất / đăng nhập lại đúng tài khoản → tự chạy lại.
@@ -22,6 +22,7 @@
 6. **Bước 5a + 5b (giá sống):** log backend không lỗi migration 0011 (TimescaleDB thật: hypertable `quote_seconds`); `check` dòng "Giá sống (bid/ask)" ĐẠT khi thị trường mở (CẢNH BÁO "tick sai khoảng thời gian" → gửi lại kết quả check, đây là điểm chưa kiểm được với MT5 thật); `run` không có log `Tắt gửi giá sống`; sau vài phút đếm dòng: `docker compose exec db psql -U gold -d gold_trading -c "select count(*), max(t) from quote_seconds"` (mặc định; nếu `.env` đặt `POSTGRES_USER`/`POSTGRES_DB` khác thì dùng tên đó) → số tăng dần, `max(t)` cách giờ UTC hiện tại vài giây; trang Thị trường thẻ "Giá sống" hiện "Đang cập nhật", bid/ask khớp Market Watch của MT5 (trễ vài giây), spread khớp; tắt Gateway ~20 giây khi thị trường mở → thẻ báo đỏ "Giá sống đã cũ".
 7. **Bước 5d (6 cặp tiền):** `check` dòng "Cặp tiền chỉ số USD" — ghi lại có mấy cặp / thiếu cặp nào (nếu thiếu: Market Watch → Show All rồi `check` lại; tên khác thì đặt `GT_USD_PAIRS`). Sau vài phút `run`: `docker compose exec db psql -U gold -d gold_trading -c "select symbol, count(*), max(open_time) from candles where symbol <> 'XAUUSD' group by symbol"` → mỗi cặp có nến, giờ mới nhất gần hiện tại.
 8. **Bước 6a + 6b:** `check` có dòng "Đồng hồ máy" ĐẠT (nếu CẢNH BÁO: bật đồng bộ giờ Windows rồi `check` lại); trang Tài khoản thẻ MT5 hiện "Đồng hồ máy chạy Gateway: Khớp" và "Đồng hồ server MT5: Khớp". Thử gián đoạn: khi thị trường mở, `docker compose stop backend` khoảng 1 giờ rồi `docker compose start backend` → log Gateway có "Nạp bù sau gián đoạn", trang Thị trường không hở nến trong khoảng đó. **6c:** tắt cửa sổ Gateway → sau ~30 giây web hiện băng đỏ "Mất kết nối MT5" (lý do: không gửi tín hiệu); bật lại → hết băng. Rút mạng (hoặc tắt Wi-Fi) khi MT5 mở → băng đỏ lý do "MT5 mất kết nối tới máy chủ broker". Đăng xuất MT5 → lý do "chưa đăng nhập".
+9. **Bước 6d (tự chạy):** đóng cửa sổ `run` → `powershell -ExecutionPolicy Bypass -File scripts\cai-tu-chay.ps1` (thêm `-NhieuMT5` nếu dùng `terminals`) → báo "ĐÃ CÀI"; mở `logs\gateway.log` thấy nạp bù + nến mới; web không có băng đỏ. Mở thêm `uv run mt5-gateway run` → báo "Đã có một Gateway khác đang chạy". Khởi động lại máy, đăng nhập, chờ 2 phút → web có giá mới mà không mở cửa sổ nào. Gỡ: `scripts\go-tu-chay.ps1`.
 
 ## Việc còn treo trước khi bắt đầu bước 1
 
@@ -94,7 +95,7 @@ Chia 4 phần (2026-11-12):
 - [x] 6a — GW-07 + 1A-C09: tự nạp bù khi gián đoạn dài (lịch sử MT5 là hàng đợi bền vững) (2026-11-12: code + test, Gateway 0.8.1; chờ kiểm trên máy)
 - [x] 6b — ING-16 + 1A-C20: phát hiện lệch đồng hồ Gateway ↔ backend ↔ server MT5 (phân biệt với broker đổi giờ) (2026-11-12: code + test, Gateway 0.9.0; chờ kiểm trên máy)
 - [x] 6c — 1A-C10: mất kết nối → STALE sau 30 s, Dashboard báo (2026-11-12: code + test, băng đỏ mọi trang + lý do, Gateway 0.9.1; chờ kiểm trên máy)
-- [ ] 6d — GW-06: tự chạy cùng Windows, ghi log ra file
+- [x] 6d — GW-06: tự chạy cùng Windows, ghi log ra file (2026-11-12: code + test, Task Scheduler + `scripts/cai-tu-chay.ps1`, Gateway 0.10.0; chờ kiểm trên máy)
 
 ### Bước 7 — Khung chung cho nguồn ngoài (1G)
 - [ ] DB-08: bảng lịch kinh tế / tin / series vĩ mô (append-only, point-in-time) — migration mới

@@ -28,6 +28,10 @@ frontend/dist/
 gateway.env
 # MT-15: mỗi terminal một file chứa token riêng — không bao giờ commit
 **/terminals/*.env
+# GW-06: khóa chống chạy trùng + log của Gateway
+*.env.lock
+.run-all.lock
+mt5_gateway/logs/
 
 # Bản sao lưu DB (DB-09)
 backups/

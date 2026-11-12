@@ -145,6 +145,7 @@
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.
 - `mt5-gateway run`: chạy `check` trước; tất cả đạt mới bắt đầu đồng bộ.
 - `mt5-gateway check-all` / `run-all` (MT-15): như trên cho mọi terminal trong `terminals/` (mục 5d).
+- GW-06 (0.10.0): `--log-file` / `--log-dir` (log xoay vòng 5 MB × 5), khóa chống chạy trùng (`<cấu hình>.lock`, `terminals/.run-all.lock`, mã thoát 3); tự chạy khi đăng nhập Windows bằng Task Scheduler qua `scripts/cai-tu-chay.ps1` (gỡ: `go-tu-chay.ps1`). Không dùng Windows Service: service ở session 0 không thấy MT5 của người dùng.
 
 ## 7. Kết quả kiểm chứng (2026-11-05, với MT5 giả lập)
 
