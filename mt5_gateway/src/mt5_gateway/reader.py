@@ -5,6 +5,7 @@ Module ``MetaTrader5`` được truyền vào (``mt5``) để test bằng bản 
 
 from __future__ import annotations
 
+import ntpath
 import time as _time
 from dataclasses import dataclass
 from datetime import datetime
@@ -34,6 +35,22 @@ TIMEFRAMES = ("M15", "H1", "H4", "D1")
 
 class Mt5Error(RuntimeError):
     pass
+
+
+class TerminalMismatch(Mt5Error):
+    """MT-15: đang nối terminal khác terminal đã cấu hình (``GT_MT5_PATH``)."""
+
+
+def norm_terminal_dir(path: str) -> str:
+    """Thư mục cài terminal, chuẩn hóa kiểu Windows (MT-15).
+
+    ``GT_MT5_PATH`` trỏ tới ``terminal64.exe``; ``terminal_info().path`` trả THƯ MỤC chứa nó.
+    Windows không phân biệt hoa/thường và nhận cả ``/`` lẫn ``\\`` → so sau khi chuẩn hóa.
+    """
+    p = path.strip().strip('"').strip()
+    if p.lower().endswith(".exe"):
+        p = ntpath.dirname(p)
+    return ntpath.normcase(ntpath.normpath(p)) if p else ""
 
 
 @dataclass(frozen=True)
@@ -91,6 +108,39 @@ class Mt5Reader:
         ok = self.mt5.initialize(path=self.path) if self.path else self.mt5.initialize()
         if not ok:
             raise self._err("Kết nối MT5 (initialize)")
+        try:
+            self.ensure_terminal()
+        except Mt5Error:
+            self.shutdown()  # nối nhầm terminal: buông ra, không đọc gì của terminal đó
+            raise
+
+    def terminal_dir(self) -> str | None:
+        """Thư mục terminal đang nối (``None`` nếu không đọc được)."""
+        try:
+            info = self.mt5.terminal_info()
+        except Exception:
+            return None
+        path = getattr(info, "path", None) if info is not None else None
+        return path if isinstance(path, str) and path.strip() else None
+
+    def ensure_terminal(self) -> None:
+        """MT-15: đã đặt ``GT_MT5_PATH`` thì terminal đang nối PHẢI đúng thư mục đó.
+
+        Máy chạy nhiều MT5: nối nhầm terminal = gửi nến của MT5 người khác dưới token của mình.
+        Không đọc được đường dẫn cũng coi là sai (mặc định an toàn). Không đặt ``GT_MT5_PATH``
+        (máy một MT5) → không kiểm.
+        """
+        if not self.path:
+            return
+        want = norm_terminal_dir(self.path)
+        got = self.terminal_dir()
+        if got is None:
+            raise TerminalMismatch("TERMINAL_MISMATCH: không đọc được đường dẫn terminal đang nối")
+        if norm_terminal_dir(got) != want:
+            raise TerminalMismatch(
+                f"TERMINAL_MISMATCH: đang nối terminal ở {got}, "
+                f"không phải terminal đã cấu hình ({self.path})"
+            )
 
     def shutdown(self) -> None:
         try:

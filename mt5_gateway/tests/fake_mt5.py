@@ -47,6 +47,10 @@ class FakeMt5:
         self.live_ticks = live_ticks
         self._msc = 0
         self.calls: list[str] = []
+        self.init_paths: list[str | None] = []
+        self.shutdowns = 0
+        # MT-15: thư mục terminal mà initialize() thực sự nối tới (test đổi được)
+        self.terminal_dir: str | None = r"C:\Program Files\MetaTrader 5"
         self.order_send_called = False
         # MT-12/GW-09: danh tính + số liệu tài khoản (test đổi được giữa các nhịp tim)
         self.login = 51234567
@@ -75,9 +79,11 @@ class FakeMt5:
     # --- hàm đọc ---
     def initialize(self, path=None):
         self.calls.append("initialize")
+        self.init_paths.append(path)
         return self.init_ok
 
     def shutdown(self):
+        self.shutdowns += 1
         return True
 
     def last_error(self):
@@ -88,7 +94,7 @@ class FakeMt5:
             connected=self.connected,
             company="Demo Broker Ltd",
             name="MetaTrader 5",
-            path=r"C:\Program Files\MetaTrader 5",
+            path=self.terminal_dir,
         )
 
     def account_info(self):

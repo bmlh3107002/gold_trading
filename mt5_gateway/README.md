@@ -123,6 +123,38 @@ uv run mt5-gateway run
 
 ---
 
+## Nhiều MT5 trên một máy (MT-15, Gateway 0.6.0)
+
+Dùng khi máy chạy **nhiều MetaTrader 5 cùng lúc**, mỗi MT5 cho một tài khoản giao dịch (một người dùng). Một cửa sổ Gateway trông coi tất cả; bên trong mỗi MT5 chạy một tiến trình riêng (thư viện MetaTrader5 chỉ nối được một MT5 mỗi tiến trình).
+
+1. Mỗi MT5 phải cài ở **thư mục riêng** (khi cài, chọn thư mục khác, ví dụ `C:\MT5\LordTrade`, `C:\MT5\Exness`). Mở từng MT5 và đăng nhập đúng tài khoản.
+2. Trong thư mục `mt5_gateway`, mở thư mục **`terminals`**. Copy `vi-du.env.example` thành **một file cho mỗi MT5**, ví dụ `lordtrade.env`, `exness.env`. Trong mỗi file sửa:
+   - `GT_INGEST_TOKEN`: token của **đúng** người dùng dùng MT5 đó. Mỗi file một token **khác nhau**.
+   - `GT_MT5_PATH`: đường dẫn `terminal64.exe` của **đúng** MT5 đó (chuột phải biểu tượng MT5 → **Open file location**).
+3. Kiểm tra tất cả:
+
+   ```powershell
+   uv run mt5-gateway check-all
+   ```
+
+4. Chạy tất cả (để cửa sổ mở, Ctrl+C dừng tất cả):
+
+   ```powershell
+   uv run mt5-gateway run-all
+   ```
+
+Mỗi dòng log có tên MT5 ở đầu, ví dụ `[exness]`. An toàn:
+
+- Hai file **chung token**, hai file trỏ **cùng một MT5**, thiếu `GT_MT5_PATH`, sai đường dẫn → **không chạy MT5 nào**, in rõ file nào sai.
+- Gateway kiểm terminal đang nối đúng thư mục trong `GT_MT5_PATH`; nối nhầm MT5 khác → `TERMINAL_MISMATCH`, không gửi nến của MT5 đó.
+- Một MT5 lỗi (chưa mở, mất mạng, check chưa đạt) thì chỉ MT5 đó dừng và tự chạy lại sau 30 giây (lâu dần tới 5 phút); các MT5 khác vẫn chạy.
+- Biến môi trường `GT_*` của Windows bị bỏ qua: mỗi MT5 chỉ dùng file của nó.
+- Đừng chạy thêm `mt5-gateway run` riêng cho một MT5 đang có trong `run-all`.
+
+Mỗi người dùng vẫn phải **xác nhận liên kết MT5** trên trang Tài khoản của mình (như Bước 7).
+
+---
+
 ## Lỗi thường gặp
 
 | Thông báo | Cách xử lý |
@@ -141,6 +173,8 @@ uv run mt5-gateway run
 | `MT5_LINK_REQUIRED` | MT5 chưa liên kết (hoặc Gateway bản cũ < 0.4.0): xác nhận MT5 trên trang **Tài khoản**; Gateway tự gửi tiếp, không cần chạy lại |
 | `MT5_LINK_SYMBOL` | Đã đổi `GT_BROKER_SYMBOL` (symbol khác = nguồn giá khác): đặt lại như cũ, hoặc **Gỡ liên kết** trên web rồi xác nhận lại để dùng symbol mới |
 | `MT5_LINK_MISMATCH` | Terminal đang đăng nhập MT5 khác MT5 đã liên kết: xem thẻ **Liên kết MT5** trên trang Tài khoản |
+| `TERMINAL_MISMATCH` | Gateway nối vào MT5 khác với `GT_MT5_PATH`: sửa đường dẫn cho đúng `terminal64.exe` của MT5 này, và mỗi MT5 cài ở thư mục riêng |
+| `dùng CHUNG một token` / `CÙNG một terminal` (run-all) | Mỗi file trong `terminals` phải có token riêng và trỏ tới MT5 riêng |
 | Cảnh báo `TÀI KHOẢN THẬT` | Gateway vẫn chỉ đọc, nhưng nên đổi sang tài khoản demo khi thử nghiệm |
 
 ## Giới hạn của bản này

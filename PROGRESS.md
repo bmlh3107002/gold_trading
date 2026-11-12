@@ -3,7 +3,7 @@
 > File này **ngắn** và được nạp tự động mỗi lượt (qua `CLAUDE.md`). Chỉ giữ trạng thái hiện tại. Chi tiết nằm theo giai đoạn ở `docs/giai-doan/` — mỗi phiên chỉ mở **file của giai đoạn đang làm**.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Ghi chú kỹ thuật (bảng thành phần, quy ước code): `docs/ghi-chu-ky-thuat.md` — chỉ đọc mục liên quan.
 
-**Cập nhật lần cuối:** 2026-11-07 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-12 · **Nhánh làm việc:** `develop`
 
 ## Trạng thái hiện tại
 
@@ -13,7 +13,8 @@
 - **Bước 1 (ING-14 + 1A-C19) xong 2026-11-07** (H1/H4/D1 thật, 0 cách ly). Gateway trên máy: `C:\gold-trading\code\gold_trading-develop`.
 - **Bước 2 (1B: CAL-03..05, 1B-C01..C04) xong 2026-11-07** (ngày lễ Mỹ `market/holidays.py`, `GT_BROKER_SPECIAL_HOURS`). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11.
 - **Bước 3 (1A-C21) xong 2026-11-07**: nến cuối phiên gửi trong `tail_bar`, backend nhận khi hết giờ nến + 2 phút và lịch đóng cửa suốt.
-- **Bước 4 (đa tài khoản) chia 5 phần.** Phần 1 MT-12 + GW-09 xong (đã kiểm trên máy). Phần 2 MT-13 (liên kết MT5, migration 0008), phần 3 MT-14 (MT5 khác → MISMATCH chặn ghi) và phần 4 MT-05 (nguồn giá = server + symbol broker, mỗi tài khoản xem giá + analyst theo nguồn của mình, migration 0009 + 0010, Gateway 0.5.0) **code xong, chưa kiểm trên máy**. **Người dùng vắng máy Windows (từ 10/11), đồng ý làm tiếp rồi kiểm sau**: danh sách kiểm ở file kế hoạch, mục "Kiểm trên máy khi người dùng về". **Tiếp theo:** phần 5 MT-15 (nhiều terminal MT5 trên một máy).
+- **Bước 4 (đa tài khoản, 5 phần) code xong 2026-11-12.** Phần 1 MT-12 + GW-09 đã kiểm trên máy. Phần 2 MT-13 (liên kết MT5, migration 0008), phần 3 MT-14 (MT5 khác → MISMATCH chặn ghi), phần 4 MT-05 (nguồn giá theo server + symbol broker, migration 0009 + 0010) và phần 5 MT-15 (nhiều MT5 trên một máy: `run-all`, mỗi terminal một tiến trình + token riêng, Gateway 0.6.0) **chưa kiểm trên máy**. **Người dùng vắng máy Windows (từ 10/11), đồng ý làm tiếp rồi kiểm sau**: danh sách kiểm ở file kế hoạch, mục "Kiểm trên máy khi người dùng về". **Tiếp theo:** bước 5 (giá sống bid/ask/spread, GW-08).
+- ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
@@ -52,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-11, bước 4 phần 4 GĐ1 — MT-05): backend 597 passed (2 skipped), mt5_gateway 65 passed, frontend 79 passed, ruff/tsc/eslint sạch, build OK; migration 0009/0010 thử trên Postgres 16 thật. (DEC-17: CI `ci_stack.sh` đạt với Keycloak thật, e2e 52/52.)
+Kết quả lần cuối (2026-11-12, bước 4 phần 5 GĐ1 — MT-15): mt5_gateway 117 passed, ruff sạch; backend/frontend không đổi (lần trước 2026-11-11: backend 597 passed, frontend 79 passed).

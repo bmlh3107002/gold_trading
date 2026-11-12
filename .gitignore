@@ -26,6 +26,8 @@ frontend/dist/
 
 # Cấu hình Gateway chứa token bí mật
 gateway.env
+# MT-15: mỗi terminal một file chứa token riêng — không bao giờ commit
+**/terminals/*.env
 
 # Bản sao lưu DB (DB-09)
 backups/

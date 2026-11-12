@@ -13,7 +13,7 @@ from typing import Any
 from mt5_gateway import snapshot
 from mt5_gateway.backend_client import BackendClient, BackendError
 from mt5_gateway.config import MIN_TOKEN_LEN, Config, history_bars_for
-from mt5_gateway.reader import Mt5Error, Mt5Reader
+from mt5_gateway.reader import Mt5Error, Mt5Reader, TerminalMismatch
 from mt5_gateway.timeconv import load_tz, tz_offset_hours
 
 PASS, WARN, FAIL = "ĐẠT", "CẢNH BÁO", "LỖI"
@@ -118,8 +118,21 @@ def run_checks(
             )
             return rep
         rep.add(
-            "Kết nối MT5", PASS, f"{getattr(term, 'company', '')} · {getattr(term, 'name', '')}"
+            "Kết nối MT5",
+            PASS,
+            f"{getattr(term, 'company', '')} · {getattr(term, 'name', '')}"
+            + (f" · {getattr(term, 'path', '')}" if cfg.terminal_path else ""),
         )
+    except TerminalMismatch as e:
+        rep.add(
+            "Kết nối MT5",
+            FAIL,
+            str(e),
+            "GT_MT5_PATH phải trỏ đúng terminal64.exe của MT5 dùng cho tài khoản này. "
+            "Mở thư mục cài MT5 đó (chuột phải biểu tượng MT5 → Open file location) "
+            "và chép đường dẫn",
+        )
+        return rep
     except Mt5Error as e:
         rep.add(
             "Kết nối MT5",

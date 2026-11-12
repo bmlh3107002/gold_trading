@@ -65,11 +65,23 @@ def parse_timeframes(raw: str) -> tuple[str, ...]:
     return tuple(t for t in SUPPORTED_TIMEFRAMES if t in names)
 
 
-def load(env_file: Path = Path("gateway.env")) -> Config:
+def default_gateway_id(name: str | None = None) -> str:
+    """Tên máy (một terminal) hoặc ``<tên máy>-<tên terminal>`` (nhiều terminal, MT-15)."""
+    host = socket.gethostname() or "gateway"
+    return (f"{host}-{name}" if name else host)[:64]
+
+
+def load(
+    env_file: Path = Path("gateway.env"), *, use_environ: bool = True, name: str | None = None
+) -> Config:
+    """``use_environ=False`` (chế độ nhiều terminal): CHỈ đọc file của terminal đó — một biến
+    ``GT_INGEST_TOKEN`` đặt chung trong môi trường sẽ đè lên mọi terminal (chung token)."""
     file_vals = read_env_file(env_file)
 
     def get(key: str, default: str = "") -> str:
-        return os.environ.get(key, file_vals.get(key, default))
+        if use_environ:
+            return os.environ.get(key, file_vals.get(key, default))
+        return file_vals.get(key, default)
 
     return Config(
         backend_url=get("GT_BACKEND_URL", "http://localhost:8080"),
@@ -81,6 +93,6 @@ def load(env_file: Path = Path("gateway.env")) -> Config:
         history_bars=int(get("GT_HISTORY_BARS", "5000")),
         poll_seconds=float(get("GT_POLL_SECONDS", "5")),
         heartbeat_seconds=float(get("GT_HEARTBEAT_SECONDS", "10")),
-        gateway_id=get("GT_GATEWAY_ID", socket.gethostname()[:64] or "gateway"),
+        gateway_id=get("GT_GATEWAY_ID", default_gateway_id(name)),
         timeframes=parse_timeframes(get("GT_TIMEFRAMES", DEFAULT_TIMEFRAMES)),
     )

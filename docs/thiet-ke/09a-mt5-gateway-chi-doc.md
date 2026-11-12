@@ -98,10 +98,21 @@
 - **Analyst theo từng nguồn:** `TechnicalRunner(feeds=...)` chạy cho mỗi nguồn đang được ít nhất một tài khoản dùng; lỗi ở một nguồn không chặn nguồn khác. Kết quả duy nhất theo `(feed_id, output_id)` (migration **0010**): hai broker có nến giống hệt nhau (cùng nhà cung cấp thanh khoản) vẫn mỗi nguồn một kết quả — trước đó nguồn thứ hai bị coi là trùng và không bao giờ có kết quả (tìm được khi soát).
 - **Giới hạn:** lịch phiên broker (`GT_BROKER_SERVER_TZ`, `GT_BROKER_SESSIONS`, `GT_BROKER_SPECIAL_HOURS`) vẫn là **một** cấu hình cho cả hệ thống: các broker khác giờ phiên / múi giờ server sẽ bị kiểm R1, cờ GAP, độ mới theo cấu hình đó. Cần lịch theo từng nguồn trước khi dùng nhiều broker khác giờ thật (ghi nhận cho MT-15 / sau GĐ1).
 
+### 5d. Nhiều terminal MT5 trên một máy (MT-15, 2026-11-12, Gateway 0.6.0)
+
+- Thư viện `MetaTrader5` nối **một** terminal mỗi tiến trình Python (hàm cấp module) → "một Gateway quản lý nhiều terminal" = tiến trình cha `run-all` (`multi.py`) chạy **mỗi terminal một tiến trình con** `mt5-gateway run --env-file terminals/<tên>.env --name <tên>`. Cha không đọc MT5, không gọi backend; chỉ kiểm cấu hình, khởi động (giãn 3 s), chạy lại con khi con dừng (30 s, gấp đôi tới 5 phút; chạy ≥ 10 phút rồi mới dừng thì đặt lại 30 s), Ctrl+C dừng hết (terminate, quá 10 s thì kill).
+- **Cấu hình:** `terminals/<tên>.env`, mỗi file một terminal, cùng khóa như `gateway.env` (`.gitignore` chặn commit). Tên file `[A-Za-z0-9_-]{1,32}`; tối đa 20 terminal. Bắt buộc `GT_MT5_PATH` (file phải tồn tại) và token ≥ 24 ký tự. **Một lỗi cấu hình → không chạy terminal nào** (mặc định an toàn): chung token, cùng terminal (so thư mục đã chuẩn hóa kiểu Windows: không phân biệt hoa/thường, `/` = `\`, bỏ `terminal64.exe`, bỏ dấu nháy), trùng `GT_GATEWAY_ID` (không phân biệt hoa/thường). Thông báo lỗi chỉ nêu tên file, **không bao giờ in token**. `gateway_id` mặc định `<tên máy>-<tên terminal>`.
+- **Biến môi trường:** ở chế độ nhiều terminal, `config.load(use_environ=False)` và tiến trình con chạy với môi trường đã **bỏ mọi biến `GT_*`** — một `GT_INGEST_TOKEN` đặt chung trong Windows sẽ biến mọi terminal thành chung token. Chế độ một terminal giữ như cũ (biến môi trường đè file).
+- **Đúng terminal** (cả chế độ một terminal khi đã đặt `GT_MT5_PATH`): sau `initialize(path)` và **trước mỗi lần đọc nến** (`Syncer._read`), `terminal_info().path` phải trùng thư mục của `GT_MT5_PATH`; sai hoặc không đọc được → `TerminalMismatch` (`TERMINAL_MISMATCH`): `check` LỖI, `connect` buông terminal đó (`shutdown`), vòng chạy không gửi gì và nối lại; không tắt khung H1/H4/D1 vì lỗi này. Không đặt `GT_MT5_PATH` → không kiểm (máy một MT5, như cũ).
+- **Lớp phòng thủ phía backend (đã có, MT-13/14):** dù cấu hình sai lọt qua (ví dụ hai cửa sổ `run` riêng dùng chung token), nến chỉ ghi khi danh tính MT5 khớp liên kết ACTIVE của tài khoản của token → MT5 lạ thành MISMATCH, không ghi.
+- **Không đổi backend / schema / contract.**
+- **Giới hạn:** lịch phiên broker vẫn một cấu hình chung (mục 5c) — nhiều broker khác giờ server cần lịch theo nguồn; terminal có `check` chưa đạt thì không gửi nhịp tim, web của người dùng đó chỉ thấy "chưa kết nối" (chi tiết lỗi ở cửa sổ Gateway); chưa chạy như dịch vụ Windows (GW-06, bước 6); chưa chạy với nhiều MT5 thật.
+
 ## 6. Lệnh cho người dùng
 
 - `mt5-gateway check`: chẩn đoán từng bước, mỗi bước báo **ĐẠT / LỖI** kèm cách sửa. Không ghi dữ liệu.
 - `mt5-gateway run`: chạy `check` trước; tất cả đạt mới bắt đầu đồng bộ.
+- `mt5-gateway check-all` / `run-all` (MT-15): như trên cho mọi terminal trong `terminals/` (mục 5d).
 
 ## 7. Kết quả kiểm chứng (2026-11-05, với MT5 giả lập)
 

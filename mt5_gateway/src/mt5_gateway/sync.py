@@ -26,7 +26,7 @@ from mt5_gateway import __version__, snapshot
 from mt5_gateway.backend_client import BackendClient, BackendError
 from mt5_gateway.checks import CheckReport
 from mt5_gateway.config import Config, history_bars_for
-from mt5_gateway.reader import Bar, Mt5Error, Mt5Reader
+from mt5_gateway.reader import Bar, Mt5Error, Mt5Reader, TerminalMismatch
 
 log = logging.getLogger("mt5_gateway")
 BATCH = 1000
@@ -79,7 +79,9 @@ class Syncer:
         return ["M15", *self.higher]
 
     def _read(self, fn: Callable[[], Any]) -> tuple[Any, dict[str, Any]]:
-        """Đọc nến kẹp giữa hai lần đọc danh tính MT5 (MT-14)."""
+        """Đọc nến kẹp giữa hai lần đọc danh tính MT5 (MT-14). MT-15: trước đó kiểm đúng
+        terminal đã cấu hình (sai → ``Mt5Error``, vòng chạy nối lại, không gửi gì)."""
+        self.reader.ensure_terminal()
         before = snapshot.batch_identity(self.reader)
         if before is None:
             raise IdentityUnstable("MT5 chưa đăng nhập tài khoản: không gửi nến")
@@ -145,6 +147,8 @@ class Syncer:
                     raise  # liên kết vừa đổi: thử lại cả lượt nạp bù sau, không bỏ khung
                 log.warning("Nạp bù %s lỗi: %s. Tạm không đồng bộ %s; chạy lại run sau.", tf, e, tf)
                 self.higher.remove(tf)
+            except TerminalMismatch:
+                raise  # nối nhầm terminal: dừng cả lượt, không tắt khung này
             except Mt5Error as e:
                 # Không làm hỏng M15. Khung này tắt tới lần chạy sau (không gửi lịch sử dở dang).
                 log.warning("Nạp bù %s lỗi: %s. Tạm không đồng bộ %s; chạy lại run sau.", tf, e, tf)
@@ -219,6 +223,8 @@ class Syncer:
             except IdentityUnstable as e:
                 log.info("%s (%s)", e, tf)
                 return r
+            except TerminalMismatch:
+                raise
             except (Mt5Error, BackendError) as e:
                 # Lỗi riêng một khung lớn không được làm ngừng M15; thử lại ở lần định kỳ sau.
                 log.warning("Gửi nến %s lỗi: %s", tf, e)
