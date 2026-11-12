@@ -12,7 +12,7 @@
 
 ## Kiểm trên máy khi người dùng về (gom lại, làm theo thứ tự)
 
-> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 7, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ (chưa so `check` lúc tick lệch); mục 8 đạt phần 6c, còn 6a (dừng backend 1 giờ) + 6b (thẻ đồng hồ trên trang Tài khoản); còn mục 5 (MT5 thứ hai), 9 (tự chạy). Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
+> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 7, 9, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ; mục 8 đạt 6b + 6c, còn 6a (dừng backend qua đêm > 5 giờ); còn mục 5 (MT5 thứ hai). Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
 
 > Người dùng vắng máy Windows từ 2026-11-10 và đồng ý làm tiếp các bước rồi kiểm sau. Mỗi bước code xong mà chưa kiểm ghi ở đây. Khi kiểm: hướng dẫn **từng lệnh một**. Lỗi ở mục trên thì sửa trước rồi mới kiểm mục dưới.
 

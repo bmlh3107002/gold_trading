@@ -140,7 +140,7 @@ Sau khi `run` chạy ổn, có thể cho Gateway **tự chạy ẩn mỗi lần 
    ```
 
    Máy chạy nhiều MT5 (thư mục `terminals`): thêm `-NhieuMT5` vào cuối lệnh. Script chạy `check` trước; chưa đạt thì **không cài**.
-3. Xem log bằng Notepad trong thư mục `mt5_gateway\logs` (`gateway.log`; nhiều MT5: `run-all.log` + một file cho mỗi MT5). Log tự xoay vòng, tối đa 5 file × 5 MB.
+3. Xem log bằng Notepad trong thư mục `mt5_gateway\logs` (`gateway.log`; nhiều MT5: `run-all.log` + một file cho mỗi MT5). Log tự xoay vòng, tối đa 5 file × 5 MB. Xem trong PowerShell thì phải thêm `-Encoding UTF8`, nếu không tiếng Việt bị lỗi chữ: `Get-Content logs\gateway.log -Tail 20 -Encoding UTF8`.
 4. Gỡ tự chạy:
 
    ```powershell
