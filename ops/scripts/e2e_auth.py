@@ -121,6 +121,17 @@ def login(b: Browser, user: str, password: str, new_password: str | None = None)
 CHECKS: list[tuple[str, bool]] = []
 
 
+def frame_options(base: str, path: str) -> list[str]:
+    """Các header X-Frame-Options thật sự trả về (không theo redirect)."""
+    req = urllib.request.Request(base.rstrip("/") + path, method="GET")
+    try:
+        resp = OPENER.open(req, timeout=20)
+        rh = resp.headers
+    except urllib.error.HTTPError as e:
+        rh = e.headers
+    return [v.strip().upper() for v in (rh.get_all("X-Frame-Options") or [])]
+
+
 def check(name: str, ok: bool) -> None:
     CHECKS.append((name, ok))
     print(("  OK  " if ok else "  LỖI ") + name)
@@ -137,6 +148,12 @@ def main() -> int:
                    help="mật khẩu tạm cho người dùng tạo trên Dashboard (MT-20); trống = bỏ qua")
     p.add_argument("--compose", default="", help="tiền tố lệnh docker compose (để chạy break-glass)")
     a = p.parse_args()
+
+    # Trang quản trị Keycloak cần tự nhúng (SAMEORIGIN); Dashboard vẫn cấm nhúng (DENY).
+    check("Dashboard cấm nhúng iframe (X-Frame-Options DENY)",
+          frame_options(a.base, "/") == ["DENY"])
+    check("Trang quản trị Keycloak cho nhúng cùng origin (SAMEORIGIN, một header)",
+          frame_options(a.base, "/auth/admin/master/console/") == ["SAMEORIGIN"])
 
     b = Browser(a.base)
     s, _ = b.api("GET", "/api/auth/me")
