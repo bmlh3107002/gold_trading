@@ -192,10 +192,8 @@ function UserList({
     title: t(`adminPage.${pending.kind}Title`, {
       username: pending.user.username,
     }),
-    desc:
-      pending.kind === "lock" && pending.user.price_feed
-        ? `${t("adminPage.lockDesc")} ${t("adminPage.lockPriceFeedWarn")}`
-        : t(`adminPage.${pending.kind}Desc`),
+    // MT-05: mỗi tài khoản ghi giá từ MT5 của mình — khóa một người không làm cả hệ thống ngừng.
+    desc: t(`adminPage.${pending.kind}Desc`),
     confirm: t(`adminPage.${pending.kind}Confirm`),
     danger: pending.kind !== "unlock" && pending.kind !== "rejectToken",
   };

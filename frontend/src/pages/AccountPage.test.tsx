@@ -49,7 +49,8 @@ describe("Trang Tài khoản (USER, DEC-17)", () => {
     );
     render(<AccountPage account={makeAccount()} />);
     expect(await screen.findByText(/Chưa có token Gateway/)).toBeInTheDocument();
-    expect(screen.getByText(/chỉ gửi được nhịp tim/)).toBeInTheDocument();
+    // MT-05: tài khoản không phải tài khoản chính vẫn ghi nến từ MT5 của mình → không còn câu sai này
+    expect(screen.queryByText(/chỉ gửi được nhịp tim/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Xin cấp token" }));
     expect(await screen.findByText(/Đang chờ quản trị cấp token/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Xin cấp/ })).not.toBeInTheDocument();

@@ -160,14 +160,15 @@ describe("Trang Quản trị", () => {
     expect(await screen.findByText(/Keycloak chưa cập nhật/)).toBeInTheDocument();
   });
 
-  it("người đang cấp giá cho hệ thống: ghi chú rõ, cảnh báo khi khóa, không cho xóa", async () => {
+  it("chủ tài khoản chính: ghi đúng (không còn 'cấp giá cho cả hệ thống' — MT-05), không cho xóa", async () => {
     const fn = mock(() => null, [{ ...LAN, price_feed: true, gateway_status: "CONNECTED" }]);
     render(<AdminPage me={ADMIN} multiUser />);
-    expect(await screen.findByText(/đang cấp giá XAUUSD cho cả hệ thống/)).toBeInTheDocument();
+    expect(await screen.findByText(/Tài khoản chính \(tài khoản đầu tiên/)).toBeInTheDocument();
+    expect(screen.queryByText(/cấp giá/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Xóa" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Khóa" }));
     const dialog = screen.getByRole("dialog", { name: "Khóa người dùng lanng?" });
-    expect(within(dialog).getByText(/CẤP GIÁ cho cả hệ thống/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/CẤP GIÁ/)).not.toBeInTheDocument();
     expect(calls(fn, "DELETE")).toEqual([]);
   });
 

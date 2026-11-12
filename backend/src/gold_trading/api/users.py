@@ -133,7 +133,8 @@ class UserAdminOut(BaseModel):
         description="USER đang xin cấp token (chờ ADMIN cấp hoặc từ chối); None = không xin"
     )
     price_feed: bool = Field(
-        description="MT5 của USER này đang cấp giá XAUUSD cho cả hệ thống (không xóa được)"
+        description="Tài khoản chính (tài khoản đầu tiên): không xóa được. Từ MT-05 mỗi tài khoản "
+        "ghi giá từ MT5 của mình; cờ này không còn nghĩa \"cấp giá cho cả hệ thống\""
     )
 
 
@@ -414,8 +415,11 @@ def users_router(
             for acc in accs:
                 reason = None
                 if acc.price_feed:
-                    reason = ("MT5 của người dùng này đang cấp giá cho cả hệ thống, không xóa "
-                              "được. Chuyển nguồn giá sang người khác trước.")
+                    # Người dùng tạo sau sẽ nhận lại tài khoản mặc định (cùng lịch sử) nếu nó
+                    # không còn chủ → không cho xóa chủ tài khoản chính.
+                    reason = ("Đây là tài khoản chính (tài khoản đầu tiên), không xóa được: nếu "
+                              "xóa, người dùng tạo sau sẽ nhận lại tài khoản này cùng toàn bộ "
+                              "lịch sử.")
                 elif (rt := registry.get(acc.account_id)) is not None and (
                         rt.modes.mode is TradingMode.LIVE):
                     reason = "Người dùng đang giao dịch thật (LIVE), không xóa được."

@@ -198,7 +198,7 @@ def test_cannot_delete_price_feed_user():
     repo, app, kc, admin = world()  # "trader" là chủ tài khoản cấp giá
     sub = "sub-trader"
     r = admin.delete(f"{URL}/{sub}")
-    assert r.status_code == 409 and "cấp giá" in r.json()["detail"]
+    assert r.status_code == 409 and "tài khoản chính" in r.json()["detail"]
     assert repo.user(sub).status == "ACTIVE" and sub in kc.users
 
 

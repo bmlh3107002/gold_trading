@@ -78,7 +78,6 @@ const vi = {
     requestRejected: "Quản trị đã từ chối yêu cầu gửi lúc {{time}}. Bạn có thể xin lại.",
     requestError: "Không gửi được yêu cầu. Thử lại sau.",
     legacyActive: "Token cũ trong file .env (GT_INGEST_TOKEN) vẫn đang được nhận.",
-    noPriceFeed: "Gateway của tài khoản này chỉ gửi được nhịp tim; chưa được ghi nến dùng chung.",
     tokenLabel: "Token Gateway",
     copy: "Sao chép",
     copied: "Đã sao chép",
@@ -163,7 +162,7 @@ const vi = {
     colUser: "Người dùng",
     colStatus: "Trạng thái",
     colGateway: "MT5 Gateway",
-    priceFeedHint: "MT5 của người này đang cấp giá XAUUSD cho cả hệ thống.",
+    priceFeedHint: "Tài khoản chính (tài khoản đầu tiên của hệ thống).",
     lastSeen: "Kết nối gần nhất {{time}}",
     tokenRequested: "Xin cấp token lúc {{time}}",
     colLastLogin: "Đăng nhập gần nhất",
@@ -187,8 +186,6 @@ const vi = {
     lockTitle: "Khóa người dùng {{username}}?",
     lockDesc:
       "Người này bị đăng xuất ngay, không đăng nhập được, Gateway của họ bị từ chối và không có lệnh mới. Vị thế đang mở KHÔNG bị đóng tự động.",
-    lockPriceFeedWarn:
-      "MT5 của người này đang CẤP GIÁ cho cả hệ thống: khóa sẽ làm cả hệ thống ngừng nhận nến mới cho tới khi mở khóa.",
     lockConfirm: "Khóa",
     lockNotSynced:
       "Đã khóa ở hệ thống (có hiệu lực ngay) nhưng Keycloak chưa cập nhật. Bấm Khóa lại sau ít phút.",
@@ -210,7 +207,8 @@ const vi = {
     deleteDesc:
       "Người này bị đăng xuất ngay, không đăng nhập được nữa và token Gateway bị thu hồi. Lịch sử thao tác vẫn được giữ. Không hoàn tác được.",
     deleteConfirm: "Xóa người dùng",
-    deletePriceFeed: "Không xóa được: MT5 của người này đang cấp giá cho cả hệ thống.",
+    deletePriceFeed:
+      "Không xóa được tài khoản chính (tài khoản đầu tiên): nếu xóa, người dùng tạo sau sẽ nhận lại tài khoản này cùng toàn bộ lịch sử.",
     deleteConflict:
       "Không xóa được: người dùng đang cấp giá cho hệ thống, đang giao dịch thật (LIVE), hoặc Gateway đang kết nối (tắt Gateway trước).",
     deleteNotSynced: "Đã xóa ở hệ thống (có hiệu lực ngay) nhưng Keycloak chưa cập nhật. Bấm Xóa lại sau ít phút.",

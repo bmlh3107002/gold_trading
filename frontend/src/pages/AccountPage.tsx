@@ -64,7 +64,6 @@ function GatewayInfo({ account }: { account: AccountSummary }) {
           <ul className="plain-list">
             <li>{d.has_token ? t("accountPage.hasToken") : t("accountPage.noToken")}</li>
             {d.legacy_token_active && <li className="tone-gold">{t("accountPage.legacyActive")}</li>}
-            {!d.price_feed && <li>{t("accountPage.noPriceFeed")}</li>}
             {d.request_status === "PENDING" && d.requested_at && (
               <li className="tone-gold">
                 {t("accountPage.requestPending", { time: formatDateTime(d.requested_at) })}

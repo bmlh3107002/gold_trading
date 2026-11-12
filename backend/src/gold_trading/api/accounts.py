@@ -97,7 +97,9 @@ class GatewayTokenInfo(BaseModel):
     legacy_token_active: bool = Field(
         description="Token cũ GT_INGEST_TOKEN còn được nhận (chỉ tài khoản mặc định)"
     )
-    price_feed: bool = Field(description="Gateway của tài khoản này được ghi nến dùng chung")
+    price_feed: bool = Field(
+        description="Tài khoản chính (tài khoản đầu tiên). Không còn quyết định được ghi nến hay "
+        "không (MT-05: theo liên kết MT5)")
     request_status: Literal["NONE", "PENDING", "REJECTED"] = Field(
         description="DEC-17: PENDING = đã xin cấp token, chờ ADMIN; REJECTED = ADMIN từ chối "
                     "lần xin gần nhất (xin lại được)"

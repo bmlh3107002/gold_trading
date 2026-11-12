@@ -1185,7 +1185,7 @@ export interface components {
             legacy_token_active: boolean;
             /**
              * Price Feed
-             * @description Gateway của tài khoản này được ghi nến dùng chung
+             * @description Tài khoản chính (tài khoản đầu tiên). Không còn quyết định được ghi nến hay không (MT-05: theo liên kết MT5)
              */
             price_feed: boolean;
             /**
@@ -1882,7 +1882,7 @@ export interface components {
             token_requested_at: string | null;
             /**
              * Price Feed
-             * @description MT5 của USER này đang cấp giá XAUUSD cho cả hệ thống (không xóa được)
+             * @description Tài khoản chính (tài khoản đầu tiên): không xóa được. Từ MT-05 mỗi tài khoản ghi giá từ MT5 của mình; cờ này không còn nghĩa "cấp giá cho cả hệ thống"
              */
             price_feed: boolean;
         };
