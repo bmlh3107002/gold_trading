@@ -22,7 +22,8 @@ Hệ thống này giao dịch bằng **tiền thật của người dùng**. M�
 - `docs/ghi-chu-ky-thuat.md`: bảng thành phần + quy ước kỹ thuật. Chỉ đọc **mục liên quan** tới phần đang sửa.
 - **Đi sạch từng giai đoạn** (`docs/giai-doan/README.md`): chỉ làm việc thuộc giai đoạn hiện tại; xong hết việc + case + Gate (và người dùng xác nhận) mới sang giai đoạn sau. Khi làm xong một việc: đổi trạng thái và ghi nhật ký **trong file của giai đoạn đó**, nhắc mã việc trong commit.
 - Đặc tả chức năng ở `docs/huong-dan-chuc-nang/`. Code phải tuân thủ các bất biến trong đó: point-in-time, idempotent, UTC, LIVE khóa mặc định, Safety có quyền chặn cao nhất.
-- Push code lên nhánh **`develop`**. Không tạo PR nếu người dùng chưa yêu cầu.
+- Push code lên nhánh **`develop`**. Không tạo PR nếu người dùng chưa yêu cầu. **Xong phần nào (đã test) thì commit + push ngay phần đó**, không dồn nhiều phần.
+- **Sau mỗi lần push: kiểm kết quả CI GitHub Actions** (công cụ GitHub MCP `actions_list` / `get_job_logs`). Job `docker` dựng cả hệ thống bằng Docker với **TimescaleDB thật** — test trên máy (SQLite / Postgres thường) không thay được. CI đỏ → sửa trước khi làm phần tiếp theo. (Bài học 2026-11-12: migration 0009 hỏng trên TimescaleDB, CI đỏ 2 ngày mà không ai thấy.)
 - **Sau mỗi đợt làm việc:** ghi nhật ký + trạng thái vào file giai đoạn hiện tại; cập nhật `PROGRESS.md` **ngắn gọn** (mục "Trạng thái hiện tại", kết quả test lần cuối); quy ước kỹ thuật mới → `docs/ghi-chu-ky-thuat.md`. Giữ `PROGRESS.md` dưới ~5 KB. Rồi commit và push lên `develop`.
 - Trước khi push: chạy `uv run pytest` và `uv run ruff check .` trong `backend/` (và `mt5_gateway/` nếu có sửa), cùng `npm run build` trong `frontend/` nếu có sửa.
 - Khi đổi schema DB: sửa `backend/src/gold_trading/storage/schema.py` và thêm migration Alembic mới. Không sửa migration đã có.

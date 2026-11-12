@@ -39,11 +39,18 @@ def upgrade() -> None:
     for table in ("candles", "candle_quarantine", "analyst_outputs"):
         op.add_column(table, sa.Column("feed_id", sa.String(64), nullable=False,
                                        server_default=""))
-    # Gắn nhãn dữ liệu MT5 cũ. Bảng append-only: tắt trigger đúng trong lúc gắn nhãn.
+    # Gắn nhãn dữ liệu MT5 cũ. Bảng append-only: bỏ trigger đúng trong lúc gắn nhãn rồi tạo lại
+    # y hệt (0002/0003). KHÔNG dùng ALTER TABLE ... DISABLE TRIGGER: TimescaleDB từ chối lệnh
+    # này trên hypertable ``candles`` → backend không khởi động được (CI docker hỏng từ khi có
+    # 0009; sửa 2026-11-12 — ngoại lệ "không sửa migration đã có": chưa DB TimescaleDB nào chạy
+    # qua được 0009, và một migration mới đứng sau cũng không cứu được vì 0009 chạy trước).
     for table in ("candles", "candle_quarantine", "analyst_outputs"):
-        op.execute(f"ALTER TABLE {table} DISABLE TRIGGER {table}_append_only")
+        op.execute(f"DROP TRIGGER {table}_append_only ON {table}")
         op.execute(f"UPDATE {table} SET feed_id = '{LEGACY}' WHERE source = 'MT5'")
-        op.execute(f"ALTER TABLE {table} ENABLE TRIGGER {table}_append_only")
+        op.execute(
+            f"CREATE TRIGGER {table}_append_only BEFORE UPDATE OR DELETE ON {table} "
+            "FOR EACH ROW EXECUTE FUNCTION forbid_mutation();"
+        )
     op.drop_constraint("candles_pkey", "candles", type_="primary")
     op.create_primary_key("candles_pkey", "candles",
                           ["symbol", "timeframe", "source", "feed_id", "open_time", "revision"])
