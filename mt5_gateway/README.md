@@ -159,6 +159,7 @@ Lưu ý:
 
 Dùng khi máy chạy **nhiều MetaTrader 5 cùng lúc**, mỗi MT5 cho một tài khoản giao dịch (một người dùng). Một cửa sổ Gateway trông coi tất cả; bên trong mỗi MT5 chạy một tiến trình riêng (thư viện MetaTrader5 chỉ nối được một MT5 mỗi tiến trình).
 
+0. ⚠️ **Ngay khi cài thêm MT5 thứ hai**, Gateway đang dùng một MT5 có thể bị nối nhầm sang MT5 mới (`check` báo "Kết nối MT5 … IPC timeout"). Thêm vào `gateway.env` dòng `GT_MT5_PATH=` trỏ tới `terminal64.exe` của MT5 cũ (xem đường dẫn: `Get-Process terminal64 | Select-Object Id, Path`), rồi chạy lại `check` / script cài. Gặp trên máy người dùng 2026-11-12.
 1. Mỗi MT5 phải cài ở **thư mục riêng** (khi cài, chọn thư mục khác, ví dụ `C:\MT5\LordTrade`, `C:\MT5\Exness`). Mở từng MT5 và đăng nhập đúng tài khoản.
 2. Trong thư mục `mt5_gateway`, mở thư mục **`terminals`**. Copy `vi-du.env.example` thành **một file cho mỗi MT5**, ví dụ `lordtrade.env`, `exness.env`. Trong mỗi file sửa:
    - `GT_INGEST_TOKEN`: token của **đúng** người dùng dùng MT5 đó. Mỗi file một token **khác nhau**.
