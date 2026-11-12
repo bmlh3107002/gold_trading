@@ -469,17 +469,22 @@ class Syncer:
                 next_hb = self.clock() + self.cfg.heartbeat_seconds
             try:
                 self.watch_tz()
+                sent = True
                 if not self.backfilled:
                     if self.clock() >= self._backfill_retry_at:
                         self.backfill()
                         log.info("Đồng bộ nến %s (chỉ đọc).", ", ".join(self.timeframes))
+                    else:
+                        sent = False  # đang chờ tới lượt thử lại: chưa gửi gì
                 else:
                     self.push_recent()
                     self.push_quotes()
                     self.fx.push(self.clock)
                 self.terminal_ok = True
                 backoff = 1.0
-                if self._last_wait is not None:
+                # Chỉ báo "trở lại" khi THẬT SỰ đã gửi được (trước đây báo cả lúc đang chờ
+                # lượt thử lại → log nói sai, thấy trên máy người dùng 2026-11-12).
+                if sent and self._last_wait is not None:
                     log.info("Đã gửi nến bình thường trở lại.")
                     self._last_wait = None
             except ServerTzChanged as e:

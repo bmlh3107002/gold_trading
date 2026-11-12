@@ -172,3 +172,31 @@ def test_broker_symbol_sent_is_configured_one():
     assert rep.ok
     assert be.posts and {p["identity"]["broker_symbol"] for p in be.posts} == {"XAUUSD.r"}
     assert {p["symbol"] for p in be.posts} == {"XAUUSD"}
+
+
+def test_no_false_recovered_log_while_waiting_for_link(caplog):
+    """Chờ liên kết: không được in "Đã gửi nến bình thường trở lại" khi chưa gửi được nến nào
+    (thấy trên máy người dùng 2026-11-12: cứ 30 giây in cặp cảnh báo + "trở lại")."""
+    import logging
+
+    be = LinkGate()
+    _, be, s, _, _ = world(be)
+    k = {"n": 0}
+
+    def stop():
+        k["n"] += 1
+        if k["n"] == 40:
+            be.open = True
+        return k["n"] > 60
+
+    with caplog.at_level(logging.INFO, logger="mt5_gateway"):
+        s.run_forever(stop=stop)
+    msgs = [r.getMessage() for r in caplog.records]
+    back = [i for i, m in enumerate(msgs) if "bình thường trở lại" in m]
+    waits = [i for i, m in enumerate(msgs) if "Chưa gửi nến" in m]
+    assert be.refused >= 2  # đã thử lại nhiều lượt trong lúc chờ
+    assert len(waits) == 1  # cảnh báo một lần, không lặp
+    assert len(back) == 1 and back[0] > waits[0]  # "trở lại" đúng một lần, SAU khi thông
+    first_ok = next(i for i, m in enumerate(msgs) if "Nạp bù lịch sử M15" in m)
+    assert back[0] > first_ok  # và chỉ sau khi đã thật sự nạp được
+    assert s.backfilled
