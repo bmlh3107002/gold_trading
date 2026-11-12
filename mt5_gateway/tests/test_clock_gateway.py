@@ -7,6 +7,8 @@ import threading
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import pytest
+
 from mt5_gateway import checks
 from mt5_gateway.backend_client import BackendClient
 from mt5_gateway.clocksync import ClockSync
@@ -151,3 +153,59 @@ def test_heartbeat_reports_terminal_offline_when_mt5_loses_broker():
     fake.connected = True
     s.terminal_ok = False  # lỗi đọc MT5
     assert s.heartbeat_payload()["terminal_connected"] is False
+
+
+# --- 2026-11-12: "localhost" chậm 2 giây trên Windows (IPv6 trước), dòng đồng hồ biến mất ---
+
+
+@pytest.mark.parametrize("url,expected", [
+    ("http://localhost:8080", "http://127.0.0.1:8080"),
+    ("http://LOCALHOST:8080/", "http://127.0.0.1:8080"),
+    ("http://localhost", "http://127.0.0.1"),
+    ("http://localhost:9000/sub", "http://127.0.0.1:9000/sub"),
+    (" http://localhost:8080 ", "http://127.0.0.1:8080"),
+    ("http://127.0.0.1:8080", "http://127.0.0.1:8080"),
+    ("http://may-chu.ts.net:8080", "http://may-chu.ts.net:8080"),
+    ("http://localhost.example.com:8080", "http://localhost.example.com:8080"),
+    ("https://gold.tail1234.ts.net", "https://gold.tail1234.ts.net"),
+])
+def test_backend_url_localhost_becomes_ipv4(url, expected):
+    from mt5_gateway.backend_client import normalize_base_url
+
+    assert normalize_base_url(url) == expected
+    assert BackendClient(url, "x").base == expected
+
+
+def test_default_backend_url_is_ipv4(tmp_path):
+    from mt5_gateway.config import load
+
+    env = tmp_path / "gateway.env"
+    env.write_text("GT_INGEST_TOKEN=" + "x" * 30 + "\n", encoding="utf-8")
+    assert load(env, use_environ=False).backend_url == "http://127.0.0.1:8080"
+
+
+@pytest.mark.parametrize("answer", ["slow", "no-date"])
+def test_check_warns_when_backend_clock_unmeasurable(answer):
+    """Không đo được giờ máy chủ → CẢNH BÁO (trước đây dòng này biến mất, im lặng)."""
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    be = TimeBackend(lambda: fake.now)
+    t = [fake.now]
+
+    def now():  # mỗi lần đọc đồng hồ trôi 2,5 giây → khứ hồi > 2 giây
+        if answer == "slow":
+            t[0] += timedelta(seconds=2.5)
+            return t[0]
+        return fake.now
+
+    if answer == "no-date":
+        be.server_date = lambda: None
+    rep = checks.run_checks(cfg(), fake, be, now=now, tick_wait_s=1)
+    clk = {x.name: x for x in rep.steps}["Đồng hồ máy"]
+    assert clk.status == checks.WARN and "Không đo được" in clk.detail
+
+
+def test_check_without_clock_support_has_no_clock_line():
+    """Backend giả không có server_date (bản cũ) → không thêm dòng (giữ hành vi cũ)."""
+    fake = FakeMt5(now_utc=NOW_WINTER)
+    rep = checks.run_checks(cfg(), fake, FakeBackend(), tick_wait_s=1)
+    assert "Đồng hồ máy" not in {x.name for x in rep.steps}

@@ -112,7 +112,7 @@ def load(
         return file_vals.get(key, default)
 
     return Config(
-        backend_url=get("GT_BACKEND_URL", "http://localhost:8080"),
+        backend_url=get("GT_BACKEND_URL", "http://127.0.0.1:8080"),
         token=get("GT_INGEST_TOKEN"),
         broker_symbol=get("GT_BROKER_SYMBOL", "XAUUSD"),
         symbol=get("GT_SYMBOL", "XAUUSD"),

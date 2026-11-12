@@ -146,6 +146,7 @@
 - `mt5-gateway run`: chạy `check` trước; tất cả đạt mới bắt đầu đồng bộ.
 - `mt5-gateway check-all` / `run-all` (MT-15): như trên cho mọi terminal trong `terminals/` (mục 5d).
 - GW-06 (0.10.0): `--log-file` / `--log-dir` (log xoay vòng 5 MB × 5), khóa chống chạy trùng (`<cấu hình>.lock`, `terminals/.run-all.lock`, mã thoát 3); tự chạy khi đăng nhập Windows bằng Task Scheduler qua `scripts/cai-tu-chay.ps1` (gỡ: `go-tu-chay.ps1`). Không dùng Windows Service: service ở session 0 không thấy MT5 của người dùng.
+- 0.10.1 (2026-11-12, kiểm trên máy người dùng): địa chỉ backend `localhost` tự đổi thành `127.0.0.1`. Windows thử IPv6 `::1` trước, Docker chỉ mở cổng ở IPv4 → mỗi yêu cầu chờ ~2 giây (đo được 2,08 s): giá sống trễ, không đo được đồng hồ máy chủ. Mặc định và file mẫu đổi sang `127.0.0.1`. `check` không đo được đồng hồ máy chủ → CẢNH BÁO (trước đây dòng "Đồng hồ máy" biến mất, im lặng).
 
 ## 7. Kết quả kiểm chứng (2026-11-05, với MT5 giả lập)
 

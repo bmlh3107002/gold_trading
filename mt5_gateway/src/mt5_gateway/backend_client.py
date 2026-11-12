@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -15,9 +16,25 @@ class BackendError(RuntimeError):
         self.detail = detail
 
 
+def normalize_base_url(url: str) -> str:
+    """``localhost`` → ``127.0.0.1``.
+
+    Trên Windows, ``localhost`` thử IPv6 (::1) trước; Docker chỉ mở cổng ở IPv4 127.0.0.1 nên
+    mỗi yêu cầu chờ ~2 giây mới chuyển sang IPv4 (đo trên máy người dùng 2026-11-12: 2,08 s).
+    Gateway gửi giá sống mỗi giây → bị trễ, và không đo được đồng hồ máy chủ.
+    """
+    parts = urllib.parse.urlsplit(url.strip().rstrip("/"))
+    if (parts.hostname or "").lower() != "localhost":
+        return parts.geturl()
+    netloc = "127.0.0.1" + (f":{parts.port}" if parts.port else "")
+    if parts.username or parts.password:  # không dùng, nhưng không làm mất nếu có
+        return parts.geturl()
+    return urllib.parse.urlunsplit(parts._replace(netloc=netloc))
+
+
 class BackendClient:
     def __init__(self, base_url: str, token: str, timeout_s: float = 20.0) -> None:
-        self.base = base_url.rstrip("/")
+        self.base = normalize_base_url(base_url)
         self.token = token
         self.timeout = timeout_s
 

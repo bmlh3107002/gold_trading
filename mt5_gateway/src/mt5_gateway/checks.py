@@ -265,6 +265,11 @@ def run_checks(
         )
         return rep
 
+    if clock_off is None and getattr(client, "server_date", None) is not None:
+        # Không im lặng bỏ qua: không đo được thì báo (giờ tick vẫn so theo đồng hồ máy).
+        rep.add("Đồng hồ máy", WARN,
+                "Không đo được giờ máy chủ (phản hồi chậm hơn 2 giây hoặc thiếu header Date)",
+                f"Kiểm tra GT_BACKEND_URL ({client.base}); nếu máy chậm, chạy lại check")
     if clock_off is not None:
         sec = clock_off.total_seconds()
         if abs(sec) <= CLOCK_OK_S:

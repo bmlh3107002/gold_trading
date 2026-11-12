@@ -3,4 +3,4 @@
 Không có chức năng đặt lệnh.
 """
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"

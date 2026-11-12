@@ -94,7 +94,7 @@ Lần đầu sẽ mất 1–2 phút để tải Python và thư viện. Kết qu
 [  ĐẠT   ] 5. Symbol: XAUUSD: digits 2, contract 100, lot tối thiểu 0.01, bước lot 0.01
 [  ĐẠT   ] 6. Giờ server (tick trực tiếp): Khớp: GMT+2
 [  ĐẠT   ] 7. Lịch sử nến M15: ... nến đã đóng ...
-[  ĐẠT   ] 8. Backend: http://localhost:8080 · lưu trữ postgres
+[  ĐẠT   ] 8. Backend: http://127.0.0.1:8080 · lưu trữ postgres
 [  ĐẠT   ] 9. Chạy thử gửi dữ liệu (không lưu): ...
 [  ĐẠT   ] 10. Liên kết MT5: Đã liên kết đúng MT5 này
 [  ĐẠT   ] 11. Khung H1/H4/D1: H1 ... nến; H4 ... nến; D1 ... nến
