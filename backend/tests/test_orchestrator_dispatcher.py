@@ -133,7 +133,7 @@ def test_debounce_candles_but_never_releases(orch):
     put(orch, *[actual(f"bea_nipa:X{i}:2026-10", known=k) for i in range(20)])
     r = d.tick(k + timedelta(seconds=1))
     assert tech.calls == [(GOLD, candle(19).event_version)]
-    assert len(ev.calls) == 20 and r.superseded == 19 + 19         # TECHNICAL + REGIME
+    assert len(ev.calls) == 20 and r.skipped == 19 + 19            # TECHNICAL + REGIME
     # nến cũ trong cùng lô không sinh job (debounce khi tạo) → chỉ 1 job TECHNICAL
     st = latest_states(orch, d, "TECHNICAL")
     assert list(st.values()) == [JobState.SUCCEEDED]
@@ -292,7 +292,7 @@ def test_bulk_create_scales(orch):
         *[actual(f"bea_nipa:X{i}", known=k) for i in range(300)])
     r = d.tick(k)
     assert r.created == 2 + 2 + 1 + 300 * 2
-    assert r.superseded == 999 * 5
+    assert r.skipped == 999 * 5 and r.superseded == 0
 
 
 def test_restore_many_pending_from_old_version(orch):
@@ -311,7 +311,16 @@ def test_restore_many_pending_from_old_version(orch):
     d = D.Dispatcher(orch, {"TECHNICAL": D.Handler("t-1", tech)})
     r = d.tick(k + timedelta(seconds=10))
     assert tech.calls == [(GOLD, candle(399).event_version)]
-    assert r.superseded >= 399
+    assert r.superseded == 399
     assert orch.open_jobs_since(k - timedelta(days=1)) == []
     states = [orch.latest(j.job_key).state for j in jobs]
     assert states.count(JobState.SUPERSEDED) == 399 and states.count(JobState.SUCCEEDED) == 1
+
+
+def test_quiet_rescan_reports_nothing(orch):
+    """Quét lại vùng chồng lấn không có gì mới → không job, không SUPERSEDED (runner không log)."""
+    d = D.Dispatcher(orch, {"TECHNICAL": D.Handler("t-1", Rec())})
+    put(orch, *[candle(i) for i in range(5)])
+    d.tick(T + timedelta(hours=2))
+    r = d.tick(T + timedelta(hours=2, seconds=10))
+    assert (r.created, r.superseded, r.ran) == (0, 0, {})

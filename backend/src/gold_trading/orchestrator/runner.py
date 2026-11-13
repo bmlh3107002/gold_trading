@@ -89,9 +89,10 @@ class OrchestratorRunner:
                             record_store=self.record_store, analyst_store=self.analyst_store,
                             now=now)
         dres = self.dispatcher.tick(now)
+        # Chỉ ghi log khi có việc thật (quét lại vùng chồng lấn không tạo dòng log mỗi 10 giây).
         if dres.created or dres.ran or dres.superseded:
             log.info("Orchestrator: sự kiện mới %s, job mới %d, bỏ qua (debounce) %d, chạy %s",
-                     dict(sres.new), dres.created, dres.superseded, dres.ran)
+                     dict(sres.new), dres.created, dres.superseded + dres.skipped, dres.ran)
         return sres, dres
 
     def _loop(self) -> None:

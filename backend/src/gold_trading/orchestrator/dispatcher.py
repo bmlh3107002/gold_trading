@@ -105,7 +105,8 @@ def backoff(h: Handler, failures: int) -> timedelta:
 class TickResult:
     events: int = 0
     created: int = 0
-    superseded: int = 0
+    superseded: int = 0          # job đang mở vừa ghi SUPERSEDED
+    skipped: int = 0             # sự kiện cũ không tạo job (debounce lúc tạo; gồm cả quét lại)
     ran: dict[str, int] = field(default_factory=dict)   # trạng thái → số lần
 
 
@@ -149,7 +150,7 @@ class Dispatcher:
             for r in routes_for(e):
                 if r.debounce and (e.occurred_at, e.event_version) < newest[
                         (r.job_type, e.subject)]:
-                    res.superseded += 1
+                    res.skipped += 1
                     continue
                 ver = self._version(r.job_type)
                 j = Job(job_key_for(e, r.job_type, ver), e.event_id, r.job_type, ver,
