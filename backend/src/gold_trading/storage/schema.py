@@ -352,6 +352,32 @@ external_quarantine = Table(
 Index("ix_external_quarantine_source", external_quarantine.c.source,
       external_quarantine.c.received_at)
 
+# --- Nhật ký các lần kiểm (gọi) nguồn ngoài (ING-30, migration 0013) ---
+# Chỉ thêm. Mỗi lần bộ nạp gọi một nguồn ghi một dòng; trạng thái HEALTHY/STALE/MISSING/INVALID
+# tính lại từ đây tại mọi as_of (point-in-time). error_code chỉ là mã ngắn (không ghi thông điệp
+# lỗi gốc để không lộ khóa API trong URL). Quy tắc: docs/thiet-ke/10-nguon-ngoai.md mục 2.
+external_source_checks = Table(
+    "external_source_checks",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("source", String(64), nullable=False),
+    Column("checked_at", DateTime(timezone=True), nullable=False),
+    Column("outcome", String(16), nullable=False),
+    Column("error_code", String(64)),
+    Column("inserted", Integer, nullable=False),
+    Column("duplicate", Integer, nullable=False),
+    Column("conflict", Integer, nullable=False),
+    Column("invalid", Integer, nullable=False),
+    CheckConstraint("outcome IN ('OK', 'ERROR', 'INVALID')",
+                    name="ck_external_source_checks_outcome"),
+    CheckConstraint("(outcome = 'OK') = (error_code IS NULL)",
+                    name="ck_external_source_checks_error_code"),
+    CheckConstraint("inserted >= 0 AND duplicate >= 0 AND conflict >= 0 AND invalid >= 0",
+                    name="ck_external_source_checks_counts"),
+)
+Index("ix_external_source_checks_source", external_source_checks.c.source,
+      external_source_checks.c.checked_at)
+
 # --- Kết quả analyst (migration 0003) ---
 
 analyst_outputs = Table(

@@ -146,6 +146,14 @@ class SqlExternalRecordStore:
         with self.engine.connect() as conn:
             return [_record(m) for m in conn.execute(q).mappings()]
 
+    def latest_event_time(self, source: str, as_of: datetime) -> datetime | None:
+        """``event_time`` lớn nhất (không quá ``as_of``) trong các bản ghi đã biết tại ``as_of``."""
+        as_of = _utc(as_of)  # SQLite so sánh chuỗi: phải cùng múi UTC
+        q = select(func.max(_R.event_time)).where(
+            _R.source == source, _R.known_at <= as_of, _R.event_time <= as_of)
+        with self.engine.connect() as conn:
+            return _utc(conn.execute(q).scalar())
+
     def history(self, source: str, logical_key: str, as_of: datetime) -> list[NormalizedRecord]:
         q = (select(external_records)
              .where(_R.source == source, _R.logical_key == logical_key, _R.known_at <= as_of)

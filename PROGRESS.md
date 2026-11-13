@@ -3,7 +3,7 @@
 > File này **ngắn** và được nạp tự động mỗi lượt (qua `CLAUDE.md`). Chỉ giữ trạng thái hiện tại. Chi tiết nằm theo giai đoạn ở `docs/giai-doan/` — mỗi phiên chỉ mở **file của giai đoạn đang làm**.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Ghi chú kỹ thuật (bảng thành phần, quy ước code): `docs/ghi-chu-ky-thuat.md` — chỉ đọc mục liên quan.
 
-**Cập nhật lần cuối:** 2026-11-12 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-13 · **Nhánh làm việc:** `develop`
 
 ## Trạng thái hiện tại
 
@@ -11,8 +11,8 @@
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–3 xong + đã kiểm trên máy (2026-11-07):** H1/H4/D1 (ING-14), lịch ngày lễ Mỹ + `GT_BROKER_SPECIAL_HOURS` (1B), nến cuối phiên `tail_bar` (1A-C21). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11. Gateway trên máy: `C:\gold-trading\code\gold_trading-develop`.
-- **Bước 4–6 code xong + kiểm trên máy 2026-11-12** (danh sách ở file kế hoạch, mục "Kiểm trên máy khi người dùng về"): mục 1–4, 7, 9, 10 + 6b, 6c đạt; sửa Gateway tới 0.10.3 (localhost chậm, log sai, khởi động/lý do/liên kết trên web) + trang quản trị Keycloak. Mật khẩu `kcadmin` đã đổi. 0.10.3 đã cập nhật trên máy (`GT_MT5_PATH` đặt cho MT5 cũ). Mục 5 đạt (máy chạy `run-all` 2 MT5). **Còn:** mục 6a (lần 1 hỏng do Gateway bị tắt; làm lại tối 13/11, hướng dẫn ở file kế hoạch). **Phiên mới: làm bước 7b.**
-- **Bước 7 (khung chung nguồn ngoài, chia 7a–7d):** 7a xong 2026-11-12 — DB-08 + ING-13: bảng `external_records` (migration 0012, point-in-time theo `known_at`), thiết kế `docs/thiet-ke/10-nguon-ngoai.md`. **Tiếp theo: 7b** (ING-30 trạng thái nguồn + TTL).
+- **Bước 4–6 code xong + kiểm trên máy 2026-11-12** (danh sách ở file kế hoạch, mục "Kiểm trên máy khi người dùng về"): mục 1–4, 7, 9, 10 + 6b, 6c đạt; sửa Gateway tới 0.10.3 (localhost chậm, log sai, khởi động/lý do/liên kết trên web) + trang quản trị Keycloak. Mật khẩu `kcadmin` đã đổi. 0.10.3 đã cập nhật trên máy (`GT_MT5_PATH` đặt cho MT5 cũ). Mục 5 đạt (máy chạy `run-all` 2 MT5). **Còn:** mục 6a (lần 1 hỏng do Gateway bị tắt; làm lại tối 13/11, hướng dẫn ở file kế hoạch).
+- **Bước 7 (khung chung nguồn ngoài, chia 7a–7d):** 7a xong 2026-11-12 — DB-08 + ING-13: bảng `external_records` (migration 0012, point-in-time theo `known_at`), thiết kế `docs/thiet-ke/10-nguon-ngoai.md`. 7b xong 2026-11-13 — ING-30: trạng thái nguồn + TTL riêng (migration 0013 `external_source_checks`, tính lại tại mọi `as_of`). **Phiên mới: làm 7c** (ING-31 khóa API).
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
@@ -53,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-12): backend 745 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 88 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 811 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 88 passed, build đạt.

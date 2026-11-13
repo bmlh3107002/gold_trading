@@ -234,6 +234,14 @@ class PointInTimeStore:
                     and (event_to is None or r.event_time < event_to)]
         return pick_latest(rows, as_of)
 
+    def latest_event_time(self, source: str, as_of: datetime) -> datetime | None:
+        """``event_time`` lớn nhất (không quá ``as_of``) trong các bản ghi đã biết tại ``as_of``
+        — đo độ cũ dữ liệu cho ``data_ttl`` (ING-30). Nạp bù số cũ không làm nguồn "mới"."""
+        with self._lock:
+            times = [r.event_time for r, _ in self._by_identity.values()
+                     if r.source == source and r.known_at <= as_of and r.event_time <= as_of]
+        return max(times, default=None)
+
     def history(self, source: str, logical_key: str, as_of: datetime) -> list[NormalizedRecord]:
         """Mọi revision đã biết tại ``as_of`` của một dữ kiện, theo revision tăng dần (ING-19)."""
         with self._lock:

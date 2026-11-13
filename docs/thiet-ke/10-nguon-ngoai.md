@@ -50,3 +50,40 @@
 **Ghi đồng thời:** hai tiến trình ghi cùng dữ kiện → ràng buộc duy nhất của DB chặn; bên thua kiểm lại và ra `DUPLICATE` hoặc `CONFLICT` (đã kiểm 8 luồng trên Postgres).
 
 **Chưa làm ở 7a:** xóa theo hạn giữ (ING-33, bước 10 — khi cần sẽ là ngoại lệ có ghi lý do như `quote_seconds`); nối vào bộ nạp nguồn thật (bước 8–10).
+
+## 2. Trạng thái nguồn + TTL riêng (7b — ING-30, 2026-11-13)
+
+**Nhật ký lần kiểm** (migration 0013, bảng `external_source_checks`, chỉ thêm — trigger chặn `UPDATE` + `DELETE`): mỗi lần bộ nạp gọi một nguồn ghi một dòng `(source, checked_at, outcome, error_code, inserted, duplicate, conflict, invalid)`. `outcome`:
+
+| `outcome` | Khi nào |
+| --- | --- |
+| `OK` | Nguồn trả lời, đọc được (kể cả không có gì mới) |
+| `ERROR` | Không lấy được: mạng, HTTP lỗi, khóa sai... |
+| `INVALID` | Lấy được nhưng hỏng; hoặc **mọi** bản ghi bị từ chối (`ALL_RECORDS_REJECTED`). Một phần hỏng → vẫn `OK`, kèm cờ `PARTIAL_INVALID` / `CONFLICT_SEEN` |
+
+**`error_code` chỉ là mã ngắn** `[A-Z][A-Z0-9_]{0,63}` (ví dụ `TIMEOUT`, `HTTP_503`, `AUTH_FAILED`) — code và DB đều chặn thông điệp lỗi gốc, vì thông điệp có thể chứa URL kèm khóa API (FRED để khóa trong URL). Lý do: an toàn ING-31.
+
+**Không lưu trạng thái** — tính lại tại mọi `as_of` từ nhật ký (chỉ lần kiểm có `checked_at <= as_of`) và từ dữ liệu đã biết. Tính lại quá khứ → cùng kết quả; lần kiểm ghi sau không viết lại quá khứ.
+
+**Cấu hình mỗi nguồn** (`SourceSpec`): `fetch_ttl` = lâu nhất kể từ lần kiểm OK cuối; `data_ttl` (tùy chọn) = lâu nhất kể từ `event_time` của dữ kiện mới nhất đã biết (bắt trường hợp nguồn vẫn trả lời nhưng không có số mới — công bố trễ, chính phủ đóng cửa, 1F-C02). TTL > 0 và ≤ 400 ngày; lịch (`calendar`) không có `data_ttl` (sự kiện ở tương lai). Tên nguồn trùng → lỗi cấu hình. TTL cụ thể đặt khi thêm từng nguồn (bước 8–10), kèm lý do.
+
+**Thứ tự quyết định** (gặp điều nào trước thì dừng):
+
+| # | Điều kiện | Trạng thái | `reason` |
+| --- | --- | --- | --- |
+| 1 | Nguồn không khai báo / đang tắt | MISSING | `UNKNOWN_SOURCE` / `DISABLED` |
+| 2 | Chưa kiểm lần nào | MISSING | `NEVER_CHECKED` |
+| 3 | Sau lần OK cuối có lỗi "chết" (`AUTH_FAILED`, `KEY_MISSING`, `SOURCE_DISCONTINUED`, `FORBIDDEN`) | MISSING (ngay, không chờ TTL) | mã lỗi |
+| 4 | Sau lần OK cuối có lần `INVALID` | INVALID | mã lỗi |
+| 5 | Chưa OK lần nào | MISSING | `NEVER_OK` |
+| 6 | Lần OK cuối cũ hơn `fetch_ttl` | STALE | `FETCH_TTL_EXPIRED` |
+| 7 | Có `data_ttl`, chưa có dữ kiện / dữ kiện mới nhất cũ hơn `data_ttl` | MISSING / STALE | `NO_DATA` / `DATA_TTL_EXPIRED` |
+| 8 | Còn lại | HEALTHY | `OK` |
+
+**Lý do + đánh đổi:**
+- Lỗi tạm (mạng, 5xx, `RATE_LIMITED`) **không** đổi trạng thái ngay — đó là ý nghĩa của TTL; còn hạn thì HEALTHY kèm cờ `RECENT_FAILURES`, quá hạn → STALE. Lỗi "chết" và dữ liệu hỏng không tự hết theo thời gian → báo ngay (hướng an toàn). Lỗi tạm đến sau không che lỗi chết.
+- Đúng bằng TTL vẫn còn hạn (`>` mới hết). TTL tính theo thời gian thật (UTC), đổi giờ DST không làm lệch.
+- Độ cũ dữ liệu đo bằng `event_time` (không phải `known_at`): nạp bù hôm nay một báo cáo cũ **không** làm nguồn "mới". Chỉ tính dữ kiện đã biết tại `as_of` và `event_time <= as_of`.
+- Cùng `checked_at` thì thứ tự ghi (`seq`) quyết định.
+
+**Code:** `ingestion/source_status.py` (quy tắc + nhật ký trong bộ nhớ), `storage/source_checks.py` (SQL), `latest_event_time` ở cả hai store bản ghi. Hai bản chạy cùng bộ test. **Chưa làm:** nối vào bộ nạp thật + đặt TTL từng nguồn (bước 8–10); backoff khi bị giới hạn tần suất (1D-C05, bộ nạp tin); hiển thị (DSH-09); hạn giữ nhật ký (ING-33).
