@@ -196,6 +196,19 @@ class OrchestratorStore:
                 self.append_attempt(by_key[j.job_key])
         return made
 
+    def open_jobs_since(self, since: datetime) -> list[tuple[Job, Attempt]]:
+        """Job tạo sau ``since`` mà lần thử mới nhất chưa kết thúc (khôi phục khi khởi động)."""
+        out = []
+        for j in self.jobs_created_since(since):
+            last = self.latest(j.job_key)
+            if last is not None and last.state not in TERMINAL:
+                out.append((j, last))
+        return out
+
+    def append_attempts(self, attempts) -> None:
+        for a in attempts:
+            self.append_attempt(a)
+
     def job(self, job_key: str) -> Job | None:
         with self._lock:
             return self._jobs.get(job_key)

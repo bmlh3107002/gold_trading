@@ -293,3 +293,25 @@ def test_bulk_create_scales(orch):
     r = d.tick(k)
     assert r.created == 2 + 2 + 1 + 300 * 2
     assert r.superseded == 999 * 5
+
+
+def test_restore_many_pending_from_old_version(orch):
+    """Bản cũ để lại hàng nghìn job PENDING (tạo từng cái, chưa debounce) → khởi động bản mới:
+    khôi phục bằng một truy vấn, debounce theo lô, chỉ job mới nhất chạy."""
+    from gold_trading.orchestrator.model import Job, job_key_for
+    tech = Rec()
+    k = T + timedelta(days=1)
+    evs = [candle(i, known=k) for i in range(400)]
+    put(orch, *evs)
+    jobs = [Job(job_key_for(e, "TECHNICAL", "t-1"), e.event_id, "TECHNICAL", "t-1",
+                e.correlation_id, k) for e in evs]
+    orch.create_jobs_bulk(jobs, [Attempt(j.job_key, JobState.PENDING, 0, k) for j in jobs])
+    opened = orch.open_jobs_since(k - timedelta(days=1))
+    assert len(opened) == 400 and all(a.state is JobState.PENDING for _, a in opened)
+    d = D.Dispatcher(orch, {"TECHNICAL": D.Handler("t-1", tech)})
+    r = d.tick(k + timedelta(seconds=10))
+    assert tech.calls == [(GOLD, candle(399).event_version)]
+    assert r.superseded >= 399
+    assert orch.open_jobs_since(k - timedelta(days=1)) == []
+    states = [orch.latest(j.job_key).state for j in jobs]
+    assert states.count(JobState.SUPERSEDED) == 399 and states.count(JobState.SUCCEEDED) == 1

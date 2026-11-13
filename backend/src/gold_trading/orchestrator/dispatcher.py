@@ -118,6 +118,7 @@ class Dispatcher:
         self._event_mark: datetime | None = None   # known_at lớn nhất đã tạo job (trong RAM)
         self._open: dict[str, Job] = {}             # job chưa kết thúc (khôi phục khi khởi động)
         self._events_by_id: dict[str, Event] = {}
+        self._last: dict[str, JobState] = {}         # trạng thái mới nhất của job đang mở
         self._restored = False
 
     # ---------------------------------------------------------------- tạo job
@@ -163,14 +164,16 @@ class Dispatcher:
         for j in jobs:
             if j.job_key in made:
                 self._open[j.job_key] = j
+                self._last[j.job_key] = JobState.PENDING
         return res
 
     def _restore(self, now: datetime) -> None:
-        """Khởi động lại: nạp job chưa kết thúc tạo trong ``LOOKBACK`` (2-C05)."""
-        for j in self.orch.jobs_created_since(now - LOOKBACK):
-            last = self.orch.latest(j.job_key)
-            if last is None or last.state not in TERMINAL:
-                self._open[j.job_key] = j
+        """Khởi động lại: nạp job chưa kết thúc tạo trong ``LOOKBACK`` bằng một truy vấn (2-C05).
+        Job debounce dở dang mà đã có job mới hơn cùng (loại, chủ thể) → ``SUPERSEDED`` theo lô."""
+        opened = self.orch.open_jobs_since(now - LOOKBACK)
+        for j, last in opened:
+            self._open[j.job_key] = j
+            self._last[j.job_key] = last.state
         if self._open:
             ids = {j.event_id for j in self._open.values()}
             for e in self.orch.events(since=now - LOOKBACK - timedelta(days=60), until=now):
@@ -180,35 +183,36 @@ class Dispatcher:
 
     # ---------------------------------------------------------------- debounce
     def _supersede(self, now: datetime, res: TickResult) -> None:
-        """ORC-04: cùng loại job + cùng chủ thể, sự kiện mới hơn (theo thời điểm xảy ra rồi phiên
-        bản) → job cũ chưa chạy SUPERSEDED. Chỉ cho route có ``debounce``."""
+        """ORC-04 cho job **đang mở** (vd. khôi phục sau khởi động lại): cùng loại job + cùng chủ
+        thể, sự kiện mới hơn → job cũ còn ``PENDING`` thành ``SUPERSEDED`` (ghi theo lô). Chỉ cho
+        route có ``debounce``."""
         newest: dict[tuple[str, str], tuple] = {}
-        for j in self._open.values():
+        cands = []
+        for key, j in self._open.items():
             e = self._events_by_id.get(j.event_id)
             if e is None or not any(r.debounce and r.job_type == j.job_type
                                     for r in routes_for(e)):
                 continue
-            k = (j.job_type, e.subject)
-            rank = (e.occurred_at, e.event_version)
+            k, rank = (j.job_type, e.subject), (e.occurred_at, e.event_version)
+            cands.append((key, k, rank))
             if k not in newest or rank > newest[k]:
                 newest[k] = rank
-        for key, j in list(self._open.items()):
-            e = self._events_by_id.get(j.event_id)
-            if e is None:
-                continue
-            k = (j.job_type, e.subject)
-            if k in newest and (e.occurred_at, e.event_version) < newest[k]:
-                last = self.orch.latest(key)
-                if last is not None and last.state is JobState.PENDING:
-                    self.orch.append_attempt(Attempt(key, JobState.SUPERSEDED, last.attempt,
-                                                     now))
-                    del self._open[key]
-                    res.superseded += 1
+        out = []
+        for key, k, rank in cands:
+            if rank < newest[k] and self._last.get(key) is JobState.PENDING:
+                out.append(Attempt(key, JobState.SUPERSEDED, 0, now))
+        if out:
+            self.orch.append_attempts(out)
+            for a in out:
+                self._open.pop(a.job_key, None)
+                self._last[a.job_key] = JobState.SUPERSEDED
+            res.superseded += len(out)
 
     # ---------------------------------------------------------------- chạy job
     def _record(self, res: TickResult, a: Attempt) -> None:
         self.orch.append_attempt(a)
         res.ran[a.state.value] = res.ran.get(a.state.value, 0) + 1
+        self._last[a.job_key] = a.state
         if a.state in TERMINAL:
             self._open.pop(a.job_key, None)
 
@@ -284,6 +288,7 @@ class Dispatcher:
         # Chỉ giữ sự kiện của job chưa kết thúc (chạy nhiều tháng không phình bộ nhớ).
         keep = {j.event_id for j in self._open.values()}
         self._events_by_id = {k: v for k, v in self._events_by_id.items() if k in keep}
+        self._last = {k: v for k, v in self._last.items() if k in self._open}
         return res
 
     def state(self, job_key: str) -> JobState | None:

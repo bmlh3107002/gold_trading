@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Engine, func, select
 from sqlalchemy.exc import IntegrityError
 
-from gold_trading.orchestrator.model import Attempt, Event, EventType, Job, JobState
+from gold_trading.orchestrator.model import TERMINAL, Attempt, Event, EventType, Job, JobState
 from gold_trading.storage.schema import (
     orchestrator_events,
     orchestrator_job_attempts,
@@ -154,6 +154,34 @@ class SqlOrchestratorStore:
                     made.append(k)
                     self.append_attempt(by_key[k])
             return made
+
+    def open_jobs_since(self, since: datetime) -> list[tuple[Job, Attempt]]:
+        """Một truy vấn: job tạo sau ``since`` có lần thử mới nhất (``seq`` lớn nhất) chưa kết
+        thúc."""
+        last = (select(_A.job_key, func.max(_A.seq).label("mx")).group_by(_A.job_key)
+                .subquery())
+        a = orchestrator_job_attempts.alias("a")
+        q = (select(orchestrator_jobs, a.c.state, a.c.attempt, a.c.at, a.c.deadline_at,
+                    a.c.error_code, a.c.output_ref)
+             .join(last, last.c.job_key == _J.job_key)
+             .join(a, a.c.seq == last.c.mx)
+             .where(_J.created_at > _req("since", since),
+                    a.c.state.not_in([s.value for s in TERMINAL]))
+             .order_by(_J.created_at, _J.job_key))
+        with self.engine.connect() as conn:
+            return [(Job(m.job_key, m.event_id, m.job_type, m.analyzer_version,
+                         m.correlation_id, _utc(m.created_at)),
+                     Attempt(m.job_key, JobState(m.state), m.attempt, _utc(m.at),
+                             _utc(m.deadline_at), m.error_code, m.output_ref))
+                    for m in conn.execute(q).mappings()]
+
+    def append_attempts(self, attempts) -> None:
+        rows = [dict(job_key=a.job_key, state=a.state.value, attempt=a.attempt, at=a.at,
+                     deadline_at=a.deadline_at, error_code=a.error_code, output_ref=a.output_ref)
+                for a in attempts]
+        if rows:
+            with self.engine.begin() as conn:
+                conn.execute(orchestrator_job_attempts.insert(), rows)
 
     def job(self, job_key: str) -> Job | None:
         with self.engine.connect() as conn:
