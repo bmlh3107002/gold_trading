@@ -239,3 +239,19 @@ def test_nul_char_quarantined_not_crash(store, t0, kw, raw, reason):
     assert (res.outcome, res.reason) == (INV, reason)
     q = quarantine(store)
     assert len(q) == 1 and "\x00" not in q[0].source
+
+
+def test_event_filter_applies_after_latest_revision(store, t0):
+    """8g-2 (lỗi tìm được): sự kiện lịch bị dời ra ngoài khoảng lọc thì bản cũ **không** được
+    trả về như còn hiệu lực — lọc theo ``event_time`` sau khi đã chọn revision mới nhất."""
+    day = timedelta(days=1)
+    old = record("ev-r0", t0 + day, t0, kind="calendar", source="fed_fomc",
+                 logical_key="EV", revision=0)
+    moved = record("ev-r1", t0 + 5 * day, t0 + minutes(10), kind="calendar",
+                   source="fed_fomc", logical_key="EV", revision=1)
+    store.extend([old, moved])
+    win = {"event_from": t0, "event_to": t0 + 2 * day}
+    assert [r.record_id for r in store.as_of(t0 + minutes(5), **win)] == ["ev-r0"]
+    assert store.as_of(t0 + minutes(10), **win) == []  # đã dời → không còn trong khoảng
+    assert [r.record_id for r in store.as_of(t0 + minutes(10), event_from=t0 + 4 * day)] == \
+        ["ev-r1"]

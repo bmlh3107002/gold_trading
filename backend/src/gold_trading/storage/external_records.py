@@ -134,14 +134,17 @@ class SqlExternalRecordStore:
             conds.append(_R.kind == kind)
         if logical_key is not None:
             conds.append(_R.logical_key == logical_key)
-        if event_from is not None:
-            conds.append(_R.event_time >= event_from)
-        if event_to is not None:
-            conds.append(_R.event_time < event_to)
         rn = func.row_number().over(partition_by=(_R.source, _R.logical_key),
                                     order_by=_R.revision.desc()).label("rn")
         inner = select(external_records, rn).where(*conds).subquery()
-        q = (select(inner).where(inner.c.rn == 1)
+        # Lọc theo event_time SAU khi chọn revision mới nhất (sự kiện bị dời ra ngoài khoảng
+        # thì bản cũ không được coi là còn hiệu lực).
+        outer = [inner.c.rn == 1]
+        if event_from is not None:
+            outer.append(inner.c.event_time >= event_from)
+        if event_to is not None:
+            outer.append(inner.c.event_time < event_to)
+        q = (select(inner).where(*outer)
              .order_by(inner.c.event_time, inner.c.source, inner.c.logical_key))
         with self.engine.connect() as conn:
             return [_record(m) for m in conn.execute(q).mappings()]

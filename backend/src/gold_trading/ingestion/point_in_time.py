@@ -223,16 +223,17 @@ class PointInTimeStore:
               event_to: datetime | None = None) -> list[NormalizedRecord]:
         """Bản mới nhất (đã biết tại ``as_of``) của mỗi dữ kiện khớp bộ lọc.
 
-        ``event_from <= event_time < event_to`` nếu có.
+        ``event_from <= event_time < event_to`` nếu có — lọc **sau** khi chọn revision mới nhất
+        (sự kiện bị dời ra ngoài khoảng thì bản cũ không được trả về như còn hiệu lực).
         """
         with self._lock:
             rows = [r for r, _ in self._by_identity.values()
                     if (source is None or r.source == source)
                     and (kind is None or r.kind == kind)
-                    and (logical_key is None or r.logical_key == logical_key)
-                    and (event_from is None or r.event_time >= event_from)
-                    and (event_to is None or r.event_time < event_to)]
-        return pick_latest(rows, as_of)
+                    and (logical_key is None or r.logical_key == logical_key)]
+        return [r for r in pick_latest(rows, as_of)
+                if (event_from is None or r.event_time >= event_from)
+                and (event_to is None or r.event_time < event_to)]
 
     def latest_event_time(self, source: str, as_of: datetime) -> datetime | None:
         """``event_time`` lớn nhất (không quá ``as_of``) trong các bản ghi đã biết tại ``as_of``

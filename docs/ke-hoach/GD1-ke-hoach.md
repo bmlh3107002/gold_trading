@@ -122,7 +122,7 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [x] 8f — DOL: trợ cấp thất nghiệp tuần (2026-11-13: `ingestion/sources/dol.py` + `market/federal_holidays.py`, thiết kế `docs/thiet-ke/15-dol.md`; số từ bản tin PDF `www.dol.gov/ui/data.pdf` — máy người dùng tải được (200); DOL không đăng lịch dạng đọc được → **người dùng chọn lịch theo quy tắc** thứ Năm 8:30 ET, tuần có ngày lễ liên bang chặn cả ngày thứ Tư–Sáu; điều khoản DOL `VERIFIED` cho bản tin PDF; ghi nguồn DOL ở chân trang; lệnh `python -m gold_trading.ingestion.cli dol`; **kiểm trên máy: mục 13**)
 - [ ] 8g — ING-19, ING-20, các case 1C, bật chạy trên máy người dùng. Chia 4 phần (2026-11-13):
   - [x] 8g-1 — chạy tự động FOMC + BEA + DOL trong backend (`ingestion/external_runner.py`, thiết kế `docs/thiet-ke/16-chay-tu-dong-nguon-lich.md`; biến `GT_EXTERNAL_SOURCES`) (2026-11-13: code + test; chờ kiểm trên máy — mục 14)
-  - [ ] 8g-2 — ING-20 mức quan trọng có phiên bản + bảng lịch hợp nhất (1C-C07: không forecast → "không đủ dữ liệu")
+  - [x] 8g-2 — ING-20 mức quan trọng có phiên bản + bảng lịch hợp nhất (1C-C07: không forecast → "không đủ dữ liệu") (2026-11-13: `ingestion/event_importance.py`, `ingestion/economic_calendar.py`, lệnh `cli lich`, thiết kế `docs/thiet-ke/17-lich-kinh-te-hop-nhat.md`)
   - [ ] 8g-3 — 1C-C05 (nguồn chết lúc công bố → kéo dài cửa sổ, cảnh báo) + ING-19 / 1C-C08 (sửa số lớn → cờ)
   - [ ] 8g-4 — bật chạy trên máy người dùng (dựng lại một lần, gộp kiểm mục 13 DOL + mục 14)
 - [ ] Trước khi bật mỗi nguồn: **đọc nguyên văn điều khoản** (đường dẫn ở `docs/thiet-ke/11-dieu-khoan-nguon.md`) → `VERIFIED` (ING-32)
@@ -130,7 +130,7 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [ ] ING-09: lịch công bố (CPI, NFP, FOMC, PCE, GDP, PPI, bán lẻ, thất nghiệp tuần) vài tháng tới, `releaseAt` UTC; nguồn gốc: BLS, BEA, Fed, **Census** (bán lẻ), **DOL** (thất nghiệp tuần) — kiểm Census/DOL có cần khóa không
 - [ ] ING-17: số actual ngay khi công bố, đo độ trễ
 - [ ] ING-18: forecast → **không đủ dữ liệu** (DEC-01); `previous` nếu nguồn chính thức có
-- [ ] ING-19 (revision), ING-20 (mức quan trọng có phiên bản)
+- [ ] ING-19 (revision), ING-20 (mức quan trọng có phiên bản) — ING-20 xong 8g-2
 - [ ] 1C-C01..C08 (chưa công bố vs 0, hoãn/hủy, đổi giờ, DST Mỹ, nguồn chết lúc công bố → kéo dài cửa sổ chặn, trùng nguồn, không forecast, sửa số lớn)
 - [ ] Bật chạy sớm trên máy người dùng để kịp bắt một lần CPI/NFP thật
 - Việc để sau (không thuộc Gate GĐ1, người dùng đồng ý 2026-11-12): **nhập tay forecast** trước các kỳ công bố lớn. ForexFactory / Investing / FXStreet / Kitco không đưa vào GĐ1 (lý do ở ING-18 file GĐ1)

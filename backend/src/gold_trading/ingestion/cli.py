@@ -26,6 +26,10 @@ Tải lịch + số actual doanh số bán lẻ của Census (bước 8d; số c
 Lịch (theo quy tắc) + số trợ cấp thất nghiệp tuần của DOL (bước 8f, không cần khóa):
 
     docker compose exec backend python -m gold_trading.ingestion.cli dol
+
+Xem bảng lịch kinh tế hợp nhất đã lưu (bước 8g, chỉ đọc DB, không gọi mạng):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
@@ -66,7 +71,11 @@ def main(argv: list[str] | None = None) -> int:
     cen.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     dol = sub.add_parser("dol", help="Lịch + số trợ cấp thất nghiệp tuần DOL một lần (ING-09/17)")
     dol.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
+    lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
+    if args.cmd == "lich":
+        return _lich(args.days)
     if args.cmd == "dol":
         return _dol(args.dry_run)
     if args.cmd == "census":
@@ -329,6 +338,42 @@ def _dol(dry_run: bool, env=None, client_factory=None) -> int:
               f"{'  ' + str(p['flags']) if p['flags'] else ''}")
     print("Nguồn: U.S. Department of Labor (dol.gov).")
     return 0 if sched.outcome.value == "OK" and vals.outcome.value == "OK" else 1
+
+
+def _lich(days: int, env=None, store=None, now=None) -> int:
+    from datetime import timedelta
+
+    from gold_trading.ingestion.economic_calendar import ET, economic_calendar
+    from gold_trading.ingestion.event_importance import POLICY_VERSION
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+
+    if not 1 <= days <= 120:
+        print("--days phải từ 1 tới 120", file=sys.stderr)
+        return 2
+    env = os.environ if env is None else env
+    if store is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        store = SqlExternalRecordStore(SqlRepository.from_url(url).engine)
+    now = now or utcnow()
+    items = economic_calendar(store, now, start=now, end=now + timedelta(days=days))
+    print(f"Lịch kinh tế {days} ngày tới (giờ Việt Nam = UTC+7), chính sách {POLICY_VERSION}:")
+    if not items:
+        print("  (chưa có sự kiện nào — nguồn chưa nạp hoặc không có lịch)")
+    vn = ZoneInfo("Asia/Ho_Chi_Minh")
+    for i in items:
+        if i.all_day:
+            when = f"{i.release_date_local.isoformat()} cả ngày (New York)"
+        else:
+            when = i.release_at.astimezone(vn).strftime("%Y-%m-%d %H:%M")
+            when += f" (NY {i.release_at.astimezone(ET).strftime('%H:%M')})"
+        extra = " ".join(list(i.flags) + list(i.notes))
+        print(f"  {when:<34} {i.importance:<6} {i.event:<22} {i.logical_key}"
+              f"{'  ' + extra if extra else ''}")
+    print("Dự báo (forecast): không đủ dữ liệu — chỉ dùng nguồn chính thức (DEC-01).")
+    return 0
 
 
 if __name__ == "__main__":

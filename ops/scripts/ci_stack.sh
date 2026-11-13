@@ -13,6 +13,8 @@ PROJECT="gt_ci_$$"
 rnd() { python3 -c "import secrets; print(secrets.token_urlsafe(24))"; }
 KC_DB_PASSWORD="$(rnd)"; KC_ADMIN_PASSWORD="$(rnd)"; GT_OIDC_CLIENT_SECRET="$(rnd)"
 INIT_PW="Init-$(rnd)"; NEW_PW="New-$(rnd)"; LEGACY="$(rnd)$(rnd)"; MEMBER_PW="Mem-$(rnd)"
+# Khóa BEA giả (BEA trả AUTH_FAILED): bước 4 quét log để chắc URL có khóa không bị ghi ra
+BEA_FAKE="$(rnd)"
 cat > "$WORK/.env" <<EOF
 KC_DB_PASSWORD=$KC_DB_PASSWORD
 KC_ADMIN_PASSWORD=$KC_ADMIN_PASSWORD
@@ -24,6 +26,7 @@ GT_INGEST_TOKEN=$LEGACY
 GT_BACKUP_DIR=$WORK/backups
 GT_DATA_SOURCE=SAMPLE
 GT_MULTI_USER_ENABLED=1
+GT_BEA_API_KEY=$BEA_FAKE
 EOF
 DC="docker compose -p $PROJECT --env-file $WORK/.env"
 cleanup() { $DC logs --no-color > "$WORK/all.log" 2>&1 || true; $DC down -v >/dev/null 2>&1 || true; }
@@ -49,8 +52,20 @@ python3 ops/scripts/e2e_auth.py --base http://localhost:8080 --user admin \
   --initial-password "$INIT_PW" --new-password "$NEW_PW" --legacy-token="$LEGACY" --compose "$DC" \
   --member-password "$MEMBER_PW"
 
-echo "== 3. Sao lưu → phá → khôi phục"
 Q() { $DC exec -T db psql -U gold -d gold_trading -Atc "$1"; }
+
+echo "== 2b. Nguồn lịch kinh tế tự chạy, ghi được vào TimescaleDB (bước 8g)"
+# Lịch DOL theo quy tắc không cần mạng → phải luôn có; nguồn cần mạng chỉ in ra (mạng CI có thể lỗi)
+ok=""
+for _ in $(seq 1 30); do
+  ok="$(Q "select count(*) from external_records where source='dol_claims_schedule'")"
+  [ "${ok:-0}" -gt 0 ] && break
+  sleep 2
+done
+[ "${ok:-0}" -gt 0 ] || { echo "LỖI: bộ nạp lịch kinh tế không ghi được" >&2; $DC logs --tail 80 backend >&2; exit 1; }
+Q "select source, outcome, coalesce(error_code,''), inserted from external_source_checks order by seq"
+
+echo "== 3. Sao lưu → phá → khôi phục"
 # Nến mẫu (SAMPLE) tự sinh mỗi 15 phút: chỉ đếm nến nạp TRƯỚC lúc sao lưu, nếu không lần chạy
 # trùng mốc 15 phút sẽ hỏng ngẫu nhiên (CI run 76, 2026-11-12: 5873 → 5874 qua mốc 16:15).
 T0="$(Q 'select now()')"
@@ -77,7 +92,7 @@ echo "== 4. Quét log tìm bí mật"
 $DC logs --no-color > "$WORK/all.log" 2>&1
 leak=0
 for s in "$KC_DB_PASSWORD" "$KC_ADMIN_PASSWORD" "$GT_OIDC_CLIENT_SECRET" "$INIT_PW" "$NEW_PW" "$LEGACY" \
-         "$MEMBER_PW" "${MEMBER_PW}N2"; do
+         "$MEMBER_PW" "${MEMBER_PW}N2" "$BEA_FAKE"; do
   if grep -qF -- "$s" "$WORK/all.log"; then leak=1; echo "LỖI: một bí mật xuất hiện trong log" >&2; fi
 done
 if grep -qE "gtk_[A-Za-z0-9_-]{20,}" "$WORK/all.log"; then leak=1; echo "LỖI: token Gateway trong log" >&2; fi
