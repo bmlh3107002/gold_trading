@@ -42,7 +42,7 @@
 | Mã | Lựa chọn |
 | --- | --- |
 | DEC-06 | 0 đồng — chỉ nguồn miễn phí |
-| DEC-01 | Lịch + số actual từ BLS / BEA / Fed. **Không có forecast** → phần "bất ngờ" ghi "không đủ dữ liệu" |
+| DEC-01 | Lịch + số actual từ BLS / BEA / Fed + **Census** (bán lẻ) + **DOL** (thất nghiệp tuần) — mỗi tin từ nơi phát hành gốc (bổ sung 2026-11-13). **Không có forecast** → phần "bất ngờ" ghi "không đủ dữ liệu" |
 | DEC-02 | Tin chỉ từ thông cáo chính thức (RSS Fed, Bộ Tài chính, BLS). **Danh sách nguồn cấu hình được** (thêm/bật/tắt không sửa code) |
 | DEC-03 | Chỉ số USD **tự tính** từ 6 cặp trên MT5 (EURUSD, USDJPY, GBPUSD, USDCAD, USDSEK, USDCHF); nhãn "chỉ số USD tự tính", không gọi là DXY |
 | DEC-04 | Proxy kỳ vọng Fed = lợi suất 2 năm so với lãi suất Fed (FRED). Không gọi là "xác suất" |
@@ -110,7 +110,7 @@ Chia 4 phần (2026-11-12), thiết kế ở `docs/thiet-ke/10-nguon-ngoai.md`:
 
 ### Bước 8 — Lịch kinh tế (1C) ← hướng dẫn đăng ký khóa **BLS**, **BEA**
 - [ ] Người dùng đăng ký khóa BLS, BEA (từng khóa một), dán vào `.env` trên máy
-- [ ] ING-09: lịch công bố (CPI, NFP, FOMC, PCE, GDP, PPI, bán lẻ, thất nghiệp tuần) vài tháng tới, `releaseAt` UTC
+- [ ] ING-09: lịch công bố (CPI, NFP, FOMC, PCE, GDP, PPI, bán lẻ, thất nghiệp tuần) vài tháng tới, `releaseAt` UTC; nguồn gốc: BLS, BEA, Fed, **Census** (bán lẻ), **DOL** (thất nghiệp tuần) — kiểm Census/DOL có cần khóa không
 - [ ] ING-17: số actual ngay khi công bố, đo độ trễ
 - [ ] ING-18: forecast → **không đủ dữ liệu** (DEC-01); `previous` nếu nguồn chính thức có
 - [ ] ING-19 (revision), ING-20 (mức quan trọng có phiên bản)
