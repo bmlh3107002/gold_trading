@@ -25,7 +25,11 @@
 ### Bước 3 — Thay runner Technical (ORC-01) + vô hiệu MarketView khi output hết hạn (ORC-07, 2-C06)
 - [x] Technical chạy qua orchestrator (nến M15 đóng → job); output hết hạn mà không tính lại được → tín hiệu invalidate (MarketView thật ở GĐ4) (2026-11-14: `orchestrator/runner.py`, `OUTPUT_EXPIRED`, `GT_ORCHESTRATOR=0` đường lui; 11 test; Postgres: cùng 24 kết quả như vòng cũ; chờ kiểm trên máy — mục 1)
 
-### Bước 4 — Làn nhanh (FAST-01..03; 2-C07, 2-C08, 2-C09) ← **hỏi người dùng ngưỡng trước khi code**
+### Bước 4 — Làn nhanh (FAST-01..03; 2-C07, 2-C08, 2-C09) — ngưỡng: **DEC-20** (2026-11-14)
+- [ ] 4a — Lưu lệnh cấm có hạn (chỉ-thêm, migration) + Safety: mở lệnh khi ACTIVE **và** không còn lệnh cấm; bảo vệ lệnh không bị chặn
+- [ ] 4b — Chặn theo số liệu HIGH (15 phút từ lúc nhận số) + thông cáo tiền tệ Fed ngoài lịch (15 phút); tin khác chỉ gắn cờ; gộp cửa sổ cùng phút (2-C08); lúc thị trường đóng (2-C07)
+- [ ] 4c — Chặn theo spread (> 3 × trung vị 60 phút ≥ 5 giây; bỏ chặn < 1,5 × liên tục 2 phút)
+- [ ] 4d — Vòng làn nhanh 2 giây, ngân sách 10 giây (vượt → chặn mặc định, 2-C09), băng cảnh báo trên web
 - [ ] Kích hoạt: công bố HIGH (CPI, NFP, FOMC, PCE) theo bảng lịch hợp nhất + số actual; spread giãn mạnh (từ giá theo giây); tin chính thức nóng (nhãn FED / RATES… trong vài phút)
 - [ ] Cờ rủi ro có hạn, gộp cửa sổ hai công bố cùng phút (2-C08), sự kiện lúc thị trường đóng (2-C07), vượt ngân sách độ trễ → Safety chặn mặc định (2-C09)
 - [ ] Nối Safety: chặn **vào lệnh mới** trong cửa sổ (chưa có lệnh thật tới GĐ9)

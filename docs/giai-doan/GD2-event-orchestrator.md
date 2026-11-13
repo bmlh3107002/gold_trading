@@ -5,6 +5,12 @@
 > Một phần của bản đồ việc theo giai đoạn (tách từ `CHECKLIST.md` 2026-11-06). Chỉ mục, nguyên tắc và bất biến: [`README.md`](README.md). Trạng thái chung: `PROGRESS.md`. Ghi chú kỹ thuật: `docs/ghi-chu-ky-thuat.md`.
 
 
+### Quyết định GĐ2
+
+| Mã | Câu hỏi | Người dùng chốt | TT |
+| --- | --- | --- | --- |
+| DEC-20 | Ngưỡng làn nhanh (FAST-01..03) | 2026-11-14, hỏi từng câu: (1) số liệu HIGH (CPI, NFP, FOMC, PCE…) → chặn mở lệnh mới **15 phút** kể từ lúc hệ thống nhận số (cộng thêm cửa sổ lịch ±15 phút đã có); (2) spread > **3 ×** trung vị 60 phút cùng nguồn, kéo dài ≥ 5 giây → chặn; về < 1,5 × liên tục 2 phút → bỏ chặn; (3) **cách A**: chỉ thông cáo chính sách tiền tệ Fed **không có trên lịch** → chặn 15 phút; phát biểu Fed + tin Bộ Tài chính chỉ gắn cờ (RSS 15 phút / lần → tin bất ngờ có thể biết trễ tới 15 phút — đã nói với người dùng); (4) ngân sách độ trễ **10 giây** (từ lúc biết tới lúc ghi cờ), vòng làn nhanh 2 giây, vượt → cảnh báo + mặc định chặn (2-C09); (5) **cách A**: lệnh cấm có hạn, tự hết hạn, **không đổi công tắc Safety** (ACTIVE / PAUSED / HALTED của người dùng); Safety cho mở lệnh khi công tắc ACTIVE **và** không còn lệnh cấm còn hạn; hành động bảo vệ (đóng lệnh, dời SL) không bị chặn; web hiện băng "Đang chặn … (tới …)" | `[x]` 2026-11-14 |
+
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ORC-01 | Runner tối thiểu (polling 15 giây cho Technical) | `[x]` | 2026-11-14 (bước 3): thay bằng `orchestrator/runner.py` (nến M15 đóng → job TECHNICAL); vòng cũ còn làm đường lui `GT_ORCHESTRATOR=0`; chờ kiểm trên máy |
@@ -45,3 +51,4 @@
 - **2026-11-14** — **Sửa khôi phục khi khởi động (theo lô).** `open_jobs_since` một truy vấn + `SUPERSEDED` theo lô: 40.534 job PENDING bản cũ để lại → khởi động 6 s (Postgres). Test `test_restore_many_pending_from_old_version`. Kịch bản ngẫu nhiên + so với vòng cũ vẫn đạt; backend 1661 test.
 - **2026-11-14** — **Kiểm trên máy (mục 1, lần 2): khởi động nhanh — đạt.** Dựng lại: "Bật Event Orchestrator" 18:54:44 UTC, nhịp đầu xong 18:54:46 (2 giây; lần 1 > 10 phút), không lỗi. **Ghi nhận:** mỗi 10 giây một dòng log "bỏ qua (debounce) 8" do quét lại vùng chồng lấn → sửa: tách `skipped` (debounce lúc tạo) khỏi `superseded`, chỉ log khi có job mới / chạy / SUPERSEDED thật (test `test_quiet_rescan_reports_nothing`); lên máy ở lần dựng lại sau. Còn kiểm: nến 02:00 giờ VN → job TECHNICAL chạy.
 - **2026-11-14** — **Kiểm trên máy mục 1: đạt.** Nến vàng 01:45–02:00 giờ VN đóng → 8 giây sau (19:00:08 UTC) job TECHNICAL `SUCCEEDED` + REGIME `NO_HANDLER`; 6 cặp tiền → 6 MACRO `NO_HANDLER`; nến H1 không định tuyến (đúng). Hai MT5 cùng server → một nguồn giá vàng → một lần Technical. Thẻ Phân tích kỹ thuật trên web: "Tính tại nến đóng lúc 02:00:00 14/11/2026", còn hiệu lực tới 02:17. ORC-01 xác nhận trên máy.
+- **2026-11-14** — **DEC-20: ngưỡng làn nhanh** (người dùng chốt từng câu, xem bảng quyết định). Bước 4 chia 4a (lưu lệnh cấm + Safety đọc), 4b (số liệu lớn + tin bất ngờ), 4c (spread), 4d (vòng 2 giây, độ trễ, băng cảnh báo web).
