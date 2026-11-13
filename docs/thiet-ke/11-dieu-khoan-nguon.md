@@ -58,6 +58,7 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
   2. Không ngụ ý bảo trợ; không sửa nội dung mà vẫn ghi nguồn Census.
   3. Không dùng dữ liệu để nhận diện cá nhân/doanh nghiệp (không liên quan: chỉ dùng số tổng doanh số bán lẻ toàn quốc).
 - **Khóa bắt buộc** (nguyên văn, <https://www.census.gov/data/developers/guidance/api-user-guide.Query_Limits.html>, sửa lần cuối 14/05/2026): *"An API key must be used with all data queries made to the Census Data API."* Tối đa 50 biến mỗi truy vấn. Đăng ký miễn phí, email phải có đuôi .com/.net/.org/.gov/.edu → biến `GT_CENSUS_API_KEY` (ING-31).
+- **Bước 8d (2026-11-13):** câu ghi nguồn (1) đã có **nguyên văn** ở chân mọi trang web (`SourceAttribution.tsx`, test khóa nguyên văn). Khóa sai / thiếu: API trả 302 sang `invalid_key.html` / `missing_key.html` (kiểm thật). Trang lịch + lịch bán lẻ trên `www.census.gov` không cần khóa; lưu làm dữ liệu test có ghi nguồn (`backend/tests/fixtures/census/README.md`). Chỉ dùng số tổng toàn quốc (không liên quan điều cấm nhận diện cá nhân/doanh nghiệp).
 
 <a id="dol"></a>
 ### DOL — Bộ Lao động (trợ cấp thất nghiệp hằng tuần; bước 8, bổ sung DEC-01)
