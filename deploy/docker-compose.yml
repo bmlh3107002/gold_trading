@@ -118,6 +118,7 @@ services:
       GT_FRED_API_KEY: ${GT_FRED_API_KEY:-}
       GT_BLS_API_KEY: ${GT_BLS_API_KEY:-}
       GT_BEA_API_KEY: ${GT_BEA_API_KEY:-}
+      GT_CENSUS_API_KEY: ${GT_CENSUS_API_KEY:-}
       # Đọc trạng thái sao lưu + đo dung lượng ổ để cảnh báo trên Dashboard (chỉ đọc)
       GT_BACKUP_DIR: /backups
     volumes:

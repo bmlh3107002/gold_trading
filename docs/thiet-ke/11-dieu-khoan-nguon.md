@@ -10,9 +10,11 @@
 - Cách dùng dự định (để đối chiếu với điều khoản): **một người, dùng nội bộ**, chương trình tự tải định kỳ qua API/RSS/file chính thức, lưu trên máy để phân tích giao dịch của chính mình; **không** phân phối lại, **không** bán, **không** hiển thị công khai.
 - Đổi trạng thái: sửa mục ở đây (bằng chứng + ngày) **và** `SOURCE_TERMS` trong cùng một commit. Điều khoản các trang đều ghi có thể đổi không báo trước → đọc lại khi bật nguồn và khi nguồn báo `FORBIDDEN` / `AUTH_FAILED` lạ.
 
-## 2. Tình trạng kiểm 2026-11-13 — vì sao chưa nguồn nào `VERIFIED`
+## 2. Tình trạng kiểm
 
-Môi trường phát triển **không đọc được nguyên văn** các trang điều khoản (công cụ đọc web không phân giải được tên miền; tải trực tiếp bị chặn bởi quy tắc an toàn của phiên). Các ý dưới đây lấy từ **kết quả tìm kiếm** trỏ tới trang chính thức (trích đoạn), **chưa phải nguyên văn đầy đủ**. Vì vậy tất cả để `NEEDS_REVIEW` (riêng IAU `BLOCKED`). Đây là hướng an toàn: thiếu bằng chứng → không bật.
+**Lần 1 (2026-11-13, bước 7d):** chỉ có trích đoạn kết quả tìm kiếm → tất cả `NEEDS_REVIEW`, IAU `BLOCKED`.
+
+**Lần 2 (2026-11-13, bước 8a):** người dùng cho phép tải trực tiếp trang chính thức (chỉ đọc). Đọc **nguyên văn**: BEA, Census, Fed → `VERIFIED` (kèm nghĩa vụ ghi nguồn); GLD → `BLOCKED`. Không đọc được: FRED (hết giờ chờ), BLS và CFTC (máy chủ trả 403 "Access Denied" cho máy chủ đám mây — **không** giả trình duyệt để lách), DOL (trang cần JavaScript), Bộ Tài chính (chưa tìm được trang chính sách), iShares (trang điều khoản đổi địa chỉ, nằm trên `blackrock.com`) → giữ nguyên trạng thái. Các mục chưa đọc được ghi rõ bên dưới; phần lấy từ kết quả tìm kiếm vẫn là **trích đoạn, chưa nguyên văn**.
 
 **Việc phải làm trước khi bật mỗi nguồn (bước 8–10):** đọc nguyên văn trang điều khoản (đường dẫn ở từng mục), ghi lại các điểm: được tải tự động không / cần khóa không / giới hạn tần suất / lưu trữ / ghi nguồn / phân phối lại / ngày hiệu lực → nếu khớp cách dùng dự định thì đổi `VERIFIED`.
 
@@ -26,6 +28,7 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - **Trạng thái:** `NEEDS_REVIEW`
 - Biết được (trích đoạn trang chính thức): dùng API là chấp nhận điều khoản; **bắt buộc khóa đã đăng ký**; điều khoản có thể đổi không báo trước; vi phạm thì bị tắt quyền; không được ngụ ý Fed St. Louis bảo trợ; **phải ghi nguồn** khi dùng nội dung FRED; cấm thu thập (scraping) ngoài cách API cho phép; một số series thuộc **bên thứ ba** có điều khoản riêng. Có tin điều khoản mới thêm cấm tải hàng loạt (chưa kiểm được nguyên văn).
 - Cần đọc: <https://fred.stlouisfed.org/docs/api/terms_of_use.html>, <https://fred.stlouisfed.org/legal/>. Khi bật từng series: kiểm series đó có phải dữ liệu bên thứ ba không.
+- Lần 2 (2026-11-13): tải trực tiếp **hết giờ chờ** (máy chủ không trả lời máy chủ đám mây) → chưa đọc được nguyên văn.
 
 <a id="bls"></a>
 ### BLS — Cục Thống kê Lao động (CPI, NFP, PPI; lịch + actual; RSS; bước 8, 10)
@@ -33,20 +36,27 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - **Trạng thái:** `NEEDS_REVIEW`
 - Biết được: API bản 2 **cần khóa**; giới hạn **500 truy vấn/ngày** (có khóa), **50 yêu cầu / 10 giây**; khóa phải **gia hạn ít nhất mỗi năm** (→ khóa hết hạn sẽ ra `AUTH_FAILED`/`KEY_*`, nguồn MISSING — ING-30). Chữ, bảng, biểu đồ của BLS là **public domain**, dùng lại được nếu **ghi nguồn**; ảnh và logo không được dùng; không được sửa nội dung mà vẫn ghi nguồn BLS.
 - Cần đọc: <https://www.bls.gov/developers/termsOfService.htm>, <https://www.bls.gov/developers/api_faqs.htm>, <https://www.bls.gov/bls/linksite.htm>.
+- Lần 2 (2026-11-13): trang web BLS trả **403 Access Denied** cho máy chủ đám mây → chưa đọc được nguyên văn; không giả trình duyệt để lách. Kênh chính thức cho chương trình là API `api.bls.gov` (có khóa).
 
 <a id="bea"></a>
 ### BEA — Cục Phân tích Kinh tế (GDP, PCE; bước 8)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được: đăng ký khóa (`UserID`) cần tên + email và **đồng ý điều khoản**. Giới hạn 100 yêu cầu, 100 MB, 30 lỗi mỗi phút — **chỉ từ nguồn thứ cấp**, phải kiểm lại.
-- Cần đọc: <https://apps.bea.gov/API/_pdf/bea_api_tos.pdf>, <https://apps.bea.gov/api/bea_web_service_api_user_guide.htm>.
+- **Trạng thái:** `VERIFIED`
+- **Đọc nguyên văn** 2026-11-13: <https://apps.bea.gov/API/_pdf/bea_api_tos.pdf> (2 trang). Được dùng API để "search, display, analyze, retrieve, view and otherwise get information" — khớp cách dùng dự định. Nghĩa vụ:
+  1. **Hiển thị rõ trong ứng dụng** câu: *"This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA."* → phải có trên web (trang Nguồn dữ liệu / chân trang) **trước khi bật** nguồn.
+  2. Không dùng tên BEA để ngụ ý bảo trợ; không sửa nội dung mà vẫn ghi nguồn BEA (hệ thống lưu số gốc, phần tính toán ghi rõ là của hệ thống).
+  3. Giới hạn truy cập "theo Thỏa thuận hoặc do BEA đặt ra" — cố tình vượt giới hạn có thể bị chặn → bộ nạp phải tôn trọng giới hạn trong hướng dẫn API (100 yêu cầu / 100 MB / 30 lỗi mỗi phút theo nguồn thứ cấp — **kiểm lại trong hướng dẫn API** khi viết bộ nạp).
+- Thỏa thuận dẫn chiếu thêm "Website Policies" và chính sách riêng tư của bea.gov (chưa đọc; không có điều khoản dữ liệu riêng được nêu). API cung cấp "nguyên trạng", có thể dừng bất kỳ lúc nào → đúng thiết kế ING-30 (nguồn MISSING/STALE).
 
 <a id="census"></a>
 ### Census — Cục Điều tra Dân số (doanh số bán lẻ; bước 8, bổ sung DEC-01)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được: hướng dẫn chính thức ghi **mọi truy vấn phải có khóa** (tham số `key`; theo một bài thứ cấp, bắt buộc từ 12/05/2026) → **cần thêm biến khóa** khi làm bước 8 (ING-31). API cung cấp "nguyên trạng"; Cục có thể giám sát việc dùng; không được ngụ ý Cục bảo trợ, không trình bày số đã sửa như số của Cục. Không thấy con số giới hạn chính thức.
-- Cần đọc: <https://www.census.gov/data/developers/terms-of-service.html>, <https://www.census.gov/data/developers/guidance/api-user-guide.API_Key.html>.
+- **Trạng thái:** `VERIFIED`
+- **Đọc nguyên văn** 2026-11-13: <https://www.census.gov/data/developers/terms-of-service.html> — văn bản cùng mẫu với BEA. Nghĩa vụ:
+  1. **Hiển thị rõ trong ứng dụng**: *"This product uses the Census Bureau Data API but is not endorsed or certified by the Census Bureau."* → có trên web **trước khi bật**.
+  2. Không ngụ ý bảo trợ; không sửa nội dung mà vẫn ghi nguồn Census.
+  3. Không dùng dữ liệu để nhận diện cá nhân/doanh nghiệp (không liên quan: chỉ dùng số tổng doanh số bán lẻ toàn quốc).
+- **Khóa bắt buộc** (nguyên văn, <https://www.census.gov/data/developers/guidance/api-user-guide.Query_Limits.html>, sửa lần cuối 14/05/2026): *"An API key must be used with all data queries made to the Census Data API."* Tối đa 50 biến mỗi truy vấn. Đăng ký miễn phí, email phải có đuôi .com/.net/.org/.gov/.edu → biến `GT_CENSUS_API_KEY` (ING-31).
 
 <a id="dol"></a>
 ### DOL — Bộ Lao động (trợ cấp thất nghiệp hằng tuần; bước 8, bổ sung DEC-01)
@@ -54,13 +64,15 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - **Trạng thái:** `NEEDS_REVIEW`
 - Biết được (thông cáo DOL + bài báo): cổng dữ liệu `data.dol.gov`, API miễn phí, **đăng ký qua Login.gov để nhận khóa**, cần khóa cho mọi yêu cầu. Chưa thấy điều khoản sử dụng, giới hạn. Phải kiểm thêm: số liệu tuần có sẵn qua API ngay giờ công bố không (một bộ dữ liệu ghi trễ ít nhất 30 phút) — nếu trễ thì nguồn actual lúc công bố phải là thông cáo trên `dol.gov`.
 - Cần đọc: <https://data.dol.gov>, <https://www.dol.gov/newsroom/releases/oasam/oasam20260218>.
+- Lần 2 (2026-11-13): `data.dol.gov` là ứng dụng cần JavaScript, không đọc được bằng tải trang → chưa thấy điều khoản.
 
 <a id="fed"></a>
 ### Fed — Hội đồng Thống đốc (FOMC: lịch, tuyên bố; RSS; bước 8, 10)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được: trang miễn trừ trách nhiệm ghi một số nội dung trên trang **có thể có bản quyền** với hạn chế dùng lại, xin phép từ nguồn gốc chứ không phải từ Hội đồng. **Chưa tìm thấy** điều khoản riêng cho RSS.
-- Cần đọc: <https://www.federalreserve.gov/disclaimer.htm>, <https://www.federalreserve.gov/feeds/>, trang chính sách website.
+- **Trạng thái:** `VERIFIED`
+- **Đọc nguyên văn** 2026-11-13: <https://www.federalreserve.gov/disclaimer.htm>, mục "Copyright/trademark": *"Unless otherwise indicated, information on Board's website is in the public domain and may be copied and distributed without permission. Please cite to the Board as the source of the information."* Nghĩa vụ: **ghi nguồn Federal Reserve Board**; không dùng con dấu/logo; nội dung đánh dấu của bên ngoài Board thì phải xin phép bên đó; không "framing" trang Fed.
+- **Sửa lại lần 1:** trích đoạn tìm kiếm cũ ("có thể có bản quyền") thực ra nói về **trang bên ngoài** mà Fed dẫn link tới, không phải nội dung của Board.
+- Trang RSS (<https://www.federalreserve.gov/feeds/>) không có điều khoản riêng → áp dụng mục trên.
 
 <a id="treasury"></a>
 ### Bộ Tài chính Mỹ (RSS thông cáo; bước 10)
@@ -68,6 +80,7 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - **Trạng thái:** `NEEDS_REVIEW`
 - Biết được: có RSS thông cáo báo chí trên `home.treasury.gov`. **Chưa tìm thấy** trang chính sách/bản quyền hiện hành (chỉ có bản lưu cũ).
 - Cần đọc: trang "Site Policies and Notices" trên <https://home.treasury.gov>.
+- Lần 2 (2026-11-13): tải được trang chủ nhưng chưa tìm thấy đường dẫn trang chính sách.
 
 <a id="cftc"></a>
 ### CFTC — báo cáo COT (vị thế vàng; bước 9)
@@ -75,13 +88,17 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - **Trạng thái:** `NEEDS_REVIEW`
 - Biết được: COT hiện tại + lịch sử có trên `cftc.gov` và API công khai `publicreporting.cftc.gov`; kế hoạch dữ liệu mở của CFTC hướng tới giấy phép mở; danh mục data.gov ghi dữ liệu công khai. **Chưa thấy** câu chữ giấy phép rõ ràng của chính CFTC.
 - Cần đọc: <https://www.cftc.gov/MarketReports/CommitmentsOfTraders/index.htm> (cả giờ công bố — `available_at` của ING-12), điều khoản trang web CFTC.
+- Lần 2 (2026-11-13): `www.cftc.gov` trả **403** cho máy chủ đám mây → chưa đọc được.
 
 <a id="gld"></a>
 ### GLD — SPDR Gold Shares (lượng vàng nắm giữ; bước 9, DEC-05)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được: điều khoản trang cho **lưu, hiển thị, in thông tin chỉ để dùng cá nhân, phi thương mại**; cấm sao chép, phân phối, tạo sản phẩm phái sinh ngoài phạm vi được phép; dùng thương mại cần đồng ý bằng văn bản của WGTS; dữ liệu thị trường của ICE và giá LBMA có **điều khoản riêng**; file dữ liệu lịch sử "chỉ để tham khảo". **Chưa rõ** có cho chương trình tự tải file không.
-- Cần đọc: <https://www.spdrgoldshares.com/usa/terms>, <https://www.spdrgoldshares.com/usa/historical-data>. Chỉ dùng cột lượng vàng nắm giữ của quỹ (không dùng giá ICE/LBMA).
+- **Trạng thái:** `BLOCKED`
+- **Đọc nguyên văn** 2026-11-13: <https://www.spdrgoldshares.com/terms-and-conditions/>. Lý do chặn:
+  1. *"You are permitted to save, display or print out information contained on this Website only for your personal, non-commercial use."* — ngoài ra cấm sao chép, tạo sản phẩm phái sinh... nếu không có phép bằng văn bản của WGTS.
+  2. Cấm *"use the whole or part of this Website or its content for any commercial or money-making purpose without having our written consent"* — dùng cho giao dịch kiếm lời có thể bị coi là "money-making".
+  3. Cấm *"access or monitor this Website or any of its content other than using the Website's navigational structure"* → **chương trình tự tải file là trái điều khoản**.
+- Muốn dùng: xin phép bằng văn bản (`sprdgoldshares@gold.org`) hoặc tìm nguồn chính thức khác cho lượng vàng nắm giữ của quỹ (ví dụ hồ sơ nộp SEC) — **người dùng quyết ở bước 9** (ảnh hưởng DEC-05).
 
 <a id="iau"></a>
 ### IAU — iShares Gold Trust (lượng vàng nắm giữ; bước 9, DEC-05)
@@ -89,6 +106,7 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - **Trạng thái:** `BLOCKED`
 - Lý do chặn: một trang điều khoản iShares (Mỹ) tìm được **cấm hoạt động nhằm sao chép website hoặc lấy báo cáo, dữ liệu, thông tin** và cấm tạo sản phẩm phái sinh; bản Thụy Sĩ ghi thông tin chỉ dùng cá nhân, phi thương mại. Chưa xác định được trang điều khoản Mỹ hiện hành áp dụng cho trang sản phẩm IAU. Có dấu hiệu cấm tải tự động → **chặn** cho tới khi đọc nguyên văn và thấy được phép.
 - Cần đọc: điều khoản ở chân trang <https://www.ishares.com> (bản Mỹ).
+- Lần 2 (2026-11-13): trang điều khoản iShares Mỹ chuyển sang `blackrock.com/corporate/compliance/terms-and-conditions` (chưa mở mạng tới đó) → giữ `BLOCKED`. Cùng loại với GLD (quỹ ETF, điều khoản website).
 
 ## 4. Nguồn không thuộc khung này
 

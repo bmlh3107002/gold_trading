@@ -47,12 +47,16 @@ def test_disabled_source_may_be_declared_before_review():
     assert SourceRegistry([spec]).get("iau_holdings") is spec  # điều khoản thật: BLOCKED
 
 
-def test_real_terms_nothing_enabled_yet():
-    """Chưa nguồn nào được đọc nguyên văn điều khoản → không nguồn thật nào bật được."""
-    assert all(t.status is not TermsStatus.VERIFIED for t in SOURCE_TERMS.values())
-    for p in SOURCE_TERMS:
+def test_real_terms_state():
+    """Chỉ nhà cung cấp đã đọc nguyên văn điều khoản mới VERIFIED (lần 2, 2026-11-13);
+    hai quỹ ETF bị chặn vì điều khoản website."""
+    verified = {p for p, t in SOURCE_TERMS.items() if t.status is TermsStatus.VERIFIED}
+    assert verified == {"bea", "census", "fed"}
+    assert {p for p, t in SOURCE_TERMS.items() if t.status is TermsStatus.BLOCKED} == \
+        {"gld", "iau"}
+    for p in ("fred", "bls", "cftc", "dol", "treasury", "gld", "iau"):
         assert terms_problem(p, SOURCE_TERMS) is not None
-    assert SOURCE_TERMS["iau"].status is TermsStatus.BLOCKED
+    SourceRegistry([SourceSpec("bea_gdp", "macro", fetch_ttl=H, provider="bea")])
 
 
 def test_every_provider_documented_with_same_status():

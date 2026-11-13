@@ -26,6 +26,7 @@ KEY_ENV: dict[str, str] = {
     "fred": "GT_FRED_API_KEY",
     "bls": "GT_BLS_API_KEY",
     "bea": "GT_BEA_API_KEY",
+    "census": "GT_CENSUS_API_KEY",  # bắt buộc với mọi truy vấn (nguyên văn, 2026-11-13)
 }
 
 # Không ép định dạng riêng của từng nhà cung cấp (đoán sai thì chặn nhầm khóa đúng); chỉ chặn

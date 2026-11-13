@@ -120,7 +120,7 @@ def test_load_all_independent():
     out = load_api_keys({"GT_FRED_API_KEY": v, "GT_BLS_API_KEY": "bad key"})
     assert set(out) == set(KEY_ENV)
     assert describe_keys(out) == {"bea": "KEY_MISSING", "bls": "KEY_INVALID",
-                                  "fred": "CONFIGURED"}
+                                  "census": "KEY_MISSING", "fred": "CONFIGURED"}
     assert v not in json.dumps(describe_keys(out))
 
 

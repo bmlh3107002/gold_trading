@@ -109,6 +109,14 @@ Chia 4 phần (2026-11-12), thiết kế ở `docs/thiet-ke/10-nguon-ngoai.md`:
 - [x] 7d — ING-32: ghi giấy phép/điều khoản từng nguồn ở `docs/thiet-ke/` (2026-11-13: `docs/thiet-ke/11-dieu-khoan-nguon.md` + khóa trong code: chỉ bật nguồn khi điều khoản `VERIFIED`; hiện tất cả `NEEDS_REVIEW`, IAU `BLOCKED` — chưa đọc được nguyên văn)
 
 ### Bước 8 — Lịch kinh tế (1C) ← hướng dẫn đăng ký khóa **BLS**, **BEA**
+Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang phần sau:
+- [x] 8a — đọc nguyên văn điều khoản (người dùng cho phép tải trang chính thức, chỉ đọc): BEA, Census, Fed `VERIFIED`; GLD `BLOCKED`; FRED/BLS/CFTC/DOL/Bộ Tài chính chưa đọc được (chi tiết `docs/thiet-ke/11-dieu-khoan-nguon.md`). Thêm `GT_CENSUS_API_KEY` (Census bắt buộc khóa) (2026-11-13)
+- [ ] 8b — Fed: lịch họp FOMC (không cần khóa, điều khoản `VERIFIED`) — nguồn lịch đầu tiên đi qua cả khung 7a–7d
+- [ ] 8c — BEA: lịch + actual GDP, PCE (người dùng đăng ký khóa BEA; hiện câu ghi nguồn BEA trên web trước khi bật)
+- [ ] 8d — Census: lịch + actual bán lẻ (người dùng đăng ký khóa Census; hiện câu ghi nguồn Census trước khi bật)
+- [ ] 8e — BLS: CPI, NFP, PPI — trước hết đọc điều khoản BLS (trang web BLS chặn máy chủ đám mây → đọc trên máy người dùng hoặc cách khác), rồi khóa BLS
+- [ ] 8f — DOL: trợ cấp thất nghiệp tuần — trước hết tìm + đọc điều khoản DOL, kiểm độ trễ API
+- [ ] 8g — ING-19, ING-20, các case 1C, bật chạy trên máy người dùng
 - [ ] Trước khi bật mỗi nguồn: **đọc nguyên văn điều khoản** (đường dẫn ở `docs/thiet-ke/11-dieu-khoan-nguon.md`) → `VERIFIED` (ING-32)
 - [ ] Người dùng đăng ký khóa BLS, BEA, **Census** (bắt buộc khóa), DOL nếu cần (từng khóa một), dán vào `.env` trên máy; thêm `GT_CENSUS_API_KEY` (+ DOL) vào `KEY_ENV` + compose
 - [ ] ING-09: lịch công bố (CPI, NFP, FOMC, PCE, GDP, PPI, bán lẻ, thất nghiệp tuần) vài tháng tới, `releaseAt` UTC; nguồn gốc: BLS, BEA, Fed, **Census** (bán lẻ), **DOL** (thất nghiệp tuần) — kiểm Census/DOL có cần khóa không

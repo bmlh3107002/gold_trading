@@ -44,13 +44,13 @@ def _t(provider: str, status: TermsStatus) -> SourceTerms:
 SOURCE_TERMS: dict[str, SourceTerms] = {t.provider: t for t in (
     _t("fred", TermsStatus.NEEDS_REVIEW),
     _t("bls", TermsStatus.NEEDS_REVIEW),
-    _t("bea", TermsStatus.NEEDS_REVIEW),
-    _t("census", TermsStatus.NEEDS_REVIEW),
+    _t("bea", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13; phải hiện câu ghi nguồn BEA
+    _t("census", TermsStatus.VERIFIED),  # nguyên văn 2026-11-13; phải hiện câu ghi nguồn Census
     _t("dol", TermsStatus.NEEDS_REVIEW),
-    _t("fed", TermsStatus.NEEDS_REVIEW),
+    _t("fed", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13: public domain, ghi nguồn Board
     _t("treasury", TermsStatus.NEEDS_REVIEW),
     _t("cftc", TermsStatus.NEEDS_REVIEW),
-    _t("gld", TermsStatus.NEEDS_REVIEW),
+    _t("gld", TermsStatus.BLOCKED),      # nguyên văn 2026-11-13: cấm tự tải, cấm dùng kiếm tiền
     _t("iau", TermsStatus.BLOCKED),
 )}
 
