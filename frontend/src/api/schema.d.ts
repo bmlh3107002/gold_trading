@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/data-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Data Sources */
+        get: operations["data_sources_api_data_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/market/summary": {
         parameters: {
             query?: never;
@@ -1046,6 +1063,79 @@ export interface components {
          * @enum {string}
          */
         DataSource: "SAMPLE" | "CSV" | "MT5";
+        /** DataSourceOut */
+        DataSourceOut: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "calendar" | "news" | "macro" | "positioning";
+            /** Provider */
+            provider: string;
+            /** Terms Status */
+            terms_status: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "HEALTHY" | "STALE" | "MISSING" | "INVALID";
+            /**
+             * Reason
+             * @description Mã lý do trạng thái (OK, FETCH_TTL_EXPIRED, NEVER_CHECKED…)
+             */
+            reason: string;
+            /** Flags */
+            flags: string[];
+            /** Last Check At */
+            last_check_at: string | null;
+            /** Last Ok At */
+            last_ok_at: string | null;
+            /** Last Error Code */
+            last_error_code: string | null;
+            /** Failures Since Ok */
+            failures_since_ok: number;
+            /** Latest Event At */
+            latest_event_at: string | null;
+            /** Fetch Ttl Seconds */
+            fetch_ttl_seconds: number;
+            /** Data Ttl Seconds */
+            data_ttl_seconds: number | null;
+            /**
+             * Receive Age Seconds
+             * @description Từ lần nhận OK cuối tới as_of (giây)
+             */
+            receive_age_seconds: number | null;
+            /**
+             * Data Age Seconds
+             * @description Từ event_time mới nhất tới as_of (giây)
+             */
+            data_age_seconds: number | null;
+            /** Quarantine 7D */
+            quarantine_7d: number;
+            /** Quarantine Total */
+            quarantine_total: number;
+        };
+        /** DataSourcesResponse */
+        DataSourcesResponse: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Runner Enabled
+             * @description False: GT_EXTERNAL_SOURCES=0, không nạp nguồn ngoài
+             */
+            runner_enabled: boolean;
+            /** Quarantine Window Days */
+            quarantine_window_days: number;
+            /** Sources */
+            sources: components["schemas"]["DataSourceOut"][];
+        };
         /** DeleteResult */
         DeleteResult: {
             /** Sub */
@@ -2089,6 +2179,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalystLatest"];
+                };
+            };
+        };
+    };
+    data_sources_api_data_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataSourcesResponse"];
                 };
             };
         };

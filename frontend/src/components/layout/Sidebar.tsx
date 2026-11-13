@@ -3,6 +3,7 @@ import {
   Users,
   BookOpenText,
   CandlestickChart,
+  Database,
   LayoutDashboard,
   ListOrdered,
   ShieldAlert,
@@ -20,6 +21,7 @@ import { Logo } from "./Logo";
 const PAGES = [
   { key: "overview", icon: LayoutDashboard },
   { key: "market", icon: CandlestickChart },
+  { key: "sources", icon: Database },
   { key: "account", icon: Users },
 ] as const;
 

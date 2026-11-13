@@ -25,6 +25,7 @@ from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import Guard, accounts_router
 from gold_trading.api.analysts import account_analysts_router, analysts_router
+from gold_trading.api.data_sources import data_sources_router
 from gold_trading.api.ingest import GatewayMonitors, ingest_router
 from gold_trading.api.market import account_market_router, account_quote_router, market_router
 from gold_trading.api.users import users_router
@@ -365,6 +366,7 @@ def create_app(
     app.include_router(auth_service.router())
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
+    app.include_router(data_sources_router(lambda: external_runner or None))
     account_guard = Guard(repo, registry)
     app.include_router(account_market_router(market_for, account_guard.check))
     app.include_router(account_quote_router(

@@ -174,6 +174,27 @@
         }
       }
     },
+    "/api/data-sources": {
+      "get": {
+        "tags": [
+          "data-sources"
+        ],
+        "summary": "Data Sources",
+        "operationId": "data_sources_api_data_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataSourcesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/accounts/{account_id}/market/summary": {
       "get": {
         "tags": [
@@ -2822,6 +2843,212 @@
           "MT5"
         ],
         "title": "DataSource"
+      },
+      "DataSourceOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "news",
+              "macro",
+              "positioning"
+            ],
+            "title": "Kind"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "terms_status": {
+            "type": "string",
+            "title": "Terms Status"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "HEALTHY",
+              "STALE",
+              "MISSING",
+              "INVALID"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Mã lý do trạng thái (OK, FETCH_TTL_EXPIRED, NEVER_CHECKED…)"
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "last_check_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Check At"
+          },
+          "last_ok_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Code"
+          },
+          "failures_since_ok": {
+            "type": "integer",
+            "title": "Failures Since Ok"
+          },
+          "latest_event_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Event At"
+          },
+          "fetch_ttl_seconds": {
+            "type": "integer",
+            "title": "Fetch Ttl Seconds"
+          },
+          "data_ttl_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Ttl Seconds"
+          },
+          "receive_age_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receive Age Seconds",
+            "description": "Từ lần nhận OK cuối tới as_of (giây)"
+          },
+          "data_age_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Age Seconds",
+            "description": "Từ event_time mới nhất tới as_of (giây)"
+          },
+          "quarantine_7d": {
+            "type": "integer",
+            "title": "Quarantine 7D"
+          },
+          "quarantine_total": {
+            "type": "integer",
+            "title": "Quarantine Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "provider",
+          "terms_status",
+          "enabled",
+          "status",
+          "reason",
+          "flags",
+          "last_check_at",
+          "last_ok_at",
+          "last_error_code",
+          "failures_since_ok",
+          "latest_event_at",
+          "fetch_ttl_seconds",
+          "data_ttl_seconds",
+          "receive_age_seconds",
+          "data_age_seconds",
+          "quarantine_7d",
+          "quarantine_total"
+        ],
+        "title": "DataSourceOut"
+      },
+      "DataSourcesResponse": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "runner_enabled": {
+            "type": "boolean",
+            "title": "Runner Enabled",
+            "description": "False: GT_EXTERNAL_SOURCES=0, không nạp nguồn ngoài"
+          },
+          "quarantine_window_days": {
+            "type": "integer",
+            "title": "Quarantine Window Days"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/DataSourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "runner_enabled",
+          "quarantine_window_days",
+          "sources"
+        ],
+        "title": "DataSourcesResponse"
       },
       "DeleteResult": {
         "properties": {

@@ -177,13 +177,18 @@ class ExternalSourceRunner:
     def __init__(self, jobs: Sequence[Job], check_log, *,
                  blocked: Callable[[], str | None] = lambda: None,
                  now: Callable[[], datetime] = utcnow, tick: timedelta = TICK,
-                 on_close: Callable[[], None] | None = None) -> None:
+                 on_close: Callable[[], None] | None = None,
+                 registry: SourceRegistry | None = None, store=None) -> None:
         # httpx ghi URL đầy đủ ở mức INFO — URL của BEA chứa khóa (UserID). Bộ che log JSON đã
         # che theo giá trị (ING-31); đây là lớp thứ hai: không ghi URL request ra log.
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("httpcore").setLevel(logging.WARNING)
         self._jobs = list(jobs)
         self._log = check_log
+        # Cho trang "Nguồn dữ liệu" (DSH-09): đọc cùng registry / store / nhật ký với bộ chạy.
+        self.registry = registry
+        self.store = store
+        self.check_log = check_log
         self._blocked = blocked
         self._now = now
         self._tick = tick
@@ -279,5 +284,7 @@ def runner_from_env(engine, env: Mapping[str, str], *,
     else:
         store, check_log = PointInTimeStore(), SourceCheckLog()
     client = httpx.Client(headers={"User-Agent": "gold-trading-personal/0.1"})
-    jobs, _ = build_jobs(sources, store=store, check_log=check_log, env=env, client=client)
-    return ExternalSourceRunner(jobs, check_log, blocked=blocked, on_close=client.close)
+    jobs, registry = build_jobs(sources, store=store, check_log=check_log, env=env,
+                                client=client)
+    return ExternalSourceRunner(jobs, check_log, blocked=blocked, on_close=client.close,
+                                registry=registry, store=store)

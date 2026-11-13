@@ -243,6 +243,15 @@ class PointInTimeStore:
                      if r.source == source and r.known_at <= as_of and r.event_time <= as_of]
         return max(times, default=None)
 
+    def quarantine_counts(self, until: datetime, since: datetime | None = None) -> dict[str, int]:
+        """Số bản ghi bị cách ly theo nguồn, ``since < received_at <= until`` (DSH-09)."""
+        out: dict[str, int] = {}
+        with self._lock:
+            for q in self.quarantine:
+                if q.received_at <= until and (since is None or q.received_at > since):
+                    out[q.source] = out.get(q.source, 0) + 1
+        return out
+
     def history(self, source: str, logical_key: str, as_of: datetime) -> list[NormalizedRecord]:
         """Mọi revision đã biết tại ``as_of`` của một dữ kiện, theo revision tăng dần (ING-19)."""
         with self._lock:

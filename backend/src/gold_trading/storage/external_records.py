@@ -164,6 +164,15 @@ class SqlExternalRecordStore:
         with self.engine.connect() as conn:
             return [_record(m) for m in conn.execute(q).mappings()]
 
+    def quarantine_counts(self, until: datetime, since: datetime | None = None) -> dict[str, int]:
+        """Số bản ghi bị cách ly theo nguồn, ``since < received_at <= until`` (DSH-09)."""
+        c = external_quarantine.c
+        q = select(c.source, func.count()).where(c.received_at <= until).group_by(c.source)
+        if since is not None:
+            q = q.where(c.received_at > since)
+        with self.engine.connect() as conn:
+            return {s: int(n) for s, n in conn.execute(q)}
+
     def quarantined(self, source: str | None = None, limit: int = 100) -> list[QuarantineEntry]:
         c = external_quarantine.c
         q = select(external_quarantine).order_by(c.seq.desc()).limit(limit)

@@ -32,6 +32,8 @@ export type PasswordReset = components["schemas"]["PasswordReset"];
 export type Mt5LinkState = components["schemas"]["Mt5LinkState"];
 export type Mt5LinkOut = components["schemas"]["Mt5LinkOut"];
 export type Mt5LinkConfirm = components["schemas"]["Mt5LinkConfirm"];
+export type DataSourcesResponse = components["schemas"]["DataSourcesResponse"];
+export type DataSource = components["schemas"]["DataSourceOut"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
@@ -111,6 +113,8 @@ export const api = {
   dataQuality: (id: string) => request<DataQuality>(`${acc(id)}/market/quality`),
   /** DSH-07: giá sống bid/ask/spread của nguồn giá chính tài khoản. */
   liveQuote: (id: string) => request<LiveQuote>(`${acc(id)}/market/quote`),
+  /** DSH-09: trạng thái các nguồn dữ liệu ngoài (chung cho mọi người dùng). */
+  dataSources: () => request<DataSourcesResponse>("/api/data-sources"),
   technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
