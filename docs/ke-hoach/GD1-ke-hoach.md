@@ -157,7 +157,14 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [ ] ING-29 NHTW: **hoãn** (không làm)
 
 ### Bước 10 — Tin tức (1D) + hoàn thiện
-- [ ] ING-10: khung nạp tin (fingerprint, `publishedAt` + `ingestedAt`, URL, nội dung gốc), **danh sách nguồn cấu hình được**
+Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang phần sau:
+- [x] 10a — ING-10 khung nạp tin: danh sách nguồn cấu hình được, đọc RSS/Atom an toàn, revision, gộp tin, backoff (1D-C01..C04, C06; C05 phần backoff) (2026-11-13: `ingestion/news.py`, thiết kế `docs/thiet-ke/21-khung-tin.md`; chưa có nguồn thật)
+- [ ] 10b — ING-21 RSS Fed (điều khoản `VERIFIED`): **kiểm feed từ máy người dùng trước**, thêm vào `news_sources.json`, nối bộ chạy tự động (1D-C05 phần còn lại)
+- [ ] 10c — RSS Bộ Tài chính (đọc điều khoản trước — đang `NEEDS_REVIEW`); BLS chờ 8e
+- [ ] 10d — ING-23 nhận diện ngôn ngữ + thực thể cơ bản
+- [ ] 10e — DSH-09 trang "Nguồn dữ liệu"
+- [ ] 10f — ING-33 giữ dữ liệu + dung lượng, ING-34 replay mọi nguồn
+- [x] ING-10: khung nạp tin (fingerprint, `publishedAt` + `ingestedAt`, URL, nội dung gốc), **danh sách nguồn cấu hình được** — 10a
 - [ ] ING-21: RSS Fed, Bộ Tài chính, BLS
 - [ ] ING-22: nguồn tin tổng hợp — **không làm** (DEC-02), chỉ cần khung cho phép thêm sau
 - [ ] ING-23: nhận diện ngôn ngữ + thực thể cơ bản

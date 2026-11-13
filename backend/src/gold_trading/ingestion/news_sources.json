@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "_comment": "Danh sách nguồn tin (DEC-02, ING-10). Thêm/bật/tắt nguồn không cần sửa code; nguồn chỉ bật được khi điều khoản nhà cung cấp VERIFIED (docs/thiet-ke/11-dieu-khoan-nguon.md). Mẫu một mục: docs/thiet-ke/21-khung-tin.md.",
+  "sources": []
+}
