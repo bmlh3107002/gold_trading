@@ -1,0 +1,47 @@
+CFTC Commitments of Traders Report - CMX (Futures Only)
+
+NUMBER OF TRADERS IN EACH CATEGORY (TOTAL TRADERS:      279)
+     134       67       91       58       56      240      176
+
+
+GOLD - COMMODITY EXCHANGE INC.                                       Code-088691
+FUTURES ONLY POSITIONS AS OF 11/03/26                         |
+--------------------------------------------------------------| NONREPORTABLE
+      NON-COMMERCIAL      |   COMMERCIAL    |      TOTAL      |   POSITIONS
+--------------------------|-----------------|-----------------|-----------------
+  LONG  | SHORT  |SPREADS |  LONG  | SHORT  |  LONG  | SHORT  |  LONG  | SHORT
+--------------------------------------------------------------------------------
+(CONTRACTS OF 100 TROY OUNCES)                       OPEN INTEREST:      399,169
+COMMITMENTS
+ 220,530   40,982   68,289   64,326  269,228  353,145  378,499   46,024   20,670
+
+CHANGES FROM 10/27/26 (CHANGE IN OPEN INTEREST:      2,359)
+  -3,194    3,709    7,934      217  -10,505    4,957    1,138   -2,598    1,221
+
+PERCENT OF OPEN INTEREST FOR EACH CATEGORY OF TRADERS
+    55.2     10.3     17.1     16.1     67.4     88.5     94.8     11.5      5.2
+
+NUMBER OF TRADERS IN EACH CATEGORY (TOTAL TRADERS:      282)
+     152       62       78       56       44      240      153
+
+
+MICRO GOLD - COMMODITY EXCHANGE INC.                                 Code-088695
+FUTURES ONLY POSITIONS AS OF 11/03/26                         |
+--------------------------------------------------------------| NONREPORTABLE
+      NON-COMMERCIAL      |   COMMERCIAL    |      TOTAL      |   POSITIONS
+--------------------------|-----------------|-----------------|-----------------
+  LONG  | SHORT  |SPREADS |  LONG  | SHORT  |  LONG  | SHORT  |  LONG  | SHORT
+--------------------------------------------------------------------------------
+(CONTRACTS OF 10 TROY OUNCES)                        OPEN INTEREST:      111,271
+COMMITMENTS
+  54,820   75,985    6,847    8,070        0   69,737   82,832   41,534   28,439
+
+CHANGES FROM 10/27/26 (CHANGE IN OPEN INTEREST:     -4,042)
+  -1,920   -4,123     -528      108        0   -2,340   -4,651   -1,702      609
+
+PERCENT OF OPEN INTEREST FOR EACH CATEGORY OF TRADERS
+    49.3     68.3      6.2      7.3      0.0     62.7     74.4     37.3     25.6
+
+NUMBER OF TRADERS IN EACH CATEGORY (TOTAL TRADERS:       49)
+      29       17       10        3        0       37       22
+

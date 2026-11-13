@@ -90,12 +90,13 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - Lần 2 (2026-11-13): tải được trang chủ nhưng chưa tìm thấy đường dẫn trang chính sách.
 
 <a id="cftc"></a>
-### CFTC — báo cáo COT (vị thế vàng; bước 9)
+### CFTC — báo cáo COT (vị thế vàng; bước 9e)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được: COT hiện tại + lịch sử có trên `cftc.gov` và API công khai `publicreporting.cftc.gov`; kế hoạch dữ liệu mở của CFTC hướng tới giấy phép mở; danh mục data.gov ghi dữ liệu công khai. **Chưa thấy** câu chữ giấy phép rõ ràng của chính CFTC.
-- Cần đọc: <https://www.cftc.gov/MarketReports/CommitmentsOfTraders/index.htm> (cả giờ công bố — `available_at` của ING-12), điều khoản trang web CFTC.
-- Lần 2 (2026-11-13): `www.cftc.gov` trả **403** cho máy chủ đám mây → chưa đọc được.
+- **Trạng thái:** `VERIFIED`
+- **Đọc nguyên văn** 2026-11-13 (bước 9e) **từ máy người dùng** (máy chủ đám mây bị `www.cftc.gov` trả 403): <https://www.cftc.gov/webpolicy/index.htm>, mục "Copyright": *"Government information at the CFTC website is in the public domain. Public domain information may be freely distributed and copied, but it is requested that in any subsequent use the CFTC be given appropriate acknowledgement."* Nội dung do bên ngoài đóng góp có thể có bản quyền riêng — báo cáo COT là số liệu do CFTC lập, không thuộc loại đó. Không thấy điều cấm tải tự động trên trang này (lọc từ khóa automat/scrap/robot/crawl/bulk/restrict).
+- **Nghĩa vụ:** ghi nguồn CFTC (chân trang web).
+- **Truy cập (từ máy người dùng, 2026-11-13):** `www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm` 200; báo cáo `www.cftc.gov/dea/futures/deacmxsf.htm` 200; **`publicreporting.cftc.gov` (API) 403** → dùng trang báo cáo văn bản, không dùng API.
+- **Lịch công bố** (trang `…/CommitmentsofTraders/ReleaseSchedule/index.htm`, nguyên văn): *"released at 3:30 p.m. Eastern time … usually released on Friday … includes data from the previous Tuesday … tentative schedule of releases through 2026. Federal holidays may delay release by one or two days."* Bảng ngày 2026 chép vào code (`cftc_cot.RELEASES_2026`).
 
 <a id="gld"></a>
 ### GLD — SPDR Gold Shares (lượng vàng nắm giữ; bước 9, DEC-05)

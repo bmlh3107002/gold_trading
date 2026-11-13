@@ -49,7 +49,7 @@ SOURCE_TERMS: dict[str, SourceTerms] = {t.provider: t for t in (
     _t("dol", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13: public domain; chỉ bản tin PDF
     _t("fed", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13: public domain, ghi nguồn Board
     _t("treasury", TermsStatus.NEEDS_REVIEW),
-    _t("cftc", TermsStatus.NEEDS_REVIEW),
+    _t("cftc", TermsStatus.VERIFIED),    # nguyên văn 2026-11-13 (máy người dùng): public domain
     _t("gld", TermsStatus.BLOCKED),      # nguyên văn 2026-11-13: cấm tự tải, cấm dùng kiếm tiền
     _t("iau", TermsStatus.BLOCKED),
 )}

@@ -33,6 +33,7 @@
 14. **Bước 8g (chạy tự động + bảng lịch):** dựng lại `backend frontend` (gộp với mục 13) → `docker compose up -d` → chờ 1 phút → `docker compose logs backend | findstr "fed_fomc bea_ dol_claims"` → có dòng bật `fed_fomc, bea_schedule, dol_claims_schedule, bea_nipa, dol_claims` và mỗi nguồn một dòng `OK` (`bea_nipa` OK vì đã có khóa). `docker compose logs backend | findstr "api/data"` → **không** có dòng nào (URL có khóa). `docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14` → 5 nguồn "khỏe", lịch 14 ngày có FOMC / BEA / DOL, giờ Việt Nam đúng (vd. DOL 19/11 20:30). `docker compose restart backend` → 2 phút sau log không có dòng `OK` mới (không tải lại dồn). Thứ Năm 19/11 sau 20:30 giờ Việt Nam: `cli lich` → dòng `CLAIMS:2026-11-19` có `số: RECEIVED ICSA=…` khớp `dol.gov/ui/data.pdf`. **Kiểm trên máy 2026-11-13: đạt** — log có dòng bật 5 nguồn + 5 dòng OK; tìm `api/data` trong log: không có dòng nào; `cli lich --days 14`: 5 nguồn khỏe, giờ VN đúng (DOL 20:30, FOMC 02:00), tuần Lễ Tạ ơn chặn cả ngày, hôm nay `RELEASED_EARLIER_IN_WEEK`; `restart backend` → chỉ dòng bật, không tải lại. Ghi nhận: chân trang vẫn có dòng ghi nguồn Census dù Census đang hoãn (vô hại, xử lý khi quyết định lại Census).
 15. **Bước 9b (H.15):** dựng lại `backend frontend` → `docker compose up -d` → 1 phút sau `docker compose logs backend | findstr "fed_h15"` → dòng `fed_h15 (REFRESH): OK` → `docker compose exec backend python -m gold_trading.ingestion.cli h15 --dry-run` → 4 dòng `EFFR`, `UST_CMT_2Y`, `UST_CMT_10Y`, `UST_TIPS_10Y`, số ngày gần nhất khớp bảng trên trang `federalreserve.gov/releases/h15/`; dòng "Proxy kỳ vọng Fed" = 2 năm − EFFR (tính tay khớp); chân trang web có dòng "Federal Reserve Board H.15 … U.S. Treasury".
 16. **Bước 9d (chỉ số USD):** khi thị trường mở (thứ Hai–Sáu), sau khi dựng lại: `docker compose exec backend python -m gold_trading.ingestion.cli usd` → mỗi server (MetaQuotes-Demo) một dòng số kèm giờ nến M15 (cách giờ UTC hiện tại < 30 phút) + 6 giá cặp; so với 6 giá trong Market Watch của MT5 (gần đúng, vì là giá đóng nến); nếu broker có symbol chỉ số USD (vd. `USDX`, `DXY`) thì so mức gần nhau (lệch vài phần mười là bình thường). Cuối tuần: phải báo "không đủ dữ liệu (STALE)".
+17. **Bước 9e (COT):** sau khi dựng lại: `docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run` → `COT vàng: OK`, dòng "chốt 2026-11-03 … ròng +179,548 … công bố 2026-11-06T20:30" (hoặc báo cáo mới hơn nếu CFTC đã đăng); sau **thứ Hai 16/11 22:30 giờ VN** (15:30 New York, ngày dời vì lễ): báo cáo chốt 10/11, số khớp trang `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD; `docker compose logs backend | findstr "cftc_cot"` có dòng OK; chân trang web có dòng CFTC.
 
 ## Việc còn treo trước khi bắt đầu bước 1
 
@@ -143,14 +144,14 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [x] 9b — ING-11 khung series vĩ mô + ING-25/26 + EFFR từ trang H.15 (1E-C01..C04) (2026-11-13: `ingestion/sources/fed_h15.py`, thiết kế `docs/thiet-ke/18-h15-lai-suat.md`, lệnh `cli h15`, chạy tự động; chờ kiểm trên máy — mục 15)
 - [x] 9c — ING-27 proxy kỳ vọng Fed (DEC-04) (2026-11-13: `ingestion/macro_view.py`, lợi suất 2 năm − EFFR cùng ngày, in ở `cli h15`; thiết kế `18-…` mục 9)
 - [x] 9d — ING-24 chỉ số USD tự tính (DEC-03) (2026-11-13: `market/usd_index.py`, lệnh `cli usd`, thiết kế `docs/thiet-ke/19-chi-so-usd.md`; chờ kiểm trên máy — mục 16)
-- [ ] 9e — ING-12 COT (CFTC: đọc điều khoản + kiểm từ máy người dùng trước)
+- [x] 9e — ING-12 COT (CFTC: đọc điều khoản + kiểm từ máy người dùng trước) (2026-11-13: điều khoản `VERIFIED` đọc từ máy người dùng; `ingestion/sources/cftc_cot.py`, lệnh `cli cot`, chạy tự động; thiết kế `docs/thiet-ke/20-cot-vang.md`; chờ kiểm trên máy — mục 17)
 - [ ] 9f — ING-28 ETF GLD/IAU (điều khoản đang `BLOCKED` → hỏi người dùng)
 - [ ] ~~Người dùng đăng ký khóa FRED~~ — **bỏ** (2026-11-13: FRED `BLOCKED`, thay bằng H.15)
 - [x] ING-11: khung series vĩ mô theo `releaseAt` (point-in-time, revision) — 9b
 - [x] ING-25 (lợi suất thực 10 năm), ING-26 (lợi suất 2 năm, 10 năm), ING-27 (proxy Fed, DEC-04) — 9b, 9c (nguồn H.15 thay FRED)
 - [x] ING-24: chỉ số USD tự tính (DEC-03); thiếu cặp / lệch thời điểm → không đủ dữ liệu — 9d
 - [x] 1E-C01..C05 (công bố D+1, giá trị ".", series ngừng, đổi đơn vị, khóa hết hạn — không lộ khóa) — 9b
-- [ ] ING-12: COT vàng (`available_at` = thứ Sáu công bố)
+- [x] ING-12: COT vàng (`available_at` = thứ Sáu công bố) — 9e
 - [ ] ING-28: ETF GLD, IAU (kiểm điều khoản tải trước khi bật)
 - [ ] 1F-C01..C03
 - [ ] ING-29 NHTW: **hoãn** (không làm)

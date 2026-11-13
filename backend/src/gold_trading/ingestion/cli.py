@@ -31,6 +31,10 @@ Tải lãi suất H.15 của Fed một lần (bước 9b: EFFR, lợi suất 2 n
 
     docker compose exec backend python -m gold_trading.ingestion.cli h15 --dry-run
 
+Vị thế COT vàng của CFTC (bước 9e):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run
+
 Chỉ số USD tự tính từ giá 6 cặp trên MT5 của từng broker (bước 9d, chỉ đọc DB):
 
     docker compose exec backend python -m gold_trading.ingestion.cli usd
@@ -45,6 +49,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -81,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
     dol.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     h15 = sub.add_parser("h15", help="Tải lãi suất H.15 của Fed một lần (ING-25/26)")
     h15.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    cot = sub.add_parser("cot", help="Tải báo cáo COT vàng của CFTC một lần (ING-12)")
+    cot.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     usd = sub.add_parser("usd", help="Chỉ số USD tự tính từ 6 cặp MT5 (ING-24, chỉ đọc)")
     usd.add_argument("--server", help="Server MT5 (mặc định: mọi server có nến cặp tiền)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
@@ -88,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
     if args.cmd == "h15":
         return _h15(args.dry_run)
+    if args.cmd == "cot":
+        return _cot(args.dry_run)
     if args.cmd == "usd":
         return _usd(args.server)
     if args.cmd == "lich":
@@ -401,6 +410,47 @@ def _h15(dry_run: bool, env=None, client_factory=None) -> int:
     return 0 if check.outcome.value == "OK" else 1
 
 
+def _cot(dry_run: bool, env=None, client_factory=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog
+    from gold_trading.ingestion.sources import cftc_cot
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    env = os.environ if env is None else env
+    now = utcnow()
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    with make() as client:
+        check = cftc_cot.run_once(store=store, log=log, get=cftc_cot.http_getter(client),
+                                  now=now)
+    print(f"COT vàng: {check.outcome.value} {check.error_code or ''} — thêm {check.inserted}")
+    # Bản đã ghi, kể cả bản chưa tới giờ công bố (để kiểm); ghi rõ lúc được dùng
+    rows = store.as_of(now + timedelta(days=30), source=cftc_cot.SOURCE)
+    for r in sorted(rows, key=lambda r: r.event_time)[-2:]:
+        p = r.payload
+        pos = p["positions"]
+        print(f"  chốt {p['as_of']}: OI {p['open_interest']:,}, không thương mại long "
+              f"{pos['noncomm_long']:,} / short {pos['noncomm_short']:,} (ròng "
+              f"{p['noncomm_net']:+,}), thương mại long {pos['comm_long']:,} / short "
+              f"{pos['comm_short']:,}; công bố {p['release_at'] or 'không rõ (ngoài lịch)'}"
+              f"{'  ' + str(p['flags']) if p['flags'] else ''}")
+    print("Nguồn: U.S. Commodity Futures Trading Commission (cftc.gov), báo cáo Commitments of "
+          "Traders.")
+    return 0 if check.outcome.value == "OK" else 1
+
+
 def _usd(server: str | None, env=None, repo=None, store=None, now=None) -> int:
     from gold_trading.market.feeds import USD_INDEX_PAIRS
     from gold_trading.market.usd_index import usd_index_for_server
@@ -442,7 +492,6 @@ def _usd(server: str | None, env=None, repo=None, store=None, now=None) -> int:
 
 
 def _lich(days: int, env=None, store=None, now=None, check_log=None) -> int:
-    from datetime import timedelta
 
     from gold_trading.ingestion.economic_calendar import ET, economic_calendar, health_map
     from gold_trading.ingestion.event_importance import POLICY_VERSION

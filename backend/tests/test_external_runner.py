@@ -44,6 +44,7 @@ BEA_FILES = {
 NIPA = {t: (FIX / "bea" / f"nipa-{t}-2026-11-13.json").read_text(encoding="utf-8")
         for t in B.TABLES}
 PDF = (FIX / "dol" / "ui-data-2026-11-12.pdf").read_bytes()
+COT = (FIX / "cftc" / "deacmxsf-2026-11-03-gold.txt").read_text(encoding="utf-8")
 
 
 class Net:
@@ -68,6 +69,8 @@ class Net:
             return httpx.Response(200, text=NIPA[req.url.params["TableName"]])
         if url == D.PDF_URL:
             return httpx.Response(200, content=PDF)
+        if host == "www.cftc.gov" and path == "/dea/futures/deacmxsf.htm":
+            return httpx.Response(200, text=COT)
         return httpx.Response(404)
 
     def count(self, host: str) -> int:
@@ -107,7 +110,7 @@ def chk(at, ok=True, code=None):
 # ------------------------------------------------------------------ cấu hình
 
 def test_parse_sources():
-    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "fed_h15")
+    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot")
     assert R.parse_sources("  ") == R.DEFAULT_SOURCES
     for off in ("0", "off", "OFF", "none", "false"):
         assert R.parse_sources(off) == ()
@@ -142,7 +145,7 @@ def test_runner_from_env():
     r = R.runner_from_env(None, {})
     try:
         assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                             "dol_claims", "fed_h15"]  # lịch trước, số sau
+                             "dol_claims", "fed_h15", "cftc_cot_gold"]  # lịch trước, số sau
     finally:
         r.stop()
     with pytest.raises(ValueError):
@@ -189,8 +192,9 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
     r = make(stores, net)
     got = by_source(r.tick(NOW))
     assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                         "dol_claims", "fed_h15"]
-    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims", "fed_h15"):
+                         "dol_claims", "fed_h15", "cftc_cot_gold"]
+    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims", "fed_h15",
+              "cftc_cot_gold"):
         assert got[s].outcome is CheckOutcome.OK and got[s].inserted > 0, s
     assert got["bea_nipa"].outcome is CheckOutcome.ERROR
     assert got["bea_nipa"].error_code == "KEY_MISSING"
