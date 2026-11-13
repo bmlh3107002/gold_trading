@@ -268,6 +268,7 @@ class Repository(Protocol):
 
     def ensure_price_feed(self, feed: PriceFeed) -> None: ...
     def price_feed(self, feed_id: str) -> PriceFeed | None: ...
+    def price_feeds_for_server(self, mt5_server: str) -> list[PriceFeed]: ...
 
 
 _UNSET: Any = object()
@@ -655,6 +656,13 @@ class InMemoryRepository:
     def price_feed(self, feed_id: str) -> PriceFeed | None:
         with self._lock:
             return self._feeds.get(feed_id)
+
+    def price_feeds_for_server(self, mt5_server: str) -> list[PriceFeed]:
+        """Mọi nguồn giá của một server (không phân biệt hoa/thường, như ``feed_id_for``)."""
+        with self._lock:
+            return sorted((f for f in self._feeds.values()
+                           if f.mt5_server.lower() == mt5_server.lower()),
+                          key=lambda f: f.broker_symbol)
 
 
 def _row(r) -> dict[str, Any]:
@@ -1181,6 +1189,14 @@ class SqlRepository:
             r = conn.execute(select(price_feeds).where(price_feeds.c.feed_id == feed_id)
                              ).mappings().first()
         return PriceFeed(**_row(r)) if r else None
+
+    def price_feeds_for_server(self, mt5_server: str) -> list[PriceFeed]:
+        c = price_feeds.c
+        with self.engine.connect() as conn:
+            rows = conn.execute(select(price_feeds).where(
+                func.lower(c.mt5_server) == mt5_server.lower()).order_by(c.broker_symbol)
+            ).mappings().all()
+        return [PriceFeed(**_row(r)) for r in rows]
 
 
 def restore_safety_state(history: list[SafetyTransition]) -> tuple[SafetyState, str | None]:

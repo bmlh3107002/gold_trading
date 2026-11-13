@@ -31,6 +31,10 @@ Tải lãi suất H.15 của Fed một lần (bước 9b: EFFR, lợi suất 2 n
 
     docker compose exec backend python -m gold_trading.ingestion.cli h15 --dry-run
 
+Chỉ số USD tự tính từ giá 6 cặp trên MT5 của từng broker (bước 9d, chỉ đọc DB):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli usd
+
 Xem bảng lịch kinh tế hợp nhất đã lưu (bước 8g, chỉ đọc DB, không gọi mạng):
 
     docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14
@@ -77,11 +81,15 @@ def main(argv: list[str] | None = None) -> int:
     dol.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     h15 = sub.add_parser("h15", help="Tải lãi suất H.15 của Fed một lần (ING-25/26)")
     h15.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    usd = sub.add_parser("usd", help="Chỉ số USD tự tính từ 6 cặp MT5 (ING-24, chỉ đọc)")
+    usd.add_argument("--server", help="Server MT5 (mặc định: mọi server có nến cặp tiền)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
     if args.cmd == "h15":
         return _h15(args.dry_run)
+    if args.cmd == "usd":
+        return _usd(args.server)
     if args.cmd == "lich":
         return _lich(args.days)
     if args.cmd == "dol":
@@ -391,6 +399,46 @@ def _h15(dry_run: bool, env=None, client_factory=None) -> int:
         print(f"Proxy kỳ vọng Fed: không đủ dữ liệu ({px.reason})")
     print("Nguồn: Federal Reserve Board H.15; lợi suất trái phiếu: U.S. Treasury.")
     return 0 if check.outcome.value == "OK" else 1
+
+
+def _usd(server: str | None, env=None, repo=None, store=None, now=None) -> int:
+    from gold_trading.market.feeds import USD_INDEX_PAIRS
+    from gold_trading.market.usd_index import usd_index_for_server
+
+    env = os.environ if env is None else env
+    if repo is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        repo = SqlRepository.from_url(url)
+        store = SqlCandleStore(repo.engine)
+    now = now or utcnow()
+    if server:
+        servers = [server]
+    else:
+        from sqlalchemy import select
+
+        from gold_trading.storage.schema import price_feeds
+        with repo.engine.connect() as conn:
+            rows = conn.execute(select(price_feeds.c.mt5_server, price_feeds.c.broker_symbol))
+            servers = sorted({s for s, sym in rows
+                              if any(p in sym for p in USD_INDEX_PAIRS)}, key=str.lower)
+    if not servers:
+        print("Chưa có nến cặp tiền nào (Gateway chưa gửi 6 cặp).")
+        return 1
+    rc = 0
+    for sv in servers:
+        ix = usd_index_for_server(repo, store, sv, now)
+        if ix.status == "OK":
+            print(f"{sv}: {ix.value:.4f} (nến M15 mở {ix.bar_open_time:%Y-%m-%d %H:%M} UTC)"
+                  f"{'  ' + ' '.join(ix.flags) if ix.flags else ''}")
+            print("  " + ", ".join(f"{p}={ix.components[p]}" for p in USD_INDEX_PAIRS))
+        else:
+            rc = 1
+            print(f"{sv}: không đủ dữ liệu ({ix.reason}{' ' + ix.detail if ix.detail else ''})")
+    print("Ghi chú: chỉ số USD tự tính từ giá broker — không phải DXY chính thức.")
+    return rc
 
 
 def _lich(days: int, env=None, store=None, now=None, check_log=None) -> int:
