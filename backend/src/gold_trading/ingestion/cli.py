@@ -382,6 +382,13 @@ def _h15(dry_run: bool, env=None, client_factory=None) -> int:
         vals = ", ".join(f"{r.payload['date']}: {r.payload['value'] or r.payload['value_status']}"
                          for r in last)
         print(f"  {code:<13} {vals}  ({last[-1].payload['label']})")
+    from gold_trading.ingestion.macro_view import fed_expectation_proxy
+    px = fed_expectation_proxy(store, now)
+    if px.status == "OK":
+        print(f"Proxy kỳ vọng Fed ({px.observation_date}): 2 năm {px.two_year} − EFFR {px.effr}"
+              f" = {px.spread_bp:+d} điểm cơ bản → {px.lean} (proxy, không phải xác suất)")
+    else:
+        print(f"Proxy kỳ vọng Fed: không đủ dữ liệu ({px.reason})")
     print("Nguồn: Federal Reserve Board H.15; lợi suất trái phiếu: U.S. Treasury.")
     return 0 if check.outcome.value == "OK" else 1
 

@@ -279,3 +279,78 @@ def test_cli_dry_run(capsys):
     assert "UST_CMT_2Y" in out and "4.73" in out and "U.S. Treasury" in out
     rc = cli._h15(True, client_factory=lambda: _client(lambda r: httpx.Response(503)))
     assert rc == 1 and "HTTP_503" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ 9c: proxy kỳ vọng Fed (ING-27)
+
+def _rec(series, day, value, status="AVAILABLE", rev=0, ingested=NOW):
+    from gold_trading.contracts.records import NormalizedRecord
+    return NormalizedRecord(
+        record_id=f"fed_h15:{series}:{day}:r{rev}", source="fed_h15", kind="macro",
+        logical_key=f"{series}:{day}", revision=rev,
+        event_time=H._event_time(date.fromisoformat(day)), ingested_at=ingested,
+        source_status=SourceStatus.HEALTHY, payload_version="t", raw_ref="t",
+        payload={"series": series, "date": day, "value": value, "value_status": status})
+
+
+def test_proxy_on_real_page_hand_computed(env):
+    from gold_trading.ingestion.macro_view import fed_expectation_proxy
+    store, _ = env
+    run(env)
+    px = fed_expectation_proxy(store, NOW)
+    # 11/11: EFFR có số nhưng thị trường trái phiếu đóng → lùi về 10/11 (không trộn ngày)
+    assert px.status == "OK" and px.observation_date == date(2026, 11, 10)
+    assert (px.two_year, px.effr) == ("4.73", "3.88")
+    assert (px.spread_pp, px.spread_bp, px.lean) == ("0.85", 85, "LEANS_HOLD_OR_HIKE")
+    assert "không phải xác suất" in px.label
+
+
+def test_proxy_signs_and_flat(env):
+    from gold_trading.ingestion.macro_view import fed_expectation_proxy
+    store, _ = env
+    run(env, page=cell(PAGE, TWO_YEAR, 4, "&nbsp;3.50&nbsp;"))
+    px = fed_expectation_proxy(store, NOW)
+    assert (px.spread_pp, px.spread_bp, px.lean) == ("-0.38", -38, "LEANS_CUT")
+    st2 = PointInTimeStore()
+    st2.extend([_rec("UST_CMT_2Y", "2026-11-10", "3.88"), _rec("EFFR", "2026-11-10", "3.88")])
+    px = fed_expectation_proxy(st2, NOW)
+    assert (px.spread_bp, px.lean) == (0, "FLAT")
+
+
+def test_proxy_insufficient_data_never_mixes_days():
+    from gold_trading.ingestion.macro_view import fed_expectation_proxy
+    st = PointInTimeStore()
+    assert fed_expectation_proxy(st, NOW).reason == "NO_COMMON_DAY"
+    st.extend([_rec("UST_CMT_2Y", "2026-11-10", "4.73"), _rec("EFFR", "2026-11-09", "3.88"),
+               _rec("EFFR", "2026-11-10", None, "NOT_AVAILABLE")])
+    px = fed_expectation_proxy(st, NOW)
+    assert (px.status, px.reason, px.spread_bp) == ("INSUFFICIENT_DATA", "NO_COMMON_DAY", None)
+    st.append(_rec("UST_CMT_2Y", "2026-11-09", "4.56"))
+    assert fed_expectation_proxy(st, NOW).observation_date == date(2026, 11, 9)
+
+
+def test_proxy_stale_and_point_in_time(env):
+    from gold_trading.ingestion.macro_view import fed_expectation_proxy
+    store, _ = env
+    run(env)
+    late = NOW + timedelta(days=8)  # số mới nhất 10/11 → quá 7 ngày
+    px = fed_expectation_proxy(store, late)
+    assert (px.status, px.reason, px.observation_date) == ("INSUFFICIENT_DATA", "STALE",
+                                                            date(2026, 11, 10))
+    assert fed_expectation_proxy(store, NOW - timedelta(seconds=1)).reason == "NO_COMMON_DAY"
+    # Fed sửa số 2 năm 10/11 → 4.74 (biết sau 1 ngày): trước đó vẫn 85, sau đó 86
+    later = NOW + timedelta(days=1)
+    p = cell(PAGE, TWO_YEAR, 4, "&nbsp;4.74&nbsp;").replace(
+        "Release date: November 12, 2026", "Release date: November 13, 2026")
+    run(env, page=p, now=later)
+    assert fed_expectation_proxy(store, NOW + timedelta(hours=1)).spread_bp == 85
+    assert fed_expectation_proxy(store, later).spread_bp == 86
+    with pytest.raises(ValueError):
+        fed_expectation_proxy(store, datetime(2026, 11, 13))
+
+
+def test_cli_prints_proxy(capsys):
+    cli._h15(True, client_factory=lambda: _client(lambda r: httpx.Response(200, text=PAGE)))
+    out = capsys.readouterr().out
+    # Giờ thật > 7 ngày sau 10/11/2026 thì proxy báo không đủ dữ liệu (đúng: số cũ)
+    assert "+85 điểm cơ bản → LEANS_HOLD_OR_HIKE" in out or "không đủ dữ liệu (STALE)" in out

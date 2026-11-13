@@ -55,3 +55,15 @@ Tải lại khi lần OK cuối > 4 giờ; lỗi → thử lại sau 30 phút. `
 ## 8. Kiểm chứng
 
 Số đọc được khớp file CSV của Fed (gói Treasury Constant Maturities) và **file CSV của chính Bộ Tài chính Mỹ** (lợi suất danh nghĩa + thực): 12/12 số khớp (2026-11-05..10). EFFR chưa đối chiếu nguồn độc lập (gốc ở Fed New York, chưa nằm trong danh sách trang được phép tải).
+
+## 9. Proxy kỳ vọng lãi suất Fed (9c — ING-27, DEC-04, 2026-11-13)
+
+Code `backend/src/gold_trading/ingestion/macro_view.py` (`fed_expectation_proxy(store, as_of)`), phiên bản `fed-proxy-2026.11.13`; in kèm lệnh `cli h15`.
+
+- **Công thức (DEC-04, người dùng chốt):** `chênh lệch = UST_CMT_2Y − EFFR` cùng **một ngày quan sát**, tính bằng `Decimal` trên chuỗi H.15; ra điểm % và điểm cơ bản. `< 0` → `LEANS_CUT`, `> 0` → `LEANS_HOLD_OR_HIKE`, `= 0` → `FLAT`.
+- **Không phải xác suất:** không quy đổi thành "% khả năng Fed cắt lãi" (chưa hiệu chỉnh); nhãn ghi rõ "proxy … không phải xác suất".
+- **Không dải trung tính:** DEC-04 chỉ định theo dấu; chênh vài điểm cơ bản quanh 0 vẫn đổi nhãn. Ai dùng (GĐ3–4) nên dùng số `spread_bp`, không chỉ nhãn — có thêm dải trung tính thì phải là quyết định mới của người dùng.
+- **Ghép ngày:** chỉ ngày có **cả hai** số (`AVAILABLE`); ngày thị trường trái phiếu đóng mà EFFR vẫn có → lùi về ngày chung trước đó. Không bao giờ trộn hai ngày.
+- **Không đủ dữ liệu:** không có ngày chung (`NO_COMMON_DAY`) hoặc ngày chung cũ hơn 7 ngày so với `as_of` (`STALE`, cùng mức `data_ttl` của nguồn) → `INSUFFICIENT_DATA`, không trả số.
+- Tính khi đọc từ bản ghi point-in-time (không lưu) → cùng `as_of` cho cùng kết quả; Fed sửa số → proxy đổi từ lúc hệ thống biết bản sửa, quá khứ giữ nguyên.
+- **Kiểm chứng:** ngày 10/11/2026: 4.73 − 3.88 = +0.85 (+85 điểm cơ bản), tính tay độc lập từ CSV lợi suất của Bộ Tài chính Mỹ cũng ra 0.85.
