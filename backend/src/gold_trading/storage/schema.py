@@ -442,6 +442,8 @@ orchestrator_jobs = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
+Index("ix_orchestrator_jobs_created", orchestrator_jobs.c.created_at)  # migration 0015
+
 orchestrator_job_attempts = Table(
     "orchestrator_job_attempts",
     metadata,

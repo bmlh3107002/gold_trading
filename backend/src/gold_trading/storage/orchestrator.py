@@ -131,6 +131,13 @@ class SqlOrchestratorStore:
         return Job(m.job_key, m.event_id, m.job_type, m.analyzer_version, m.correlation_id,
                    _utc(m.created_at))
 
+    def jobs_created_since(self, since: datetime) -> list[Job]:
+        q = (select(orchestrator_jobs).where(_J.created_at > _req("since", since))
+             .order_by(_J.created_at, _J.job_key))
+        with self.engine.connect() as conn:
+            return [Job(m.job_key, m.event_id, m.job_type, m.analyzer_version,
+                        m.correlation_id, _utc(m.created_at)) for m in conn.execute(q).mappings()]
+
     def append_attempt(self, a: Attempt) -> None:
         with self.engine.begin() as conn:
             if not conn.execute(select(_J.job_key).where(_J.job_key == a.job_key)).first():

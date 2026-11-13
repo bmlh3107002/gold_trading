@@ -20,7 +20,7 @@
 - [x] 1c — Bộ quét sinh sự kiện từ dữ liệu GĐ1: nến M15 đóng, số actual / lịch (BLS, BEA, DOL, FOMC), H.15 / chỉ số USD, COT, tin (2026-11-13: `orchestrator/scanner.py`, 13 test, Postgres 35.327 sự kiện = bộ nhớ; chưa chạy tự động — bước 2)
 
 ### Bước 2 — Điều phối job (ORC-02, ORC-04, ORC-05; 2-C02, 2-C03, 2-C04)
-- [ ] Bảng sự kiện → job theo mô hình; thứ tự nhân quả ổn định khi replay; debounce không bỏ sự kiện công bố quan trọng; deadline + retry + backoff + dead-letter; analyst lỗi → MISSING, không dùng output cũ quá hạn
+- [x] Bảng sự kiện → job theo mô hình; thứ tự nhân quả ổn định khi replay; debounce không bỏ sự kiện công bố quan trọng; deadline + retry + backoff + dead-letter; analyst lỗi → MISSING, không dùng output cũ quá hạn (2026-11-14: `orchestrator/dispatcher.py`, migration 0015, 22 test, soát lại 40 kịch bản ngẫu nhiên + Postgres; chưa chạy tự động — bước 3)
 
 ### Bước 3 — Thay runner Technical (ORC-01) + vô hiệu MarketView khi output hết hạn (ORC-07, 2-C06)
 - [ ] Technical chạy qua orchestrator (nến M15 đóng → job); output hết hạn mà không tính lại được → tín hiệu invalidate (MarketView thật ở GĐ4)

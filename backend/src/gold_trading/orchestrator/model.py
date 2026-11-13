@@ -189,6 +189,12 @@ class OrchestratorStore:
         with self._lock:
             return self._jobs.get(job_key)
 
+    def jobs_created_since(self, since: datetime) -> list[Job]:
+        since = _utc("since", since)
+        with self._lock:
+            return sorted((j for j in self._jobs.values() if j.created_at > since),
+                          key=lambda j: (j.created_at, j.job_key))
+
     def append_attempt(self, a: Attempt) -> None:
         with self._lock:
             if a.job_key not in self._jobs:

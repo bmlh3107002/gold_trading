@@ -50,3 +50,26 @@
 - `payload` chỉ tham chiếu: `source`, `logical_key`, `revision`, `record_id` (+ `event`, `series`, `release_ref`, `status` nếu có, ≤ 128 ký tự); nến: `open_time`, `revision`, cờ.
 - **Giới hạn đã biết:** bản ghi có `known_at` cũ hơn mốc quá 15 phút mà ghi sau lần quét (commit chậm > 15 phút) bị bỏ sót ở chế độ thường — replay có `since` bắt được. Chi phí: ngay sau một lần nạp bù lớn (35.000 nến) mỗi lần quét trong 15 phút kế tiếp mất ~2 giây (kiểm lại khóa); bình thường vài chục dòng.
 - **Kiểm chứng:** `tests/test_orchestrator_scanner.py` 13 test (bộ nhớ + SQLite): 12 việc thật của bộ chạy GĐ1 → đủ 5 loại sự kiện ngoài, quét lại không thêm; nến + sửa nến → sự kiện revision mới; COT nạp sớm chỉ thành sự kiện lúc 20:30 UTC công bố; lần đầu 2 ngày, replay có mốc đủ; quét 7 phút / lần = một lần replay (cùng nhật ký, cùng thứ tự); chồng lấn bắt commit chậm. **Soát lại** (Postgres 16): 7 cặp × 5.000 nến nạp bù + toàn bộ nguồn ngoài → 35.327 sự kiện trong 2,5 giây, Postgres = bộ nhớ cùng thứ tự, quét lại 40 giây sau không thêm.
+
+## 5. Bộ điều phối (bước 2 — `orchestrator/dispatcher.py`, 2026-11-14)
+
+**Định tuyến** (`ROUTER_VERSION = router-2026.11.14`, đặc tả 03):
+
+| Sự kiện | Job | Debounce |
+| --- | --- | --- |
+| `CANDLE_CLOSED` vàng (`XAU…`) M15 | `TECHNICAL`, `REGIME` | có |
+| `CANDLE_CLOSED` cặp USD M15 | `MACRO` | có |
+| `CANDLE_CLOSED` khung khác | — | |
+| `ACTUAL_RELEASED` | `FAST_LANE`, `EVENT_CALENDAR` | **không** |
+| `CALENDAR_UPDATED` | `EVENT_CALENDAR` | không |
+| `MACRO_UPDATED` | `MACRO` | có |
+| `POSITIONING_UPDATED` | `POSITIONING` | không |
+| `NEWS_PUBLISHED` | `FAST_LANE`, `NEWS` | **không** |
+
+- Loại job chưa có bộ xử lý (hiện: mọi loại trừ khi được đăng ký — Technical nối ở bước 3, làn nhanh bước 4, analyst khác GĐ3) → `NO_HANDLER` ngay, **không giả kết quả**. `job_key` mang phiên bản bộ xử lý (`none` khi chưa có) → khi có bộ xử lý / đổi phiên bản, sự kiện trong 2 ngày gần nhất có job mới; job phiên bản cũ không chạy bằng code mới.
+- **Debounce** (ORC-04, 2-C03): job `PENDING` có cùng loại + cùng chủ thể mà có sự kiện mới hơn (theo `occurred_at`, rồi phiên bản) → `SUPERSEDED`. Nạp bù 20 nến → Technical chạy 1 lần cho nến mới nhất; 20 công bố → chạy đủ 20.
+- **Chạy theo thứ tự nhân quả** của sự kiện. Mỗi lần thử: `RUNNING` (kèm `deadline_at`) → `SUCCEEDED` / `FAILED` / `DEAD`. Mặc định deadline 30 giây, tối đa 3 lần, backoff 10 s × 2^(n−1) (trần 5 phút); lỗi thuộc loại "không thử lại" → `DEAD` ngay. Chạy xong mà quá deadline → **không dùng kết quả**, tính là thất bại `DEADLINE_EXCEEDED` (2-C04). Mã lỗi = tên loại lỗi viết hoa (vd. `RUNTIME_ERROR`), không bao giờ đọc thông điệp.
+- **Khởi động lại** (2-C05): nạp lại job chưa kết thúc tạo trong 2 ngày (chỉ mục `orchestrator_jobs.created_at`, migration 0015). `RUNNING` chưa quá deadline → chờ (không chạy song song); quá deadline → `FAILED DEADLINE_EXCEEDED` rồi xét retry.
+- **Replay:** cùng nhật ký sự kiện + cùng lịch nhịp → cùng job, cùng trạng thái. Lịch nhịp khác (một nhịp vs nhiều nhịp) chỉ khác ở các job được debounce (nến trung gian `SUPERSEDED` hay đã chạy); job công bố / lịch / tin luôn chạy đủ.
+- **Kiểm chứng:** `tests/test_orchestrator_dispatcher.py` 22 test (bộ nhớ + SQLite): định tuyến, mã lỗi chỉ từ loại lỗi (thông điệp chứa khóa không lọt), không nhân đôi + khởi động lại không chạy lại, `correlation_id`, thứ tự nhân quả khi sự kiện tới ngược, debounce theo chủ thể và không bao giờ cho công bố, retry + backoff đúng giây, dead-letter sau 2 / 3 lần và lỗi không thử lại, quá deadline → không dùng kết quả, chết giữa lúc chạy → chờ deadline rồi thử lại, đổi phiên bản bộ xử lý, replay một nhịp vs nhiều nhịp. **Soát lại** (kịch bản riêng): 40 kịch bản ngẫu nhiên (60 sự kiện tới xáo trộn, bộ xử lý lỗi 35 %, khởi động lại 10 % số nhịp) + 1 trên Postgres 16 — bất biến giữ: mỗi `job_key` một job; sau trạng thái kết thúc không ghi thêm; ≤ 3 lần chạy; ≤ 1 lần thành công; `RUNNING` luôn được nối bằng kết quả; job công bố không bao giờ `SUPERSEDED` và cuối cùng đều `SUCCEEDED` / `DEAD`; `FAILED` / `DEAD` luôn có mã ngắn.
+- **Chưa làm:** chạy tự động trong backend + thay runner Technical (bước 3); "analyst coi là MISSING khi job DEAD" phía người dùng output (Quality Gate GĐ4 — ghi chú 2-C04).
