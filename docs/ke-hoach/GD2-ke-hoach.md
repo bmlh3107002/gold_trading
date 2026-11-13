@@ -15,8 +15,8 @@
 ## Thứ tự làm (mỗi bước: code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick → commit → push → CI)
 
 ### Bước 1 — Nhật ký sự kiện + job bền vững (ORC-03, ORC-06, ORC-08; 2-C01, 2-C05)
-- [ ] 1a — Thiết kế `docs/thiet-ke/25-event-orchestrator.md`: loại sự kiện, khóa, phiên bản, `correlationId`, bảng + migration, quy tắc trạng thái job
-- [ ] 1b — Migration + store SQL + bản bộ nhớ (cùng bộ test), chỉ-thêm (trigger chặn sửa / xóa), TimescaleDB qua CI
+- [x] 1a — Thiết kế `docs/thiet-ke/25-event-orchestrator.md`: loại sự kiện, khóa, phiên bản, `correlationId`, bảng + migration, quy tắc trạng thái job
+- [x] 1b — Migration + store SQL + bản bộ nhớ (cùng bộ test), chỉ-thêm (trigger chặn sửa / xóa), TimescaleDB qua CI (2026-11-13: migration 0014, `orchestrator/model.py` + `storage/orchestrator.py`, 36 test; Postgres 16: 8 luồng ghi trùng → đúng 1, trigger + ràng buộc chặn, lên / xuống migration)
 - [ ] 1c — Bộ quét sinh sự kiện từ dữ liệu GĐ1: nến M15 đóng, số actual / lịch (BLS, BEA, DOL, FOMC), H.15 / chỉ số USD, COT, tin
 
 ### Bước 2 — Điều phối job (ORC-02, ORC-04, ORC-05; 2-C02, 2-C03, 2-C04)

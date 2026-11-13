@@ -409,3 +409,55 @@ Index(
     analyst_outputs.c.feed_id,
     analyst_outputs.c.as_of,
 )
+
+
+# --- Event Orchestrator (GĐ2 bước 1, migration 0014) — chỉ thêm ---
+# Sự kiện suy ra từ dữ liệu đã lưu; event_id duy nhất (ghi lại → bỏ qua). Thiết kế:
+# docs/thiet-ke/25-event-orchestrator.md
+orchestrator_events = Table(
+    "orchestrator_events",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("event_id", String(40), nullable=False, unique=True),
+    Column("event_type", String(32), nullable=False),
+    Column("subject", String(256), nullable=False),
+    Column("event_version", String(64), nullable=False),
+    Column("occurred_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("correlation_id", String(40), nullable=False),
+    Column("payload", JsonType, nullable=False),
+)
+Index("ix_orchestrator_events_known", orchestrator_events.c.event_type,
+      orchestrator_events.c.known_at)
+
+orchestrator_jobs = Table(
+    "orchestrator_jobs",
+    metadata,
+    Column("job_key", String(512), primary_key=True),
+    Column("event_id", String(40), nullable=False),
+    Column("job_type", String(48), nullable=False),
+    Column("analyzer_version", String(32), nullable=False),
+    Column("correlation_id", String(40), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+
+orchestrator_job_attempts = Table(
+    "orchestrator_job_attempts",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("job_key", String(512), nullable=False),
+    Column("state", String(16), nullable=False),
+    Column("attempt", Integer, nullable=False),
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("deadline_at", DateTime(timezone=True)),
+    Column("error_code", String(64)),
+    Column("output_ref", String(256)),
+    CheckConstraint("state IN ('PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'DEAD', "
+                    "'NO_HANDLER', 'SUPERSEDED')", name="ck_orchestrator_job_attempts_state"),
+    CheckConstraint("attempt >= 0", name="ck_orchestrator_job_attempts_attempt"),
+    CheckConstraint("state NOT IN ('FAILED', 'DEAD') OR error_code IS NOT NULL",
+                    name="ck_orchestrator_job_attempts_error"),
+)
+Index("ix_orchestrator_job_attempts_key", orchestrator_job_attempts.c.job_key,
+      orchestrator_job_attempts.c.at)
