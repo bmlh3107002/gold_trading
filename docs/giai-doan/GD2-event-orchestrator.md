@@ -1,5 +1,7 @@
 # GĐ2 — Event Orchestrator + Làn nhanh (đặc tả 03)
 
+> **Bắt đầu 2026-11-13 song song GĐ1 (DEC-19).** Kế hoạch + checklist: [`docs/ke-hoach/GD2-ke-hoach.md`](../ke-hoach/GD2-ke-hoach.md).
+>
 > Một phần của bản đồ việc theo giai đoạn (tách từ `CHECKLIST.md` 2026-11-06). Chỉ mục, nguyên tắc và bất biến: [`README.md`](README.md). Trạng thái chung: `PROGRESS.md`. Ghi chú kỹ thuật: `docs/ghi-chu-ky-thuat.md`.
 
 
@@ -31,3 +33,7 @@
 | 2-C09 | Làn nhanh vượt ngân sách độ trễ | Cảnh báo; Safety mặc định chặn tới khi xử lý xong | `[ ]` |
 
 **Gate GĐ2:** replay event log ghi lại từ GĐ1 cho kết quả giống hệt; không nhân đôi output; đo được độ trễ làn nhanh trên một lần công bố CPI/NFP đã ghi, nằm trong ngân sách.
+
+### Nhật ký GĐ2
+
+- **2026-11-13** — **Bắt đầu GĐ2 (DEC-19).** Người dùng cho làm GĐ2 song song vì GĐ1 chỉ còn kiểm / chờ ngày công bố; Gate GĐ1 chưa đóng và là điều kiện của Gate GĐ2. Lập `docs/ke-hoach/GD2-ke-hoach.md` (6 bước). Ý tưởng chính: sự kiện suy ra từ dữ liệu đã lưu theo `known_at` (replay được, không nhân đôi), nhật ký sự kiện + job chỉ-thêm, làn nhanh chỉ dùng luật (ngưỡng hỏi người dùng ở bước 4).

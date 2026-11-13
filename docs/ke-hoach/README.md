@@ -8,3 +8,4 @@ Mỗi giai đoạn một file `GD<n>-ke-hoach.md`: **thứ tự làm + checklist
 | Giai đoạn | File |
 | --- | --- |
 | GĐ1 — Dữ liệu vào | [`GD1-ke-hoach.md`](GD1-ke-hoach.md) |
+| GĐ2 — Event Orchestrator + Làn nhanh | [`GD2-ke-hoach.md`](GD2-ke-hoach.md) |
