@@ -13,6 +13,11 @@ Dữ liệu nạp có nguồn CSV; muốn Dashboard dùng nó thì đặt GT_DAT
 Tải lịch FOMC của Fed một lần (bước 8b, ING-09) và in các mốc sắp tới:
 
     docker compose exec backend python -m gold_trading.ingestion.cli fomc
+
+Tải lịch BEA (GDP, PCE) + số actual qua API BEA (bước 8c, ING-09/ING-17; số actual cần
+GT_BEA_API_KEY trong .env):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli bea
 """
 
 from __future__ import annotations
@@ -47,9 +52,13 @@ def main(argv: list[str] | None = None) -> int:
     imp.add_argument("--dry-run", action="store_true", help="Chỉ đọc và kiểm tra, không ghi DB")
     fomc = sub.add_parser("fomc", help="Tải lịch FOMC từ trang Fed một lần (ING-09)")
     fomc.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    bea = sub.add_parser("bea", help="Tải lịch BEA + số actual GDP, PCE một lần (ING-09/17)")
+    bea.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     args = p.parse_args(argv)
     if args.cmd == "fomc":
         return _fomc(args.dry_run)
+    if args.cmd == "bea":
+        return _bea(args.dry_run)
 
     try:
         text = args.file.read_text(encoding="utf-8-sig")
@@ -143,6 +152,60 @@ def _fomc(dry_run: bool) -> int:
         print(f"  {when}  {p['event']}{'  [dự kiến]' if p.get('tentative') else ''}"
               f"{'  [' + p['note'] + ']' if p.get('note') else ''}")
     return 0 if check.outcome.value == "OK" else 1
+
+
+def _bea(dry_run: bool, env=None, client_factory=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.api_keys import load_api_key
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog, SourceRegistry
+    from gold_trading.ingestion.sources import bea
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    env = os.environ if env is None else env
+    now = utcnow()
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    registry = SourceRegistry([bea.schedule_spec(), bea.values_spec()])
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    with make() as client:
+        get = bea.http_getter(client)
+        sched = bea.run_schedule_once(store=store, log=log, get=get, now=now, registry=registry)
+        print(f"Lịch BEA: {sched.outcome.value} {sched.error_code or ''} — thêm {sched.inserted}")
+        vals = bea.run_values_once(store=store, log=log, get=get, now=now, registry=registry,
+                                   key_lookup=load_api_key("bea", env))
+        print(f"Số actual BEA: {vals.outcome.value} {vals.error_code or ''} — thêm "
+              f"{vals.inserted}")
+    upcoming = [r for r in store.as_of(now, source=bea.SCHEDULE_SOURCE)
+                if r.event_time >= now and r.payload.get("status") != "REMOVED"]
+    for r in sorted(upcoming, key=lambda r: r.event_time)[:12]:
+        p = r.payload
+        when = r.event_time.strftime("%Y-%m-%d %H:%M UTC") if p["time_confirmed"] \
+            else r.event_time.strftime("%Y-%m-%d (chưa chắc giờ)")
+        print(f"  {when}  {r.logical_key}{'  ' + str(p['flags']) if p['flags'] else ''}")
+    latest: dict[str, object] = {}
+    for r in store.as_of(now, source=bea.VALUES_SOURCE):
+        cur = latest.get(r.payload["series"])
+        if cur is None or r.event_time > cur.event_time:
+            latest[r.payload["series"]] = r
+    for code, r in sorted(latest.items()):
+        p = r.payload
+        print(f"  {code} {p['period']}: {p['value'] if p['value'] is not None else 'không có số'}"
+              f"  ({p['label']})")
+    print("This product uses the Bureau of Economic Analysis (BEA) Data API but is not "
+          "endorsed or certified by BEA.")
+    ok = sched.outcome.value == "OK" and vals.outcome.value == "OK"
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

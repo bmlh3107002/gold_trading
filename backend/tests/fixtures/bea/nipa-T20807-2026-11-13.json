@@ -1,0 +1,812 @@
+{
+ "BEAAPI": {
+  "Request": {
+   "RequestParam": [
+    {
+     "ParameterName": "USERID",
+     "ParameterValue": "Your-36Character-Key"
+    },
+    {
+     "ParameterName": "METHOD",
+     "ParameterValue": "GETDATA"
+    },
+    {
+     "ParameterName": "DATASETNAME",
+     "ParameterValue": "NIPA"
+    },
+    {
+     "ParameterName": "TABLENAME",
+     "ParameterValue": "T20807"
+    },
+    {
+     "ParameterName": "FREQUENCY",
+     "ParameterValue": "M"
+    },
+    {
+     "ParameterName": "YEAR",
+     "ParameterValue": "2025,2026"
+    },
+    {
+     "ParameterName": "RESULTFORMAT",
+     "ParameterValue": "JSON"
+    }
+   ]
+  },
+  "Results": {
+   "Statistic": "NIPA Table",
+   "UTCProductionTime": "2026-11-13T03:00:00.000",
+   "Dimensions": [
+    {
+     "Ordinal": "1",
+     "Name": "TableName",
+     "DataType": "string",
+     "IsValue": "0"
+    }
+   ],
+   "Data": [
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M01",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.4",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M02",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M03",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M04",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M05",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M06",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M07",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M08",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M09",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M10",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M11",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2025M12",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M01",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M02",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M03",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.6",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M04",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.4",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M05",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.4",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M06",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "-0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M07",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M08",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCERGM",
+     "LineNumber": "1",
+     "LineDescription": "Personal consumption expenditures (PCE)",
+     "TimePeriod": "2026M09",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.5",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M01",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.5",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M02",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M03",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "-0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M04",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.0",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M05",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M06",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M07",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.0",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M08",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M09",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.4",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M10",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "-0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M11",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2025M12",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M01",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.0",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M02",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.6",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M03",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "1.4",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M04",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.6",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M05",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.5",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M06",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "-0.6",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M07",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "-0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M08",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DGDSRGM",
+     "LineNumber": "2",
+     "LineDescription": "Goods",
+     "TimePeriod": "2026M09",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.8",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M01",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M02",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M03",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M04",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M05",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M06",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M07",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M08",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M09",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M10",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M11",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.2",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2025M12",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M01",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.4",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M02",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M03",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M04",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M05",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M06",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M07",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.1",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M08",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    },
+    {
+     "TableName": "T20807",
+     "SeriesCode": "DPCCRGM",
+     "LineNumber": "25",
+     "LineDescription": "PCE excluding food and energy",
+     "TimePeriod": "2026M09",
+     "METRIC_NAME": "Fisher Price Index",
+     "CL_UNIT": "Percent change",
+     "UNIT_MULT": "0",
+     "DataValue": "0.3",
+     "NoteRef": "T20807"
+    }
+   ],
+   "Notes": [
+    {
+     "NoteRef": "T20807",
+     "NoteText": "Table T20807 (fixture)"
+    }
+   ]
+  }
+ }
+}

@@ -3,6 +3,7 @@ import { Header } from "./components/layout/Header";
 import { OpsBanner } from "./components/layout/OpsBanner";
 import { GatewayBanner } from "./components/layout/GatewayBanner";
 import { Sidebar } from "./components/layout/Sidebar";
+import { SourceAttribution } from "./components/layout/SourceAttribution";
 import { useGatewayStatus, useMarketSummary } from "./hooks/useMarket";
 import { useRoute } from "./hooks/useRoute";
 import { useSystemStatus } from "./hooks/useSystemStatus";
@@ -104,6 +105,7 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <OverviewPage sys={sys} accountId={accounts.loading ? null : accountId} />
           )}
         </main>
+        <SourceAttribution />
       </div>
     </div>
   );

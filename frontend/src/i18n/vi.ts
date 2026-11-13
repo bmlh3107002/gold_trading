@@ -279,6 +279,10 @@ const vi = {
     staleLabel: "Dữ liệu đã cũ",
     updatedAt: "Cập nhật lúc {{time}}",
   },
+  attribution: {
+    label: "Nguồn dữ liệu",
+    fed: "Lịch FOMC: Federal Reserve Board (federalreserve.gov).",
+  },
   system: {
     title: "Hệ thống",
     backend: "Backend v{{version}}",
