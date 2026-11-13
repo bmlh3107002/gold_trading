@@ -27,6 +27,10 @@ Lịch (theo quy tắc) + số trợ cấp thất nghiệp tuần của DOL (bư
 
     docker compose exec backend python -m gold_trading.ingestion.cli dol
 
+Tải lãi suất H.15 của Fed một lần (bước 9b: EFFR, lợi suất 2 năm, 10 năm, thực 10 năm):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli h15 --dry-run
+
 Xem bảng lịch kinh tế hợp nhất đã lưu (bước 8g, chỉ đọc DB, không gọi mạng):
 
     docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14
@@ -71,9 +75,13 @@ def main(argv: list[str] | None = None) -> int:
     cen.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     dol = sub.add_parser("dol", help="Lịch + số trợ cấp thất nghiệp tuần DOL một lần (ING-09/17)")
     dol.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    h15 = sub.add_parser("h15", help="Tải lãi suất H.15 của Fed một lần (ING-25/26)")
+    h15.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
+    if args.cmd == "h15":
+        return _h15(args.dry_run)
     if args.cmd == "lich":
         return _lich(args.days)
     if args.cmd == "dol":
@@ -338,6 +346,44 @@ def _dol(dry_run: bool, env=None, client_factory=None) -> int:
               f"{'  ' + str(p['flags']) if p['flags'] else ''}")
     print("Nguồn: U.S. Department of Labor (dol.gov).")
     return 0 if sched.outcome.value == "OK" and vals.outcome.value == "OK" else 1
+
+
+def _h15(dry_run: bool, env=None, client_factory=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog
+    from gold_trading.ingestion.sources import fed_h15
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    env = os.environ if env is None else env
+    now = utcnow()
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    with make() as client:
+        check = fed_h15.run_once(store=store, log=log, get=fed_h15.http_getter(client), now=now)
+    print(f"Lãi suất H.15: {check.outcome.value} {check.error_code or ''} — thêm "
+          f"{check.inserted}, trùng {check.duplicate}")
+    rows: dict[str, list] = {}
+    for r in store.as_of(now, source=fed_h15.SOURCE):
+        rows.setdefault(r.payload["series"], []).append(r)
+    for code in sorted(rows):
+        last = sorted(rows[code], key=lambda r: r.event_time)[-3:]
+        vals = ", ".join(f"{r.payload['date']}: {r.payload['value'] or r.payload['value_status']}"
+                         for r in last)
+        print(f"  {code:<13} {vals}  ({last[-1].payload['label']})")
+    print("Nguồn: Federal Reserve Board H.15; lợi suất trái phiếu: U.S. Treasury.")
+    return 0 if check.outcome.value == "OK" else 1
 
 
 def _lich(days: int, env=None, store=None, now=None, check_log=None) -> int:

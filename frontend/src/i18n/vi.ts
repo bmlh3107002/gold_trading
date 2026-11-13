@@ -283,6 +283,7 @@ const vi = {
     label: "Nguồn dữ liệu",
     fed: "Lịch FOMC: Federal Reserve Board (federalreserve.gov).",
     dol: "Trợ cấp thất nghiệp tuần: U.S. Department of Labor (dol.gov).",
+    h15: "Lãi suất Fed hiệu dụng + lợi suất trái phiếu: Federal Reserve Board H.15 (federalreserve.gov); lợi suất trái phiếu: U.S. Treasury.",
   },
   system: {
     title: "Hệ thống",

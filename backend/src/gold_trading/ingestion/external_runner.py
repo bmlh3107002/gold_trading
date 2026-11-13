@@ -43,7 +43,7 @@ RELEASE_DAY_POLL = timedelta(minutes=5)
 # Đối chiếu ngoài giờ công bố (hoặc khi thiếu khóa): thử lại sau ít nhất 6 giờ.
 RECONCILE_RETRY = timedelta(hours=6)
 
-DEFAULT_SOURCES = ("fed_fomc", "bea", "dol")
+DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "fed_h15")
 KNOWN_SOURCES = frozenset(DEFAULT_SOURCES)
 
 
@@ -105,7 +105,7 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
                client) -> tuple[list[Job], SourceRegistry]:
     """Dựng danh sách việc theo thứ tự chạy (lịch trước, số sau)."""
     from gold_trading.ingestion.api_keys import load_api_key
-    from gold_trading.ingestion.sources import bea, dol, fed_fomc
+    from gold_trading.ingestion.sources import bea, dol, fed_fomc, fed_h15
 
     specs = []
     sched: list[Job] = []
@@ -134,6 +134,12 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
         vals.append(Job(dol.VALUES_SOURCE, lambda now: dol.run_values_once(
             store=store, log=check_log, get=get_dol, now=now, registry=registry),
             lambda now, s: dol.values_due(now, store, s.last_ok_at), is_values=True))
+    if "fed_h15" in sources:  # bước 9b: lãi suất H.15 (số vĩ mô, không theo lịch công bố)
+        specs.append(fed_h15.spec())
+        get_h15 = fed_h15.http_getter(client)
+        vals.append(Job(fed_h15.SOURCE, lambda now: fed_h15.run_once(
+            store=store, log=check_log, get=get_h15, now=now, registry=registry),
+            fed_h15.due))
     registry = SourceRegistry(specs)
     return sched + vals, registry
 

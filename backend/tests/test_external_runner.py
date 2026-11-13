@@ -35,6 +35,7 @@ FED_PAGES = {
     F.CALENDAR_INDEX_PATH: (FIX / "fed" / "calendar-2026-11-13.html").read_text(encoding="utf-8"),
     **{f"/newsevents/2026-{m}.htm": (FIX / "fed" / f"2026-{m}.html").read_text(encoding="utf-8")
        for m in ("october", "november", "december")},
+    "/releases/h15/": (FIX / "fed" / "h15-2026-11-12.html").read_text(encoding="utf-8"),
 }
 BEA_FILES = {
     B.ICS_URL: (FIX / "bea" / "schedule-2026-11-13.ics").read_text(encoding="utf-8"),
@@ -106,7 +107,7 @@ def chk(at, ok=True, code=None):
 # ------------------------------------------------------------------ cấu hình
 
 def test_parse_sources():
-    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol")
+    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "fed_h15")
     assert R.parse_sources("  ") == R.DEFAULT_SOURCES
     for off in ("0", "off", "OFF", "none", "false"):
         assert R.parse_sources(off) == ()
@@ -141,7 +142,7 @@ def test_runner_from_env():
     r = R.runner_from_env(None, {})
     try:
         assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                             "dol_claims"]  # lịch trước, số sau
+                             "dol_claims", "fed_h15"]  # lịch trước, số sau
     finally:
         r.stop()
     with pytest.raises(ValueError):
@@ -188,8 +189,8 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
     r = make(stores, net)
     got = by_source(r.tick(NOW))
     assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                         "dol_claims"]
-    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims"):
+                         "dol_claims", "fed_h15"]
+    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims", "fed_h15"):
         assert got[s].outcome is CheckOutcome.OK and got[s].inserted > 0, s
     assert got["bea_nipa"].outcome is CheckOutcome.ERROR
     assert got["bea_nipa"].error_code == "KEY_MISSING"
@@ -200,7 +201,7 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
 
 def test_no_burst_calls_then_retry_and_refresh_on_schedule(stores):
     net = Net()
-    r = make(stores, net)
+    r = make(stores, net, sources=("fed_fomc", "bea", "dol"))  # H.15: test riêng (tải 4 giờ/lần)
     r.tick(NOW)
     n = len(net.calls)
     # 30 giây sau và 5 giờ sau: không gì đến hạn (thiếu khóa BEA thử lại sau 6 giờ)
