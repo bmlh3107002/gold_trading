@@ -22,6 +22,19 @@ from gold_trading.storage.schema import analyst_outputs
 
 
 @dataclass(frozen=True)
+class ExpiredOutput:
+    """Kết quả hết hạn tại ``expires_at`` mà tới lúc đó chưa có kết quả mới hơn cùng chuỗi."""
+
+    analyst_id: str
+    symbol: str
+    timeframe: str
+    source: str
+    feed: str
+    output_id: str
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
 class StoredOutput:
     output: AnalystOutput
     computed_at: datetime
@@ -57,6 +70,25 @@ class InMemoryAnalystOutputStore:
             self._ids.add((feed, out.output_id))
             self._rows.append((symbol, tf, source, feed, StoredOutput(out, computed_at, source)))
             return True
+
+    def expired_unreplaced(self, lo: datetime, hi: datetime) -> list[ExpiredOutput]:
+        """``lo < expires_at <= hi`` và không có kết quả cùng chuỗi tính sau nó, trước khi nó hết
+        hạn (GĐ2 ORC-07). Chỉ dựa vào dữ liệu đã lưu → tính lại được."""
+        with self._lock:
+            rows = list(self._rows)
+        out = []
+        for (s, t, src, f, r) in rows:
+            o = r.output
+            if not (lo < o.expires_at <= hi):
+                continue
+            newer = any((s2, t2, src2, f2) == (s, t, src, f)
+                        and r2.output.analyst_id == o.analyst_id
+                        and r.computed_at < r2.computed_at <= o.expires_at
+                        for (s2, t2, src2, f2, r2) in rows)
+            if not newer:
+                out.append(ExpiredOutput(o.analyst_id, s, t.value, src.value, f, o.output_id,
+                                         o.expires_at))
+        return out
 
     def latest(self, analyst_id, *, symbol, tf, source, feed=""):
         rows = [
@@ -114,6 +146,23 @@ class SqlAnalystOutputStore:
             except IntegrityError:
                 return False
             return True
+
+    def expired_unreplaced(self, lo: datetime, hi: datetime) -> list[ExpiredOutput]:
+        c = analyst_outputs.c
+        cand = (select(c.analyst_id, c.symbol, c.timeframe, c.source, c.feed_id, c.output_id,
+                       c.expires_at, c.computed_at)
+                .where(c.expires_at > lo, c.expires_at <= hi))
+        out = []
+        with self.engine.connect() as conn:
+            for m in conn.execute(cand).all():
+                newer = conn.execute(select(c.seq).where(
+                    c.analyst_id == m.analyst_id, c.symbol == m.symbol,
+                    c.timeframe == m.timeframe, c.source == m.source, c.feed_id == m.feed_id,
+                    c.computed_at > m.computed_at, c.computed_at <= m.expires_at).limit(1)).first()
+                if newer is None:
+                    out.append(ExpiredOutput(m.analyst_id, m.symbol, m.timeframe, m.source,
+                                             m.feed_id, m.output_id, _utc(m.expires_at)))
+        return out
 
     def latest(self, analyst_id, *, symbol, tf, source, feed=""):
         q = (

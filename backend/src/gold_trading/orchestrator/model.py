@@ -28,6 +28,7 @@ class EventType(StrEnum):
     MACRO_UPDATED = "MACRO_UPDATED"
     POSITIONING_UPDATED = "POSITIONING_UPDATED"
     NEWS_PUBLISHED = "NEWS_PUBLISHED"
+    OUTPUT_EXPIRED = "OUTPUT_EXPIRED"      # kết quả analyst hết hạn mà chưa có kết quả mới (ORC-07)
 
 
 class JobState(StrEnum):

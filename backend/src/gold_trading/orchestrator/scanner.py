@@ -71,8 +71,15 @@ def _since(orch, types, now: datetime) -> datetime:
     return (max(marks) - OVERLAP) if marks else now - FIRST_LOOKBACK
 
 
+def expired_event(x) -> Event:
+    return Event(EventType.OUTPUT_EXPIRED,
+                 f"{x.analyst_id}:{x.source}:{x.feed}:{x.symbol}:{x.timeframe}",
+                 x.output_id[:64], occurred_at=x.expires_at, known_at=x.expires_at,
+                 payload={"analyst_id": x.analyst_id, "output_id": x.output_id[:128]})
+
+
 def scan(*, orch, candle_store, record_store, now: datetime,
-         since: datetime | None = None) -> ScanResult:
+         since: datetime | None = None, analyst_store=None) -> ScanResult:
     """Một lần quét tới ``now``. ``since`` (replay): quét từ mốc chỉ định thay vì mốc tự tính."""
     res = ScanResult()
     if candle_store is not None:
@@ -90,4 +97,11 @@ def scan(*, orch, candle_store, record_store, now: datetime,
         res.seen["external"] = len(evs)
         res.new["external"] = orch.record_events(sorted(evs, key=Event.order_key),
                                                  recorded_at=now)
+    if analyst_store is not None:
+        lo = since if since is not None else _since(orch, (EventType.OUTPUT_EXPIRED,), now)
+        evs = [expired_event(x) for x in analyst_store.expired_unreplaced(lo, now)]
+        res.window["expired"] = (lo, now)
+        res.seen["expired"] = len(evs)
+        res.new["expired"] = orch.record_events(sorted(evs, key=Event.order_key),
+                                                recorded_at=now)
     return res

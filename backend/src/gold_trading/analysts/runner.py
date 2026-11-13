@@ -48,6 +48,12 @@ class TechnicalRunner:
                 log.exception("technical analyst lỗi ở nguồn %s", f)
         return stored
 
+    def run_feed(self, feed: str, now: datetime) -> bool:
+        """GĐ2 (ORC-01): bộ điều phối gọi cho đúng một nguồn giá. True = vừa lưu kết quả mới."""
+        if self.feeds is None:
+            return self._tick_one(self.market, now)
+        return self._tick_one(self.market.with_feed(lambda f=feed: f), now)
+
     def _tick_one(self, market: MarketDataService, now: datetime) -> bool:
         feed = market.feed
         if market.source is None or feed is None:

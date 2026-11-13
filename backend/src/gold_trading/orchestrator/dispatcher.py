@@ -32,7 +32,7 @@ from gold_trading.orchestrator.model import (
     job_key_for,
 )
 
-ROUTER_VERSION = "router-2026.11.14"
+ROUTER_VERSION = "router-2026.11.14b"
 LOOKBACK = timedelta(days=2)          # sự kiện / job xét lại khi khởi động (idempotent)
 OVERLAP = timedelta(minutes=15)
 
@@ -65,6 +65,11 @@ def routes_for(e: Event) -> tuple[Route, ...]:
         return (Route("POSITIONING"),)
     if t is EventType.NEWS_PUBLISHED:
         return (Route("FAST_LANE"), Route("NEWS"))
+    if t is EventType.OUTPUT_EXPIRED:
+        # ORC-07: kết quả hết hạn mà chưa có kết quả mới → vô hiệu MarketView (GĐ4) + tính lại.
+        analyst = e.subject.split(":", 1)[0].upper()
+        recompute = (Route(analyst, debounce=True),) if analyst == "TECHNICAL" else ()
+        return (Route("INVALIDATE_MARKETVIEW"), *recompute)
     return ()
 
 
@@ -256,6 +261,9 @@ class Dispatcher:
         res = self.create_jobs(now, since)
         self._supersede(now, res)
         self.run_due(now, res)
+        # Chỉ giữ sự kiện của job chưa kết thúc (chạy nhiều tháng không phình bộ nhớ).
+        keep = {j.event_id for j in self._open.values()}
+        self._events_by_id = {k: v for k, v in self._events_by_id.items() if k in keep}
         return res
 
     def state(self, job_key: str) -> JobState | None:

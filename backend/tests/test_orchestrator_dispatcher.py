@@ -265,3 +265,12 @@ def test_replay_same_outcome(orch):
     assert set(one[0]) == set(many[0])
     assert all(v in ("SUCCEEDED", "SUPERSEDED", "NO_HANDLER") for v in many[0].values())
     assert sorted(one[2]) == sorted(many[2])           # mọi công bố đều được xử lý ở cả hai
+
+
+def test_memory_bounded_after_jobs_finish(orch):
+    """Sự kiện của job đã kết thúc không còn giữ trong RAM."""
+    d = D.Dispatcher(orch, {"TECHNICAL": D.Handler("t-1", Rec()),
+                            "EVENT_CALENDAR": D.Handler("e-1", Rec())})
+    put(orch, *[candle(i) for i in range(30)], *[actual(f"bea_nipa:X{i}") for i in range(30)])
+    d.tick(T + timedelta(hours=9))
+    assert d._events_by_id == {} and d._open == {}

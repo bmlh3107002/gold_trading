@@ -23,7 +23,7 @@
 - [x] Bảng sự kiện → job theo mô hình; thứ tự nhân quả ổn định khi replay; debounce không bỏ sự kiện công bố quan trọng; deadline + retry + backoff + dead-letter; analyst lỗi → MISSING, không dùng output cũ quá hạn (2026-11-14: `orchestrator/dispatcher.py`, migration 0015, 22 test, soát lại 40 kịch bản ngẫu nhiên + Postgres; chưa chạy tự động — bước 3)
 
 ### Bước 3 — Thay runner Technical (ORC-01) + vô hiệu MarketView khi output hết hạn (ORC-07, 2-C06)
-- [ ] Technical chạy qua orchestrator (nến M15 đóng → job); output hết hạn mà không tính lại được → tín hiệu invalidate (MarketView thật ở GĐ4)
+- [x] Technical chạy qua orchestrator (nến M15 đóng → job); output hết hạn mà không tính lại được → tín hiệu invalidate (MarketView thật ở GĐ4) (2026-11-14: `orchestrator/runner.py`, `OUTPUT_EXPIRED`, `GT_ORCHESTRATOR=0` đường lui; 11 test; Postgres: cùng 24 kết quả như vòng cũ; chờ kiểm trên máy — mục 1)
 
 ### Bước 4 — Làn nhanh (FAST-01..03; 2-C07, 2-C08, 2-C09) ← **hỏi người dùng ngưỡng trước khi code**
 - [ ] Kích hoạt: công bố HIGH (CPI, NFP, FOMC, PCE) theo bảng lịch hợp nhất + số actual; spread giãn mạnh (từ giá theo giây); tin chính thức nóng (nhãn FED / RATES… trong vài phút)
@@ -44,7 +44,7 @@
 - [ ] **Gate GĐ1 đã đóng** (DEC-19: GĐ2 làm song song, không đóng GĐ2 trước GĐ1)
 
 ## Kiểm trên máy người dùng (điền khi tới)
-(trống)
+1. **Bước 1–3 (orchestrator chạy thật):** dựng lại `backend frontend` → `docker compose up -d` → log backend có "Bật Event Orchestrator", không lỗi migration 0014 / 0015 → sau 1 phút log có dòng "Orchestrator: sự kiện mới … job mới …" → trang Thị trường: thẻ Phân tích kỹ thuật vẫn cập nhật mỗi khi có nến M15 mới (khi thị trường mở, từ 06:00 sáng thứ Hai giờ VN). Có sự cố → thêm dòng `GT_ORCHESTRATOR=0` vào `.env` + `docker compose up -d` (quay về cách cũ).
 
 ## Prompt cho phiên mới
 Đọc CLAUDE.md, PROGRESS.md, rồi docs/ke-hoach/GD2-ke-hoach.md và chỉ các mục liên quan của docs/giai-doan/GD2-event-orchestrator.md. Làm bước tiếp theo chưa tick. GĐ1 chưa đóng (DEC-19) — việc GĐ1 còn theo dõi ở GD1-ke-hoach.md. Quy trình như GĐ1: code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick ở cả hai file, ghi nhật ký GĐ2, cập nhật PROGRESS.md ngắn gọn → chạy test → commit (nhắc mã việc) → push develop → kiểm CI. Thao tác trên máy Windows: từng lệnh một, lệnh PowerShell không chứa dấu ngoặc kép bên trong hay ký tự $. Người dùng không rành kỹ thuật: tiếng Việt đơn giản, mỗi lần hỏi một câu. Không bao giờ yêu cầu dán mật khẩu / token / khóa API vào chat.

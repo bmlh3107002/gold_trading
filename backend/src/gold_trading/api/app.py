@@ -39,6 +39,7 @@ from gold_trading.contracts.candle import DataSource
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.external_runner import ExternalSourceRunner, runner_from_env
+from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
 from gold_trading.market.quotes import QuoteIngestor, QuoteStore
@@ -47,12 +48,17 @@ from gold_trading.modes.manager import LIVE_CHECKLIST
 from gold_trading.ops.clock import ClockMonitor
 from gold_trading.ops.logging import CorrelationMiddleware, configure_logging
 from gold_trading.ops.storage_health import backup_info, disk
+from gold_trading.orchestrator.model import OrchestratorStore
+from gold_trading.orchestrator.runner import OrchestratorRunner, technical_handler
+from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
     SqlAnalystOutputStore,
 )
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
+from gold_trading.storage.external_records import SqlExternalRecordStore
+from gold_trading.storage.orchestrator import SqlOrchestratorStore
 from gold_trading.storage.quotes import InMemoryQuoteStore, SqlQuoteStore
 from gold_trading.storage.repository import (
     AuditEntry,
@@ -288,6 +294,23 @@ def create_app(
         external_runner = runner_from_env(getattr(repo, "engine", None), os.environ,
                                           blocked=clock.ingest_block_reason)
 
+    # GĐ2 bước 3 (ORC-01): Event Orchestrator thay vòng Technical 15 giây (GT_ORCHESTRATOR=0 →
+    # quay về runner cũ). Sự kiện suy ra từ dữ liệu đã lưu; nhật ký sự kiện / job trong DB.
+    orchestrator: OrchestratorRunner | None = None
+    if runner is not None and orchestrator_enabled(os.environ):
+        engine = getattr(repo, "engine", None)
+        if engine is not None:
+            orch_store, record_store = SqlOrchestratorStore(engine), SqlExternalRecordStore(engine)
+        else:
+            orch_store = OrchestratorStore()
+            record_store = (getattr(external_runner, "store", None) if external_runner
+                            else None) or PointInTimeStore()
+        orchestrator = OrchestratorRunner(
+            orch=orch_store, candle_store=candle_store, record_store=record_store,
+            analyst_store=analyst_store,
+            handlers={"TECHNICAL": technical_handler(runner, active_feeds)},
+            blocked=clock.ingest_block_reason)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         registry.start()
@@ -295,13 +318,17 @@ def create_app(
             clock.start()
         if feed:
             feed.start()
-        if runner:
+        if orchestrator:
+            orchestrator.start()
+        elif runner:
             runner.start()
         if external_runner:
             external_runner.start()
         yield
         if external_runner:
             external_runner.stop()
+        if orchestrator:
+            orchestrator.stop()
         if runner:
             runner.stop()
         if feed:
@@ -417,6 +444,7 @@ def create_app(
     )
     app.state.registry = registry
     app.state.runner = runner  # MT-05: để kiểm tra / chẩn đoán analyst theo từng nguồn
+    app.state.orchestrator = orchestrator
 
     @app.get("/api/health")
     def health():
