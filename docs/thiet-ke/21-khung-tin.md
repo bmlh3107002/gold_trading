@@ -100,3 +100,27 @@ Luôn `event_time <= ingested_at` (không biết trước). `available_at` để
 - Bộ chạy tự động: `news` nằm trong `GT_EXTERNAL_SOURCES` mặc định; mỗi nguồn tin đang bật là một việc, chạy sau các việc lịch + số. Cấu hình tin sai → **không bật nguồn tin nào**, các nguồn khác vẫn chạy, log ERROR "Không bật nguồn tin".
 - Lần tải đầu nhận cả tin cũ trong feed (vd. tuyên bố FOMC 28/10) với `event_time` = giờ đăng thật, cờ `OLD_ON_ARRIVAL`; chúng không là "tin mới" theo giờ đăng.
 - Lệnh xem: `python -m gold_trading.ingestion.cli tin [--dry-run] [--hours N]` — lọc theo **giờ đăng** của tin gốc, in giờ Việt Nam, kèm ghi chú giấy phép từng nguồn.
+
+## 10. Ngôn ngữ + thực thể cơ bản (10d — ING-23, 2026-11-13)
+
+Code: `ingestion/news_tags.py` (`TAGGER_VERSION = news-tags-2026.11.13`), test `tests/test_news_tags.py`.
+
+- **Tính khi đọc, không lưu** (từ tiêu đề + tóm tắt đã làm sạch của bản tin đã biết tại `as_of`) → point-in-time theo bản ghi, tính lại được; đổi luật = đổi `TAGGER_VERSION`, không sửa DB, không migration.
+- **Chỉ là nhãn** để lọc / hiển thị — không phải tín hiệu, không cảm xúc thị trường, không "xác suất". Hiểu nghĩa tin là việc của News analyst (GĐ3, NEWS-01/02).
+- **Ngôn ngữ:** `en` / `other` / `und`. Ít hơn 20 chữ cái → `und`. Chữ Latin < 80 % → `other`. Từ chức năng tiếng Anh (the, and, of…) ≥ 2 và ≥ 8 % số từ → `en`. Dưới 12 từ mà không đủ từ chức năng → `und` (vd. tiêu đề "Federal Reserve issues FOMC statement" — **không đoán**; trước khi sửa, tiêu đề này bị nhận nhầm là `other`, tìm ra khi chạy trên feed thật). Cờ: `other` → `NON_ENGLISH`, `und` → `LANGUAGE_UNKNOWN` (1D-C04).
+- **Thực thể** (nhóm → từ khớp, có ranh giới từ, cho phép số nhiều; tên riêng / viết tắt phân biệt hoa thường; cụm chồng nhau chỉ tính cụm đầu):
+
+| Nhóm | Ví dụ từ khóa |
+| --- | --- |
+| `FED` | Federal Reserve, FOMC, Board of Governors, Fed, Powell, Jefferson, Bowman, Waller, Barr, Cook, Miran |
+| `RATES` | interest rate, federal funds, rate cut/hike, basis point, monetary policy, yield, discount rate, balance sheet |
+| `INFLATION` | inflation, consumer price, price stability, CPI, PCE, PPI |
+| `LABOR` | employment, unemployment, payroll, labor market, jobless |
+| `GOLD` | gold, bullion, precious metal, XAU, XAUUSD |
+| `USD` | dollar, greenback, exchange rate, currency, USD, DXY |
+| `FISCAL` | debt limit/ceiling, deficit, quarterly refunding, fiscal, Treasury auction/securities |
+| `GEOPOLITICS` | sanction, war, conflict, tariff, terrorism, China, Russia, Iran, Ukraine, Israel, Hizballah, OFAC, Middle East, Taiwan… |
+
+- Danh sách tên thống đốc Fed phải cập nhật khi nhân sự đổi (đổi `TAGGER_VERSION`). Từ thường trùng tên (vd. "Cook" đầu câu) có thể gắn nhầm `FED` — chấp nhận ở mức nhãn.
+- `cli tin` in nhóm thực thể trong `{…}` trước tiêu đề, cờ ngôn ngữ trong `[…]` sau tiêu đề.
+- Kiểm chứng: 31 test (10 ca ngôn ngữ: Anh, Tây Ban Nha, Việt, Nhật, Nga, rỗng, số; 7 ca thực thể; 7 ca ranh giới từ: Goldman, "fed up", "cook", warehouse, goldfinch, Barrel, gold-plated; câu chèn lệnh chỉ được gắn nhãn; văn bản dài); 40 tin thật Fed + Bộ Tài chính: không tin nào bị nhận `other`, mọi phát biểu Fed có `FED`. Soát lại bằng kịch bản riêng: 30.000 chuỗi ngẫu nhiên (chữ Latin có dấu, dấu kết hợp, Kirin, Nhật, Hán, ký tự ẩn) không lỗi, từ khớp luôn có trong văn bản; văn bản 0,3–0,5 triệu ký tự (khoảng trắng lặp) < 2 giây.

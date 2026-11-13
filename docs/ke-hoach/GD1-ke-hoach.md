@@ -162,13 +162,13 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [x] 10a — ING-10 khung nạp tin: danh sách nguồn cấu hình được, đọc RSS/Atom an toàn, revision, gộp tin, backoff (1D-C01..C04, C06; C05 phần backoff) (2026-11-13: `ingestion/news.py`, thiết kế `docs/thiet-ke/21-khung-tin.md`; chưa có nguồn thật)
 - [x] 10b — ING-21 RSS Fed (điều khoản `VERIFIED`): **kiểm feed từ máy người dùng trước**, thêm vào `news_sources.json`, nối bộ chạy tự động (1D-C05 phần còn lại) (2026-11-13: máy người dùng tải 2 feed 200 / 15 bài, khớp máy chủ; `fed_rss_monetary` + `fed_rss_speeches` 15 phút/lần, lệnh `cli tin`; chờ kiểm trên máy — mục 18)
 - [x] 10c — RSS Bộ Tài chính (2026-11-13: đọc Site Policies + Privacy Policy — không thấy điều cấm; **DEC-18** người dùng bỏ qua vấn đề pháp lý (dự án cá nhân) → `treasury` `VERIFIED`; máy người dùng tải RSS 200 / 13.573 byte / 10 bài; nguồn `treasury_press` 15 phút/lần; chờ kiểm trên máy — mục 18). BLS chờ 8e
-- [ ] 10d — ING-23 nhận diện ngôn ngữ + thực thể cơ bản
+- [x] 10d — ING-23 nhận diện ngôn ngữ + thực thể cơ bản (2026-11-13: `ingestion/news_tags.py`, tính khi đọc, `cli tin` in nhóm; thiết kế `21-…` mục 10)
 - [ ] 10e — DSH-09 trang "Nguồn dữ liệu"
 - [ ] 10f — ING-33 giữ dữ liệu + dung lượng, ING-34 replay mọi nguồn
 - [x] ING-10: khung nạp tin (fingerprint, `publishedAt` + `ingestedAt`, URL, nội dung gốc), **danh sách nguồn cấu hình được** — 10a
 - [~] ING-21: RSS Fed (10b), Bộ Tài chính (10c) xong; BLS (chờ 8e)
 - [ ] ING-22: nguồn tin tổng hợp — **không làm** (DEC-02), chỉ cần khung cho phép thêm sau
-- [ ] ING-23: nhận diện ngôn ngữ + thực thể cơ bản
+- [x] ING-23: nhận diện ngôn ngữ + thực thể cơ bản — 10d
 - [ ] 1D-C01..C06 (trùng nguồn, sửa bài, sai giờ, nội dung độc hại **không bao giờ thực thi**, nguồn chết, tin cũ đăng lại)
 - [ ] DSH-09: trang "Nguồn dữ liệu" (trạng thái, lần nhận cuối, độ trễ, số cách ly)
 - [ ] ING-33: chính sách giữ dữ liệu + ước tính dung lượng

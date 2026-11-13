@@ -765,11 +765,12 @@ def test_cli_tin_dry_run(capsys):
     assert rc == 0
     assert "fed_rss_monetary: OK" in out and "thêm 15" in out
     # 72 giờ trước 13/11 12:00 UTC: tin 12/11 17:45 UTC → 13/11 00:45 giờ VN
-    assert "13/11 00:45 [fed_rss_monetary] Federal Reserve announces revised" in out
+    assert "13/11 00:45 [fed_rss_monetary] {FED} Federal Reserve announces revised" in out
     # 72 giờ trước 13/11 12:00 UTC = 10/11 12:00 UTC: Fed 3 tin (12/11 17:45, 12/11 15:00,
     # 10/11 20:30 UTC) + Bộ Tài chính 1 tin (11/11 01:15 UTC); Waller 10/11 09:00 UTC và tuyên bố
     # FOMC 28/10 18:00 UTC (= 29/10 01:00 giờ VN) cũ hơn → không in dù vừa tải lần đầu
-    assert "— 4 tin:" in out and "11/11 08:15 [treasury_press] Remarks from Secretary" in out
+    assert "— 4 tin:" in out
+    assert "11/11 08:15 [treasury_press] {GEOPOLITICS} Remarks from Secretary" in out
     assert "29/10" not in out and "FOMC statement" not in out
     assert "Waller" not in out
     assert "Federal Reserve Board" in out
