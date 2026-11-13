@@ -66,7 +66,7 @@ Mã series + dòng lấy từ `SeriesRegister.txt` chính thức của BEA (2026
 
 - Lịch tải trực tiếp: 28 lần công bố GDP/PIO từ 25/11/2026 tới hết 2027, **0 cờ lệch** giữa ICS và JSON; kế tiếp: GDP quý 3 lần 2 + PIO tháng 10 lúc 25/11/2026 13:30 UTC (8:30 ET). Giờ mùa hè 12:30 UTC, mùa đông 13:30 UTC — đều 8:30 ET.
 - API thật với khóa giả: HTTP 200, mã `1`, phản hồi chép lại khóa → `AUTH_FAILED`, nguồn MISSING; 76 dòng log (có cả URL) không dòng nào lộ khóa.
-- **Chưa kiểm được** phản hồi GetData thật (chưa có khóa): test dùng phản hồi **dựng** theo hướng dẫn API (bản 20/04/2026) với số thật từ file NipaData công khai. Kiểm thật khi người dùng có khóa (lệnh dưới).
+- Test dùng phản hồi **dựng** theo hướng dẫn API (bản 20/04/2026) với số thật từ file NipaData công khai. **Kiểm với API thật trên máy người dùng (khóa thật, 13/11): OK, 91 bản ghi**, GDP 2026Q3 3.4, PCE 9/2026 0.5 / lõi 0.3, chỉ số 132.257 / 130.902 — khớp.
 
 ## 5. Chưa làm
 
