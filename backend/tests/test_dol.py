@@ -312,3 +312,12 @@ def test_cli_dry_run(capsys):
     out = capsys.readouterr().out
     assert rc == 0 and "ICSA tuần đến 2026-11-07: 200000" in out
     assert "U.S. Department of Labor" in out
+
+
+def test_federal_holidays_2026_match_opm():
+    """Đối chiếu nguồn chính thức: bảng OPM 2026 (opm.gov/policy-data-oversight/pay-leave/
+    federal-holidays/, người dùng chụp 2026-11-13)."""
+    opm = {date(2026, 1, 1), date(2026, 1, 19), date(2026, 2, 16), date(2026, 5, 25),
+           date(2026, 6, 19), date(2026, 7, 3), date(2026, 9, 7), date(2026, 10, 12),
+           date(2026, 11, 11), date(2026, 11, 26), date(2026, 12, 25)}
+    assert set(federal_holidays(2026)) == opm
