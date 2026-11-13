@@ -37,6 +37,7 @@ MAX_TTL = timedelta(days=400)  # trần chống gõ nhầm (series năm chậm n
 FATAL_ERROR_CODES = frozenset({
     "AUTH_FAILED",          # khóa API sai / hết hạn / bị thu hồi
     "KEY_MISSING",          # nguồn cần khóa mà .env chưa có
+    "KEY_INVALID",          # khóa trong .env sai định dạng (ING-31)
     "SOURCE_DISCONTINUED",  # series / nguồn ngừng
     "FORBIDDEN",            # nguồn từ chối (điều khoản / chặn IP)
 })

@@ -3,7 +3,10 @@
 - Mỗi dòng log là một JSON: ts, level, logger, msg, correlation_id (+ exc nếu có).
 - ``redact()`` che mọi thứ giống bí mật TRƯỚC khi ghi: Bearer token, token Gateway ``gtk_…``,
   JWT, cookie phiên, tham số ``code``/``state``/``password``/``client_secret``..., mật khẩu
-  trong URL database. Áp dụng cho mọi logger (kể cả thư viện).
+  trong URL database, khóa API nguồn ngoài (``api_key``/``registrationkey``/``UserID``/``key``,
+  ING-31). Áp dụng cho mọi logger (kể cả thư viện).
+- ``register_secret()``: bí mật đã biết giá trị (khóa API nạp từ ``.env``) bị che ở **mọi chỗ**
+  xuất hiện, kể cả khi không đứng sau tên tham số nào.
 - Access log do middleware của mình ghi (đường dẫn KHÔNG kèm query string), không dùng access
   log của uvicorn.
 - ``correlation_id`` lấy từ header ``X-Request-ID`` (nginx đặt) hoặc tự sinh, trả lại trong
@@ -27,7 +30,9 @@ correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 
 _SECRET_KEYS = (
     "password|passwd|pwd|client_secret|secret|refresh_token|id_token|access_token|token|"
-    "code|state|session_state|nonce|code_verifier|id_token_hint|authorization|cookie"
+    "code|state|session_state|nonce|code_verifier|id_token_hint|authorization|cookie|"
+    # ING-31: tên tham số khóa API — FRED api_key, BLS registrationkey, BEA UserID, Census key
+    "api_key|apikey|api-key|x-api-key|registrationkey|userid|key"
 )
 _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+"), r"\1 ***"),
@@ -42,7 +47,21 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
 ]
 
 
+_KNOWN_SECRETS: set[str] = set()
+_MIN_KNOWN_LEN = 8  # giá trị quá ngắn dễ trùng chữ thường → không đăng ký (bị từ chối từ trước)
+
+
+def register_secret(value: str) -> None:
+    """Đăng ký giá trị bí mật để che ở mọi chỗ trong log (ING-31)."""
+    if len(value) < _MIN_KNOWN_LEN:
+        raise ValueError("bí mật quá ngắn để che an toàn")
+    _KNOWN_SECRETS.add(value)
+
+
 def redact(text: str) -> str:
+    for secret in sorted(_KNOWN_SECRETS, key=len, reverse=True):
+        if secret in text:
+            text = text.replace(secret, "***")
     for pat, repl in _PATTERNS:
         text = pat.sub(repl, text)
     return text

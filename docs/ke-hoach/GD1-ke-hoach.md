@@ -105,7 +105,7 @@ Chia 4 phần (2026-11-12):
 Chia 4 phần (2026-11-12), thiết kế ở `docs/thiet-ke/10-nguon-ngoai.md`:
 - [x] 7a — DB-08 + ING-13: bảng `external_records` + `external_quarantine` (append-only, point-in-time, `known_at = max(ingested_at, available_at)`) — migration 0012; store SQL + bản trong bộ nhớ cùng quy tắc (2026-11-12: code + test, đã kiểm trên Postgres 16; TimescaleDB qua CI)
 - [x] 7b — ING-30: trạng thái HEALTHY/STALE/MISSING/INVALID, TTL riêng từng nguồn (2026-11-13: code + test, migration 0013 `external_source_checks`, trạng thái tính lại tại mọi `as_of`; TTL cụ thể đặt khi thêm nguồn ở bước 8–10)
-- [ ] 7c — ING-31: khóa API chỉ trong `.env`, không commit, không log
+- [x] 7c — ING-31: khóa API chỉ trong `.env`, không commit, không log (2026-11-13: code + test, `ingestion/api_keys.py`, biến `GT_FRED/BLS/BEA_API_KEY` trong compose; người dùng chưa cần làm gì)
 - [ ] 7d — ING-32: ghi giấy phép/điều khoản từng nguồn ở `docs/thiet-ke/`
 
 ### Bước 8 — Lịch kinh tế (1C) ← hướng dẫn đăng ký khóa **BLS**, **BEA**

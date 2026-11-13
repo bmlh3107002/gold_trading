@@ -87,3 +87,25 @@
 - Cùng `checked_at` thì thứ tự ghi (`seq`) quyết định.
 
 **Code:** `ingestion/source_status.py` (quy tắc + nhật ký trong bộ nhớ), `storage/source_checks.py` (SQL), `latest_event_time` ở cả hai store bản ghi. Hai bản chạy cùng bộ test. **Chưa làm:** nối vào bộ nạp thật + đặt TTL từng nguồn (bước 8–10); backoff khi bị giới hạn tần suất (1D-C05, bộ nạp tin); hiển thị (DSH-09); hạn giữ nhật ký (ING-33).
+
+## 3. Khóa API (7c — ING-31, DEC-07, 2026-11-13)
+
+**Nơi để khóa:** chỉ trong file `.env` trên máy người dùng (cạnh `docker-compose.yml`). `docker compose` chuyển vào backend qua biến `GT_FRED_API_KEY`, `GT_BLS_API_KEY`, `GT_BEA_API_KEY` (mặc định trống). Không bao giờ dán khóa vào chat, không commit. Census / DOL (bổ sung DEC-01): kiểm có cần khóa khi làm bước 8; cần thì thêm một dòng `KEY_ENV` + compose.
+
+**Không commit:** `.gitignore` bỏ qua `.env` ở mọi thư mục (trừ `.env.example`, chỉ có giá trị trống). Test quét mọi file đã commit: không file `.env` nào, không dòng `GT_…_API_KEY=` nào kèm giá trị.
+
+**Không lộ khi chạy** (`ingestion/api_keys.py`):
+
+| Lớp bảo vệ | Cách làm |
+| --- | --- |
+| Giữ khóa | `ApiKey`: in / `repr` / f-string ra `ApiKey(fred, ***)`; JSON và pickle ném lỗi; giá trị thật chỉ qua `reveal()` lúc dựng request |
+| Log — theo giá trị | Mỗi khóa nạp vào được `register_secret()` → xuất hiện ở đâu trong log (thông điệp, tham số, traceback) cũng thành `***`. Khóa sai định dạng cũng được đăng ký (có thể là khóa thật dán thừa ký tự) |
+| Log — theo tên tham số | Bộ che log có thêm `api_key`, `apikey`, `x-api-key`, `registrationkey` (BLS), `userid` (BEA), `key` (Census) — che cả khóa chưa đăng ký |
+| Nhật ký lần kiểm (ING-30) | Chỉ mã ngắn: `error_code_for_http` (401 → `AUTH_FAILED`, 403 → `FORBIDDEN`, 429 → `RATE_LIMITED`, khác → `HTTP_<số>`), `error_code_for_exception` (chỉ dựa vào **loại** lỗi: `TIMEOUT`, `NETWORK_ERROR`, tên lớp viết hoa). Không bao giờ đọc thông điệp lỗi |
+| Hiển thị | `describe_keys` chỉ ra `CONFIGURED` / `KEY_MISSING` / `KEY_INVALID` — không độ dài, không ký tự nào của khóa |
+
+**Kiểm định dạng:** chỉ chặn điều chắc chắn sai — khoảng trắng / dấu nháy / ký tự ngoài `[A-Za-z0-9_-]`, dưới 16 hoặc trên 128 ký tự. **Không** ép định dạng riêng từng nhà cung cấp (đoán sai sẽ chặn nhầm khóa đúng); khóa sai nội dung sẽ lộ ra khi gọi nguồn (`AUTH_FAILED`). Khoảng trắng đầu/cuối được bỏ.
+
+**Thiếu / sai khóa:** `KEY_MISSING` / `KEY_INVALID` là lỗi "chết" (ING-30) → nguồn **MISSING ngay**, bộ nạp không gọi nguồn (1E-C05 phần trạng thái; phần cảnh báo trên web làm cùng DSH-09).
+
+**Giới hạn:** bộ che log chỉ chạy khi log dạng JSON (`GT_LOG_FORMAT=json`, Dockerfile backend đặt sẵn) — chạy `uv run` trên máy phát triển không có che; giá trị khóa vẫn đọc được bằng `docker inspect` / `docker compose config` trên chính máy người dùng (cùng mức với các bí mật khác trong `.env`); Python không chặn được việc cố ý đọc `ApiKey._value`.
