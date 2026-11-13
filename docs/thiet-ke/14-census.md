@@ -42,6 +42,10 @@ Bản ghi: `logical_key = <ngành>:<loại>:<kỳ>` (vd. `44X72:SM:2026-09`), `e
 - API thật: khóa giả → `AUTH_FAILED` → MISSING; không khóa → `KEY_MISSING`; 108 dòng log JSON không lộ khóa.
 - **Chưa thấy phản hồi số thật** (chưa có khóa): test dùng phản hồi dựng theo dạng chuẩn của Census Data API với số thật (tổng tháng 9/2026 745.021 triệu USD, +0,8%), khớp `marts_current.xlsx`. Kiểm thật khi người dùng có khóa.
 
+## 4b. Census chặn Việt Nam — tạm hoãn (2026-11-13)
+
+Từ máy người dùng (Việt Nam): trang đăng ký khóa bị Cloudflare chặn (Wi-Fi lẫn 4G, không VPN); `api.census.gov` và `www.census.gov` trả **403** → bộ nạp trên máy sẽ luôn `FORBIDDEN` (lỗi "chết" → nguồn MISSING, không bịa số). Người dùng chọn **tạm hoãn** bán lẻ; không bật Census trên máy, không dùng VPN lách. Code giữ nguyên cho khi có cách hợp lệ. Rủi ro mở: chưa có cửa sổ chặn quanh tin bán lẻ (ghi ở Gate GĐ1).
+
 ## 5. Chưa làm
 
 Chạy tự động + kiểm trên máy với khóa thật (8g / mục 12 file kế hoạch); hiển thị (DSH-09); mức quan trọng (ING-20); ngưỡng "sửa số lớn". Lệnh chạy tay: `docker compose exec backend python -m gold_trading.ingestion.cli census [--dry-run]`.
