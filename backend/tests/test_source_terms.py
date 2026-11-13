@@ -53,7 +53,7 @@ def test_real_terms_state():
     verified = {p for p, t in SOURCE_TERMS.items() if t.status is TermsStatus.VERIFIED}
     assert verified == {"bea", "census", "dol", "fed"}
     assert {p for p, t in SOURCE_TERMS.items() if t.status is TermsStatus.BLOCKED} == \
-        {"gld", "iau"}
+        {"fred", "gld", "iau"}
     for p in ("fred", "bls", "cftc", "treasury", "gld", "iau"):
         assert terms_problem(p, SOURCE_TERMS) is not None
     SourceRegistry([SourceSpec("bea_gdp", "macro", fetch_ttl=H, provider="bea")])

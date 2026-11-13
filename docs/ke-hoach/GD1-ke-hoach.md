@@ -135,8 +135,15 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [ ] Bật chạy sớm trên máy người dùng để kịp bắt một lần CPI/NFP thật (FOMC + BEA + DOL đã tự chạy trên máy từ 2026-11-13; CPI/NFP cần BLS — 8e)
 - Việc để sau (không thuộc Gate GĐ1, người dùng đồng ý 2026-11-12): **nhập tay forecast** trước các kỳ công bố lớn. ForexFactory / Investing / FXStreet / Kitco không đưa vào GĐ1 (lý do ở ING-18 file GĐ1)
 
-### Bước 9 — Vĩ mô + dòng tiền (1E + 1F) ← hướng dẫn đăng ký khóa **FRED**
-- [ ] Người dùng đăng ký khóa FRED, dán vào `.env`
+### Bước 9 — Vĩ mô + dòng tiền (1E + 1F)
+Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang phần sau:
+- [ ] 9a — điều khoản FRED đọc nguyên văn → **`BLOCKED`** (cấm lưu DB, cấm dùng cho AI); người dùng chọn **H.15 của Fed** thay FRED (sửa DEC-04, DEC-07: không cần khóa FRED); kiểm trang H.15 từ máy người dùng
+- [ ] 9b — ING-11 khung series vĩ mô + ING-25/26 + EFFR từ trang H.15 (1E-C01..C04)
+- [ ] 9c — ING-27 proxy kỳ vọng Fed (DEC-04)
+- [ ] 9d — ING-24 chỉ số USD tự tính (DEC-03)
+- [ ] 9e — ING-12 COT (CFTC: đọc điều khoản + kiểm từ máy người dùng trước)
+- [ ] 9f — ING-28 ETF GLD/IAU (điều khoản đang `BLOCKED` → hỏi người dùng)
+- [ ] ~~Người dùng đăng ký khóa FRED~~ — **bỏ** (2026-11-13: FRED `BLOCKED`, thay bằng H.15)
 - [ ] ING-11: khung series vĩ mô theo `releaseAt` (point-in-time, revision)
 - [ ] ING-25 (lợi suất thực 10 năm), ING-26 (lợi suất 2 năm, 10 năm), ING-27 (proxy Fed, DEC-04)
 - [ ] ING-24: chỉ số USD tự tính (DEC-03); thiếu cặp / lệch thời điểm → không đủ dữ liệu

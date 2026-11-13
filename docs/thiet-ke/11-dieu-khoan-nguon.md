@@ -14,6 +14,8 @@
 
 **Lần 1 (2026-11-13, bước 7d):** chỉ có trích đoạn kết quả tìm kiếm → tất cả `NEEDS_REVIEW`, IAU `BLOCKED`.
 
+**Lần 3 (2026-11-13, bước 9a):** đọc được nguyên văn FRED → `BLOCKED` (cấm lưu vào database + cấm dùng cho AI); lợi suất / lãi suất Fed chuyển sang H.15 của Fed.
+
 **Lần 2 (2026-11-13, bước 8a):** người dùng cho phép tải trực tiếp trang chính thức (chỉ đọc). Đọc **nguyên văn**: BEA, Census, Fed → `VERIFIED` (kèm nghĩa vụ ghi nguồn); GLD → `BLOCKED`. Không đọc được: FRED (hết giờ chờ), BLS và CFTC (máy chủ trả 403 "Access Denied" cho máy chủ đám mây — **không** giả trình duyệt để lách), DOL (trang cần JavaScript), Bộ Tài chính (chưa tìm được trang chính sách), iShares (trang điều khoản đổi địa chỉ, nằm trên `blackrock.com`) → giữ nguyên trạng thái. Các mục chưa đọc được ghi rõ bên dưới; phần lấy từ kết quả tìm kiếm vẫn là **trích đoạn, chưa nguyên văn**.
 
 **Việc phải làm trước khi bật mỗi nguồn (bước 8–10):** đọc nguyên văn trang điều khoản (đường dẫn ở từng mục), ghi lại các điểm: được tải tự động không / cần khóa không / giới hạn tần suất / lưu trữ / ghi nguồn / phân phối lại / ngày hiệu lực → nếu khớp cách dùng dự định thì đổi `VERIFIED`.
@@ -23,12 +25,14 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 ## 3. Từng nhà cung cấp
 
 <a id="fred"></a>
-### FRED — Fed St. Louis (lợi suất, lãi suất Fed; bước 9)
+### FRED — Fed St. Louis (định dùng cho lợi suất, lãi suất Fed; bước 9)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được (trích đoạn trang chính thức): dùng API là chấp nhận điều khoản; **bắt buộc khóa đã đăng ký**; điều khoản có thể đổi không báo trước; vi phạm thì bị tắt quyền; không được ngụ ý Fed St. Louis bảo trợ; **phải ghi nguồn** khi dùng nội dung FRED; cấm thu thập (scraping) ngoài cách API cho phép; một số series thuộc **bên thứ ba** có điều khoản riêng. Có tin điều khoản mới thêm cấm tải hàng loạt (chưa kiểm được nguyên văn).
-- Cần đọc: <https://fred.stlouisfed.org/docs/api/terms_of_use.html>, <https://fred.stlouisfed.org/legal/>. Khi bật từng series: kiểm series đó có phải dữ liệu bên thứ ba không.
-- Lần 2 (2026-11-13): tải trực tiếp **hết giờ chờ** (máy chủ không trả lời máy chủ đám mây) → chưa đọc được nguyên văn.
+- **Trạng thái:** `BLOCKED`
+- **Đọc nguyên văn** 2026-11-13 (bước 9a): <https://fred.stlouisfed.org/docs/api/terms_of_use.html> và <https://fred.stlouisfed.org/legal/> (mục "Additional Terms of Use for the FRED® API"). Lý do chặn — phần cấm của API, nguyên văn:
+  1. *"(l) Use the FRED® API in connection with storing, caching, or archiving any portion of the FRED® Services or FRED® Content; … or incorporating any FRED® Content in any database, compilation, archive, cache, or other medium."* — hệ thống **phải** lưu số liệu point-in-time vào database (ING-11, ING-13, replay, backtest) → trái trực tiếp.
+  2. *"(k) Use the FRED® API to access the FRED® Services or FRED® Content in connection with the development or training of any software program or system or machine learning, … or any other program or process commonly known as artificial intelligence."* — dự án có GĐ7 huấn luyện AI.
+  3. Phần chung còn cấm dùng thương mại khi chưa có phép bằng văn bản (mục j) và yêu cầu câu ghi nguồn "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis."
+- **Hệ quả (người dùng chọn 2026-11-13):** lợi suất 2 năm / 10 năm / thực 10 năm + lãi suất Fed hiệu dụng lấy từ **trang phát hành H.15 của Fed (Hội đồng Thống đốc)** — nhà cung cấp `fed` đã `VERIFIED`. Không đăng ký khóa FRED (DEC-07 bỏ phần FRED). Lưu ý: chính trang Fed giới thiệu FRED thay cho "Data Download Program" sắp gỡ (31/3/2027, 1/7/2027) — **không** dùng DDP mà đọc trang phát hành H.15.
 
 <a id="bls"></a>
 ### BLS — Cục Thống kê Lao động (CPI, NFP, PPI; lịch + actual; RSS; bước 8, 10)
