@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import Engine, text
+from sqlalchemy import DateTime, Engine, bindparam, text
 
 # Bảng → cột thời điểm hệ thống nhận / tạo dòng (đo tốc độ tăng).
 TABLES: dict[str, str] = {
@@ -97,7 +97,8 @@ def report(engine: Engine, as_of: datetime, *,
                     f"select count(*), min({col}), "                       # noqa: S608
                     f"sum(case when {col} > :d1 and {col} <= :t then 1 else 0 end), "
                     f"sum(case when {col} > :d7 and {col} <= :t then 1 else 0 end) "
-                    f"from {table}"),
+                    f"from {table}").bindparams(
+                        *(bindparam(k, type_=DateTime(timezone=True)) for k in ("t", "d1", "d7"))),
                     {"t": as_of, "d1": as_of - timedelta(days=1),
                      "d7": as_of - timedelta(days=7)}).one()
             except Exception:  # bảng chưa tồn tại
