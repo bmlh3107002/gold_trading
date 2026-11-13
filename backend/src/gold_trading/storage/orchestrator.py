@@ -66,6 +66,31 @@ class SqlOrchestratorStore:
             return False   # tiến trình khác ghi trước
         return True
 
+    def record_events(self, events, *, recorded_at: datetime) -> int:
+        """Ghi nhiều sự kiện trong một transaction (bỏ khóa đã có); đụng ghi đồng thời → ghi lại
+        từng cái. Trả số sự kiện mới."""
+        recorded_at = _req("recorded_at", recorded_at)
+        uniq = {e.event_id: e for e in events}
+        if not uniq:
+            return 0
+        try:
+            with self.engine.begin() as conn:
+                have: set[str] = set()
+                ids = list(uniq)
+                for i in range(0, len(ids), 500):
+                    have |= set(conn.execute(select(_E.event_id).where(
+                        _E.event_id.in_(ids[i:i + 500]))).scalars())
+                new = [e for k, e in uniq.items() if k not in have]
+                if new:
+                    conn.execute(orchestrator_events.insert(), [dict(
+                        event_id=e.event_id, event_type=e.event_type.value, subject=e.subject,
+                        event_version=e.event_version, occurred_at=e.occurred_at,
+                        known_at=e.known_at, recorded_at=recorded_at,
+                        correlation_id=e.correlation_id, payload=e.payload) for e in new])
+                return len(new)
+        except IntegrityError:
+            return sum(self.record_event(e, recorded_at=recorded_at) for e in uniq.values())
+
     def events(self, *, until: datetime, since: datetime | None = None,
                event_type: EventType | None = None) -> list[Event]:
         q = select(orchestrator_events).where(_E.known_at <= _req("until", until))

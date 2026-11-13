@@ -243,6 +243,12 @@ class PointInTimeStore:
                      if r.source == source and r.known_at <= as_of and r.event_time <= as_of]
         return max(times, default=None)
 
+    def known_between(self, lo: datetime, hi: datetime) -> list[NormalizedRecord]:
+        """Mọi revision có ``lo < known_at <= hi`` (GĐ2: sinh sự kiện)."""
+        with self._lock:
+            rows = [r for r, _ in self._by_identity.values() if lo < r.known_at <= hi]
+        return sorted(rows, key=lambda r: (r.known_at, r.source, r.logical_key, r.revision))
+
     def quarantine_counts(self, until: datetime, since: datetime | None = None) -> dict[str, int]:
         """Số bản ghi bị cách ly theo nguồn, ``since < received_at <= until`` (DSH-09)."""
         out: dict[str, int] = {}

@@ -22,8 +22,8 @@
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
-| 2-C01 | Cùng sự kiện tới nhiều lần | Một output | `[ ]` |
-| 2-C02 | Sự kiện tới sai thứ tự | Xử lý theo thứ tự nhân quả, ổn định khi replay | `[ ]` |
+| 2-C01 | Cùng sự kiện tới nhiều lần | Một output | `[~]` 2026-11-13 (1b, 1c): một sự kiện (khóa `event_id`), một job (`job_key`); output ở bước 2–3 |
+| 2-C02 | Sự kiện tới sai thứ tự | Xử lý theo thứ tự nhân quả, ổn định khi replay | `[~]` 2026-11-13 (1b, 1c): thứ tự `(known_at, loại, chủ thể, phiên bản)` không phụ thuộc thứ tự ghi; quét chia nhỏ = một lần replay; xử lý theo thứ tự ở bước 2 |
 | 2-C03 | Dồn dập sự kiện | Debounce, không bỏ sự kiện quan trọng | `[ ]` |
 | 2-C04 | Analyst lỗi / quá hạn deadline | Retry giới hạn → dead-letter, nguồn coi là MISSING, không dùng output cũ quá hạn | `[ ]` |
 | 2-C05 | Restart giữa lúc chạy job | Tiếp tục hoặc chạy lại an toàn, không nhân đôi | `[ ]` |
@@ -38,3 +38,4 @@
 
 - **2026-11-13** — **Bắt đầu GĐ2 (DEC-19).** Người dùng cho làm GĐ2 song song vì GĐ1 chỉ còn kiểm / chờ ngày công bố; Gate GĐ1 chưa đóng và là điều kiện của Gate GĐ2. Lập `docs/ke-hoach/GD2-ke-hoach.md` (6 bước). Ý tưởng chính: sự kiện suy ra từ dữ liệu đã lưu theo `known_at` (replay được, không nhân đôi), nhật ký sự kiện + job chỉ-thêm, làn nhanh chỉ dùng luật (ngưỡng hỏi người dùng ở bước 4).
 - **2026-11-13** — **Bước 1a + 1b: nhật ký sự kiện + job (ORC-03, ORC-06 phần lưu, ORC-08 phần lưu).** Thiết kế `docs/thiet-ke/25-event-orchestrator.md`. Migration 0014: `orchestrator_events` (event_id = sha256(loại|chủ thể|phiên bản), duy nhất), `orchestrator_jobs` (job_key khóa chính), `orchestrator_job_attempts` (trạng thái PENDING / RUNNING / SUCCEEDED / FAILED / DEAD / NO_HANDLER / SUPERSEDED, mã lỗi ngắn bắt buộc khi FAILED / DEAD) — cả ba chỉ-thêm. `orchestrator/model.py` (bộ nhớ) + `storage/orchestrator.py` (SQL), thứ tự nhân quả `(known_at, loại, chủ thể, phiên bản)`. Test 36 (bộ nhớ + SQLite): ghi trùng, thứ tự ổn định khi ghi xáo trộn, lọc cửa sổ, sự kiện tương lai ẩn, giờ không múi giờ, giờ New York → UTC, job tạo một lần, nhật ký lần thử cùng giờ giữ thứ tự ghi, mã lỗi chứa URL bị từ chối. **Soát lại** (Postgres 16): 8 luồng ghi cùng sự kiện / job → đúng 1; UPDATE / DELETE bị trigger chặn; ràng buộc chặn trạng thái lạ + FAILED thiếu mã; `alembic check` không lệch; xuống 0013 rồi lên lại.
+- **2026-11-13** — **Bước 1c: bộ quét sinh sự kiện (ORC-02 phần nguồn).** `orchestrator/scanner.py`: nến (theo `max(ingested_at, available_at)`) + bản ghi ngoài (theo `known_at`) → 6 loại sự kiện, mốc = `known_at` lớn nhất − 15 phút chồng lấn, lần đầu 2 ngày, replay theo `since`; ghi theo lô (bỏ khóa đã có). Thêm `known_between` cho store nến + store bản ghi ngoài (cả hai bản). Test 13. **Soát lại** Postgres: 35.327 sự kiện (7 × 5.000 nến nạp bù + nguồn ngoài GĐ1) trong 2,5 giây, = bộ nhớ, quét lại không thêm. **Lỗi trong test khi viết:** kịch bản quét chia nhỏ không quét tới đúng mốc dữ liệu; nến thử chưa đóng bị từ chối — sửa test. **Giới hạn:** commit chậm > 15 phút bị bỏ sót ở chế độ thường (replay bắt được); sau nạp bù lớn mỗi lần quét ~2 giây trong 15 phút.

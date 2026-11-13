@@ -53,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-13): backend 1571 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 1620 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.

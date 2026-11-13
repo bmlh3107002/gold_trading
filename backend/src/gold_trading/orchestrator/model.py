@@ -155,6 +155,10 @@ class OrchestratorStore:
             self._events[e.event_id] = (e, recorded_at)
             return True
 
+    def record_events(self, events, *, recorded_at: datetime) -> int:
+        """Ghi nhiều sự kiện; trả số sự kiện mới (trùng → bỏ qua)."""
+        return sum(self.record_event(e, recorded_at=recorded_at) for e in events)
+
     def events(self, *, until: datetime, since: datetime | None = None,
                event_type: EventType | None = None) -> list[Event]:
         """Sự kiện có ``since < known_at <= until``, theo thứ tự nhân quả."""

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from sqlalchemy import Engine, and_, func, insert, select
+from sqlalchemy import Engine, and_, func, insert, or_, select
 
 from gold_trading.contracts.candle import Candle, CandleFlag, DataSource
 from gold_trading.market.timeframes import Timeframe
@@ -104,6 +104,14 @@ class InMemoryCandleStore:
             if c := _visible(series[t], as_of):
                 out.append(c)
         return out[-limit:]
+
+    def known_between(self, lo: datetime, hi: datetime, *, max_open_age=None) -> list[Candle]:
+        """Mọi revision có ``lo < max(ingested_at, available_at) <= hi`` (GĐ2: sinh sự kiện)."""
+        with self._lock:
+            rows = [c for series in self._rows.values() for revs in series.values()
+                    for c in revs if lo < max(c.ingested_at, c.available_at) <= hi
+                    and (max_open_age is None or c.open_time > lo - max_open_age)]
+        return rows
 
     def stats(self, symbol, tf, source, *, feed=""):
         series = self._rows.get((symbol, tf, source, feed), {})
@@ -252,6 +260,17 @@ class SqlCandleStore:
         with self.engine.connect() as conn:
             rows = conn.execute(q).all()
         return [_to_candle(r) for r in reversed(rows)]
+
+    def known_between(self, lo: datetime, hi: datetime, *, max_open_age=None) -> list[Candle]:
+        """Mọi revision có ``lo < max(ingested_at, available_at) <= hi`` (GĐ2: sinh sự kiện).
+        ``max_open_age``: chỉ xét nến mở sau ``lo - max_open_age`` (cắt chunk hypertable)."""
+        c = candles.c
+        q = select(candles).where(or_(c.ingested_at > lo, c.available_at > lo),
+                                  c.ingested_at <= hi, c.available_at <= hi)
+        if max_open_age is not None:
+            q = q.where(c.open_time > lo - max_open_age)
+        with self.engine.connect() as conn:
+            return [_to_candle(r) for r in conn.execute(q).all()]
 
     def stats(self, symbol, tf, source, *, feed=""):
         key = self._key(symbol, tf, source, feed)

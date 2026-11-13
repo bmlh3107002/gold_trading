@@ -164,6 +164,13 @@ class SqlExternalRecordStore:
         with self.engine.connect() as conn:
             return [_record(m) for m in conn.execute(q).mappings()]
 
+    def known_between(self, lo: datetime, hi: datetime) -> list[NormalizedRecord]:
+        """Mọi revision có ``lo < known_at <= hi`` (GĐ2: sinh sự kiện)."""
+        q = (select(external_records).where(_R.known_at > lo, _R.known_at <= hi)
+             .order_by(_R.known_at, _R.seq))
+        with self.engine.connect() as conn:
+            return [_record(m) for m in conn.execute(q).mappings()]
+
     def quarantine_counts(self, until: datetime, since: datetime | None = None) -> dict[str, int]:
         """Số bản ghi bị cách ly theo nguồn, ``since < received_at <= until`` (DSH-09)."""
         c = external_quarantine.c

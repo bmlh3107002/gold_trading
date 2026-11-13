@@ -41,3 +41,12 @@
 - Nhật ký lần thử (chỉ thêm): `state` ∈ `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `DEAD` (dead-letter), `NO_HANDLER` (loại job chưa có bộ xử lý — analyst GĐ3; không giả kết quả), `SUPERSEDED` (debounce: có sự kiện mới hơn cùng chủ thể); `attempt`, `at`, `deadline_at`, `error_code` (mã ngắn, như ING-30), `output_ref`.
 - Trạng thái hiện tại = dòng mới nhất theo `(at, seq)`. Đã `SUCCEEDED` / `DEAD` / `NO_HANDLER` / `SUPERSEDED` → không chạy lại (kết thúc). `RUNNING` quá `deadline_at` (vd. backend tắt giữa chừng) → coi là lần thử thất bại `DEADLINE_EXCEEDED`, xét retry (2-C05).
 - Retry / backoff / dead-letter, debounce, bảng sự kiện → job: bước 2.
+
+## 4. Bộ quét (1c — `orchestrator/scanner.py`, 2026-11-13)
+
+- Hai luồng: **nến** (`candle_store.known_between`: `lo < max(ingested_at, available_at) <= now`, chỉ nến mở trong 60 ngày — Gateway nạp bù tối đa ~52 ngày, cắt chunk hypertable) và **bản ghi ngoài** (`record_store.known_between`: `lo < known_at <= now`, mọi revision).
+- Mốc `lo` = `known_at` lớn nhất đã ghi của luồng − 15 phút (chồng lấn bắt bản ghi commit chậm). Chưa có sự kiện nào → 2 ngày gần nhất (không dựng lại cả lịch sử khi bật lần đầu). Replay: truyền `since` → quét từ mốc chỉ định.
+- Loại sự kiện ngoài theo `kind` / nguồn: `calendar` → `CALENDAR_UPDATED`; `news` → `NEWS_PUBLISHED`; `positioning` → `POSITIONING_UPDATED`; `bea_nipa` / `dol_claims` / `bls_values` / `census_marts` → `ACTUAL_RELEASED`; còn lại (`fed_h15`) → `MACRO_UPDATED`.
+- `payload` chỉ tham chiếu: `source`, `logical_key`, `revision`, `record_id` (+ `event`, `series`, `release_ref`, `status` nếu có, ≤ 128 ký tự); nến: `open_time`, `revision`, cờ.
+- **Giới hạn đã biết:** bản ghi có `known_at` cũ hơn mốc quá 15 phút mà ghi sau lần quét (commit chậm > 15 phút) bị bỏ sót ở chế độ thường — replay có `since` bắt được. Chi phí: ngay sau một lần nạp bù lớn (35.000 nến) mỗi lần quét trong 15 phút kế tiếp mất ~2 giây (kiểm lại khóa); bình thường vài chục dòng.
+- **Kiểm chứng:** `tests/test_orchestrator_scanner.py` 13 test (bộ nhớ + SQLite): 12 việc thật của bộ chạy GĐ1 → đủ 5 loại sự kiện ngoài, quét lại không thêm; nến + sửa nến → sự kiện revision mới; COT nạp sớm chỉ thành sự kiện lúc 20:30 UTC công bố; lần đầu 2 ngày, replay có mốc đủ; quét 7 phút / lần = một lần replay (cùng nhật ký, cùng thứ tự); chồng lấn bắt commit chậm. **Soát lại** (Postgres 16): 7 cặp × 5.000 nến nạp bù + toàn bộ nguồn ngoài → 35.327 sự kiện trong 2,5 giây, Postgres = bộ nhớ cùng thứ tự, quét lại 40 giây sau không thêm.
