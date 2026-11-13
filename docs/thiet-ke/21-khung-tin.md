@@ -2,7 +2,7 @@
 
 > Tạo 2026-11-13. Code: `backend/src/gold_trading/ingestion/news.py`, cấu hình `ingestion/news_sources.json`, test `tests/test_news.py`. Liên quan: DEC-02 (tin chỉ từ thông cáo chính thức qua RSS, danh sách nguồn cấu hình được), ING-30 (trạng thái nguồn), ING-32 (điều khoản), khung point-in-time `10-nguon-ngoai.md`.
 >
-> 10a chỉ dựng **khung**, không có nguồn thật nào. Nguồn thật (RSS Fed…) thêm ở 10b, sau khi kiểm từ máy người dùng.
+> 10a dựng **khung**; 10b thêm nguồn thật đầu tiên (RSS Fed, mục 9).
 
 ## 1. Danh sách nguồn cấu hình được (DEC-02)
 
@@ -78,10 +78,24 @@ Luôn `event_time <= ingested_at` (không biết trước). `available_at` để
 - `http_getter`: chuyển hướng sang tên máy khác → `UNEXPECTED_REDIRECT`; HTTP lỗi → mã ngắn (`RATE_LIMITED`, `FORBIDDEN`, `HTTP_5xx`); > 5 MB → `RESPONSE_TOO_LARGE`. Không bao giờ ghi thông điệp lỗi gốc.
 - `run_once`: một dòng nhật ký lần kiểm mỗi lần (ING-30) → trạng thái HEALTHY/STALE/MISSING/INVALID như mọi nguồn.
 - `due`: chỉ dựa trên nhật ký lần kiểm (khởi động lại không gọi dồn). OK → tải lại sau `poll_minutes`. Lỗi → chờ `poll × 2^(số lần lỗi liên tiếp)`, trần 6 giờ (15 phút → 30, 60, 120… phút); lỗi "chết" (`FORBIDDEN`, `AUTH_FAILED`…) → 6 giờ.
-- **Chưa nối vào bộ chạy tự động** (`external_runner`) — làm ở 10b cùng nguồn thật đầu tiên.
+- Nối vào bộ chạy tự động ở 10b (mục 9).
 
 ## 8. Kiểm chứng (2026-11-13)
 
 - `tests/test_news.py` 139 test (bộ nhớ + SQLite): cấu hình (20 kiểu sai, điều khoản BLOCKED / NEEDS_REVIEW / chưa ghi, file thiếu, biến môi trường), RSS/Atom, CDATA, `content:encoded`, `dc:date`, XXE, billion laughs, DOCTYPE UTF-16, bảng mã lạ, HTML "Access Denied", 300+ mục; giờ GMT / EST / EDT / ngay sau đổi DST / `-0000` / không múi giờ / tương lai xa và gần / cũ; nội dung độc (script, thẻ mã hóa, ký tự ẩn hướng chữ, NUL, câu ra lệnh, `javascript:`), quá dài, rỗng, không phải tiếng Anh; ghi lại y hệt, chỉ đổi giờ, sửa bài (point-in-time), nguồn "nhảy", trùng trong một lần tải, mục không định danh, tất cả hỏng → INVALID; gộp hai nguồn, đăng lại, cửa sổ tin mới, tin rỗng, bản sửa rời nhóm; lỗi tải / HTML thay feed → INVALID; STALE đúng TTL; backoff 30/60/120 phút → trần 6 giờ; HTTP 429/403/503, chuyển hướng lạ, quá lớn, hết giờ.
 - **Soát lại bằng kịch bản riêng** (Postgres 16 thật sau `alembic upgrade head`): fuzz 20.000 feed đột biến ngẫu nhiên → chỉ lỗi `FeedParseError`, không lỗi lạ; DOCTYPE ở 5 bảng mã đều bị chặn; chuỗi 120 lần tải ngẫu nhiên (3 nguồn, sửa, đăng lại, giờ hỏng) → bộ nhớ = SQLite = Postgres ở 360 thời điểm `as_of`, kết quả quá khứ không đổi sau khi ghi thêm, mọi bản ghi `known_at <= as_of` và `event_time <= ingested_at`.
 - **Lỗi tìm được khi làm:** (1) ký tự NUL trong nguyên văn làm cả mục bị cách ly (`RAW_NUL_CHAR`) → thay bằng U+FFFD; (2) thẻ giả `<system>` bị bỏ khi làm sạch nên cờ `SUSPECT_INSTRUCTIONS` không bắt được → soi trên văn bản chưa bỏ thẻ; (3) DOCTYPE mã hóa UTF-16 lọt lọc byte → thêm lượt quét expat; (4) bảng mã expat không hỗ trợ ném `ValueError` lạ → `FEED_NOT_XML`.
+
+## 9. Nguồn thật đầu tiên: RSS Fed (10b, 2026-11-13)
+
+| Nguồn | URL | Nội dung |
+| --- | --- | --- |
+| `fed_rss_monetary` | `https://www.federalreserve.gov/feeds/press_monetary.xml` | Thông cáo chính sách tiền tệ: tuyên bố FOMC, biên bản, dự báo kinh tế |
+| `fed_rss_speeches` | `https://www.federalreserve.gov/feeds/speeches_and_testimony.xml` | Phát biểu + điều trần của lãnh đạo Fed |
+
+- Điều khoản Fed `VERIFIED` (public domain, ghi nguồn Board) → chân trang web: "Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board".
+- Kiểm từ máy người dùng 2026-11-13: cả hai 200, 15 bài, khớp máy chủ đám mây. Feed RSS 2.0, có BOM, CDATA, `pubDate` GMT, guid = URL.
+- Tải 15 phút/lần, TTL 6 giờ (Fed không công bố giới hạn tần suất; 2 feed × 96 lần/ngày ≈ 10 KB/lần). Không chọn nhanh hơn: RSS không phải đường nhanh nhất lúc công bố FOMC — cửa sổ chặn quanh FOMC đã có từ lịch (8b).
+- Bộ chạy tự động: `news` nằm trong `GT_EXTERNAL_SOURCES` mặc định; mỗi nguồn tin đang bật là một việc, chạy sau các việc lịch + số. Cấu hình tin sai → **không bật nguồn tin nào**, các nguồn khác vẫn chạy, log ERROR "Không bật nguồn tin".
+- Lần tải đầu nhận cả tin cũ trong feed (vd. tuyên bố FOMC 28/10) với `event_time` = giờ đăng thật, cờ `OLD_ON_ARRIVAL`; chúng không là "tin mới" theo giờ đăng.
+- Lệnh xem: `python -m gold_trading.ingestion.cli tin [--dry-run] [--hours N]` — lọc theo **giờ đăng** của tin gốc, in giờ Việt Nam, kèm ghi chú giấy phép từng nguồn.

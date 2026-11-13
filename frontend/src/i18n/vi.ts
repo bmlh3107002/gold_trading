@@ -281,7 +281,7 @@ const vi = {
   },
   attribution: {
     label: "Nguồn dữ liệu",
-    fed: "Lịch FOMC: Federal Reserve Board (federalreserve.gov).",
+    fed: "Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board (federalreserve.gov).",
     dol: "Trợ cấp thất nghiệp tuần: U.S. Department of Labor (dol.gov).",
     cftc: "Vị thế COT vàng: U.S. Commodity Futures Trading Commission (cftc.gov).",
     h15: "Lãi suất Fed hiệu dụng + lợi suất trái phiếu: Federal Reserve Board H.15 (federalreserve.gov); lợi suất trái phiếu: U.S. Treasury.",

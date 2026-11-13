@@ -43,7 +43,8 @@ RELEASE_DAY_POLL = timedelta(minutes=5)
 # Đối chiếu ngoài giờ công bố (hoặc khi thiếu khóa): thử lại sau ít nhất 6 giờ.
 RECONCILE_RETRY = timedelta(hours=6)
 
-DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot")
+# "news": mọi nguồn tin đang bật trong file cấu hình nguồn tin (bước 10b, ``ingestion/news.py``).
+DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot", "news")
 KNOWN_SOURCES = frozenset(DEFAULT_SOURCES)
 
 
@@ -146,8 +147,27 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
         vals.append(Job(cftc_cot.SOURCE, lambda now: cftc_cot.run_once(
             store=store, log=check_log, get=get_cot, now=now, registry=registry),
             cftc_cot.due))
+    news_jobs: list[Job] = []
+    if "news" in sources:  # bước 10b: tin RSS chính thức (danh sách trong file cấu hình)
+        from gold_trading.ingestion import news
+        try:
+            cfgs, _ = news.load_news_config(env=env)
+        except news.NewsConfigError as e:
+            # Cấu hình tin sai → KHÔNG bật nguồn tin nào (không bật nửa vời), các nguồn khác vẫn
+            # chạy; lỗi ghi rõ trong log để người dùng sửa file.
+            log.error("Không bật nguồn tin: cấu hình nguồn tin sai — %s", e)
+            cfgs = ()
+        get_news = {}
+        for c in cfgs:
+            specs.append(c.spec())
+            if not c.enabled:
+                continue
+            get_news[c.name] = news.http_getter(client, c)
+            news_jobs.append(Job(c.name, lambda now, c=c: news.run_once(
+                c, store=store, log=check_log, get=get_news[c.name], now=now,
+                registry=registry), lambda now, s, c=c: news.due(c, now, s)))
     registry = SourceRegistry(specs)
-    return sched + vals, registry
+    return sched + vals + news_jobs, registry
 
 
 class ExternalSourceRunner:

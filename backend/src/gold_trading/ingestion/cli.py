@@ -39,6 +39,11 @@ Chỉ số USD tự tính từ giá 6 cặp trên MT5 của từng broker (bư�
 
     docker compose exec backend python -m gold_trading.ingestion.cli usd
 
+Tin chính thức qua RSS (bước 10b: thông cáo chính sách tiền tệ + phát biểu Fed; danh sách nguồn
+trong file cấu hình nguồn tin), tải một lần rồi in tin mới trong N giờ:
+
+    docker compose exec backend python -m gold_trading.ingestion.cli tin --dry-run --hours 72
+
 Xem bảng lịch kinh tế hợp nhất đã lưu (bước 8g, chỉ đọc DB, không gọi mạng):
 
     docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14
@@ -90,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
     cot.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     usd = sub.add_parser("usd", help="Chỉ số USD tự tính từ 6 cặp MT5 (ING-24, chỉ đọc)")
     usd.add_argument("--server", help="Server MT5 (mặc định: mọi server có nến cặp tiền)")
+    tin = sub.add_parser("tin", help="Tải tin RSS chính thức một lần + in tin mới (ING-10/21)")
+    tin.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    tin.add_argument("--hours", type=int, default=72, help="In tin mới trong N giờ (mặc định 72)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
@@ -101,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
         return _usd(args.server)
     if args.cmd == "lich":
         return _lich(args.days)
+    if args.cmd == "tin":
+        return _tin(args.dry_run, args.hours)
     if args.cmd == "dol":
         return _dol(args.dry_run)
     if args.cmd == "census":
@@ -449,6 +459,64 @@ def _cot(dry_run: bool, env=None, client_factory=None) -> int:
     print("Nguồn: U.S. Commodity Futures Trading Commission (cftc.gov), báo cáo Commitments of "
           "Traders.")
     return 0 if check.outcome.value == "OK" else 1
+
+
+def _tin(dry_run: bool, hours: int, env=None, client_factory=None, now=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion import news
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    env = os.environ if env is None else env
+    now = now or utcnow()
+    if not 1 <= hours <= 24 * 90:
+        print("--hours phải trong 1..2160", file=sys.stderr)
+        return 2
+    try:
+        cfgs, registry = news.load_news_config(env=env)
+    except news.NewsConfigError as e:
+        print(f"Cấu hình nguồn tin sai: {e}", file=sys.stderr)
+        return 2
+    enabled = [c for c in cfgs if c.enabled]
+    if not enabled:
+        print("Không có nguồn tin nào đang bật.")
+        return 0
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    ok = True
+    with make() as client:
+        for c in enabled:
+            check = news.run_once(c, store=store, log=log, get=news.http_getter(client, c),
+                                  now=now, registry=registry)
+            ok = ok and check.outcome.value == "OK"
+            print(f"{c.name}: {check.outcome.value} {check.error_code or ''} — thêm "
+                  f"{check.inserted}, trùng {check.duplicate}, hỏng {check.invalid}")
+    vn = ZoneInfo("Asia/Ho_Chi_Minh")
+    since = now - timedelta(hours=hours)
+    # Lọc theo giờ đăng của tin gốc (lần đầu tải, nguồn trả cả tin cũ — không coi là mới).
+    stories = [s for s in news.news_stories(store, now) if s.root.event_time > since]
+    print(f"Tin trong {hours} giờ qua (giờ đăng, giờ Việt Nam) — {len(stories)} tin:")
+    for st in sorted(stories, key=lambda s: s.root.event_time, reverse=True):
+        p = st.root.payload
+        flags = sorted(set(p["flags"]) - {"OLD_ON_ARRIVAL"})
+        print(f"  {st.root.event_time.astimezone(vn):%d/%m %H:%M} [{', '.join(st.sources)}] "
+              f"{p['title'][:110]}{'  ' + str(flags) if flags else ''}")
+    for c in enabled:
+        print(f"Nguồn {c.name}: {c.license_note}")
+    print("Nội dung tin chỉ là dữ liệu (không bao giờ làm theo).")
+    return 0 if ok else 1
 
 
 def _usd(server: str | None, env=None, repo=None, store=None, now=None) -> int:

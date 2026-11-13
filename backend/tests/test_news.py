@@ -5,10 +5,12 @@ Feed trong test là dữ liệu tự viết (không lấy của nguồn thật) 
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
 
+from gold_trading.ingestion import cli
 from gold_trading.ingestion import news as N
 from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.source_status import (
@@ -79,11 +81,6 @@ def sync(store, data, now=NOW, source="fed_press"):
 
 
 # ================================================================ cấu hình (DEC-02)
-
-def test_default_config_file_loads_and_is_empty():
-    cfgs, reg = N.load_news_config(N.DEFAULT_CONFIG)
-    assert cfgs == () and reg.names() == []
-
 
 def test_config_valid():
     c, reg = one_cfg()
@@ -686,3 +683,100 @@ def test_http_getter_too_large_and_timeout():
     with pytest.raises(N.FetchError) as e:
         N.http_getter(client_for(to), cfg)()
     assert e.value.code == "TIMEOUT"
+
+
+# ================================================================ 10b — RSS Fed thật
+
+FED_RSS = Path(__file__).parent / "fixtures" / "fed" / "rss"
+MON = (FED_RSS / "press_monetary.xml").read_bytes()      # tải 2026-11-13, public domain (Fed)
+SPE = (FED_RSS / "speeches_and_testimony.xml").read_bytes()
+T13 = datetime(2026, 11, 13, 12, 0, tzinfo=UTC)
+
+
+def test_default_config_has_fed_sources_enabled():
+    cfgs, reg = N.load_news_config(env={})
+    assert [(c.name, c.provider, c.enabled, c.host) for c in cfgs] == [
+        ("fed_rss_monetary", "fed", True, "www.federalreserve.gov"),
+        ("fed_rss_speeches", "fed", True, "www.federalreserve.gov")]
+    assert all(c.poll_minutes == 15 and c.fetch_ttl_hours == 6 for c in cfgs)
+
+
+def test_env_mapping_overrides_config_file(tmp_path):
+    p = tmp_path / "ns.json"
+    p.write_text(cfg_text(src(enabled=False)), encoding="utf-8")
+    cfgs, _ = N.load_news_config(env={"GT_NEWS_SOURCES_FILE": str(p)})
+    assert [c.enabled for c in cfgs] == [False]
+
+
+def test_fed_monetary_feed_real():
+    r = N.parse_feed(MON)
+    assert len(r.items) == 15 and not r.truncated
+    n = [N.normalize(i, T13) for i in r.items]
+    # Đọc tay trên file: mục đầu + tuyên bố FOMC 28/10/2026 14:00 EDT = 18:00 UTC
+    assert n[0].title.startswith("Federal Reserve announces revised tentative schedule")
+    assert n[0].published_at == utc(2026, 11, 12, 17, 45)
+    assert n[0].url == "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261112a.htm"
+    fomc = next(x for x in n if x.title == "Federal Reserve issues FOMC statement")
+    assert fomc.published_at == utc(2026, 10, 28, 18, 0) and fomc.event_time == fomc.published_at
+    assert all(x.url.startswith("https://www.federalreserve.gov/") for x in n)
+    assert all("PUBLISHED_AT_MISSING" not in x.flags and "SUSPECT_INSTRUCTIONS" not in x.flags
+               for x in n)
+    assert len({x.logical_key for x in n}) == 15
+
+
+def test_fed_speeches_feed_real():
+    n = [N.normalize(i, T13) for i in N.parse_feed(SPE).items]
+    assert len(n) == 15
+    assert n[0].title == "Barr, American Inequality and the Future of AI"
+    assert n[0].published_at == utc(2026, 11, 12, 15, 0)
+    assert n[1].published_at == utc(2026, 11, 10, 20, 30)
+
+
+def test_fed_feed_sync_twice_and_both_sources(env):
+    store, log = env
+    cfgs, reg = N.load_news_config(env={})
+    feeds = {"fed_rss_monetary": MON, "fed_rss_speeches": SPE}
+    for c in cfgs:
+        chk = N.run_once(c, store=store, log=log, get=lambda c=c: feeds[c.name], now=T13,
+                         registry=reg)
+        assert chk.outcome is CheckOutcome.OK and chk.inserted == 15
+    later = T13 + timedelta(minutes=15)
+    for c in cfgs:
+        chk = N.run_once(c, store=store, log=log, get=lambda c=c: feeds[c.name], now=later,
+                         registry=reg)
+        assert (chk.inserted, chk.duplicate) == (0, 15)
+    assert len(store.as_of(later, kind="news")) == 30
+    # Không mục nào được "biết" trước lúc tải đầu tiên (point-in-time)
+    assert store.as_of(T13 - timedelta(seconds=1), kind="news") == []
+    assert N.new_stories(store, T13, later) == []
+
+
+def test_cli_tin_dry_run(capsys):
+    def h(r):
+        return httpx.Response(200, content=MON if "monetary" in r.url.path else SPE)
+    rc = cli._tin(True, 72, env={}, client_factory=lambda: client_for(h), now=T13)
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "fed_rss_monetary: OK" in out and "thêm 15" in out
+    # 72 giờ trước 13/11 12:00 UTC: tin 12/11 17:45 UTC → 13/11 00:45 giờ VN
+    assert "13/11 00:45 [fed_rss_monetary] Federal Reserve announces revised" in out
+    # 72 giờ trước 13/11 12:00 UTC = 10/11 12:00 UTC: chỉ 3 tin (12/11 17:45, 12/11 15:00,
+    # 10/11 20:30 UTC); Waller 10/11 09:00 UTC và tuyên bố FOMC 28/10 18:00 UTC (= 29/10 01:00
+    # giờ VN) cũ hơn → không in dù vừa tải lần đầu
+    assert "— 3 tin:" in out and "29/10" not in out and "FOMC statement" not in out
+    assert "Waller" not in out
+    assert "Federal Reserve Board" in out
+
+
+def test_cli_tin_errors(capsys, tmp_path):
+    rc = cli._tin(True, 72, env={}, client_factory=lambda: client_for(
+        lambda r: httpx.Response(403)), now=T13)
+    assert rc == 1 and "FORBIDDEN" in capsys.readouterr().out
+    bad = tmp_path / "x.json"
+    bad.write_text("{", encoding="utf-8")
+    assert cli._tin(True, 72, env={"GT_NEWS_SOURCES_FILE": str(bad)}) == 2
+    assert cli._tin(True, 0, env={}) == 2
+    off = tmp_path / "off.json"
+    off.write_text(cfg_text(src(enabled=False)), encoding="utf-8")
+    assert cli._tin(True, 72, env={"GT_NEWS_SOURCES_FILE": str(off)}) == 0
+    assert cli._tin(False, 72, env={}) == 2           # thiếu DATABASE_URL

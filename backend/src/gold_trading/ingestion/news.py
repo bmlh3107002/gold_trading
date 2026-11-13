@@ -189,9 +189,10 @@ def parse_news_config(text: str | bytes, terms=None):
 DEFAULT_CONFIG = Path(__file__).with_name("news_sources.json")
 
 
-def load_news_config(path: str | os.PathLike | None = None, terms=None):
+def load_news_config(path: str | os.PathLike | None = None, terms=None, env=None):
     """``path`` > ``GT_NEWS_SOURCES_FILE`` > file mặc định. File chỉ định mà không có → lỗi."""
-    p = Path(path or os.environ.get("GT_NEWS_SOURCES_FILE") or DEFAULT_CONFIG)
+    env = os.environ if env is None else env
+    p = Path(path or env.get("GT_NEWS_SOURCES_FILE") or DEFAULT_CONFIG)
     try:
         data = p.read_bytes()
     except OSError:

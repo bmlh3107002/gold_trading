@@ -12,7 +12,7 @@
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–6 xong + kiểm trên máy** (2026-11-07 / 11-12), trừ **mục 6a** (làm lại qua đêm, hướng dẫn ở file kế hoạch). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11. Gateway 0.10.3, `run-all` 2 MT5, thư mục `C:\gold-trading\code\gold_trading-develop`.
 - **Bước 7–8:** khung nguồn ngoài (`docs/thiet-ke/10-…`, `11-…`); FOMC, BEA, DOL xong + tự chạy trên máy (`16-…`, `17-…`, `cli lich`); 8d Census **tạm hoãn** (chặn Việt Nam; rủi ro ở Gate); 8e BLS **tạm dừng** (chờ người dùng chụp điều khoản). Theo dõi thứ Năm 19/11 20:30 giờ VN: số DOL tự vào (`cli lich` → `RECEIVED`).
-- **Bước 9 (9a–9f, file kế hoạch):** 9a FRED `BLOCKED` (cấm lưu DB, cấm AI) → **H.15 của Fed**; 9b–9e xong 2026-11-13: lãi suất H.15 + proxy kỳ vọng Fed (`18-…`, `cli h15`), chỉ số USD tự tính (`19-…`, `cli usd`), COT vàng CFTC (`20-…`, `cli cot`); **chờ kiểm trên máy: mục 15–17** (gộp một lần dựng lại). 9f ETF GLD/IAU: điều khoản cả hai `BLOCKED` → **người dùng tạm hoãn** (2026-11-13, xem lại ở Gate). **Bước 10 (10a–10f):** 10a khung nạp tin xong 2026-11-13 (`21-…`, chưa có nguồn thật). **Tiếp: 10b** RSS Fed — kiểm feed từ máy người dùng trước. Bài học: kiểm nguồn mới **từ máy người dùng** trước khi code; lệnh PowerShell không chứa `\"` hay `$`; đổi `docker-compose.yml` → người dùng tải lại file.
+- **Bước 9 (9a–9f, file kế hoạch):** 9a FRED `BLOCKED` (cấm lưu DB, cấm AI) → **H.15 của Fed**; 9b–9e xong 2026-11-13: lãi suất H.15 + proxy kỳ vọng Fed (`18-…`, `cli h15`), chỉ số USD tự tính (`19-…`, `cli usd`), COT vàng CFTC (`20-…`, `cli cot`); **chờ kiểm trên máy: mục 15–17** (gộp một lần dựng lại). 9f ETF GLD/IAU: điều khoản cả hai `BLOCKED` → **người dùng tạm hoãn** (2026-11-13, xem lại ở Gate). **Bước 10 (10a–10f):** 10a khung nạp tin + 10b RSS Fed xong 2026-11-13 (`21-…`, `cli tin`; chờ kiểm trên máy — mục 18). **Tiếp: 10c** Bộ Tài chính (đọc điều khoản trước). Bài học: kiểm nguồn mới **từ máy người dùng** trước khi code; lệnh PowerShell không chứa `\"` hay `$`; đổi `docker-compose.yml` → người dùng tải lại file.
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
@@ -52,4 +52,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-13): backend 1454 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 89 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 1467 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 89 passed, build đạt.

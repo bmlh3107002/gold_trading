@@ -6,6 +6,7 @@ BEA, khởi động lại không mất nhịp, đồng hồ bị chặn → khô
 chết việc khác, cửa sổ công bố đã có số → thôi gọi.
 """
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -37,6 +38,8 @@ FED_PAGES = {
        for m in ("october", "november", "december")},
     "/releases/h15/": (FIX / "fed" / "h15-2026-11-12.html").read_text(encoding="utf-8"),
 }
+RSS = {f"/feeds/{n}.xml": (FIX / "fed" / "rss" / f"{n}.xml").read_bytes()
+       for n in ("press_monetary", "speeches_and_testimony")}
 BEA_FILES = {
     B.ICS_URL: (FIX / "bea" / "schedule-2026-11-13.ics").read_text(encoding="utf-8"),
     B.DATES_URL: (FIX / "bea" / "release_dates-2026-11-13.json").read_text(encoding="utf-8"),
@@ -60,6 +63,8 @@ class Net:
         if host in self.down:
             return httpx.Response(503)
         url = str(req.url).split("?")[0]
+        if host == "www.federalreserve.gov" and path in RSS:
+            return httpx.Response(200, content=RSS[path])
         if host == "www.federalreserve.gov" and path in FED_PAGES:
             return httpx.Response(200, text=FED_PAGES[path])
         if url in BEA_FILES:
@@ -110,7 +115,7 @@ def chk(at, ok=True, code=None):
 # ------------------------------------------------------------------ cấu hình
 
 def test_parse_sources():
-    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot")
+    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot", "news")
     assert R.parse_sources("  ") == R.DEFAULT_SOURCES
     for off in ("0", "off", "OFF", "none", "false"):
         assert R.parse_sources(off) == ()
@@ -145,7 +150,8 @@ def test_runner_from_env():
     r = R.runner_from_env(None, {})
     try:
         assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                             "dol_claims", "fed_h15", "cftc_cot_gold"]  # lịch trước, số sau
+                             "dol_claims", "fed_h15", "cftc_cot_gold", "fed_rss_monetary",
+                             "fed_rss_speeches"]  # lịch trước, số sau, tin cuối
     finally:
         r.stop()
     with pytest.raises(ValueError):
@@ -192,9 +198,10 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
     r = make(stores, net)
     got = by_source(r.tick(NOW))
     assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                         "dol_claims", "fed_h15", "cftc_cot_gold"]
+                         "dol_claims", "fed_h15", "cftc_cot_gold", "fed_rss_monetary",
+                         "fed_rss_speeches"]
     for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims", "fed_h15",
-              "cftc_cot_gold"):
+              "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches"):
         assert got[s].outcome is CheckOutcome.OK and got[s].inserted > 0, s
     assert got["bea_nipa"].outcome is CheckOutcome.ERROR
     assert got["bea_nipa"].error_code == "KEY_MISSING"
@@ -382,3 +389,52 @@ def test_start_stop_thread_and_app_lifespan(monkeypatch):
     finally:
         r.stop()
     assert any("dol.gov" in c for c in net.calls)
+
+
+# ------------------------------------------------------------------ bước 10b: nguồn tin RSS
+
+def _feed_calls(net):
+    return [c for c in net.calls if "/feeds/" in c]
+
+
+def test_news_jobs_poll_every_15_min_and_back_off(stores):
+    net = Net()
+    r = make(stores, net, sources=("news",))
+    assert r.sources == ["fed_rss_monetary", "fed_rss_speeches"]
+    got = by_source(r.tick(NOW))
+    assert all(c.outcome is CheckOutcome.OK and c.inserted == 15 for c in got.values())
+    assert r.tick(NOW + timedelta(minutes=14)) == []
+    assert len(_feed_calls(net)) == 2
+    got = by_source(r.tick(NOW + timedelta(minutes=15)))
+    assert all(c.inserted == 0 and c.duplicate == 15 for c in got.values())
+    # Fed trả 503 → giãn 30 phút, rồi 60 phút (không gọi dồn)
+    net.down.add("www.federalreserve.gov")
+    t = NOW + timedelta(minutes=30)
+    assert {c.error_code for c in r.tick(t)} == {"HTTP_503"}
+    assert r.tick(t + timedelta(minutes=29)) == []
+    assert len(r.tick(t + timedelta(minutes=30))) == 2
+    assert r.tick(t + timedelta(minutes=89)) == []
+    assert len(r.tick(t + timedelta(minutes=90))) == 2
+
+
+def test_news_bad_config_disables_news_only(stores, tmp_path, caplog):
+    bad = tmp_path / "ns.json"
+    bad.write_text('{"version": 1, "sources": [{"name": "x"}]}', encoding="utf-8")
+    net = Net()
+    with caplog.at_level("ERROR"):
+        r = make(stores, net, env={"GT_NEWS_SOURCES_FILE": str(bad)},
+                 sources=("fed_fomc", "news"))
+    assert r.sources == ["fed_fomc"]
+    assert "Không bật nguồn tin" in caplog.text
+    assert by_source(r.tick(NOW))["fed_fomc"].outcome is CheckOutcome.OK
+
+
+def test_news_disabled_entry_has_no_job(stores, tmp_path):
+    p = tmp_path / "ns.json"
+    p.write_text(json.dumps({"version": 1, "sources": [
+        {"name": "fed_rss_monetary", "provider": "fed",
+         "url": "https://www.federalreserve.gov/feeds/press_monetary.xml", "enabled": False,
+         "license_note": "x", "poll_minutes": 15, "fetch_ttl_hours": 6}]}), encoding="utf-8")
+    net = Net()
+    r = make(stores, net, env={"GT_NEWS_SOURCES_FILE": str(p)}, sources=("news",))
+    assert r.sources == [] and r.tick(NOW) == [] and net.calls == []

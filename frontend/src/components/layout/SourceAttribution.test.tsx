@@ -10,7 +10,7 @@ describe("SourceAttribution", () => {
       "This product uses the Bureau of Economic Analysis (BEA) Data API but is not endorsed or certified by BEA.",
     );
     expect(screen.getByText(BEA_ATTRIBUTION)).toBeInTheDocument();
-    expect(screen.getByText(/Lịch FOMC: Federal Reserve Board/)).toBeInTheDocument();
+    expect(screen.getByText(/Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board/)).toBeInTheDocument();
     // Bước 9b: lãi suất từ H.15 của Fed, lợi suất do Bộ Tài chính Mỹ tính (chú thích 9, 10 của H.15)
     expect(screen.getByText(/Federal Reserve Board H\.15.*U\.S\. Treasury/)).toBeInTheDocument();
     expect(screen.getByText(/U\.S\. Department of Labor/)).toBeInTheDocument();
