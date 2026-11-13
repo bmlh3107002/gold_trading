@@ -63,7 +63,8 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 <a id="dol"></a>
 ### DOL — Bộ Lao động (trợ cấp thất nghiệp hằng tuần; bước 8, bổ sung DEC-01)
 
-- **Trạng thái:** `NEEDS_REVIEW`
+- **Trạng thái:** `VERIFIED` (2026-11-13, bước 8f — **chỉ cho bản tin PDF `www.dol.gov/ui/data.pdf`**, không cho API `data.dol.gov`)
+- **Đọc nguyên văn** 2026-11-13: <https://www.dol.gov/general/aboutdol/copyright> — *"Materials created by the federal government are generally part of the public domain and may be used, reproduced and distributed without permission. … such materials may not be used in a manner that implies any affiliation or endorsement by the DOL … You may properly credit public domain materials obtained from a DOL website to the U.S. Department of Labor and/or https://www.dol.gov."* Con dấu/logo DOL không được dùng; nội dung bên thứ ba có bản quyền riêng (bản tin trợ cấp thất nghiệp là số liệu của DOL/ETA). Trang "Website Policies" (`/general/aboutdol/website-policies`) đọc 2026-11-13: không thấy điều cấm tải tự động. Cách dùng: tải **một** file PDF công khai, vài lần quanh 8:30 ET thứ Năm + đối chiếu mỗi tuần. Máy người dùng tải được (200, 2026-11-13). Nghĩa vụ: ghi nguồn "U.S. Department of Labor" trên web (chân trang), không ngụ ý bảo trợ.
 - Biết được (thông cáo DOL + bài báo): cổng dữ liệu `data.dol.gov`, API miễn phí, **đăng ký qua Login.gov để nhận khóa**, cần khóa cho mọi yêu cầu. Chưa thấy điều khoản sử dụng, giới hạn. Phải kiểm thêm: số liệu tuần có sẵn qua API ngay giờ công bố không (một bộ dữ liệu ghi trễ ít nhất 30 phút) — nếu trễ thì nguồn actual lúc công bố phải là thông cáo trên `dol.gov`.
 - Cần đọc: <https://data.dol.gov>, <https://www.dol.gov/newsroom/releases/oasam/oasam20260218>.
 - Lần 2 (2026-11-13): `data.dol.gov` là ứng dụng cần JavaScript, không đọc được bằng tải trang → chưa thấy điều khoản.

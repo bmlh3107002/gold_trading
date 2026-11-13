@@ -282,6 +282,7 @@ const vi = {
   attribution: {
     label: "Nguồn dữ liệu",
     fed: "Lịch FOMC: Federal Reserve Board (federalreserve.gov).",
+    dol: "Trợ cấp thất nghiệp tuần: U.S. Department of Labor (dol.gov).",
   },
   system: {
     title: "Hệ thống",

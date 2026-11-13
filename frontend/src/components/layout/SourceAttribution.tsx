@@ -16,6 +16,7 @@ export function SourceAttribution() {
   return (
     <footer className="source-attribution" aria-label={t("attribution.label")}>
       <span>{t("attribution.fed")}</span>
+      <span>{t("attribution.dol")}</span>
       <span lang="en">{BEA_ATTRIBUTION}</span>
       <span lang="en">{CENSUS_ATTRIBUTION}</span>
     </footer>

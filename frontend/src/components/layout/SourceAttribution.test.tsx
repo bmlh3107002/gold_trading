@@ -11,6 +11,7 @@ describe("SourceAttribution", () => {
     );
     expect(screen.getByText(BEA_ATTRIBUTION)).toBeInTheDocument();
     expect(screen.getByText(/Federal Reserve Board/)).toBeInTheDocument();
+    expect(screen.getByText(/U\.S\. Department of Labor/)).toBeInTheDocument();
     expect(CENSUS_ATTRIBUTION).toBe(
       "This product uses the Census Bureau Data API but is not endorsed or certified by the Census Bureau.",
     );

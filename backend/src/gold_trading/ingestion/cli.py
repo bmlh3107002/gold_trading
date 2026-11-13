@@ -22,6 +22,10 @@ GT_BEA_API_KEY trong .env):
 Tải lịch + số actual doanh số bán lẻ của Census (bước 8d; số cần GT_CENSUS_API_KEY):
 
     docker compose exec backend python -m gold_trading.ingestion.cli census
+
+Lịch (theo quy tắc) + số trợ cấp thất nghiệp tuần của DOL (bước 8f, không cần khóa):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli dol
 """
 
 from __future__ import annotations
@@ -60,7 +64,11 @@ def main(argv: list[str] | None = None) -> int:
     bea.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     cen = sub.add_parser("census", help="Tải lịch + số actual bán lẻ Census một lần (ING-09/17)")
     cen.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    dol = sub.add_parser("dol", help="Lịch + số trợ cấp thất nghiệp tuần DOL một lần (ING-09/17)")
+    dol.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     args = p.parse_args(argv)
+    if args.cmd == "dol":
+        return _dol(args.dry_run)
     if args.cmd == "census":
         return _census(args.dry_run)
     if args.cmd == "fomc":
@@ -269,6 +277,57 @@ def _census(dry_run: bool, env=None, client_factory=None) -> int:
               f"  ({p['label']})")
     print("This product uses the Census Bureau Data API but is not endorsed or certified by "
           "the Census Bureau.")
+    return 0 if sched.outcome.value == "OK" and vals.outcome.value == "OK" else 1
+
+
+def _dol(dry_run: bool, env=None, client_factory=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog, SourceRegistry
+    from gold_trading.ingestion.sources import dol
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    env = os.environ if env is None else env
+    now = utcnow()
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    registry = SourceRegistry([dol.schedule_spec(), dol.values_spec()])
+    sched = dol.run_schedule_once(store=store, log=log, now=now, registry=registry)
+    print(f"Lịch DOL (theo quy tắc): {sched.outcome.value} {sched.error_code or ''} — thêm "
+          f"{sched.inserted}")
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    with make() as client:
+        vals = dol.run_values_once(store=store, log=log, get=dol.http_getter(client), now=now,
+                                   registry=registry)
+    print(f"Số trợ cấp thất nghiệp DOL: {vals.outcome.value} {vals.error_code or ''} — thêm "
+          f"{vals.inserted}")
+    upcoming = [r for r in store.as_of(now, source=dol.SCHEDULE_SOURCE)
+                if r.event_time >= now and r.payload.get("status") != "REMOVED"]
+    for r in sorted(upcoming, key=lambda r: r.event_time)[:6]:
+        p = r.payload
+        when = (r.event_time.strftime("%Y-%m-%d (cả ngày, tuần lễ)") if p["all_day"]
+                else r.event_time.strftime("%Y-%m-%d %H:%M UTC (theo quy tắc)"))
+        print(f"  {when}  {r.logical_key}")
+    latest: dict[str, object] = {}
+    for r in store.as_of(now, source=dol.VALUES_SOURCE):
+        k = r.payload["series"]
+        if k not in latest or r.event_time > latest[k].event_time:
+            latest[k] = r
+    for k, r in sorted(latest.items()):
+        p = r.payload
+        print(f"  {k} tuần đến {p['week_ending']}: {p['value']}  ({p['label']})"
+              f"{'  ' + str(p['flags']) if p['flags'] else ''}")
+    print("Nguồn: U.S. Department of Labor (dol.gov).")
     return 0 if sched.outcome.value == "OK" and vals.outcome.value == "OK" else 1
 
 
