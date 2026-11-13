@@ -48,7 +48,8 @@ SOURCE_TERMS: dict[str, SourceTerms] = {t.provider: t for t in (
     _t("census", TermsStatus.VERIFIED),  # nguyên văn 2026-11-13; phải hiện câu ghi nguồn Census
     _t("dol", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13: public domain; chỉ bản tin PDF
     _t("fed", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13: public domain, ghi nguồn Board
-    _t("treasury", TermsStatus.NEEDS_REVIEW),
+    _t("treasury", TermsStatus.VERIFIED),  # 2026-11-13: không thấy điều cấm; DEC-18 người dùng
+                                           # chấp nhận rủi ro điều khoản (dự án cá nhân)
     _t("cftc", TermsStatus.VERIFIED),    # nguyên văn 2026-11-13 (máy người dùng): public domain
     _t("gld", TermsStatus.BLOCKED),      # nguyên văn 2026-11-13: cấm tự tải, cấm dùng kiếm tiền
     _t("iau", TermsStatus.BLOCKED),

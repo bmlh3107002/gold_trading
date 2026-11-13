@@ -17,6 +17,7 @@ export function SourceAttribution() {
     <footer className="source-attribution" aria-label={t("attribution.label")}>
       <span>{t("attribution.fed")}</span>
       <span>{t("attribution.dol")}</span>
+      <span>{t("attribution.treasury")}</span>
       <span>{t("attribution.h15")}</span>
       <span>{t("attribution.cftc")}</span>
       <span lang="en">{BEA_ATTRIBUTION}</span>

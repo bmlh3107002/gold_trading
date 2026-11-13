@@ -34,7 +34,7 @@
 15. **Bước 9b (H.15):** dựng lại `backend frontend` → `docker compose up -d` → 1 phút sau `docker compose logs backend | findstr "fed_h15"` → dòng `fed_h15 (REFRESH): OK` → `docker compose exec backend python -m gold_trading.ingestion.cli h15 --dry-run` → 4 dòng `EFFR`, `UST_CMT_2Y`, `UST_CMT_10Y`, `UST_TIPS_10Y`, số ngày gần nhất khớp bảng trên trang `federalreserve.gov/releases/h15/`; dòng "Proxy kỳ vọng Fed" = 2 năm − EFFR (tính tay khớp); chân trang web có dòng "Federal Reserve Board H.15 … U.S. Treasury".
 16. **Bước 9d (chỉ số USD):** khi thị trường mở (thứ Hai–Sáu), sau khi dựng lại: `docker compose exec backend python -m gold_trading.ingestion.cli usd` → mỗi server (MetaQuotes-Demo) một dòng số kèm giờ nến M15 (cách giờ UTC hiện tại < 30 phút) + 6 giá cặp; so với 6 giá trong Market Watch của MT5 (gần đúng, vì là giá đóng nến); nếu broker có symbol chỉ số USD (vd. `USDX`, `DXY`) thì so mức gần nhau (lệch vài phần mười là bình thường). Cuối tuần: phải báo "không đủ dữ liệu (STALE)".
 17. **Bước 9e (COT):** sau khi dựng lại: `docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run` → `COT vàng: OK`, dòng "chốt 2026-11-03 … ròng +179,548 … công bố 2026-11-06T20:30" (hoặc báo cáo mới hơn nếu CFTC đã đăng); sau **thứ Hai 16/11 22:30 giờ VN** (15:30 New York, ngày dời vì lễ): báo cáo chốt 10/11, số khớp trang `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD; `docker compose logs backend | findstr "cftc_cot"` có dòng OK; chân trang web có dòng CFTC.
-18. **Bước 10b (tin Fed):** sau khi dựng lại `backend frontend` → `docker compose up -d` → 1 phút sau `docker compose logs backend | findstr "fed_rss"` → 2 dòng `fed_rss_monetary (REFRESH): OK — thêm 15` và `fed_rss_speeches (REFRESH): OK — thêm 15`; 15 phút sau thêm 2 dòng `thêm 0, trùng 15` (không tải dồn) → `docker compose exec backend python -m gold_trading.ingestion.cli tin --dry-run --hours 72` → danh sách tin, giờ Việt Nam khớp giờ trên trang `federalreserve.gov/newsevents.htm` (vd. phát biểu Barr 12/11 10:00 ET = 22:00 giờ VN); chân trang web: "Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board".
+18. **Bước 10b (tin Fed):** sau khi dựng lại `backend frontend` → `docker compose up -d` → 1 phút sau `docker compose logs backend | findstr "fed_rss"` → 2 dòng `fed_rss_monetary (REFRESH): OK — thêm 15` và `fed_rss_speeches (REFRESH): OK — thêm 15` (lệnh `findstr "treasury_press"`: 1 dòng `OK — thêm 10`, bước 10c); 15 phút sau thêm các dòng `thêm 0, trùng …` (không tải dồn) → `docker compose exec backend python -m gold_trading.ingestion.cli tin --dry-run --hours 72` → danh sách tin, giờ Việt Nam khớp giờ trên trang `federalreserve.gov/newsevents.htm` (vd. phát biểu Barr 12/11 10:00 ET = 22:00 giờ VN); chân trang web: "Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board" và "Thông cáo báo chí: U.S. Department of the Treasury".
 
 ## Việc còn treo trước khi bắt đầu bước 1
 
@@ -161,12 +161,12 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang phần sau:
 - [x] 10a — ING-10 khung nạp tin: danh sách nguồn cấu hình được, đọc RSS/Atom an toàn, revision, gộp tin, backoff (1D-C01..C04, C06; C05 phần backoff) (2026-11-13: `ingestion/news.py`, thiết kế `docs/thiet-ke/21-khung-tin.md`; chưa có nguồn thật)
 - [x] 10b — ING-21 RSS Fed (điều khoản `VERIFIED`): **kiểm feed từ máy người dùng trước**, thêm vào `news_sources.json`, nối bộ chạy tự động (1D-C05 phần còn lại) (2026-11-13: máy người dùng tải 2 feed 200 / 15 bài, khớp máy chủ; `fed_rss_monetary` + `fed_rss_speeches` 15 phút/lần, lệnh `cli tin`; chờ kiểm trên máy — mục 18)
-- [ ] 10c — RSS Bộ Tài chính (đọc điều khoản trước — đang `NEEDS_REVIEW`); BLS chờ 8e
+- [x] 10c — RSS Bộ Tài chính (2026-11-13: đọc Site Policies + Privacy Policy — không thấy điều cấm; **DEC-18** người dùng bỏ qua vấn đề pháp lý (dự án cá nhân) → `treasury` `VERIFIED`; máy người dùng tải RSS 200 / 13.573 byte / 10 bài; nguồn `treasury_press` 15 phút/lần; chờ kiểm trên máy — mục 18). BLS chờ 8e
 - [ ] 10d — ING-23 nhận diện ngôn ngữ + thực thể cơ bản
 - [ ] 10e — DSH-09 trang "Nguồn dữ liệu"
 - [ ] 10f — ING-33 giữ dữ liệu + dung lượng, ING-34 replay mọi nguồn
 - [x] ING-10: khung nạp tin (fingerprint, `publishedAt` + `ingestedAt`, URL, nội dung gốc), **danh sách nguồn cấu hình được** — 10a
-- [~] ING-21: RSS Fed (10b xong), Bộ Tài chính (10c), BLS (chờ 8e)
+- [~] ING-21: RSS Fed (10b), Bộ Tài chính (10c) xong; BLS (chờ 8e)
 - [ ] ING-22: nguồn tin tổng hợp — **không làm** (DEC-02), chỉ cần khung cho phép thêm sau
 - [ ] ING-23: nhận diện ngôn ngữ + thực thể cơ bản
 - [ ] 1D-C01..C06 (trùng nguồn, sửa bài, sai giờ, nội dung độc hại **không bao giờ thực thi**, nguồn chết, tin cũ đăng lại)

@@ -92,6 +92,7 @@ Luôn `event_time <= ingested_at` (không biết trước). `available_at` để
 | --- | --- | --- |
 | `fed_rss_monetary` | `https://www.federalreserve.gov/feeds/press_monetary.xml` | Thông cáo chính sách tiền tệ: tuyên bố FOMC, biên bản, dự báo kinh tế |
 | `fed_rss_speeches` | `https://www.federalreserve.gov/feeds/speeches_and_testimony.xml` | Phát biểu + điều trần của lãnh đạo Fed |
+| `treasury_press` (10c) | `https://home.treasury.gov/news/press-releases/index.xml` | Thông cáo Bộ Tài chính: phát biểu Bộ trưởng, trừng phạt, quan hệ Mỹ–Trung. TTL 12 giờ (thưa hơn, ít quan trọng hơn Fed). Điều khoản: DEC-18 |
 
 - Điều khoản Fed `VERIFIED` (public domain, ghi nguồn Board) → chân trang web: "Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board".
 - Kiểm từ máy người dùng 2026-11-13: cả hai 200, 15 bài, khớp máy chủ đám mây. Feed RSS 2.0, có BOM, CDATA, `pubDate` GMT, guid = URL.

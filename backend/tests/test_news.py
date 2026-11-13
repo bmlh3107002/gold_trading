@@ -91,7 +91,7 @@ def test_config_valid():
 
 @pytest.mark.parametrize("kw", [
     {"provider": "gld"},            # BLOCKED
-    {"provider": "treasury"},       # NEEDS_REVIEW
+    {"provider": "bls"},            # NEEDS_REVIEW
     {"provider": "khongco"},        # chưa ghi điều khoản
 ])
 def test_config_enabled_requires_verified_terms(kw):
@@ -100,7 +100,7 @@ def test_config_enabled_requires_verified_terms(kw):
 
 
 def test_config_disabled_source_with_unverified_terms_is_allowed():
-    c, reg = one_cfg(provider="treasury", enabled=False)
+    c, reg = one_cfg(provider="bls", enabled=False)
     assert not reg.get(c.name).enabled
 
 
@@ -690,15 +690,18 @@ def test_http_getter_too_large_and_timeout():
 FED_RSS = Path(__file__).parent / "fixtures" / "fed" / "rss"
 MON = (FED_RSS / "press_monetary.xml").read_bytes()      # tải 2026-11-13, public domain (Fed)
 SPE = (FED_RSS / "speeches_and_testimony.xml").read_bytes()
+TRE = (Path(__file__).parent / "fixtures" / "treasury" / "press-releases-2026-11-13.xml"
+       ).read_bytes()                                   # tải 2026-11-13, home.treasury.gov
 T13 = datetime(2026, 11, 13, 12, 0, tzinfo=UTC)
 
 
-def test_default_config_has_fed_sources_enabled():
+def test_default_config_sources_enabled():
     cfgs, reg = N.load_news_config(env={})
-    assert [(c.name, c.provider, c.enabled, c.host) for c in cfgs] == [
-        ("fed_rss_monetary", "fed", True, "www.federalreserve.gov"),
-        ("fed_rss_speeches", "fed", True, "www.federalreserve.gov")]
-    assert all(c.poll_minutes == 15 and c.fetch_ttl_hours == 6 for c in cfgs)
+    assert [(c.name, c.provider, c.enabled, c.host, c.fetch_ttl_hours) for c in cfgs] == [
+        ("fed_rss_monetary", "fed", True, "www.federalreserve.gov", 6),
+        ("fed_rss_speeches", "fed", True, "www.federalreserve.gov", 6),
+        ("treasury_press", "treasury", True, "home.treasury.gov", 12)]
+    assert all(c.poll_minutes == 15 for c in cfgs)
 
 
 def test_env_mapping_overrides_config_file(tmp_path):
@@ -735,6 +738,7 @@ def test_fed_speeches_feed_real():
 def test_fed_feed_sync_twice_and_both_sources(env):
     store, log = env
     cfgs, reg = N.load_news_config(env={})
+    cfgs = [c for c in cfgs if c.provider == "fed"]
     feeds = {"fed_rss_monetary": MON, "fed_rss_speeches": SPE}
     for c in cfgs:
         chk = N.run_once(c, store=store, log=log, get=lambda c=c: feeds[c.name], now=T13,
@@ -753,6 +757,8 @@ def test_fed_feed_sync_twice_and_both_sources(env):
 
 def test_cli_tin_dry_run(capsys):
     def h(r):
+        if r.url.host == "home.treasury.gov":
+            return httpx.Response(200, content=TRE)
         return httpx.Response(200, content=MON if "monetary" in r.url.path else SPE)
     rc = cli._tin(True, 72, env={}, client_factory=lambda: client_for(h), now=T13)
     out = capsys.readouterr().out
@@ -760,10 +766,11 @@ def test_cli_tin_dry_run(capsys):
     assert "fed_rss_monetary: OK" in out and "thêm 15" in out
     # 72 giờ trước 13/11 12:00 UTC: tin 12/11 17:45 UTC → 13/11 00:45 giờ VN
     assert "13/11 00:45 [fed_rss_monetary] Federal Reserve announces revised" in out
-    # 72 giờ trước 13/11 12:00 UTC = 10/11 12:00 UTC: chỉ 3 tin (12/11 17:45, 12/11 15:00,
-    # 10/11 20:30 UTC); Waller 10/11 09:00 UTC và tuyên bố FOMC 28/10 18:00 UTC (= 29/10 01:00
-    # giờ VN) cũ hơn → không in dù vừa tải lần đầu
-    assert "— 3 tin:" in out and "29/10" not in out and "FOMC statement" not in out
+    # 72 giờ trước 13/11 12:00 UTC = 10/11 12:00 UTC: Fed 3 tin (12/11 17:45, 12/11 15:00,
+    # 10/11 20:30 UTC) + Bộ Tài chính 1 tin (11/11 01:15 UTC); Waller 10/11 09:00 UTC và tuyên bố
+    # FOMC 28/10 18:00 UTC (= 29/10 01:00 giờ VN) cũ hơn → không in dù vừa tải lần đầu
+    assert "— 4 tin:" in out and "11/11 08:15 [treasury_press] Remarks from Secretary" in out
+    assert "29/10" not in out and "FOMC statement" not in out
     assert "Waller" not in out
     assert "Federal Reserve Board" in out
 
@@ -780,3 +787,31 @@ def test_cli_tin_errors(capsys, tmp_path):
     off.write_text(cfg_text(src(enabled=False)), encoding="utf-8")
     assert cli._tin(True, 72, env={"GT_NEWS_SOURCES_FILE": str(off)}) == 0
     assert cli._tin(False, 72, env={}) == 2           # thiếu DATABASE_URL
+
+
+def test_treasury_feed_real():
+    """Feed Hugo của Bộ Tài chính: pubDate +0000, guid = URL, description là HTML đã mã hóa."""
+    r = N.parse_feed(TRE)
+    n = [N.normalize(i, T13) for i in r.items]
+    assert len(n) == 10 and not r.truncated
+    assert n[0].title.startswith("Remarks from Secretary of the Treasury Scott Bessent at the "
+                                 "National Committee on U.S.-China Relations Gala")
+    assert n[0].published_at == utc(2026, 11, 11, 1, 15)
+    assert n[0].url == "https://home.treasury.gov/news/press-releases/sb0688/"
+    assert n[0].summary.startswith("As prepared for delivery. Thank you, Evan [Greenberg]")
+    assert "<" not in n[0].summary and "&lt;" not in n[0].summary
+    assert n[1].published_at == utc(2026, 11, 6, 22, 0)
+    assert all(x.url.startswith("https://home.treasury.gov/news/press-releases/sb") for x in n)
+    assert len({x.logical_key for x in n}) == 10
+    assert all(x.event_time <= T13 for x in n)
+
+
+def test_treasury_feed_sync(env):
+    store, log = env
+    cfgs, reg = N.load_news_config(env={})
+    c = next(c for c in cfgs if c.name == "treasury_press")
+    chk = N.run_once(c, store=store, log=log, get=lambda: TRE, now=T13, registry=reg)
+    assert chk.outcome is CheckOutcome.OK and chk.inserted == 10
+    chk = N.run_once(c, store=store, log=log, get=lambda: TRE, now=T13 + timedelta(hours=1),
+                     registry=reg)
+    assert (chk.inserted, chk.duplicate) == (0, 10)

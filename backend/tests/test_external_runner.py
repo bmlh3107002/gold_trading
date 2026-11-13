@@ -40,6 +40,7 @@ FED_PAGES = {
 }
 RSS = {f"/feeds/{n}.xml": (FIX / "fed" / "rss" / f"{n}.xml").read_bytes()
        for n in ("press_monetary", "speeches_and_testimony")}
+TREASURY = (FIX / "treasury" / "press-releases-2026-11-13.xml").read_bytes()
 BEA_FILES = {
     B.ICS_URL: (FIX / "bea" / "schedule-2026-11-13.ics").read_text(encoding="utf-8"),
     B.DATES_URL: (FIX / "bea" / "release_dates-2026-11-13.json").read_text(encoding="utf-8"),
@@ -63,6 +64,8 @@ class Net:
         if host in self.down:
             return httpx.Response(503)
         url = str(req.url).split("?")[0]
+        if host == "home.treasury.gov" and path == "/news/press-releases/index.xml":
+            return httpx.Response(200, content=TREASURY)
         if host == "www.federalreserve.gov" and path in RSS:
             return httpx.Response(200, content=RSS[path])
         if host == "www.federalreserve.gov" and path in FED_PAGES:
@@ -151,7 +154,7 @@ def test_runner_from_env():
     try:
         assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
                              "dol_claims", "fed_h15", "cftc_cot_gold", "fed_rss_monetary",
-                             "fed_rss_speeches"]  # lịch trước, số sau, tin cuối
+                             "fed_rss_speeches", "treasury_press"]  # lịch trước, số sau, tin cuối
     finally:
         r.stop()
     with pytest.raises(ValueError):
@@ -199,9 +202,9 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
     got = by_source(r.tick(NOW))
     assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
                          "dol_claims", "fed_h15", "cftc_cot_gold", "fed_rss_monetary",
-                         "fed_rss_speeches"]
+                         "fed_rss_speeches", "treasury_press"]
     for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims", "fed_h15",
-              "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches"):
+              "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press"):
         assert got[s].outcome is CheckOutcome.OK and got[s].inserted > 0, s
     assert got["bea_nipa"].outcome is CheckOutcome.ERROR
     assert got["bea_nipa"].error_code == "KEY_MISSING"
@@ -400,21 +403,28 @@ def _feed_calls(net):
 def test_news_jobs_poll_every_15_min_and_back_off(stores):
     net = Net()
     r = make(stores, net, sources=("news",))
-    assert r.sources == ["fed_rss_monetary", "fed_rss_speeches"]
+    assert r.sources == ["fed_rss_monetary", "fed_rss_speeches", "treasury_press"]
     got = by_source(r.tick(NOW))
-    assert all(c.outcome is CheckOutcome.OK and c.inserted == 15 for c in got.values())
+    assert [c.inserted for c in got.values()] == [15, 15, 10]
+    assert all(c.outcome is CheckOutcome.OK for c in got.values())
     assert r.tick(NOW + timedelta(minutes=14)) == []
-    assert len(_feed_calls(net)) == 2
+    assert len(_feed_calls(net)) == 2 and net.count("home.treasury.gov") == 1
     got = by_source(r.tick(NOW + timedelta(minutes=15)))
-    assert all(c.inserted == 0 and c.duplicate == 15 for c in got.values())
-    # Fed trả 503 → giãn 30 phút, rồi 60 phút (không gọi dồn)
+    assert all(c.inserted == 0 and c.duplicate > 0 for c in got.values())
+    # Fed trả 503 → Fed giãn 30 phút, rồi 60 phút (không gọi dồn); Bộ Tài chính vẫn 15 phút
     net.down.add("www.federalreserve.gov")
     t = NOW + timedelta(minutes=30)
-    assert {c.error_code for c in r.tick(t)} == {"HTTP_503"}
-    assert r.tick(t + timedelta(minutes=29)) == []
-    assert len(r.tick(t + timedelta(minutes=30))) == 2
-    assert r.tick(t + timedelta(minutes=89)) == []
-    assert len(r.tick(t + timedelta(minutes=90))) == 2
+    got = by_source(r.tick(t))
+    assert got["fed_rss_monetary"].error_code == "HTTP_503"
+    assert got["treasury_press"].outcome is CheckOutcome.OK
+    assert r.tick(t + timedelta(minutes=14)) == []
+    assert list(by_source(r.tick(t + timedelta(minutes=15)))) == ["treasury_press"]
+    assert list(by_source(r.tick(t + timedelta(minutes=29)))) == []
+    assert len(r.tick(t + timedelta(minutes=30))) == 3
+    # t+89: Fed chưa tới hạn thử lại (60 phút kể từ t+30); Bộ Tài chính tới hạn thường lệ
+    assert list(by_source(r.tick(t + timedelta(minutes=89)))) == ["treasury_press"]
+    got = by_source(r.tick(t + timedelta(minutes=90)))
+    assert {"fed_rss_monetary", "fed_rss_speeches"} <= set(got)
 
 
 def test_news_bad_config_disables_news_only(stores, tmp_path, caplog):

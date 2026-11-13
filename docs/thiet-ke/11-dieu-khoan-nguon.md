@@ -22,6 +22,8 @@
 
 Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên bang làm trong công việc thường không có bản quyền ở Mỹ, **nhưng** điều khoản API (khóa, giới hạn, cấm giả danh, dữ liệu bên thứ ba có bản quyền) vẫn áp dụng — không suy ra "được phép" chỉ từ điểm này.
 
+**DEC-18 (người dùng 2026-11-13):** *"dự án này là private nên bỏ qua tất cả vấn đề pháp lý"* — dự án cá nhân, người dùng **chấp nhận rủi ro điều khoản** của nguồn. Hệ quả: nguồn mới không bị chặn vì lý do điều khoản (ghi `VERIFIED` kèm lý do + DEC-18). **Giữ nguyên:** (1) không lách khi website chặn kỹ thuật (không giả trình duyệt, không VPN) — nguồn lách được thì cũng có thể mất bất cứ lúc nào; (2) mỗi nguồn vẫn có mục ở đây + ghi nguồn; (3) các nguồn trước đây `BLOCKED` (FRED, GLD, IAU) **không tự bật lại** — hỏi người dùng từng nguồn (ở Gate hoặc khi tới lượt), không mở rộng phạm vi.
+
 ## 3. Từng nhà cung cấp
 
 <a id="fred"></a>
@@ -84,8 +86,11 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 <a id="treasury"></a>
 ### Bộ Tài chính Mỹ (RSS thông cáo; bước 10)
 
-- **Trạng thái:** `NEEDS_REVIEW`
-- Biết được: có RSS thông cáo báo chí trên `home.treasury.gov`. **Chưa tìm thấy** trang chính sách/bản quyền hiện hành (chỉ có bản lưu cũ).
+- **Trạng thái:** `VERIFIED`
+- **Lần 3 (2026-11-13, bước 10c) — đọc nguyên văn** <https://home.treasury.gov/subfooter/site-policies-and-notices> (danh sách chính sách bắt buộc, không có mục bản quyền / điều khoản sử dụng) và <https://home.treasury.gov/subfooter/privacy-policy> (điều cấm duy nhất: *"Unauthorized uploading or unauthorized attempts to upload or change information on Treasury.gov is strictly prohibited"*; lưu lượng có thể bị giám sát). **Không thấy** điều cấm đọc RSS / tải tự động, cũng **không có** câu cho phép tường minh; tác phẩm của chính phủ liên bang Mỹ thường không có bản quyền (17 U.S.C. §105) — đây là suy luận, không phải câu chữ của trang.
+- **Quyết định (DEC-18, người dùng 2026-11-13):** dự án cá nhân, **người dùng chấp nhận rủi ro điều khoản** → `VERIFIED`. Vẫn không lách khi bị chặn kỹ thuật, vẫn ghi nguồn.
+- **Truy cập (máy người dùng 2026-11-13):** `home.treasury.gov/news/press-releases/index.xml` 200, 13.573 byte, 10 bài (khớp máy chủ đám mây). Trang chủ hiển thị danh sách cũ (bộ nhớ đệm), RSS mới hơn.
+- Biết được trước đó: có RSS thông cáo báo chí trên `home.treasury.gov`.
 - Cần đọc: trang "Site Policies and Notices" trên <https://home.treasury.gov>.
 - Lần 2 (2026-11-13): tải được trang chủ nhưng chưa tìm thấy đường dẫn trang chính sách.
 

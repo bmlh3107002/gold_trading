@@ -19,6 +19,15 @@
       "license_note": "Federal Reserve Board: public domain, ghi nguồn Board (federalreserve.gov/disclaimer.htm, đọc nguyên văn 2026-11-13). Phát biểu + điều trần của lãnh đạo Fed.",
       "poll_minutes": 15,
       "fetch_ttl_hours": 6
+    },
+    {
+      "name": "treasury_press",
+      "provider": "treasury",
+      "url": "https://home.treasury.gov/news/press-releases/index.xml",
+      "enabled": true,
+      "license_note": "U.S. Department of the Treasury: không thấy điều cấm trên Site Policies + Privacy Policy (đọc 2026-11-13); tác phẩm chính phủ Mỹ; DEC-18 người dùng chấp nhận rủi ro điều khoản. Thông cáo báo chí: phát biểu Bộ trưởng, trừng phạt, quan hệ Mỹ–Trung.",
+      "poll_minutes": 15,
+      "fetch_ttl_hours": 12
     }
   ]
 }

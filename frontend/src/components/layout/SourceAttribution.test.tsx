@@ -13,6 +13,7 @@ describe("SourceAttribution", () => {
     expect(screen.getByText(/Lịch FOMC, thông cáo và phát biểu: Federal Reserve Board/)).toBeInTheDocument();
     // Bước 9b: lãi suất từ H.15 của Fed, lợi suất do Bộ Tài chính Mỹ tính (chú thích 9, 10 của H.15)
     expect(screen.getByText(/Federal Reserve Board H\.15.*U\.S\. Treasury/)).toBeInTheDocument();
+    expect(screen.getByText(/Thông cáo báo chí: U\.S\. Department of the Treasury/)).toBeInTheDocument();
     expect(screen.getByText(/U\.S\. Department of Labor/)).toBeInTheDocument();
     // Bước 9e: COT vàng — CFTC yêu cầu ghi nguồn (webpolicy, đọc 2026-11-13)
     expect(screen.getByText(/Commodity Futures Trading Commission/)).toBeInTheDocument();
