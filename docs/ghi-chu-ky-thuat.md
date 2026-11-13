@@ -57,7 +57,7 @@ Chú thích: ✅ xong khung có test · 🟡 có một phần · ⬜ chưa làm
   - Mọi route mặc định cần đăng nhập (dependency toàn cục trong `auth/web.py`). Thêm route công khai phải sửa `PUBLIC_PATHS`/`PUBLIC_PREFIXES` và test `test_public_paths_are_exactly_the_allowed_ones`.
   - Endpoint có `{account_id}` phải gọi `Guard.check(...)` **trước** khi đọc/ghi gì. Actor = `Principal` từ phiên; contract request có `extra="forbid"`.
   - FastAPI 0.162: router include thành `_IncludedRouter`, không thấy trong `app.routes` → liệt kê route qua `app.openapi()`.
-  - Test không cần Keycloak: `tests/auth_helpers.py` (`FakeKeycloak` có cả Admin API bật/tắt, logout, reset-password; `make_app`, `admin_client`, `user_client`/`login_owner` = USER chủ tài khoản; client HTTPS + Origin). `conftest.py` đặt biến auth giả và `GT_CLOCK_CHECK=0`.
+  - Test không cần Keycloak: `tests/auth_helpers.py` (`FakeKeycloak` có cả Admin API bật/tắt, logout, reset-password; `make_app`, `admin_client`, `user_client`/`login_owner` = USER chủ tài khoản; client HTTPS + Origin). `conftest.py` đặt biến auth giả, `GT_CLOCK_CHECK=0` và `GT_EXTERNAL_SOURCES=0` (không gọi Internet; test bộ chạy nguồn ngoài truyền `external_runner=` hoặc dùng `MockTransport`).
   - Safety theo tài khoản: DB là nguồn sự thật (`append_safety(..., expected_last=...)`, đồng bộ 2 s). Đừng đổi `SafetySupervisor` mà bỏ `persist` có `expected_last`.
   - Keycloak chỉ nhập realm **một lần**; đổi `GT_PUBLIC_URL`/client secret sau đó → `sync-client.sh`. Lần đăng nhập đầu Keycloak yêu cầu đổi mật khẩu + bổ sung hồ sơ (VERIFY_PROFILE).
   - Phiên + refresh token chỉ trong bộ nhớ backend (một tiến trình uvicorn). Chạy nhiều worker phải chuyển phiên sang kho dùng chung.

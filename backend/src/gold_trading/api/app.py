@@ -37,6 +37,7 @@ from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.ingestion.candles import CandleIngestor
+from gold_trading.ingestion.external_runner import ExternalSourceRunner, runner_from_env
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
 from gold_trading.market.quotes import QuoteIngestor, QuoteStore
@@ -201,6 +202,7 @@ def create_app(
     kc_admin: KeycloakAdmin | None = None,
     clock: ClockMonitor | None = None,
     run_clock: bool | None = None,
+    external_runner: ExternalSourceRunner | None | Literal["env"] = "env",
 ) -> FastAPI:
     if os.environ.get("GT_LOG_FORMAT", "").lower() == "json":
         configure_logging(os.environ.get("GT_LOG_LEVEL", "INFO").upper())
@@ -279,6 +281,11 @@ def create_app(
         )
     if run_clock is None:
         run_clock = os.environ.get("GT_CLOCK_CHECK", "1") != "0"
+    if external_runner == "env":
+        # Bước 8g: tự nạp lịch kinh tế FOMC / BEA / DOL (GT_EXTERNAL_SOURCES; 0 = tắt).
+        # Đồng hồ máy chủ bị chặn → không nạp (giờ sai làm sai thời điểm "đã biết").
+        external_runner = runner_from_env(getattr(repo, "engine", None), os.environ,
+                                          blocked=clock.ingest_block_reason)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -289,7 +296,11 @@ def create_app(
             feed.start()
         if runner:
             runner.start()
+        if external_runner:
+            external_runner.start()
         yield
+        if external_runner:
+            external_runner.stop()
         if runner:
             runner.stop()
         if feed:

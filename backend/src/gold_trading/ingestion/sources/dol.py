@@ -363,10 +363,21 @@ def run_values_once(*, store, log, get, now: datetime, registry=None):
     return check
 
 
+def _released_since(store, since: datetime, now: datetime) -> bool:
+    """Đã có số (bản tin) phát hành từ ``since`` trở đi chưa — lần công bố này đã nhận."""
+    return any(r.available_at is not None and r.available_at >= since
+               for r in store.as_of(now, source=VALUES_SOURCE, kind="macro",
+                                    event_from=since - timedelta(days=14)))
+
+
 def values_due(now: datetime, store, last_ok_at: datetime | None,
                poll_window: timedelta = timedelta(minutes=90)) -> str | None:
-    """Trong 90 phút sau 8:30 ET thứ Năm (hoặc cả ngày thứ Tư–Sáu tuần lễ), hoặc đối chiếu khi
-    lần OK cuối > 7 ngày."""
+    """Có nên tải bản tin lúc ``now`` không.
+
+    - ``RELEASE_WINDOW``: trong 90 phút sau 8:30 ET thứ Năm, chưa có số phát hành từ 8:30.
+    - ``RELEASE_DAY``: tuần lễ, 8:00–18:00 ET thứ Tư/Năm/Sáu, chưa có số phát hành từ 0:00 ET
+      thứ Tư tuần đó (bộ chạy gọi thưa hơn: không biết ngày nào).
+    - ``RECONCILE``: lần OK cuối > 7 ngày (hoặc chưa có)."""
     local = now.astimezone(ET)
     for r in store.as_of(now, source=SCHEDULE_SOURCE, kind="calendar",
                          event_from=now - timedelta(days=1)):
@@ -374,10 +385,14 @@ def values_due(now: datetime, store, last_ok_at: datetime | None,
         if p.get("status") != "SCHEDULED" or r.event_time > now:
             continue
         if not p.get("all_day") and now - r.event_time <= poll_window:
-            return "RELEASE_WINDOW"
+            if not _released_since(store, r.event_time, now):
+                return "RELEASE_WINDOW"
         if p.get("all_day") and p.get("release_date_local") == local.date().isoformat() \
                 and time(8, 0) <= local.time() <= time(18, 0):
-            return "RELEASE_WINDOW"
+            d = date.fromisoformat(p["release_date_local"])
+            wed = datetime.combine(d - timedelta(days=d.weekday() - 2), time(0, 0), tzinfo=ET)
+            if not _released_since(store, wed.astimezone(UTC), now):
+                return "RELEASE_DAY"
     if last_ok_at is None or now - last_ok_at > timedelta(days=7):
         return "RECONCILE"
     return None

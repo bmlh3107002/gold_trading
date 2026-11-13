@@ -614,13 +614,22 @@ def values_due(now: datetime, store, last_ok_at: datetime | None,
 
     - ``RELEASE_WINDOW``: trong 90 phút sau giờ công bố GDP / PIO đã xác nhận trên lịch.
     - ``RECONCILE``: chưa có lần OK nào, hoặc lần OK cuối cũ hơn 7 ngày (bắt sửa số ngoài lịch).
-    - None: không cần gọi."""
+    - None: không cần gọi.
+
+    Lần công bố đã có số (bản ghi số mang ``release_ref`` = lần công bố đó) → thôi gọi trong
+    cửa sổ (bước 8g; dựa trên dữ liệu đã lưu nên khởi động lại không gọi lại)."""
+    captured = None
     for name in EVENT_NAME.values():
         for r in store.as_of(now, source=SCHEDULE_SOURCE, kind="calendar",
                              event_from=now - poll_window):
             if (r.payload.get("event") == name and r.payload.get("status") == "SCHEDULED"
                     and r.payload.get("time_confirmed") and r.event_time <= now):
-                return "RELEASE_WINDOW"
+                if captured is None:
+                    captured = {v.payload.get("release_ref") for v in store.as_of(
+                        now, source=VALUES_SOURCE, kind="macro",
+                        event_from=now - timedelta(days=400))}
+                if r.logical_key not in captured:
+                    return "RELEASE_WINDOW"
     if last_ok_at is None or now - last_ok_at > timedelta(days=7):
         return "RECONCILE"
     return None

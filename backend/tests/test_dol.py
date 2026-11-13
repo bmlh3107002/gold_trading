@@ -273,7 +273,7 @@ def test_stale_and_due(env):
         "RELEASE_WINDOW"
     assert D.values_due(rel + timedelta(minutes=95), store, rel - timedelta(days=1)) is None
     # Tuần lễ: cả ngày thứ Tư–Sáu trong giờ hành chính.
-    assert D.values_due(utc(2026, 11, 25, 14, 0), store, rel) == "RELEASE_WINDOW"
+    assert D.values_due(utc(2026, 11, 25, 14, 0), store, rel) == "RELEASE_DAY"
     assert D.values_due(utc(2026, 11, 25, 3, 0), store, rel) is None
 
 

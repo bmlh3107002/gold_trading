@@ -119,6 +119,8 @@ services:
       GT_BLS_API_KEY: ${GT_BLS_API_KEY:-}
       GT_BEA_API_KEY: ${GT_BEA_API_KEY:-}
       GT_CENSUS_API_KEY: ${GT_CENSUS_API_KEY:-}
+      # Tự nạp lịch kinh tế (bước 8g): trống = FOMC + BEA + DOL; 0 = tắt. Census đang hoãn.
+      GT_EXTERNAL_SOURCES: ${GT_EXTERNAL_SOURCES:-}
       # Đọc trạng thái sao lưu + đo dung lượng ổ để cảnh báo trên Dashboard (chỉ đọc)
       GT_BACKUP_DIR: /backups
     volumes:
