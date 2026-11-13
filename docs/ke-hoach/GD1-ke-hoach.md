@@ -12,7 +12,8 @@
 
 ## Kiểm trên máy khi người dùng về (gom lại, làm theo thứ tự)
 
-> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 5, 7, 9, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ; mục 8 đạt 6b + 6c, **còn 6a** (dừng backend qua đêm > 5 giờ). Máy người dùng chạy `run-all` 2 MT5 (lordtrade + taikhoan2). Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
+> **Tiến độ 2026-11-12:** mục 1, 2, 3, 4, 5, 7, 9, 10 ĐẠT; mục 6 đạt phần lưu + báo cũ; mục 8 đạt 6b + 6c, **còn 6a** (dừng backend qua đêm > 5 giờ). Máy người dùng chạy `run-all` 2 MT5 (lordtrade + taikhoan2).
+> **2026-11-13:** 6a lần 1 không hợp lệ (Gateway bị tắt lúc 23:57, không chạy qua đêm). **Làm lại tối 13/11:** trước khi ngủ kiểm Gateway đang chạy (`Get-Process python`), rồi `docker compose stop backend`; sáng hôm sau `docker compose start backend` → xem `logs\lordtrade.log` + `logs\taikhoan2.log` (`Get-Content … -Tail 40 -Encoding UTF8`) có "Nạp bù sau gián đoạn", biểu đồ không hở. Hai điểm cần theo dõi (Gateway chạy trùng giữa hai chế độ; Task Scheduler không tự chạy lại khi bị tắt): nhật ký GĐ1 ngày 2026-11-13. Điểm cần cải thiện (a)–(f): nhật ký GĐ1 ngày 2026-11-12.
 
 > Người dùng vắng máy Windows từ 2026-11-10 và đồng ý làm tiếp các bước rồi kiểm sau. Mỗi bước code xong mà chưa kiểm ghi ở đây. Khi kiểm: hướng dẫn **từng lệnh một**. Lỗi ở mục trên thì sửa trước rồi mới kiểm mục dưới.
 
