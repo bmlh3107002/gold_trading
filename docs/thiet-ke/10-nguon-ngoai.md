@@ -109,3 +109,7 @@
 **Thiếu / sai khóa:** `KEY_MISSING` / `KEY_INVALID` là lỗi "chết" (ING-30) → nguồn **MISSING ngay**, bộ nạp không gọi nguồn (1E-C05 phần trạng thái; phần cảnh báo trên web làm cùng DSH-09).
 
 **Giới hạn:** bộ che log chỉ chạy khi log dạng JSON (`GT_LOG_FORMAT=json`, Dockerfile backend đặt sẵn) — chạy `uv run` trên máy phát triển không có che; giá trị khóa vẫn đọc được bằng `docker inspect` / `docker compose config` trên chính máy người dùng (cùng mức với các bí mật khác trong `.env`); Python không chặn được việc cố ý đọc `ApiKey._value`.
+
+## 4. Giấy phép / điều khoản (7d — ING-32, 2026-11-13)
+
+Tách sang [`11-dieu-khoan-nguon.md`](11-dieu-khoan-nguon.md). Tóm tắt: `SourceRegistry` chỉ bật nguồn khi điều khoản nhà cung cấp (`SourceSpec.provider`) là `VERIFIED` trong `ingestion/source_terms.py`; hiện chưa nhà cung cấp nào `VERIFIED`.

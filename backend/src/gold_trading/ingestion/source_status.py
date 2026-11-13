@@ -28,6 +28,7 @@ from enum import StrEnum
 from gold_trading.common.enums import SourceStatus
 from gold_trading.contracts.records import EXTERNAL_KINDS
 from gold_trading.ingestion.point_in_time import AppendCounts
+from gold_trading.ingestion.source_terms import SOURCE_TERMS, SourceTerms, terms_problem
 
 SOURCE_NAME_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
 ERROR_CODE_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
@@ -61,13 +62,15 @@ class SourceSpec:
     """Cấu hình một nguồn. ``fetch_ttl``: lâu nhất được phép kể từ lần gọi OK cuối.
     ``data_ttl`` (tùy chọn): lâu nhất kể từ ``event_time`` của dữ kiện mới nhất đã biết — bắt
     nguồn vẫn trả lời nhưng không có số mới (công bố trễ, chính phủ đóng cửa: 1F-C02).
-    Không dùng ``data_ttl`` cho lịch (``calendar``): sự kiện lịch nằm ở tương lai."""
+    Không dùng ``data_ttl`` cho lịch (``calendar``): sự kiện lịch nằm ở tương lai.
+    ``provider``: nhà cung cấp để tra điều khoản (ING-32); mặc định trùng ``name``."""
 
     name: str
     kind: str
     fetch_ttl: timedelta
     data_ttl: timedelta | None = None
     enabled: bool = True
+    provider: str = ""
 
     def __post_init__(self) -> None:
         if not SOURCE_NAME_RE.match(self.name):
@@ -79,16 +82,23 @@ class SourceSpec:
                 raise ValueError(f"{label} phải > 0 và <= {MAX_TTL.days} ngày: {ttl}")
         if self.data_ttl is not None and self.kind == "calendar":
             raise ValueError("calendar không dùng data_ttl (sự kiện lịch nằm ở tương lai)")
+        if not self.provider:
+            object.__setattr__(self, "provider", self.name)
 
 
 class SourceRegistry:
-    """Danh sách nguồn đã khai báo. Trùng tên → lỗi (không để cấu hình sau âm thầm đè trước)."""
+    """Danh sách nguồn đã khai báo. Trùng tên → lỗi (không để cấu hình sau âm thầm đè trước).
+    Nguồn bật mà điều khoản nhà cung cấp chưa ``VERIFIED`` → lỗi (ING-32)."""
 
-    def __init__(self, specs: Iterable[SourceSpec] = ()) -> None:
+    def __init__(self, specs: Iterable[SourceSpec] = (),
+                 terms: dict[str, SourceTerms] | None = None) -> None:
+        terms = SOURCE_TERMS if terms is None else terms
         self._specs: dict[str, SourceSpec] = {}
         for s in specs:
             if s.name in self._specs:
                 raise ValueError(f"nguồn khai báo trùng: {s.name}")
+            if s.enabled and (problem := terms_problem(s.provider, terms)):
+                raise ValueError(f"không bật được nguồn {s.name}: {problem}")
             self._specs[s.name] = s
 
     def get(self, name: str) -> SourceSpec | None:

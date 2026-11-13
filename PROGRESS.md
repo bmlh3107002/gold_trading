@@ -12,7 +12,7 @@
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–3 xong + đã kiểm trên máy (2026-11-07):** H1/H4/D1 (ING-14), lịch ngày lễ Mỹ + `GT_BROKER_SPECIAL_HOURS` (1B), nến cuối phiên `tail_bar` (1A-C21). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11. Gateway trên máy: `C:\gold-trading\code\gold_trading-develop`.
 - **Bước 4–6 code xong + kiểm trên máy 2026-11-12** (danh sách ở file kế hoạch, mục "Kiểm trên máy khi người dùng về"): mục 1–4, 7, 9, 10 + 6b, 6c đạt; sửa Gateway tới 0.10.3 (localhost chậm, log sai, khởi động/lý do/liên kết trên web) + trang quản trị Keycloak. Mật khẩu `kcadmin` đã đổi. 0.10.3 đã cập nhật trên máy (`GT_MT5_PATH` đặt cho MT5 cũ). Mục 5 đạt (máy chạy `run-all` 2 MT5). **Còn:** mục 6a (lần 1 hỏng do Gateway bị tắt; làm lại tối 13/11, hướng dẫn ở file kế hoạch).
-- **Bước 7 (khung chung nguồn ngoài, chia 7a–7d):** 7a xong 2026-11-12 — DB-08 + ING-13: bảng `external_records` (migration 0012, point-in-time theo `known_at`), thiết kế `docs/thiet-ke/10-nguon-ngoai.md`. 7b xong 2026-11-13 — ING-30: trạng thái nguồn + TTL riêng (migration 0013). 7c xong 2026-11-13 — ING-31: khóa API chỉ trong `.env` (`GT_FRED/BLS/BEA_API_KEY`), che log. **Phiên mới: làm 7d** (ING-32 giấy phép từng nguồn).
+- **Bước 7 (khung chung nguồn ngoài, chia 7a–7d):** 7a xong 2026-11-12 — DB-08 + ING-13: bảng `external_records` (migration 0012, point-in-time theo `known_at`), thiết kế `docs/thiet-ke/10-nguon-ngoai.md`. 7b xong 2026-11-13 — ING-30: trạng thái nguồn + TTL riêng (migration 0013). 7c xong — ING-31: khóa API chỉ trong `.env`, che log. 7d xong 2026-11-13 — ING-32: `docs/thiet-ke/11-dieu-khoan-nguon.md`, nguồn chỉ bật khi điều khoản `VERIFIED` (hiện chưa đọc được nguyên văn → tất cả `NEEDS_REVIEW`, IAU `BLOCKED`). **Bước 7 xong. Phiên mới: bước 8** (lịch kinh tế; Census cần khóa). Môi trường đám mây `gold_trading` (người dùng đồng ý 13/11) mở 11 trang điều khoản.
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
@@ -53,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-13): backend 850 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 88 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 857 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 88 passed, build đạt.

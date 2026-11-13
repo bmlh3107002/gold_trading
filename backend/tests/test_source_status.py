@@ -22,6 +22,7 @@ from gold_trading.ingestion.source_status import (
     source_health,
     summarize,
 )
+from gold_trading.ingestion.source_terms import SourceTerms, TermsStatus
 from gold_trading.storage.external_records import SqlExternalRecordStore
 from gold_trading.storage.repository import SqlRepository
 from gold_trading.storage.source_checks import SqlSourceCheckLog
@@ -32,6 +33,10 @@ H, S, M, INV = (SourceStatus.HEALTHY, SourceStatus.STALE, SourceStatus.MISSING,
 OK, ERR, BAD = CheckOutcome.OK, CheckOutcome.ERROR, CheckOutcome.INVALID
 T0 = datetime(2026, 1, 5, 14, 0, tzinfo=UTC)
 h = lambda n: timedelta(hours=n)  # noqa: E731
+
+# Điều khoản giả "đã xác nhận" cho test (nguồn thật đang NEEDS_REVIEW, ING-32).
+OK_TERMS = {p: SourceTerms(p, TermsStatus.VERIFIED, T0.date(), "#test")
+            for p in ("fed_rss", "cftc_cot", "bls_calendar")}
 
 RSS = SourceSpec("fed_rss", "news", fetch_ttl=h(1))
 COT = SourceSpec("cftc_cot", "positioning", fetch_ttl=h(26), data_ttl=timedelta(days=11))
@@ -79,7 +84,7 @@ def test_calendar_cannot_have_data_ttl():
 
 def test_registry_rejects_duplicate_names():
     with pytest.raises(ValueError, match="trùng"):
-        SourceRegistry([RSS, SourceSpec("fed_rss", "news", fetch_ttl=h(2))])
+        SourceRegistry([RSS, SourceSpec("fed_rss", "news", fetch_ttl=h(2))], terms=OK_TERMS)
 
 
 # --- lần kiểm ---
@@ -321,7 +326,7 @@ def test_data_ttl_ignores_unknown_and_future_records(env):
 
 def test_source_health_lists_registry(env):
     log, recs = env
-    reg = SourceRegistry([RSS, COT, CAL])
+    reg = SourceRegistry([RSS, COT, CAL], terms=OK_TERMS)
     log.record(chk(T0))
     out = {r.source: r for r in source_health(reg, log, recs, T0)}
     assert set(out) == {"fed_rss", "cftc_cot", "bls_calendar"}
