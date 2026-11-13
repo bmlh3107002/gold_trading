@@ -340,12 +340,14 @@ def _dol(dry_run: bool, env=None, client_factory=None) -> int:
     return 0 if sched.outcome.value == "OK" and vals.outcome.value == "OK" else 1
 
 
-def _lich(days: int, env=None, store=None, now=None) -> int:
+def _lich(days: int, env=None, store=None, now=None, check_log=None) -> int:
     from datetime import timedelta
 
-    from gold_trading.ingestion.economic_calendar import ET, economic_calendar
+    from gold_trading.ingestion.economic_calendar import ET, economic_calendar, health_map
     from gold_trading.ingestion.event_importance import POLICY_VERSION
+    from gold_trading.ingestion.revisions import revisions
     from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
 
     if not 1 <= days <= 120:
         print("--days phải từ 1 tới 120", file=sys.stderr)
@@ -356,9 +358,15 @@ def _lich(days: int, env=None, store=None, now=None) -> int:
         if not url:
             print("Thiếu DATABASE_URL", file=sys.stderr)
             return 2
-        store = SqlExternalRecordStore(SqlRepository.from_url(url).engine)
+        engine = SqlRepository.from_url(url).engine
+        store, check_log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
     now = now or utcnow()
-    items = economic_calendar(store, now, start=now, end=now + timedelta(days=days))
+    health = health_map(check_log, store, now) if check_log is not None else None
+    if health is not None:
+        print("Trạng thái nguồn: " + ", ".join(
+            f"{k} {'khỏe' if v else 'KHÔNG KHỎE'}" for k, v in sorted(health.items())))
+    items = economic_calendar(store, now, start=now - timedelta(days=1),
+                              end=now + timedelta(days=days), health=health)
     print(f"Lịch kinh tế {days} ngày tới (giờ Việt Nam = UTC+7), chính sách {POLICY_VERSION}:")
     if not items:
         print("  (chưa có sự kiện nào — nguồn chưa nạp hoặc không có lịch)")
@@ -370,9 +378,20 @@ def _lich(days: int, env=None, store=None, now=None) -> int:
             when = i.release_at.astimezone(vn).strftime("%Y-%m-%d %H:%M")
             when += f" (NY {i.release_at.astimezone(ET).strftime('%H:%M')})"
         extra = " ".join(list(i.flags) + list(i.notes))
+        act = ""
+        if i.actual_status != "NOT_APPLICABLE":
+            act = f"  số: {i.actual_status}"
+            if i.actuals:
+                act += " " + ", ".join(f"{k}={v}" for k, v in i.actuals)
         print(f"  {when:<34} {i.importance:<6} {i.event:<22} {i.logical_key}"
-              f"{'  ' + extra if extra else ''}")
+              f"{act}{'  ' + extra if extra else ''}")
     print("Dự báo (forecast): không đủ dữ liệu — chỉ dùng nguồn chính thức (DEC-01).")
+    revs = revisions(store, now)
+    if revs:
+        print("Sửa số kỳ trước (60 ngày qua):")
+        for r in revs:
+            print(f"  {r.logical_key} rev {r.revision}: {r.previous_value} → {r.value}"
+                  f" ({r.delta if r.delta is not None else '?'}) {r.flag}")
     return 0
 
 

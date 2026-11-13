@@ -38,3 +38,40 @@
 **Không có forecast (1C-C07, DEC-01):** mọi mục `forecast = None`, `forecast_status = surprise_status = "INSUFFICIENT_DATA"`; không bao giờ suy "bất ngờ" từ số khác. Cửa sổ vẫn có đủ.
 
 **Lỗi tìm được khi làm (ING-13):** `as_of(..., event_from, event_to)` ở cả store bộ nhớ lẫn SQL lọc theo `event_time` **trước** khi chọn revision mới nhất → sự kiện bị dời ra ngoài khoảng lọc vẫn trả về bản cũ như còn hiệu lực. Đã sửa: lọc sau khi chọn revision (test `test_event_filter_applies_after_latest_revision`). Các chỗ dùng trước đó (`values_due`, `release_for`, `scheduled_match`) chỉ bị ảnh hưởng theo hướng gọi thừa / gắn nhầm lần công bố cũ khi lịch bị dời — chưa từng xảy ra trên dữ liệu thật.
+
+## 4. Số actual + nguồn chết lúc công bố (1C-C05, 8g-3, 2026-11-13)
+
+Sự kiện có số (`BEA_GDP`, `BEA_PIO` → `bea_nipa`; `DOL_JOBLESS_CLAIMS` → `dol_claims`) mang `actual_status`; FOMC = `NOT_APPLICABLE`. Ghép số với lần công bố: BEA theo `release_ref` (= khóa sự kiện lịch); DOL theo tuần kết thúc + series `ICSA` (các số khác trong bản tin là sửa tuần trước).
+
+| Trạng thái | Khi nào | Cửa sổ |
+| --- | --- | --- |
+| `NOT_DUE` | chưa tới giờ công bố (cả ngày: chưa tới 0:00 New York) | như mục 2 |
+| `AWAITING` | đã tới giờ, chưa có số, nguồn số khỏe, chưa quá 15 phút | kéo dài: luôn còn ≥ **5 phút** sau `as_of` |
+| `UNKNOWN_SOURCE_DOWN` | đã tới giờ, chưa có số, nguồn số **không khỏe** (ING-30) | kéo dài như trên + ghi chú `ACTUAL_UNKNOWN` |
+| `UNKNOWN_LATE` | quá **15 phút** chưa có số dù nguồn khỏe | kéo dài như trên + `ACTUAL_UNKNOWN` |
+| `RECEIVED` | đã biết số (point-in-time theo `known_at`) | biết số sau cửa sổ gốc → cửa sổ tới lúc biết số (`ACTUAL_LATE`) |
+
+**Trần kéo dài:** hết ngày New York của lần công bố (`ACTUAL_MISSING_END_OF_DAY`). Lý do: số không về cả ngày là chuyện **nguồn hỏng**, xử lý bằng trạng thái nguồn (STALE/MISSING → Safety GĐ2) chứ không bằng cửa sổ tin kéo dài vô hạn; trong ngày công bố thì mặc định an toàn là chặn. Chưa có số → không bao giờ "hết chặn" sớm.
+
+**Tuần lễ DOL** (3 sự kiện cả ngày thứ Tư–Sáu): số của tuần đã **phát hành** (`available_at`) trước ngày đó → ngày đó không còn công bố: biết trước khi ngày bắt đầu → bỏ cửa sổ, biết giữa ngày → chặn tới lúc biết (`RELEASED_EARLIER_IN_WEEK`).
+
+**Nguồn lịch không khỏe:** sự kiện **chưa tới** của nguồn đó → không tin giờ → cả ngày (`SCHEDULE_SOURCE_UNHEALTHY`).
+
+**Trạng thái nguồn** truyền vào qua `health=health_map(check_log, store, as_of)`. Không truyền → chỉ xét số đến trễ. Người gọi để chặn giao dịch (Safety, GĐ2) **phải** truyền.
+
+**Lỗi tìm được khi soát:** số DOL tuần lễ hệ thống biết muộn (nạp sau 1 ngày) làm cửa sổ "cả ngày thứ Tư" kéo sang tận thứ Sáu → sửa: không kéo quá hết ngày New York; thứ Năm/Sáu dựa vào giờ **phát hành** để biết không còn công bố.
+
+## 5. Sửa số kỳ trước (ING-19, 1C-C08) — phiên bản `revision-policy-2026.11.13`
+
+Bộ nạp BEA/DOL đã lưu mỗi lần sửa số thành revision mới (không viết lại quá khứ). `ingestion/revisions.py` chỉ **đọc**: tại `as_of`, so mỗi revision với revision ngay trước, gắn cờ khi `|lệch| ≥ ngưỡng`:
+
+| Series | Ngưỡng "sửa lớn" | Lý do (giá trị khởi đầu, chưa hiệu chỉnh) |
+| --- | --- | --- |
+| `A191RL` GDP thực % năm hóa | 1,0 điểm % | sửa giữa các lần ước tính thường dưới 0,5 điểm |
+| `DPCERGM`, `DPCCRGM` PCE % tháng | 0,2 điểm % | số làm tròn 0,1; sửa 0,2 đổi hẳn nhận định lạm phát tháng |
+| `ICSA` đơn lần đầu | 10.000 | sửa tuần trước thường vài nghìn |
+| `IC4WSA` trung bình 4 tuần | 5.000 | trung bình nên sửa nhỏ hơn |
+| `CCSA` đơn tiếp tục | 30.000 | mức lớn hơn nhiều (~1,9 triệu) |
+| Mức chỉ số PCE (`DPCERG`, `DPCCRG`) và series khác | không có → `NO_THRESHOLD` | không đoán ngưỡng; mức chỉ số đổi theo năm gốc |
+
+Không có số / không phải số → `NOT_COMPARABLE` (không coi trống là 0, 1C-C01). Cờ **chỉ cảnh báo**, GĐ1 không dùng để chặn/cho phép giao dịch. Lệnh `cli lich` in các lần sửa 60 ngày qua.

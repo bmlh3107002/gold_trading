@@ -211,7 +211,18 @@ def test_removed_and_moved_events_point_in_time():
     assert not gone.window_contains(t1)
 
 
+def dol_value(week, released, series="ICSA", value="220000", rev=0):
+    return NormalizedRecord(
+        record_id=f"dol_claims:{series}:{week}:r{rev}", source="dol_claims", kind="macro",
+        logical_key=f"{series}:{week}", revision=rev, event_time=utc(2026, 11, 15, 5),
+        ingested_at=released + timedelta(seconds=40), available_at=released,
+        source_status=SourceStatus.HEALTHY, payload_version="t", raw_ref="t",
+        payload={"series": series, "week_ending": week, "value": value})
+
+
 def test_active_windows(store):
+    # Số tuần đến 14/11 đã nhận lúc 13:30:40 → cửa sổ không bị kéo dài
+    store.append(dol_value("2026-11-14", utc(2026, 11, 19, 13, 30)))
     at = utc(2026, 11, 19, 13, 31)
     assert [i.logical_key for i in C.active_windows(store, at)] == ["CLAIMS:2026-11-19"]
     assert C.active_windows(store, utc(2026, 11, 19, 13, 40)) == []  # biên phải mở
@@ -239,7 +250,176 @@ def test_cli_lich(store, capsys):
     assert "2026-11-19 20:30 (NY 08:30)" in out and "DOL_JOBLESS_CLAIMS" in out
     assert "TIME_BY_RULE" in out and "2026-11-26 cả ngày (New York)" in out
     assert "GDP:2026Q3:SECOND" in out and "không đủ dữ liệu" in out
+    assert "số: NOT_DUE" in out
+    # Có nhật ký lần kiểm: in trạng thái nguồn (chưa kiểm = không khỏe)
+    assert cli._lich(14, store=store, now=NOW, check_log=SourceCheckLog()) == 0
+    out = capsys.readouterr().out
+    assert "fed_fomc KHÔNG KHỎE" in out and "SCHEDULE_SOURCE_UNHEALTHY" in out
     assert cli._lich(0, store=store, now=NOW) == 2
     assert cli._lich(5, env={}) == 2
     assert cli._lich(3, store=PointInTimeStore(), now=NOW) == 0
     assert "chưa có sự kiện" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ 8g-3: 1C-C05 số actual
+
+def dol_item(store, at, key="CLAIMS:2026-11-19", **kw):
+    return find(C.economic_calendar(store, at, start=at - timedelta(days=2), **kw), key)
+
+
+def test_actual_status_flow_and_window_extension(store):
+    rel = utc(2026, 11, 19, 13, 30)
+    it = dol_item(store, rel - timedelta(minutes=10))
+    assert it.actual_status == "NOT_DUE" and it.window_end == rel + timedelta(minutes=10)
+    it = dol_item(store, rel + timedelta(minutes=5))
+    assert it.actual_status == "AWAITING" and it.window_end == rel + timedelta(minutes=10)
+    it = dol_item(store, rel + timedelta(minutes=8))  # sắp hết cửa sổ mà chưa có số → kéo dài
+    assert it.window_end == rel + timedelta(minutes=13)
+    assert "WINDOW_EXTENDED_ACTUAL_UNKNOWN" in it.notes
+    at = rel + timedelta(minutes=20)  # quá 15 phút chưa có số → chưa biết
+    it = dol_item(store, at)
+    assert it.actual_status == "UNKNOWN_LATE" and "ACTUAL_UNKNOWN" in it.notes
+    assert [i.logical_key for i in C.active_windows(store, at)] == ["CLAIMS:2026-11-19"]
+    # Nguồn số không khỏe → chưa biết ngay, kể cả trong 15 phút đầu
+    it = dol_item(store, rel + timedelta(minutes=1), health={"dol_claims": False})
+    assert it.actual_status == "UNKNOWN_SOURCE_DOWN"
+    # Số tới muộn lúc 14:00 (biết lúc 14:00:40): trước đó vẫn chặn, sau đó hết
+    store.append(dol_value("2026-11-14", utc(2026, 11, 19, 14, 0)))
+    assert dol_item(store, utc(2026, 11, 19, 13, 59)).actual_status == "UNKNOWN_LATE"
+    it = dol_item(store, utc(2026, 11, 19, 14, 1))
+    assert it.actual_status == "RECEIVED" and "ACTUAL_LATE" in it.notes
+    assert it.window_end == utc(2026, 11, 19, 14, 0, 40)
+    assert it.actuals == (("ICSA", "220000"),)
+    assert C.active_windows(store, utc(2026, 11, 19, 14, 1)) == []
+
+
+def test_unknown_actual_window_capped_at_end_of_new_york_day(store):
+    last = utc(2026, 11, 20, 4, 58)  # 23:58 ET ngày 19/11
+    it = dol_item(store, last)
+    assert it.actual_status == "UNKNOWN_LATE" and it.window_end == utc(2026, 11, 20, 5)
+    assert it.window_contains(last)
+    it = dol_item(store, utc(2026, 11, 20, 5))
+    assert "ACTUAL_MISSING_END_OF_DAY" in it.notes and not it.window_contains(
+        utc(2026, 11, 20, 5))
+
+
+def test_holiday_week_later_days_released_when_number_already_out(store):
+    # Lễ Tạ ơn: số tuần đến 21/11 ra thứ Tư 25/11 8:30 ET
+    store.append(dol_value("2026-11-21", utc(2026, 11, 25, 13, 30)))
+    at = utc(2026, 11, 26, 15)
+    items = C.economic_calendar(store, at, start=utc(2026, 11, 25), end=utc(2026, 11, 28))
+    keys = [i.logical_key for i in items if i.event == "DOL_JOBLESS_CLAIMS"]
+    assert keys == ["CLAIMS:2026-11-26:WED"]  # thứ Năm, thứ Sáu không còn phải chặn
+    assert items[0].actual_status == "RECEIVED" and items[0].all_day
+    assert C.active_windows(store, at) == []
+    # Point-in-time: thứ Tư lúc 8:00 ET chưa có số → cả thứ Năm, thứ Sáu vẫn chờ
+    before = C.economic_calendar(store, utc(2026, 11, 25, 13), start=utc(2026, 11, 25),
+                                 end=utc(2026, 11, 28))
+    assert {i.logical_key for i in before if i.event == "DOL_JOBLESS_CLAIMS"} == {
+        "CLAIMS:2026-11-26:WED", "CLAIMS:2026-11-26", "CLAIMS:2026-11-26:FRI"}
+
+
+def test_bea_actuals_matched_per_release(store):
+    rel = utc(2026, 11, 25, 13, 30)
+    store.append(NormalizedRecord(
+        record_id="bea_nipa:A191RL:2026Q3:r1", source="bea_nipa", kind="macro",
+        logical_key="A191RL:2026Q3", revision=1, event_time=utc(2026, 10, 1),
+        ingested_at=rel + timedelta(seconds=80), available_at=rel,
+        source_status=SourceStatus.HEALTHY, payload_version="t", raw_ref="t",
+        payload={"series": "A191RL", "value": "3.6", "release_ref": "GDP:2026Q3:SECOND"}))
+    at = rel + timedelta(minutes=12)
+    items = C.economic_calendar(store, at, start=rel - timedelta(hours=1))
+    gdp = find(items, "GDP:2026Q3:SECOND")
+    assert gdp.actual_status == "RECEIVED" and gdp.actuals == (("A191RL", "3.6"),)
+    assert gdp.window_end == rel + timedelta(minutes=10)
+    pio = [i for i in items if i.event == "BEA_PIO" and i.release_at == rel][0]
+    assert pio.actual_status == "AWAITING"  # cùng giờ nhưng chưa có số PCE
+    # thứ Tư tuần lễ: DOL cũng đang chặn cả ngày
+    assert [i.event for i in C.active_windows(store, at)] == ["DOL_JOBLESS_CLAIMS", "BEA_PIO"]
+
+
+def test_schedule_source_unhealthy_distrusts_future_times(store):
+    items = C.economic_calendar(store, NOW, health={"fed_fomc": False})
+    dec = find(items, "FOMC_STATEMENT:2026-12-09")
+    assert dec.all_day and "SCHEDULE_SOURCE_UNHEALTHY" in dec.notes
+    assert (dec.window_start, dec.window_end) == (utc(2026, 12, 9, 5), utc(2026, 12, 10, 5))
+    assert dec.actual_status == "NOT_APPLICABLE"
+    ok = find(C.economic_calendar(store, NOW, health={"fed_fomc": True}),
+              "FOMC_STATEMENT:2026-12-09")
+    assert not ok.all_day
+
+
+def test_health_map_from_check_log():
+    st, log = PointInTimeStore(), SourceCheckLog()
+    F.run_once(store=st, log=log, get=lambda p: FED[p], now=NOW)
+    h = C.health_map(log, st, NOW)
+    assert h["fed_fomc"] is True
+    assert h["bea_nipa"] is False and h["dol_claims"] is False  # chưa kiểm lần nào
+    assert C.health_map(log, st, NOW + timedelta(hours=27))["fed_fomc"] is False  # STALE
+
+
+# ------------------------------------------------------------------ 8g-3: ING-19 / 1C-C08
+
+def test_revision_classify():
+    from decimal import Decimal
+
+    from gold_trading.ingestion import revisions as V
+    assert V.classify("ICSA", "220000", "232000") == ("LARGE_REVISION", Decimal("12000"))
+    assert V.classify("ICSA", "220000", "210000") == ("LARGE_REVISION", Decimal("-10000"))
+    assert V.classify("ICSA", "220000", "223000")[0] == "SMALL_REVISION"
+    assert V.classify("A191RL", "3.4", "2.4")[0] == "LARGE_REVISION"   # đúng bằng ngưỡng
+    assert V.classify("A191RL", "3.4", "2.5")[0] == "SMALL_REVISION"
+    assert V.classify("DPCERG", "132.257", "135.0")[0] == "NO_THRESHOLD"
+    for a, b in ((None, "1"), ("(NA)", "1"), ("1", None), ("x", "1"), ("1", "NaN")):
+        assert V.classify("A191RL", a, b) == ("NOT_COMPARABLE", None)  # không coi trống là 0
+
+
+def test_revisions_view_point_in_time(store):
+    from gold_trading.ingestion import revisions as V
+    pdf = (FIX / "dol" / "ui-data-2026-11-12.pdf").read_bytes()
+    D.run_values_once(store=store, log=SourceCheckLog(), get=lambda u: pdf, now=NOW)
+    first = store.as_of(NOW, source="dol_claims", logical_key="ICSA:2026-11-07")[0]
+    nxt = utc(2026, 11, 19, 13, 30)
+    big = str(int(first.payload["value"]) + 12000)
+    store.append(NormalizedRecord(
+        record_id="dol_claims:ICSA:2026-11-07:r1", source="dol_claims", kind="macro",
+        logical_key="ICSA:2026-11-07", revision=1, event_time=first.event_time,
+        ingested_at=nxt + timedelta(seconds=30), available_at=nxt,
+        source_status=SourceStatus.HEALTHY, payload_version="t", raw_ref="t",
+        payload={**first.payload, "value": big}))
+    assert V.revisions(store, nxt) == []  # chưa biết bản sửa
+    got = V.revisions(store, nxt + timedelta(minutes=1))
+    assert len(got) == 1
+    r = got[0]
+    assert (r.series, r.revision, r.previous_value, r.value, r.delta, r.flag) == (
+        "ICSA", 1, first.payload["value"], big, "12000", "LARGE_REVISION")
+    assert r.policy_version == V.REVISION_POLICY_VERSION and r.threshold == "10000"
+    assert V.revisions(store, nxt + timedelta(days=61)) == []  # ngoài khoảng since
+    with pytest.raises(ValueError):
+        V.revisions(store, datetime(2026, 11, 20))
+
+
+def test_late_known_number_never_extends_window_past_new_york_day(store):
+    """Lỗi tìm được khi soát: số tuần lễ nạp muộn 1 ngày làm cửa sổ cả ngày kéo sang hôm sau."""
+    # Số tuần đến 21/11 DOL phát hành thứ Tư 25/11 8:30 ET nhưng hệ thống chỉ biết lúc 2:00 ET
+    # thứ Sáu 27/11 (backend tắt hai ngày)
+    known = utc(2026, 11, 27, 7)
+    store.append(NormalizedRecord(
+        record_id="dol_claims:ICSA:2026-11-21:r0", source="dol_claims", kind="macro",
+        logical_key="ICSA:2026-11-21", revision=0, event_time=utc(2026, 11, 22, 5),
+        ingested_at=known, available_at=utc(2026, 11, 25, 13, 30),
+        source_status=SourceStatus.HEALTHY, payload_version="t", raw_ref="t",
+        payload={"series": "ICSA", "week_ending": "2026-11-21", "value": "1"}))
+    at = known + timedelta(minutes=1)
+    items = {i.logical_key: i for i in C.economic_calendar(
+        store, at, start=utc(2026, 11, 24), end=utc(2026, 11, 29))
+        if i.event == "DOL_JOBLESS_CLAIMS"}
+    wed, thu, fri = (items["CLAIMS:2026-11-26:WED"], items["CLAIMS:2026-11-26"],
+                     items["CLAIMS:2026-11-26:FRI"])
+    assert wed.window_end == utc(2026, 11, 26, 5) and "ACTUAL_LATE" in wed.notes
+    assert thu.window_end == utc(2026, 11, 27, 5)  # không kéo qua hết ngày
+    assert fri.window_start == utc(2026, 11, 27, 5) and fri.window_end == known
+    assert "RELEASED_EARLIER_IN_WEEK" in fri.notes
+    assert C.active_windows(store, at) == []
+    assert [i.logical_key for i in C.active_windows(store, known - timedelta(minutes=1))] == \
+        ["CLAIMS:2026-11-26:FRI"]  # trước lúc biết số: vẫn chặn
