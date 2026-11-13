@@ -111,7 +111,7 @@ Chia 4 phần (2026-11-12), thiết kế ở `docs/thiet-ke/10-nguon-ngoai.md`:
 ### Bước 8 — Lịch kinh tế (1C) ← hướng dẫn đăng ký khóa **BLS**, **BEA**
 Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang phần sau:
 - [x] 8a — đọc nguyên văn điều khoản (người dùng cho phép tải trang chính thức, chỉ đọc): BEA, Census, Fed `VERIFIED`; GLD `BLOCKED`; FRED/BLS/CFTC/DOL/Bộ Tài chính chưa đọc được (chi tiết `docs/thiet-ke/11-dieu-khoan-nguon.md`). Thêm `GT_CENSUS_API_KEY` (Census bắt buộc khóa) (2026-11-13)
-- [ ] 8b — Fed: lịch họp FOMC (không cần khóa, điều khoản `VERIFIED`) — nguồn lịch đầu tiên đi qua cả khung 7a–7d
+- [x] 8b — Fed: lịch họp FOMC (không cần khóa, điều khoản `VERIFIED`) — nguồn lịch đầu tiên đi qua cả khung 7a–7d (2026-11-13: `ingestion/sources/fed_fomc.py` + `calendar_sync.py`, thiết kế `docs/thiet-ke/12-lich-fomc.md`; lệnh `python -m gold_trading.ingestion.cli fomc`; chưa chạy tự động — 8g)
 - [ ] 8c — BEA: lịch + actual GDP, PCE (người dùng đăng ký khóa BEA; hiện câu ghi nguồn BEA trên web trước khi bật)
 - [ ] 8d — Census: lịch + actual bán lẻ (người dùng đăng ký khóa Census; hiện câu ghi nguồn Census trước khi bật)
 - [ ] 8e — BLS: CPI, NFP, PPI — trước hết đọc điều khoản BLS (trang web BLS chặn máy chủ đám mây → đọc trên máy người dùng hoặc cách khác), rồi khóa BLS

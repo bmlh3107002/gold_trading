@@ -12,7 +12,7 @@
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–3 xong + đã kiểm trên máy (2026-11-07):** H1/H4/D1 (ING-14), lịch ngày lễ Mỹ + `GT_BROKER_SPECIAL_HOURS` (1B), nến cuối phiên `tail_bar` (1A-C21). Còn treo: đối chiếu giờ broker dịp Lễ Tạ ơn 26–27/11. Gateway trên máy: `C:\gold-trading\code\gold_trading-develop`.
 - **Bước 4–6 xong + kiểm trên máy 2026-11-12** (danh sách ở file kế hoạch, mục "Kiểm trên máy khi người dùng về"): đạt hết trừ **mục 6a** (lần 1 hỏng do Gateway bị tắt; làm lại tối 13/11, hướng dẫn ở file kế hoạch). Gateway 0.10.3 trên máy, `run-all` 2 MT5.
-- **Bước 7 xong 2026-11-13** (khung nguồn ngoài, thiết kế `docs/thiet-ke/10-nguon-ngoai.md` + `11-dieu-khoan-nguon.md`): 7a bảng `external_records` (0012), 7b trạng thái nguồn + TTL (0013), 7c khóa API chỉ trong `.env`, 7d nguồn chỉ bật khi điều khoản `VERIFIED` (chưa đọc được nguyên văn → tất cả `NEEDS_REVIEW`, IAU `BLOCKED`). **Bước 8 chia 8a–8g** (file kế hoạch): 8a xong 2026-11-13 (đọc nguyên văn điều khoản: BEA/Census/Fed `VERIFIED`, GLD `BLOCKED`; `GT_CENSUS_API_KEY`). **Phiên mới: 8b** (lịch FOMC của Fed, không cần khóa). Môi trường đám mây `gold_trading` mở 11 trang điều khoản (người dùng đồng ý 13/11).
+- **Bước 7 xong 2026-11-13** (khung nguồn ngoài, thiết kế `docs/thiet-ke/10-nguon-ngoai.md` + `11-dieu-khoan-nguon.md`): 7a bảng `external_records` (0012), 7b trạng thái nguồn + TTL (0013), 7c khóa API chỉ trong `.env`, 7d nguồn chỉ bật khi điều khoản `VERIFIED` (chưa đọc được nguyên văn → tất cả `NEEDS_REVIEW`, IAU `BLOCKED`). **Bước 8 chia 8a–8g** (file kế hoạch): 8a xong 2026-11-13 (đọc nguyên văn điều khoản: BEA/Census/Fed `VERIFIED`, GLD `BLOCKED`; `GT_CENSUS_API_KEY`). 8b xong 2026-11-13 (lịch FOMC từ trang Fed, `docs/thiet-ke/12-lich-fomc.md`). **Phiên mới: 8c** (BEA: GDP, PCE — người dùng đăng ký khóa BEA). Môi trường đám mây `gold_trading` mở 11 trang điều khoản (người dùng đồng ý 13/11).
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - **DEC-17 (2026-11-07):** trang Quản trị một USER một dòng, USER xin token → ADMIN cấp. Đã kiểm xong trên máy người dùng.
@@ -53,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-13): backend 857 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 88 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 898 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 88 passed, build đạt.

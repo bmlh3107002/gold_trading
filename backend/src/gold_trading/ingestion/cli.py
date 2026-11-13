@@ -9,6 +9,10 @@ Trong Docker:
         --server-tz Europe/Athens
 
 Dữ liệu nạp có nguồn CSV; muốn Dashboard dùng nó thì đặt GT_DATA_SOURCE=CSV.
+
+Tải lịch FOMC của Fed một lần (bước 8b, ING-09) và in các mốc sắp tới:
+
+    docker compose exec backend python -m gold_trading.ingestion.cli fomc
 """
 
 from __future__ import annotations
@@ -41,7 +45,11 @@ def main(argv: list[str] | None = None) -> int:
     # H4 trở lên được broker căn theo giờ server (ví dụ 00:00 GMT+2 = 22:00 UTC), chưa hỗ trợ.
     imp.add_argument("--timeframe", default="M15", choices=["M1", "M5", "M15", "M30", "H1"])
     imp.add_argument("--dry-run", action="store_true", help="Chỉ đọc và kiểm tra, không ghi DB")
+    fomc = sub.add_parser("fomc", help="Tải lịch FOMC từ trang Fed một lần (ING-09)")
+    fomc.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     args = p.parse_args(argv)
+    if args.cmd == "fomc":
+        return _fomc(args.dry_run)
 
     try:
         text = args.file.read_text(encoding="utf-8-sig")
@@ -99,6 +107,42 @@ def main(argv: list[str] | None = None) -> int:
         f"sửa đổi {result.revised}, cách ly {result.quarantined} {result.reasons or ''}"
     )
     return 0
+
+
+
+def _fomc(dry_run: bool) -> int:
+    import httpx
+
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog, SourceRegistry
+    from gold_trading.ingestion.sources import fed_fomc
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    now = utcnow()
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = os.environ.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    with httpx.Client(headers={"User-Agent": "gold-trading-personal/0.1"}) as client:
+        check = fed_fomc.run_once(store=store, log=log, get=fed_fomc.http_getter(client),
+                                  now=now, registry=SourceRegistry([fed_fomc.fomc_spec()]))
+    print(f"Kết quả: {check.outcome.value} {check.error_code or ''} — thêm {check.inserted}, "
+          f"trùng/không đổi {check.duplicate}")
+    for r in store.as_of(now, source=fed_fomc.SOURCE):
+        if r.event_time < now or r.payload.get("status") == "REMOVED":
+            continue
+        p = r.payload
+        when = r.event_time.strftime("%Y-%m-%d %H:%M UTC") if p["time_confirmed"] \
+            else r.event_time.strftime("%Y-%m-%d (chưa có giờ)")
+        print(f"  {when}  {p['event']}{'  [dự kiến]' if p.get('tentative') else ''}"
+              f"{'  [' + p['note'] + ']' if p.get('note') else ''}")
+    return 0 if check.outcome.value == "OK" else 1
 
 
 if __name__ == "__main__":
