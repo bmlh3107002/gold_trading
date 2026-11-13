@@ -27,7 +27,22 @@ Bảng đo: `candles`, `quote_seconds`, `candle_quarantine`, `analyst_outputs`, 
 - Ngoại lệ duy nhất: `quote_seconds` (giá theo giây) xóa dòng cũ hơn `GT_QUOTE_RETENTION_DAYS` (mặc định 30 ngày, ING-08). Nến M15 vẫn giữ vĩnh viễn.
 - Sao lưu tự động 24 giờ / lần, giữ 14 bản (GĐ0).
 
-**Đề xuất** (chốt sau khi có số đo thật trên máy người dùng — mục 20 file kế hoạch): nếu ước tính 1 năm của các bảng chỉ-thêm (trừ `quote_seconds`) nhỏ so với ổ đĩa (vài trăm MB), **giữ nguyên chính sách hiện hành** — không thêm ngoại lệ xóa nào (xóa làm mất khả năng tái lập quá khứ). Chỉ cân nhắc hạn giữ cho `external_source_checks` (nhật ký lần kiểm, ~400 dòng/ngày, chỉ dùng tính trạng thái) nếu số đo cho thấy đáng kể; khi đó hạn giữ phải dài hơn mọi TTL (≥ 400 ngày… hoặc gộp) và ghi thành ngoại lệ có lý do như `quote_seconds`.
+**Số đo trên máy người dùng (2026-11-13, sau ~6 ngày chạy MT5, 1 ngày giá theo giây):** cả DB 43,7 MB.
+
+| Bảng | Số dòng | Dung lượng | Dòng/ngày | Ước tính 1 năm |
+| --- | --- | --- | --- | --- |
+| `candles` | 47.760 | 16,8 MB | 697 | 106,3 MB |
+| `quote_seconds` (giữ 30 ngày) | 57.363 | 14,9 MB | 52.109 | 406,7 MB (trần, không tăng thêm) |
+| `analyst_outputs` | 87 | 344 KB | 63 | ≤ 89,1 MB (bảng nhỏ → B/dòng bị thổi cao) |
+| `audit_log` | 133 | 128 KB | 35 | 12,1 MB |
+| `external_records` / `external_source_checks` / `candle_quarantine` | 215 / 22 / 32 | 408 / 40 / 64 KB | chưa đủ 1 ngày | — (nhỏ) |
+| **Tổng** | | **43,7 MB** | | **≈ 0,6 GB** (trần trên) |
+
+Sao lưu tự động giữ 14 bản → thư mục sao lưu có thể vài GB sau 1 năm (vẫn nhỏ so với ổ đĩa thường).
+
+**Quyết định (người dùng 2026-11-13): giữ nguyên chính sách hiện hành** — mọi bảng chỉ thêm, giữ vĩnh viễn; riêng `quote_seconds` giữ `GT_QUOTE_RETENTION_DAYS` (30 ngày). Không thêm ngoại lệ xóa. Đo lại sau ≥ 7 ngày chạy (tốc độ tăng lịch / tin / nhật ký lần kiểm); xem lại nếu ước tính 1 năm vượt vài GB.
+
+**Đề xuất ban đầu** (trước số đo): nếu ước tính 1 năm của các bảng chỉ-thêm (trừ `quote_seconds`) nhỏ so với ổ đĩa (vài trăm MB), **giữ nguyên chính sách hiện hành** — không thêm ngoại lệ xóa nào (xóa làm mất khả năng tái lập quá khứ). Chỉ cân nhắc hạn giữ cho `external_source_checks` (nhật ký lần kiểm, ~400 dòng/ngày, chỉ dùng tính trạng thái) nếu số đo cho thấy đáng kể; khi đó hạn giữ phải dài hơn mọi TTL (≥ 400 ngày… hoặc gộp) và ghi thành ngoại lệ có lý do như `quote_seconds`.
 
 ## 3. Replay mọi nguồn (ING-34)
 
