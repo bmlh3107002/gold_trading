@@ -44,6 +44,10 @@ trong file cấu hình nguồn tin), tải một lần rồi in tin mới trong 
 
     docker compose exec backend python -m gold_trading.ingestion.cli tin --dry-run --hours 72
 
+Dung lượng từng bảng + ước tính 1 năm (bước 10f, ING-33; chỉ đọc DB):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli dung-luong
+
 Xem bảng lịch kinh tế hợp nhất đã lưu (bước 8g, chỉ đọc DB, không gọi mạng):
 
     docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14
@@ -98,6 +102,7 @@ def main(argv: list[str] | None = None) -> int:
     tin = sub.add_parser("tin", help="Tải tin RSS chính thức một lần + in tin mới (ING-10/21)")
     tin.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     tin.add_argument("--hours", type=int, default=72, help="In tin mới trong N giờ (mặc định 72)")
+    sub.add_parser("dung-luong", help="Dung lượng từng bảng + ước tính 1 năm (ING-33, chỉ đọc)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
@@ -109,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
         return _usd(args.server)
     if args.cmd == "lich":
         return _lich(args.days)
+    if args.cmd == "dung-luong":
+        return _dung_luong()
     if args.cmd == "tin":
         return _tin(args.dry_run, args.hours)
     if args.cmd == "dol":
@@ -459,6 +466,36 @@ def _cot(dry_run: bool, env=None, client_factory=None) -> int:
     print("Nguồn: U.S. Commodity Futures Trading Commission (cftc.gov), báo cáo Commitments of "
           "Traders.")
     return 0 if check.outcome.value == "OK" else 1
+
+
+def _dung_luong(env=None, engine=None, now=None) -> int:
+    from gold_trading.ops.storage_report import human, report
+
+    env = os.environ if env is None else env
+    if engine is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+    raw = (env.get("GT_QUOTE_RETENTION_DAYS") or "30").strip()
+    retention = int(raw) if raw.isdigit() else 30
+    rows, db = report(engine, now or utcnow(), quote_retention_days=retention)
+    print(f"Dung lượng cả DB: {human(db)}")
+    print(f"{'Bảng':24}{'Số dòng':>12}{'Dung lượng':>12}{'B/dòng':>9}{'Dòng/ngày':>11}"
+          f"{'Sau 1 năm':>12}")
+    total = 0.0
+    for u in rows:
+        rpd, bpr, proj = u.rows_per_day, u.bytes_per_row, u.projected_bytes()
+        total += proj or 0
+        bpr_s = f"{bpr:,.0f}" if bpr else "—"
+        rpd_s = f"{rpd:,.0f}" if rpd is not None else "—"
+        print(f"{u.table:24}{u.rows:>12,}{human(u.bytes):>12}{bpr_s:>9}{rpd_s:>11}"
+              f"{human(proj):>12}"
+              + (f"  (giữ {u.retention_days} ngày)" if u.retention_days else "")
+              + ("  (chưa đủ 1 ngày dữ liệu)" if rpd is None and u.rows else ""))
+    print(f"Ước tính các bảng trên sau 1 năm: {human(total)} (chưa tính nén, chỉ mục tăng thêm)")
+    return 0
 
 
 def _tin(dry_run: bool, hours: int, env=None, client_factory=None, now=None) -> int:
