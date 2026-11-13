@@ -14,6 +14,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from gold_trading.accounts.access import account_locked
@@ -50,8 +51,12 @@ class AccountRegistry:
         default_mode: TradingMode,
         live_unlocked: bool,
         mode_guard: Callable[[TradingMode], str | None],
+        entry_blocks: Callable[[str, datetime], list] | None = None,
     ) -> None:
         self.repo = repo
+        # GĐ2 4a (DEC-20 câu 5): lệnh cấm có hạn của làn nhanh — (tài khoản, lúc) → lệnh cấm
+        # còn hiệu lực cho nguồn giá của tài khoản. Không gạt công tắc Safety.
+        self._entry_blocks = entry_blocks
         self._policy = policy_version
         self._default_mode = default_mode
         self._live_unlocked = live_unlocked
@@ -139,11 +144,20 @@ class AccountRegistry:
                 changed.append(acc)
         return changed
 
+    def entry_blocks(self, account_id: str, now: datetime | None = None) -> list:
+        """Lệnh cấm mở lệnh mới còn hiệu lực (làn nhanh). Lỗi đọc → ném lỗi (người gọi chặn)."""
+        if self._entry_blocks is None:
+            return []
+        return list(self._entry_blocks(account_id, now or utcnow()))
+
     def allows_new_orders(self, account_id: str) -> bool:
-        """Chỉ True khi đọc được DB, Safety đang ACTIVE và chủ tài khoản không bị khóa (DEC-16)."""
+        """Chỉ True khi đọc được DB, Safety đang ACTIVE, chủ tài khoản không bị khóa (DEC-16) và
+        **không còn lệnh cấm có hạn nào** của làn nhanh (GĐ2, DEC-20). Đọc lỗi → False."""
         try:
             self.sync(account_id)
             if account_locked(self.repo, account_id):
+                return False
+            if self.entry_blocks(account_id):
                 return False
         except Exception:
             log.exception("Không đọc được trạng thái Safety của %s: chặn lệnh mới", account_id)

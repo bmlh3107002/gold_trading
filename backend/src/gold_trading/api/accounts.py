@@ -51,10 +51,22 @@ class AccountSummary(BaseModel):
     mode: TradingMode
 
 
+class EntryBlockOut(BaseModel):
+    """Lệnh cấm mở lệnh mới có hạn của làn nhanh (GĐ2, DEC-20)."""
+
+    kind: Literal["RELEASE", "NEWS", "SPREAD", "LATENCY"]
+    reason_code: str
+    scope: str
+    start_at: datetime
+    end_at: datetime | None = Field(description="None: tới khi được gỡ (spread)")
+    cause_ref: str
+
+
 class AccountStatus(AccountSummary):
     live_unlocked: bool
     live_checklist: list[str]
     allows_new_orders: bool
+    entry_blocks: list[EntryBlockOut] = Field(default_factory=list)
     safety_history: list[SafetyTransition]
     market_view: MarketView | None
 
@@ -313,9 +325,19 @@ def accounts_router(
             live_unlocked=rt.modes.live_unlocked,
             live_checklist=list(LIVE_CHECKLIST),
             allows_new_orders=registry.allows_new_orders(acc_id),
+            entry_blocks=entry_blocks_out(acc_id),
             safety_history=list(rt.safety.history)[-200:],
             market_view=market_view(),
         )
+
+    def entry_blocks_out(acc_id: str) -> list[EntryBlockOut]:
+        try:
+            blocks = registry.entry_blocks(acc_id)
+        except Exception:
+            return []      # allows_new_orders đã False (đọc lỗi → chặn)
+        return [EntryBlockOut(kind=b.kind.value, reason_code=b.reason_code, scope=b.scope,
+                              start_at=b.start_at, end_at=b.end_at, cause_ref=b.cause_ref)
+                for b in blocks]
 
     def account_name(account_id: str) -> str:
         acc = repo.account(account_id)

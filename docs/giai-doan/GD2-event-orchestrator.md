@@ -24,7 +24,7 @@
 | DSH-08 | Hiển thị trạng thái pipeline/job, dead-letter | `[ ]` | |
 | FAST-01 | Làn nhanh kích hoạt khi: CPI/NFP vừa ra, tin nóng cấp cao, spread giãn mạnh, bất ngờ so dự báo | `[ ]` | |
 | FAST-02 | Xử lý bằng luật (+ FinBERT nếu có), **không gọi LLM nặng**; ngân sách độ trễ tính bằng giây | `[ ]` | |
-| FAST-03 | Kết quả: cập nhật `riskFlags`, chặn lệnh 10–15 phút, giảm confidence, đi thẳng Safety (bỏ qua Fusion) | `[ ]` | |
+| FAST-03 | Kết quả: cập nhật `riskFlags`, chặn lệnh 10–15 phút, giảm confidence, đi thẳng Safety (bỏ qua Fusion) | `[~]` | 2026-11-14 (4a): lệnh cấm có hạn + Safety đọc (DEC-20 câu 5); nguồn kích hoạt ở 4b–4d |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
@@ -52,3 +52,4 @@
 - **2026-11-14** — **Kiểm trên máy (mục 1, lần 2): khởi động nhanh — đạt.** Dựng lại: "Bật Event Orchestrator" 18:54:44 UTC, nhịp đầu xong 18:54:46 (2 giây; lần 1 > 10 phút), không lỗi. **Ghi nhận:** mỗi 10 giây một dòng log "bỏ qua (debounce) 8" do quét lại vùng chồng lấn → sửa: tách `skipped` (debounce lúc tạo) khỏi `superseded`, chỉ log khi có job mới / chạy / SUPERSEDED thật (test `test_quiet_rescan_reports_nothing`); lên máy ở lần dựng lại sau. Còn kiểm: nến 02:00 giờ VN → job TECHNICAL chạy.
 - **2026-11-14** — **Kiểm trên máy mục 1: đạt.** Nến vàng 01:45–02:00 giờ VN đóng → 8 giây sau (19:00:08 UTC) job TECHNICAL `SUCCEEDED` + REGIME `NO_HANDLER`; 6 cặp tiền → 6 MACRO `NO_HANDLER`; nến H1 không định tuyến (đúng). Hai MT5 cùng server → một nguồn giá vàng → một lần Technical. Thẻ Phân tích kỹ thuật trên web: "Tính tại nến đóng lúc 02:00:00 14/11/2026", còn hiệu lực tới 02:17. ORC-01 xác nhận trên máy.
 - **2026-11-14** — **DEC-20: ngưỡng làn nhanh** (người dùng chốt từng câu, xem bảng quyết định). Bước 4 chia 4a (lưu lệnh cấm + Safety đọc), 4b (số liệu lớn + tin bất ngờ), 4c (spread), 4d (vòng 2 giây, độ trễ, băng cảnh báo web).
+- **2026-11-14** — **Bước 4a: lệnh cấm có hạn + Safety (FAST-03 phần chặn).** `risk/blocks.py` + `storage/risk_blocks.py` (migration 0016, hai bảng chỉ-thêm: lệnh cấm + gỡ), `AccountRegistry.allows_new_orders` thêm điều kiện không còn lệnh cấm (đọc lỗi → chặn; công tắc Safety không đổi), API trạng thái tài khoản thêm `entry_blocks`, OpenAPI + type TS sinh lại. Test 16. Postgres: migration lên / xuống, `alembic check` sạch. Thiết kế `docs/thiet-ke/26-lam-nhanh.md`. Tiếp: 4b.

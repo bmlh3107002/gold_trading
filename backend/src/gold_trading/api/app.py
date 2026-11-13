@@ -51,6 +51,7 @@ from gold_trading.ops.storage_health import backup_info, disk
 from gold_trading.orchestrator.model import OrchestratorStore
 from gold_trading.orchestrator.runner import OrchestratorRunner, technical_handler
 from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
+from gold_trading.risk.blocks import BlockStore
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -66,6 +67,7 @@ from gold_trading.storage.repository import (
     Repository,
     SqlRepository,
 )
+from gold_trading.storage.risk_blocks import SqlBlockStore
 
 POLICY_VERSION = "policy-0.1.0"
 log = logging.getLogger("gold_trading.api")
@@ -254,12 +256,21 @@ def create_app(
     repo.ensure_default_account()
     default_mode = TradingMode(os.environ.get("GT_MODE", "PAPER"))
     # Dựng Safety/Mode cho MỌI tài khoản từ lịch sử append-only (quy tắc khôi phục ở runtime.py)
+    # GĐ2 4a (DEC-20): lệnh cấm có hạn của làn nhanh — Safety đọc theo nguồn giá của tài khoản.
+    engine_ = getattr(repo, "engine", None)
+    block_store = SqlBlockStore(engine_) if engine_ is not None else BlockStore()
+
+    def account_entry_blocks(account_id: str, now):
+        feed_ = account_feed(repo, account_id) if source is DataSource.MT5 else ""
+        return block_store.active(now, feed_)
+
     registry = AccountRegistry(
         repo,
         policy_version=POLICY_VERSION,
         default_mode=default_mode,
         live_unlocked=live_unlocked,
         mode_guard=mode_guard,
+        entry_blocks=account_entry_blocks,
     )
 
     feed: SampleFeed | None = None
@@ -445,6 +456,7 @@ def create_app(
     app.state.registry = registry
     app.state.runner = runner  # MT-05: để kiểm tra / chẩn đoán analyst theo từng nguồn
     app.state.orchestrator = orchestrator
+    app.state.block_store = block_store
 
     @app.get("/api/health")
     def health():

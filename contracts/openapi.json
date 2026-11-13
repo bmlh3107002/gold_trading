@@ -1988,6 +1988,13 @@
             "type": "boolean",
             "title": "Allows New Orders"
           },
+          "entry_blocks": {
+            "items": {
+              "$ref": "#/components/schemas/EntryBlockOut"
+            },
+            "type": "array",
+            "title": "Entry Blocks"
+          },
           "safety_history": {
             "items": {
               "$ref": "#/components/schemas/SafetyTransition"
@@ -3125,6 +3132,61 @@
           "warn"
         ],
         "title": "DiskOut"
+      },
+      "EntryBlockOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "RELEASE",
+              "NEWS",
+              "SPREAD",
+              "LATENCY"
+            ],
+            "title": "Kind"
+          },
+          "reason_code": {
+            "type": "string",
+            "title": "Reason Code"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End At",
+            "description": "None: tới khi được gỡ (spread)"
+          },
+          "cause_ref": {
+            "type": "string",
+            "title": "Cause Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "reason_code",
+          "scope",
+          "start_at",
+          "end_at",
+          "cause_ref"
+        ],
+        "title": "EntryBlockOut",
+        "description": "Lệnh cấm mở lệnh mới có hạn của làn nhanh (GĐ2, DEC-20)."
       },
       "Freshness": {
         "type": "string",

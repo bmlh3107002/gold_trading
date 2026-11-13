@@ -83,3 +83,58 @@ def test_validation(kw):
                 end_at=T + 15 * M, cause_ref="c", created_at=T, policy_version="p")
     with pytest.raises(ValueError):
         Block(**(base | kw))
+
+
+# ------------------------------------------------------------------ nối Safety (API tài khoản)
+
+def _active_client():
+    from tests.auth_helpers import user_client
+    c = user_client()
+    r = c.post("/api/accounts/default/safety", json={"action": "resume", "reason_code": "OK"})
+    assert r.json()["safety_state"] == "ACTIVE"
+    return c
+
+
+def test_safety_blocks_new_orders_but_keeps_switch():
+    """DEC-20 câu 5: lệnh cấm còn hạn → không mở lệnh mới; công tắc Safety vẫn ACTIVE; hết hạn
+    → mở lại tự động."""
+    from gold_trading.common.time import utcnow
+    c = _active_client()
+    store = c.app.state.block_store
+    assert c.get("/api/accounts/default/status").json()["allows_new_orders"] is True
+    now = utcnow()
+    b = Block(BlockKind.RELEASE, ALL, "HIGH_RELEASE", now - M, now + 15 * M,
+              "bls_values:EMPSIT:2026-11", now - timedelta(seconds=5), "fast-lane-1")
+    store.add(b)
+    body = c.get("/api/accounts/default/status").json()
+    assert body["allows_new_orders"] is False and body["safety_state"] == "ACTIVE"
+    assert body["entry_blocks"][0]["kind"] == "RELEASE"
+    assert body["entry_blocks"][0]["reason_code"] == "HIGH_RELEASE"
+    # lệnh cấm đã hết hạn → không còn tác dụng
+    old = Block(BlockKind.NEWS, ALL, "FED_UNSCHEDULED", now - 30 * M, now - 15 * M, "fed:x",
+                now - 30 * M, "fast-lane-1")
+    c2 = _active_client()
+    c2.app.state.block_store.add(old)
+    body = c2.get("/api/accounts/default/status").json()
+    assert body["allows_new_orders"] is True and body["entry_blocks"] == []
+
+
+def test_spread_block_of_other_feed_does_not_apply():
+    """Lệnh cấm spread gắn với một nguồn giá — nguồn khác (tài khoản dữ liệu mẫu) không bị chặn."""
+    from gold_trading.common.time import utcnow
+    c = _active_client()
+    now = utcnow()
+    c.app.state.block_store.add(Block(BlockKind.SPREAD, "pf_khac", "SPREAD_WIDE", now - M, None,
+                                      "pf_khac@x", now - M, "fast-lane-1"))
+    assert c.get("/api/accounts/default/status").json()["allows_new_orders"] is True
+
+
+def test_block_read_error_blocks():
+    """Đọc lệnh cấm lỗi → mặc định chặn (an toàn)."""
+    c = _active_client()
+
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+    c.app.state.block_store.active = boom
+    body = c.get("/api/accounts/default/status").json()
+    assert body["allows_new_orders"] is False and body["safety_state"] == "ACTIVE"

@@ -7,7 +7,7 @@
 
 ## Trạng thái hiện tại
 
-- **Đang làm: GĐ2 — Event Orchestrator + Làn nhanh** (bắt đầu 2026-11-13, **song song GĐ1 — DEC-19**) → [`docs/giai-doan/GD2-event-orchestrator.md`](docs/giai-doan/GD2-event-orchestrator.md), **kế hoạch + prompt phiên mới: [`docs/ke-hoach/GD2-ke-hoach.md`](docs/ke-hoach/GD2-ke-hoach.md).** Bước 1–3 xong 2026-11-14 (nhật ký sự kiện + job, bộ quét, bộ điều phối, chạy trong backend thay vòng Technical — đường lui `GT_ORCHESTRATOR=0`; mục 1 đạt trên máy 14/11: Technical chạy theo nến). **Tiếp: bước 4** làn nhanh (hỏi ngưỡng trước). GĐ1 code xong, **Gate GĐ1 chưa đóng** (chờ kiểm / ngày công bố — [`docs/ke-hoach/GD1-ke-hoach.md`](docs/ke-hoach/GD1-ke-hoach.md)).
+- **Đang làm: GĐ2 — Event Orchestrator + Làn nhanh** (bắt đầu 2026-11-13, **song song GĐ1 — DEC-19**) → [`docs/giai-doan/GD2-event-orchestrator.md`](docs/giai-doan/GD2-event-orchestrator.md), **kế hoạch + prompt phiên mới: [`docs/ke-hoach/GD2-ke-hoach.md`](docs/ke-hoach/GD2-ke-hoach.md).** Bước 1–3 xong 2026-11-14 (nhật ký sự kiện + job, bộ quét, bộ điều phối, chạy trong backend thay vòng Technical — đường lui `GT_ORCHESTRATOR=0`; mục 1 đạt trên máy 14/11: Technical chạy theo nến). Bước 4 làn nhanh: ngưỡng chốt **DEC-20**; **4a xong** (lệnh cấm có hạn + Safety, `26-…`). **Tiếp: 4b** (chặn theo số liệu HIGH + thông cáo Fed ngoài lịch). GĐ1 code xong, **Gate GĐ1 chưa đóng** (chờ kiểm / ngày công bố — [`docs/ke-hoach/GD1-ke-hoach.md`](docs/ke-hoach/GD1-ke-hoach.md)).
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–10 xong + đã kiểm trên máy** (chi tiết + mục kiểm 1–20 ở file kế hoạch). Nguồn đang tự chạy: FOMC, BEA, DOL, H.15 (thay FRED `BLOCKED`), COT, tin Fed + Bộ Tài chính; chỉ số USD tự tính; trang "Nguồn dữ liệu"; dung lượng 1 năm ≈ 0,6 GB → giữ nguyên chính sách giữ dữ liệu. **DEC-18:** bỏ qua vấn đề pháp lý (dự án cá nhân), vẫn không lách chặn kỹ thuật; FRED / GLD / IAU hỏi lại từng nguồn.
@@ -53,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-13): backend 1661 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 1679 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.

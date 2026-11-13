@@ -783,6 +783,8 @@ export interface components {
             live_checklist: string[];
             /** Allows New Orders */
             allows_new_orders: boolean;
+            /** Entry Blocks */
+            entry_blocks?: components["schemas"]["EntryBlockOut"][];
             /** Safety History */
             safety_history: components["schemas"]["SafetyTransition"][];
             market_view: components["schemas"]["MarketView"] | null;
@@ -1166,6 +1168,33 @@ export interface components {
              * @description True khi đã dùng > 85%
              */
             warn: boolean;
+        };
+        /**
+         * EntryBlockOut
+         * @description Lệnh cấm mở lệnh mới có hạn của làn nhanh (GĐ2, DEC-20).
+         */
+        EntryBlockOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "RELEASE" | "NEWS" | "SPREAD" | "LATENCY";
+            /** Reason Code */
+            reason_code: string;
+            /** Scope */
+            scope: string;
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /**
+             * End At
+             * @description None: tới khi được gỡ (spread)
+             */
+            end_at: string | null;
+            /** Cause Ref */
+            cause_ref: string;
         };
         /**
          * Freshness
