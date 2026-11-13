@@ -46,7 +46,7 @@ wait_healthy
 
 echo "== 2. Đăng nhập đầu-cuối"
 python3 ops/scripts/e2e_auth.py --base http://localhost:8080 --user admin \
-  --initial-password "$INIT_PW" --new-password "$NEW_PW" --legacy-token "$LEGACY" --compose "$DC" \
+  --initial-password "$INIT_PW" --new-password "$NEW_PW" --legacy-token="$LEGACY" --compose "$DC" \
   --member-password "$MEMBER_PW"
 
 echo "== 3. Sao lưu → phá → khôi phục"
@@ -70,7 +70,7 @@ if Q "update audit_log set actor='x'" >/dev/null 2>&1; then echo "LỖI: mất t
 # Bỏ khóa brute force do bước 2 để đăng nhập lại kiểm tra DB Keycloak đã khôi phục
 $DC exec -T keycloak bash -c 'K=/opt/keycloak/bin/kcadm.sh; $K config credentials --config /tmp/c --server http://127.0.0.1:8080/auth --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null 2>&1; $K delete attack-detection/brute-force/users --config /tmp/c -r gold-trading'
 python3 ops/scripts/e2e_auth.py --base http://localhost:8080 --user admin \
-  --initial-password "$NEW_PW" --new-password "$NEW_PW" --legacy-token "$LEGACY" > "$WORK/e2e2.log"
+  --initial-password "$NEW_PW" --new-password "$NEW_PW" --legacy-token="$LEGACY" > "$WORK/e2e2.log"
 tail -1 "$WORK/e2e2.log"
 
 echo "== 4. Quét log tìm bí mật"
