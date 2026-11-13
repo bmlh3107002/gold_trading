@@ -70,7 +70,20 @@ class CandleIngestor:
         # CAL-04: cờ GAP_BEFORE theo lịch đầy đủ (tham chiếu ∩ broker − ngày lễ + giờ đặc biệt)
         self.calendar = calendar
 
-    def ingest(
+    def ingest(self, bars: Iterable[RawBar], **kw) -> IngestResult:
+        """Như ``_ingest_once``; hai nơi ghi cùng nến cùng lúc (hai Gateway cùng server → chung
+        nguồn giá, MT-05) → bên thua bị khóa chính chặn (``IntegrityError``) → đọc lại trạng thái
+        và xử lý lại **một lần** (lúc này nến bên kia đã ghi → thành trùng / revision đúng)."""
+        from sqlalchemy.exc import IntegrityError
+
+        bars = list(bars)
+        kw["rejected"] = list(kw.get("rejected", ()))
+        try:
+            return self._ingest_once(bars, **kw)
+        except IntegrityError:
+            return self._ingest_once(bars, **kw)
+
+    def _ingest_once(
         self,
         bars: Iterable[RawBar],
         *,

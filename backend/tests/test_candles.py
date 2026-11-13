@@ -164,3 +164,42 @@ def test_conflicting_duplicates_in_one_batch_are_quarantined(store):
     assert r.accepted == 1 and r.duplicates == 1
     rows = visible(store, T0 + 5 * M)
     assert [c.open_time for c in rows] == [T0 + M]  # không có revision giả cho T0
+
+
+def test_concurrent_writers_same_feed_retry_once(tmp_path):
+    """Hai Gateway cùng server gửi cùng nến cùng lúc: bên thua gặp IntegrityError → đọc lại và
+    xử lý lại một lần → trùng, không lỗi (nhật ký trên máy người dùng 2026-11-14)."""
+    from sqlalchemy.exc import IntegrityError
+
+    repo = SqlRepository.from_url(f"sqlite:///{tmp_path / 'c.db'}")
+    repo.create_all()
+    store = SqlCandleStore(repo.engine)
+    t = datetime(2026, 1, 5, 14, 0, tzinfo=UTC)
+    first = ingest(store, [bar(t)], at=t + timedelta(minutes=16))
+    assert first.accepted == 1
+    real = store.append
+    calls = {"n": 0}
+
+    def racing_append(items, quarantine):
+        calls["n"] += 1
+        if calls["n"] == 1:      # lần đầu: giả như đọc trạng thái cũ rồi đụng bên kia
+            raise IntegrityError("insert", {}, Exception("duplicate key"))
+        return real(items, quarantine)
+    store.append = racing_append
+    res = ingest(store, [bar(t), bar(t + timedelta(minutes=15))], at=t + timedelta(minutes=31))
+    assert calls["n"] == 2 and res.accepted == 1 and res.duplicates == 1
+    store.append = real
+    assert len(visible(store, t + timedelta(hours=1))) == 2
+
+
+def test_integrity_error_twice_propagates(tmp_path):
+    from sqlalchemy.exc import IntegrityError
+
+    store = InMemoryCandleStore()
+
+    def boom(items, quarantine):
+        raise IntegrityError("insert", {}, Exception("x"))
+    store.append = boom
+    t = datetime(2026, 1, 5, 14, 0, tzinfo=UTC)
+    with pytest.raises(IntegrityError):
+        ingest(store, [bar(t)], at=t + timedelta(minutes=16))
