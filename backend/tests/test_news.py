@@ -91,7 +91,6 @@ def test_config_valid():
 
 @pytest.mark.parametrize("kw", [
     {"provider": "gld"},            # BLOCKED
-    {"provider": "bls"},            # NEEDS_REVIEW
     {"provider": "khongco"},        # chưa ghi điều khoản
 ])
 def test_config_enabled_requires_verified_terms(kw):
@@ -99,8 +98,14 @@ def test_config_enabled_requires_verified_terms(kw):
         one_cfg(**kw)
 
 
+def test_config_needs_review_terms_blocked():
+    terms = {"nr": SourceTerms("nr", TermsStatus.NEEDS_REVIEW, NOW.date(), "#nr")}
+    with pytest.raises(N.NewsConfigError, match="NEEDS_REVIEW"):
+        N.parse_news_config(cfg_text(src(provider="nr")), terms=terms)
+
+
 def test_config_disabled_source_with_unverified_terms_is_allowed():
-    c, reg = one_cfg(provider="bls", enabled=False)
+    c, reg = one_cfg(provider="gld", enabled=False)
     assert not reg.get(c.name).enabled
 
 

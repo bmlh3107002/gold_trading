@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
 
-POLICY_VERSION = "event-policy-2026.11.13"
+POLICY_VERSION = "event-policy-2026.11.13-bls"
 
 
 class Importance(StrEnum):
@@ -47,6 +47,10 @@ _TABLE: dict[tuple[str, str | None], tuple[Importance, str]] = {
     ("BEA_GDP", "SECOND"): (Importance.MEDIUM, "ước tính GDP lần 2: thường sửa nhỏ"),
     ("BEA_GDP", "THIRD"): (Importance.MEDIUM, "ước tính GDP lần 3: thường sửa nhỏ"),
     ("DOL_JOBLESS_CLAIMS", None): (Importance.MEDIUM, "số tuần, biến động nhiều, ít bất ngờ"),
+    # Bước 8e (BLS): hai số tác động mạnh nhất tới vàng; PPI thường ít bất ngờ hơn CPI.
+    ("BLS_CPI", None): (Importance.HIGH, "lạm phát tiêu dùng — tác động mạnh tới kỳ vọng lãi suất"),
+    ("BLS_EMPSIT", None): (Importance.HIGH, "việc làm phi nông nghiệp (NFP) + thất nghiệp"),
+    ("BLS_PPI", None): (Importance.MEDIUM, "lạm phát phía sản xuất, thường ít bất ngờ hơn CPI"),
 }
 UNKNOWN_REASON = "sự kiện chưa có trong bảng → coi là quan trọng cao (an toàn)"
 

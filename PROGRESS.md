@@ -11,7 +11,8 @@
 - **GĐ0 đã đóng (người dùng xác nhận 2026-11-06).** Trên máy Windows: Docker, Keycloak HTTPS (máy tính + iPhone), MT5 Gateway 9/9, break-glass, chỉ ADMIN/USER (DEC-16), diễn tập sao lưu + khôi phục. OPS-06 (CD) hoãn.
 - **DEC-01..07 + DEC-14 đã chốt (2026-11-07)**: chỉ nguồn miễn phí, chi tiết ở bảng quyết định file GĐ1. Người dùng chốt giữ thứ tự đề xuất (bước 1 → 10 trong file kế hoạch).
 - **Bước 1–10 xong + đã kiểm trên máy** (chi tiết + mục kiểm 1–20 ở file kế hoạch). Nguồn đang tự chạy: FOMC, BEA, DOL, H.15 (thay FRED `BLOCKED`), COT, tin Fed + Bộ Tài chính; chỉ số USD tự tính; trang "Nguồn dữ liệu"; dung lượng 1 năm ≈ 0,6 GB → giữ nguyên chính sách giữ dữ liệu. **DEC-18:** bỏ qua vấn đề pháp lý (dự án cá nhân), vẫn không lách chặn kỹ thuật; FRED / GLD / IAU hỏi lại từng nguồn.
-- **Còn của GĐ1:** 8e BLS (CPI/NFP — chờ người dùng chụp điều khoản; cần cho Gate), Census (hoãn), ETF (hoãn), mục 6a (qua đêm), COT sau 22:30 VN 16/11, DOL 20:30 VN 19/11, giờ broker Lễ Tạ ơn 26–27/11, đo lại dung lượng sau 7 ngày, 32 nến cách ly 13/11 (xem lý do), rồi Gate (≥ 5 ngày chạy liên tục, bắt CPI/NFP).
+- **8e BLS xong 2026-11-13** (`24-…`, `cli bls`; lịch chép tay tới 12/2027, khóa trong `.env`; chờ kiểm trên máy — mục 21). Gate: bắt NFP 04/12 hoặc CPI 10/12, 20:30 giờ VN.
+- **Còn của GĐ1:** Census (hoãn), ETF (hoãn), mục 6a (qua đêm), COT sau 22:30 VN 16/11, DOL 20:30 VN 19/11, giờ broker Lễ Tạ ơn 26–27/11, đo lại dung lượng sau 7 ngày, 32 nến cách ly 13/11 (xem lý do), rồi Gate (≥ 5 ngày chạy liên tục, bắt CPI/NFP).
 - Bài học: kiểm nguồn mới **từ máy người dùng** trước khi code; lệnh PowerShell không chứa `\"` hay `$`; đổi `docker-compose.yml` → người dùng tải lại file.
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
@@ -52,4 +53,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-13): backend 1529 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.
+Kết quả lần cuối (2026-11-13): backend 1571 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.

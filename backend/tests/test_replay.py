@@ -22,10 +22,10 @@ from gold_trading.ingestion.source_status import CheckOutcome, SourceCheckLog
 from gold_trading.storage.external_records import SqlExternalRecordStore
 from gold_trading.storage.repository import SqlRepository
 from gold_trading.storage.source_checks import SqlSourceCheckLog
-from tests.test_external_runner import KEY_VALUE, NOW, Net
+from tests.test_external_runner import BLS_KEY, KEY_VALUE, NOW, Net
 
 FAR = NOW + timedelta(days=400)
-ENV = {"GT_BEA_API_KEY": KEY_VALUE}
+ENV = {"GT_BEA_API_KEY": KEY_VALUE, "GT_BLS_API_KEY": BLS_KEY}
 ALL = R.DEFAULT_SOURCES
 
 
@@ -65,7 +65,8 @@ def test_replay_every_source(kind, tmp_path):
     jobs, reg = jobs_for(store, log)
     assert {j.source for j in jobs} == {
         "fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa", "dol_claims", "fed_h15",
-        "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press"}
+        "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press",
+        "bls_schedule", "bls_values"}
     first = run_all(jobs, NOW)
     assert all(c.outcome is CheckOutcome.OK for c in first), [(c.source, c.error_code)
                                                               for c in first]
@@ -96,9 +97,10 @@ def _latest(store, reg):
 
 def test_reversed_order_only_documented_difference(tmp_path):
     """Đảo thứ tự (số chạy trước lịch) rồi chạy lại đúng thứ tự: cùng tập dữ kiện, cùng số, cùng
-    thời điểm. Khác biệt DUY NHẤT được chấp nhận: số DOL nạp khi lịch chưa có mang cờ cảnh báo
-    ``RELEASE_OFF_SCHEDULE`` — cờ ghi điều hệ thống biết lúc nạp (point-in-time), không viết lại
-    về sau. Chạy thật không xảy ra: lịch DOL theo quy tắc, không gọi mạng, luôn chạy trước số."""
+    thời điểm sự kiện. Khác biệt được chấp nhận (ghi điều hệ thống biết lúc nạp, không viết lại):
+    số DOL mang cờ ``RELEASE_OFF_SCHEDULE``; số BLS không gắn lần công bố (``available_at``
+    trống → coi là biết từ lúc nạp, không sớm hơn). Chạy thật không xảy ra: lịch DOL theo quy tắc,
+    lịch BLS là bảng chép tay — đều không gọi mạng, luôn chạy trước số."""
     store, log = make_store("sqlite", tmp_path, "rev")
     jobs, reg = jobs_for(store, log)
     run_all(jobs, NOW, order=-1)
@@ -109,12 +111,20 @@ def test_reversed_order_only_documented_difference(tmp_path):
     a, b = _latest(store, reg), _latest(ref_store, reg)
     assert a.keys() == b.keys()
     diff = []
+    link = ("release_ref", "latency_seconds", "flags")
     for k in a:
         x, y = a[k], b[k]
-        px = {f: v for f, v in x.payload.items() if f != "flags"}
-        py = {f: v for f, v in y.payload.items() if f != "flags"}
-        assert (px, x.event_time, x.available_at, x.revision) == \
-            (py, y.event_time, y.available_at, y.revision), k
+        skip = ("flags",) if k[0] != "bls_values" else link
+        px = {f: v for f, v in x.payload.items() if f not in skip}
+        py = {f: v for f, v in y.payload.items() if f not in skip}
+        assert (px, x.event_time, x.revision) == (py, y.event_time, y.revision), k
+        if k[0] == "bls_values":
+            # Số BLS nạp khi lịch chưa có: không gắn lần công bố → available_at trống → được
+            # "biết" từ lúc nạp (không sớm hơn bản chuẩn) — hướng an toàn.
+            assert x.available_at is None or x.available_at == y.available_at, k
+            assert x.known_at >= y.known_at, k
+            continue
+        assert x.available_at == y.available_at, k
         if x.quality_flags != y.quality_flags:
             fx, fy = x.quality_flags, y.quality_flags
             diff.append((k[0], fx - fy, fy - fx))

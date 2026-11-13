@@ -43,7 +43,8 @@ def _t(provider: str, status: TermsStatus) -> SourceTerms:
 # Đổi trạng thái = sửa file thiết kế (bằng chứng, ngày) + đây, cùng một commit.
 SOURCE_TERMS: dict[str, SourceTerms] = {t.provider: t for t in (
     _t("fred", TermsStatus.BLOCKED),     # nguyên văn 2026-11-13: cấm lưu vào DB, cấm dùng cho AI
-    _t("bls", TermsStatus.NEEDS_REVIEW),
+    _t("bls", TermsStatus.VERIFIED),     # 2026-11-13: DEC-18 (người dùng chấp nhận rủi ro);
+                                         # public domain, ghi nguồn BLS
     _t("bea", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13; phải hiện câu ghi nguồn BEA
     _t("census", TermsStatus.VERIFIED),  # nguyên văn 2026-11-13; phải hiện câu ghi nguồn Census
     _t("dol", TermsStatus.VERIFIED),     # nguyên văn 2026-11-13: public domain; chỉ bản tin PDF

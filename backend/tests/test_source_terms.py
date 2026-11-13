@@ -51,10 +51,10 @@ def test_real_terms_state():
     """Chỉ nhà cung cấp đã đọc nguyên văn điều khoản mới VERIFIED (lần 2, 2026-11-13);
     hai quỹ ETF bị chặn vì điều khoản website."""
     verified = {p for p, t in SOURCE_TERMS.items() if t.status is TermsStatus.VERIFIED}
-    assert verified == {"bea", "census", "cftc", "dol", "fed", "treasury"}
+    assert verified == {"bea", "bls", "census", "cftc", "dol", "fed", "treasury"}
     assert {p for p, t in SOURCE_TERMS.items() if t.status is TermsStatus.BLOCKED} == \
         {"fred", "gld", "iau"}
-    for p in ("fred", "bls", "gld", "iau"):
+    for p in ("fred", "gld", "iau"):
         assert terms_problem(p, SOURCE_TERMS) is not None
     SourceRegistry([SourceSpec("bea_gdp", "macro", fetch_ttl=H, provider="bea")])
 

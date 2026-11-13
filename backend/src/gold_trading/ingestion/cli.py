@@ -27,6 +27,10 @@ Lịch (theo quy tắc) + số trợ cấp thất nghiệp tuần của DOL (bư
 
     docker compose exec backend python -m gold_trading.ingestion.cli dol
 
+Lịch (chép tay) + số CPI, việc làm (NFP), PPI của BLS (bước 8e; số cần GT_BLS_API_KEY):
+
+    docker compose exec backend python -m gold_trading.ingestion.cli bls --dry-run
+
 Tải lãi suất H.15 của Fed một lần (bước 9b: EFFR, lợi suất 2 năm, 10 năm, thực 10 năm):
 
     docker compose exec backend python -m gold_trading.ingestion.cli h15 --dry-run
@@ -93,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     cen.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     dol = sub.add_parser("dol", help="Lịch + số trợ cấp thất nghiệp tuần DOL một lần (ING-09/17)")
     dol.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    bls = sub.add_parser("bls", help="Lịch + số CPI / NFP / PPI của BLS một lần (ING-09/17)")
+    bls.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     h15 = sub.add_parser("h15", help="Tải lãi suất H.15 của Fed một lần (ING-25/26)")
     h15.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     cot = sub.add_parser("cot", help="Tải báo cáo COT vàng của CFTC một lần (ING-12)")
@@ -106,6 +112,8 @@ def main(argv: list[str] | None = None) -> int:
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
+    if args.cmd == "bls":
+        return _bls(args.dry_run)
     if args.cmd == "h15":
         return _h15(args.dry_run)
     if args.cmd == "cot":
@@ -380,6 +388,55 @@ def _dol(dry_run: bool, env=None, client_factory=None) -> int:
               f"{'  ' + str(p['flags']) if p['flags'] else ''}")
     print("Nguồn: U.S. Department of Labor (dol.gov).")
     return 0 if sched.outcome.value == "OK" and vals.outcome.value == "OK" else 1
+
+
+def _bls(dry_run: bool, env=None, client_factory=None, now=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.api_keys import load_api_key
+    from gold_trading.ingestion.point_in_time import PointInTimeStore
+    from gold_trading.ingestion.source_status import SourceCheckLog
+    from gold_trading.ingestion.sources import bls
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.source_checks import SqlSourceCheckLog
+
+    env = os.environ if env is None else env
+    now = now or utcnow()
+    if dry_run:
+        store, log = PointInTimeStore(), SourceCheckLog()
+    else:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+        store, log = SqlExternalRecordStore(engine), SqlSourceCheckLog(engine)
+    vn = ZoneInfo("Asia/Ho_Chi_Minh")
+    sched = bls.run_schedule_once(store=store, log=log, now=now)
+    print(f"Lịch BLS ({bls.SCHEDULE_VERSION}, chép tay): {sched.outcome.value} "
+          f"{sched.error_code or ''} — thêm {sched.inserted}")
+    for r in sorted(store.as_of(now, source=bls.SCHEDULE_SOURCE, kind="calendar",
+                                event_from=now), key=lambda r: r.event_time)[:6]:
+        print(f"  {r.event_time.astimezone(vn):%d/%m/%Y %H:%M} giờ VN  {r.payload['title']}")
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    with make() as client:
+        check = bls.run_values_once(store=store, log=log, post=bls.http_poster(client),
+                                    key_lookup=load_api_key("bls", env), now=now)
+    print(f"Số BLS: {check.outcome.value} {check.error_code or ''} — thêm {check.inserted}")
+    latest: dict[str, object] = {}
+    for r in store.as_of(now, source=bls.VALUES_SOURCE, kind="macro"):
+        s = r.payload["series"]
+        if s not in latest or r.event_time > latest[s].event_time:
+            latest[s] = r
+    for code in (s.code for s in bls.SERIES):
+        if (r := latest.get(code)) is not None:
+            p = r.payload
+            print(f"  {code:16} {p['period']}: {p['value'] or 'không có số'}"
+                  f"{' (sơ bộ)' if 'PRELIMINARY' in p['flags'] else ''}  — {p['label']}")
+    print("Nguồn: U.S. Bureau of Labor Statistics (bls.gov). BLS.gov cannot vouch for the data "
+          "or analyses derived from these data after the data have been retrieved from BLS.gov.")
+    return 0 if sched.outcome.value == "OK" and check.outcome.value == "OK" else 1
 
 
 def _h15(dry_run: bool, env=None, client_factory=None) -> int:

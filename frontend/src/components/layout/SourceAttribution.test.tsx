@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { BEA_ATTRIBUTION, CENSUS_ATTRIBUTION, SourceAttribution } from "./SourceAttribution";
+import { BEA_ATTRIBUTION, BLS_DISCLAIMER, CENSUS_ATTRIBUTION, SourceAttribution } from "./SourceAttribution";
 
 describe("SourceAttribution", () => {
   it("hiện nguyên văn câu ghi nguồn BEA, Census và ghi nguồn Fed", () => {
@@ -15,6 +15,9 @@ describe("SourceAttribution", () => {
     expect(screen.getByText(/Federal Reserve Board H\.15.*U\.S\. Treasury/)).toBeInTheDocument();
     expect(screen.getByText(/Thông cáo báo chí: U\.S\. Department of the Treasury/)).toBeInTheDocument();
     expect(screen.getByText(/U\.S\. Department of Labor/)).toBeInTheDocument();
+    // Bước 8e: BLS — ghi nguồn + câu nguyên văn BLS yêu cầu
+    expect(screen.getByText(/CPI, việc làm \(NFP\), PPI: U\.S\. Bureau of Labor Statistics/)).toBeInTheDocument();
+    expect(screen.getByText(BLS_DISCLAIMER)).toBeInTheDocument();
     // Bước 9e: COT vàng — CFTC yêu cầu ghi nguồn (webpolicy, đọc 2026-11-13)
     expect(screen.getByText(/Commodity Futures Trading Commission/)).toBeInTheDocument();
     expect(CENSUS_ATTRIBUTION).toBe(

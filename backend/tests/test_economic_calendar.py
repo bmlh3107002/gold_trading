@@ -20,6 +20,7 @@ from gold_trading.ingestion import event_importance as I
 from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.source_status import SourceCheckLog
 from gold_trading.ingestion.sources import bea as B
+from gold_trading.ingestion.sources import bls as L
 from gold_trading.ingestion.sources import dol as D
 from gold_trading.ingestion.sources import fed_fomc as F
 from gold_trading.storage.external_records import SqlExternalRecordStore
@@ -42,6 +43,9 @@ BEA = {
 POLICY_FINGERPRINTS = {
     "event-policy-2026.11.13":
         "5d4a3853ebd620eb7f5fbc65bab085e8eb83a02b3f1b203dec4f80cd8760fe87",
+    # Bước 8e: thêm BLS_CPI / BLS_EMPSIT (HIGH), BLS_PPI (MEDIUM)
+    "event-policy-2026.11.13-bls":
+        "20d15ec6361b76cf50a5081dd6b956b34053b1dce5dd4813d273be58be9a8a98",
 }
 
 
@@ -61,6 +65,7 @@ def store(request, tmp_path):
     F.run_once(store=st, log=log, get=lambda p: FED[p], now=NOW)
     B.run_schedule_once(store=st, log=log, get=lambda u, p=None: BEA[u], now=NOW)
     D.run_schedule_once(store=st, log=log, now=NOW)
+    L.run_schedule_once(store=st, log=log, now=NOW)
     return st
 
 

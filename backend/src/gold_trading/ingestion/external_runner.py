@@ -44,7 +44,7 @@ RELEASE_DAY_POLL = timedelta(minutes=5)
 RECONCILE_RETRY = timedelta(hours=6)
 
 # "news": mọi nguồn tin đang bật trong file cấu hình nguồn tin (bước 10b, ``ingestion/news.py``).
-DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot", "news")
+DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "bls", "fed_h15", "cftc_cot", "news")
 KNOWN_SOURCES = frozenset(DEFAULT_SOURCES)
 
 
@@ -106,7 +106,7 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
                client) -> tuple[list[Job], SourceRegistry]:
     """Dựng danh sách việc theo thứ tự chạy (lịch trước, số sau)."""
     from gold_trading.ingestion.api_keys import load_api_key
-    from gold_trading.ingestion.sources import bea, cftc_cot, dol, fed_fomc, fed_h15
+    from gold_trading.ingestion.sources import bea, bls, cftc_cot, dol, fed_fomc, fed_h15
 
     specs = []
     sched: list[Job] = []
@@ -135,6 +135,15 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
         vals.append(Job(dol.VALUES_SOURCE, lambda now: dol.run_values_once(
             store=store, log=check_log, get=get_dol, now=now, registry=registry),
             lambda now, s: dol.values_due(now, store, s.last_ok_at), is_values=True))
+    if "bls" in sources:  # bước 8e: lịch chép tay (không gọi mạng) + số CPI / NFP / PPI qua API
+        specs += [bls.schedule_spec(), bls.values_spec()]
+        post_bls = bls.http_poster(client)
+        sched.append(Job(bls.SCHEDULE_SOURCE, lambda now: bls.run_schedule_once(
+            store=store, log=check_log, now=now, registry=registry), schedule_due))
+        vals.append(Job(bls.VALUES_SOURCE, lambda now: bls.run_values_once(
+            store=store, log=check_log, post=post_bls, now=now, registry=registry,
+            key_lookup=load_api_key("bls", env)),
+            lambda now, s: bls.values_due(now, store, s.last_ok_at), is_values=True))
     if "fed_h15" in sources:  # bước 9b: lãi suất H.15 (số vĩ mô, không theo lịch công bố)
         specs.append(fed_h15.spec())
         get_h15 = fed_h15.http_getter(client)

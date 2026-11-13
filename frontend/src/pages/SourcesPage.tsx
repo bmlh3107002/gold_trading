@@ -17,12 +17,13 @@ const STATUS_TONE: Record<DataSource["status"], BadgeTone> = {
 
 const KNOWN_NAMES = new Set([
   "fed_fomc", "bea_schedule", "bea_nipa", "dol_claims_schedule", "dol_claims", "fed_h15",
-  "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press",
+  "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press", "bls_schedule",
+  "bls_values",
 ]);
 const KNOWN_REASONS = new Set([
   "OK", "FETCH_TTL_EXPIRED", "DATA_TTL_EXPIRED", "NEVER_CHECKED", "NEVER_OK", "NO_DATA", "DISABLED",
   "UNKNOWN_SOURCE", "AUTH_FAILED", "KEY_MISSING", "KEY_INVALID", "FORBIDDEN", "SOURCE_DISCONTINUED",
-  "ALL_RECORDS_REJECTED", "PARSE_ERROR",
+  "ALL_RECORDS_REJECTED", "PARSE_ERROR", "SCHEDULE_TABLE_EXPIRING",
 ]);
 
 /** Tên dễ đọc; nguồn mới chưa có bản dịch → hiện nguyên mã (không vỡ trang). */

@@ -39,7 +39,9 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 <a id="bls"></a>
 ### BLS — Cục Thống kê Lao động (CPI, NFP, PPI; lịch + actual; RSS; bước 8, 10)
 
-- **Trạng thái:** `NEEDS_REVIEW`
+- **Trạng thái:** `VERIFIED`
+- **Quyết định (bước 8e, 2026-11-13):** theo **DEC-18** (người dùng chấp nhận rủi ro điều khoản) → `VERIFIED`. Trang điều khoản chỉ đọc được một phần qua ảnh chụp của người dùng (đoạn Citing Data bị che) — không chụp lại. Vẫn làm theo phần đã đọc: **ghi nguồn BLS + câu nguyên văn** *"BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov."* ở chân trang web; không dùng logo BLS.
+- **Truy cập (máy người dùng):** API `api.bls.gov` 200 (khóa đăng ký 2026-11-13, nằm trong `.env`); `www.bls.gov` 403 với chương trình (trình duyệt xem được) → **lịch chép tay** từ trình duyệt (`docs/thiet-ke/24-bls.md`). Máy chủ đám mây: cả hai bị chặn.
 - Biết được: API bản 2 **cần khóa**; giới hạn **500 truy vấn/ngày** (có khóa), **50 yêu cầu / 10 giây**; khóa phải **gia hạn ít nhất mỗi năm** (→ khóa hết hạn sẽ ra `AUTH_FAILED`/`KEY_*`, nguồn MISSING — ING-30). Chữ, bảng, biểu đồ của BLS là **public domain**, dùng lại được nếu **ghi nguồn**; ảnh và logo không được dùng; không được sửa nội dung mà vẫn ghi nguồn BLS.
 - Cần đọc: <https://www.bls.gov/developers/termsOfService.htm>, <https://www.bls.gov/developers/api_faqs.htm>, <https://www.bls.gov/bls/linksite.htm>.
 - Lần 2 (2026-11-13): trang web BLS trả **403 Access Denied** cho máy chủ đám mây → chưa đọc được nguyên văn; không giả trình duyệt để lách. Kênh chính thức cho chương trình là API `api.bls.gov` (có khóa).

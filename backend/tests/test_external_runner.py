@@ -41,6 +41,8 @@ FED_PAGES = {
 RSS = {f"/feeds/{n}.xml": (FIX / "fed" / "rss" / f"{n}.xml").read_bytes()
        for n in ("press_monetary", "speeches_and_testimony")}
 TREASURY = (FIX / "treasury" / "press-releases-2026-11-13.xml").read_bytes()
+BLS_JSON = (FIX / "bls" / "timeseries-2026-11-13.json").read_text(encoding="utf-8")
+BLS_KEY = "0123456789abcdef0123456789abcdef"
 BEA_FILES = {
     B.ICS_URL: (FIX / "bea" / "schedule-2026-11-13.ics").read_text(encoding="utf-8"),
     B.DATES_URL: (FIX / "bea" / "release_dates-2026-11-13.json").read_text(encoding="utf-8"),
@@ -64,6 +66,11 @@ class Net:
         if host in self.down:
             return httpx.Response(503)
         url = str(req.url).split("?")[0]
+        if host == "api.bls.gov" and path == "/publicAPI/v2/timeseries/data/":
+            import json as _json
+            assert req.method == "POST" and BLS_KEY not in str(req.url)
+            assert _json.loads(req.content)["registrationkey"] == BLS_KEY
+            return httpx.Response(200, text=BLS_JSON)
         if host == "home.treasury.gov" and path == "/news/press-releases/index.xml":
             return httpx.Response(200, content=TREASURY)
         if host == "www.federalreserve.gov" and path in RSS:
@@ -118,15 +125,16 @@ def chk(at, ok=True, code=None):
 # ------------------------------------------------------------------ cấu hình
 
 def test_parse_sources():
-    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "fed_h15", "cftc_cot", "news")
+    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "bls", "fed_h15", "cftc_cot",
+                                     "news")
     assert R.parse_sources("  ") == R.DEFAULT_SOURCES
     for off in ("0", "off", "OFF", "none", "false"):
         assert R.parse_sources(off) == ()
     assert R.parse_sources("dol, fed_fomc,dol") == ("dol", "fed_fomc")
     with pytest.raises(ValueError, match="census"):
         R.parse_sources("fed_fomc,census")  # Census đang hoãn → không âm thầm bỏ qua
-    with pytest.raises(ValueError, match="bls"):
-        R.parse_sources("bls")
+    with pytest.raises(ValueError, match="fred"):
+        R.parse_sources("fred")  # FRED BLOCKED (9a) → không có trong bộ chạy
 
 
 def test_runner_from_env_silences_url_logging(caplog):
@@ -152,8 +160,9 @@ def test_runner_from_env():
     assert R.runner_from_env(None, {"GT_EXTERNAL_SOURCES": "0"}) is None
     r = R.runner_from_env(None, {})
     try:
-        assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                             "dol_claims", "fed_h15", "cftc_cot_gold", "fed_rss_monetary",
+        assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule",
+                             "bea_nipa", "dol_claims", "bls_values", "fed_h15",
+                             "cftc_cot_gold", "fed_rss_monetary",
                              "fed_rss_speeches", "treasury_press"]  # lịch trước, số sau, tin cuối
     finally:
         r.stop()
@@ -200,14 +209,17 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
     net = Net()
     r = make(stores, net)
     got = by_source(r.tick(NOW))
-    assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa",
-                         "dol_claims", "fed_h15", "cftc_cot_gold", "fed_rss_monetary",
-                         "fed_rss_speeches", "treasury_press"]
-    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "dol_claims", "fed_h15",
-              "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press"):
+    assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule",
+                         "bea_nipa", "dol_claims", "bls_values", "fed_h15", "cftc_cot_gold",
+                         "fed_rss_monetary", "fed_rss_speeches", "treasury_press"]
+    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule", "dol_claims",
+              "fed_h15", "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches",
+              "treasury_press"):
         assert got[s].outcome is CheckOutcome.OK and got[s].inserted > 0, s
     assert got["bea_nipa"].outcome is CheckOutcome.ERROR
     assert got["bea_nipa"].error_code == "KEY_MISSING"
+    assert got["bls_values"].error_code == "KEY_MISSING"
+    assert not any("api.bls.gov" in c for c in net.calls)  # thiếu khóa → không gọi API BLS
     assert not any("/api/data" in c for c in net.calls)  # thiếu khóa → không gọi API BEA
     store = stores[0]
     assert store.as_of(NOW, source="fed_fomc") and store.as_of(NOW, source="dol_claims")

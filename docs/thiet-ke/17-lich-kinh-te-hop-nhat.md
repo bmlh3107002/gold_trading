@@ -2,7 +2,9 @@
 
 > Code: `backend/src/gold_trading/ingestion/event_importance.py` (chính sách), `ingestion/economic_calendar.py` (bảng hợp nhất), lệnh `python -m gold_trading.ingestion.cli lich --days 14`. Test: `backend/tests/test_economic_calendar.py`. Ảnh hưởng quyết định giao dịch (cửa sổ rủi ro sẽ được Safety / làn nhanh dùng ở GĐ2) → mọi thay đổi ghi ở đây kèm lý do.
 
-## 1. Mức quan trọng (ING-20) — phiên bản `event-policy-2026.11.13`
+## 1. Mức quan trọng (ING-20) — phiên bản `event-policy-2026.11.13-bls`
+
+> 2026-11-13 (bước 8e): thêm `BLS_CPI`, `BLS_EMPSIT` (HIGH), `BLS_PPI` (MEDIUM) — chi tiết + lý do ở `24-bls.md` mục 4. Bản trước: `event-policy-2026.11.13`.
 
 | Sự kiện | Mức | Lý do |
 | --- | --- | --- |
@@ -13,6 +15,8 @@
 | `BEA_GDP` ước tính `ADVANCE` | HIGH | số GDP đầu tiên của quý |
 | `BEA_GDP` `SECOND` / `THIRD` | MEDIUM | thường chỉ sửa nhỏ |
 | `DOL_JOBLESS_CLAIMS` | MEDIUM | số tuần, biến động nhiều |
+| `BLS_CPI` / `BLS_EMPSIT` (NFP) | HIGH | lạm phát tiêu dùng / việc làm — tác động mạnh nhất tới vàng |
+| `BLS_PPI` | MEDIUM | lạm phát phía sản xuất, ít bất ngờ hơn CPI |
 | **Mọi sự kiện / biến thể khác** (vd. GDP `INITIAL`/`UPDATED`, GDP không rõ lần ước tính, CPI chưa có nguồn) | **HIGH** + ghi chú `IMPORTANCE_UNKNOWN_EVENT` | hướng an toàn: không biết thì coi là quan trọng |
 
 **Phiên bản:** mức là **chính sách**, không ghi vào bản ghi của nguồn; bảng hợp nhất tính khi đọc và mang `policy_version`. Test giữ "dấu vân tay" (SHA-256) của toàn bộ bảng mức + cửa sổ theo phiên bản → đổi một con số mà quên đổi `POLICY_VERSION` thì test đỏ.
