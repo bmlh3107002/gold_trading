@@ -463,3 +463,34 @@ orchestrator_job_attempts = Table(
 )
 Index("ix_orchestrator_job_attempts_key", orchestrator_job_attempts.c.job_key,
       orchestrator_job_attempts.c.at)
+
+
+# --- Lệnh cấm mở lệnh mới có hạn của làn nhanh (GĐ2 bước 4a, migration 0016) — chỉ thêm ---
+# Thiết kế: docs/thiet-ke/26-lam-nhanh.md (DEC-20)
+risk_blocks = Table(
+    "risk_blocks",
+    metadata,
+    Column("block_id", String(40), primary_key=True),
+    Column("kind", String(16), nullable=False),
+    Column("scope", String(64), nullable=False),
+    Column("reason_code", String(64), nullable=False),
+    Column("start_at", DateTime(timezone=True), nullable=False),
+    Column("end_at", DateTime(timezone=True)),
+    Column("cause_ref", String(256), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("policy_version", String(32), nullable=False),
+    Column("latency_ms", Integer),
+    CheckConstraint("kind IN ('RELEASE', 'NEWS', 'SPREAD', 'LATENCY')",
+                    name="ck_risk_blocks_kind"),
+    CheckConstraint("end_at IS NULL OR end_at > start_at", name="ck_risk_blocks_window"),
+)
+Index("ix_risk_blocks_created", risk_blocks.c.created_at)
+
+risk_block_lifts = Table(
+    "risk_block_lifts",
+    metadata,
+    Column("block_id", String(40), primary_key=True),
+    Column("lifted_at", DateTime(timezone=True), nullable=False),
+    Column("reason_code", String(64), nullable=False),
+)
+
