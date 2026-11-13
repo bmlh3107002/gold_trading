@@ -115,6 +115,8 @@ Lưu ý chung cho cơ quan liên bang Mỹ: tác phẩm do nhân viên liên ban
 - Lý do chặn: một trang điều khoản iShares (Mỹ) tìm được **cấm hoạt động nhằm sao chép website hoặc lấy báo cáo, dữ liệu, thông tin** và cấm tạo sản phẩm phái sinh; bản Thụy Sĩ ghi thông tin chỉ dùng cá nhân, phi thương mại. Chưa xác định được trang điều khoản Mỹ hiện hành áp dụng cho trang sản phẩm IAU. Có dấu hiệu cấm tải tự động → **chặn** cho tới khi đọc nguyên văn và thấy được phép.
 - Cần đọc: điều khoản ở chân trang <https://www.ishares.com> (bản Mỹ).
 - Lần 2 (2026-11-13): trang điều khoản iShares Mỹ chuyển sang `blackrock.com/corporate/compliance/terms-and-conditions` (chưa mở mạng tới đó) → giữ `BLOCKED`. Cùng loại với GLD (quỹ ETF, điều khoản website).
+- Lần 3 (2026-11-13, bước 9f): trang sản phẩm IAU (`ishares.com/us/products/239561/…`) mở được, có "Ounces/Tonnes in Trust" hằng ngày; liên kết "Terms & Conditions" ở chân trang xác nhận trỏ tới `blackrock.com/…/terms-and-conditions` — mạng máy chủ đám mây chặn host này → vẫn chưa đọc nguyên văn, giữ `BLOCKED`.
+- **Quyết định 2026-11-13 (9f):** người dùng **tạm hoãn ETF** (cả GLD và IAU, ING-28) — không bật, không nhập tay; xem lại ở Gate GĐ1 / trước GĐ3.
 
 ## 4. Nguồn không thuộc khung này
 

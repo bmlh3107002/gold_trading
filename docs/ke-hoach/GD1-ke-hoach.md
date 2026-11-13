@@ -145,15 +145,15 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [x] 9c — ING-27 proxy kỳ vọng Fed (DEC-04) (2026-11-13: `ingestion/macro_view.py`, lợi suất 2 năm − EFFR cùng ngày, in ở `cli h15`; thiết kế `18-…` mục 9)
 - [x] 9d — ING-24 chỉ số USD tự tính (DEC-03) (2026-11-13: `market/usd_index.py`, lệnh `cli usd`, thiết kế `docs/thiet-ke/19-chi-so-usd.md`; chờ kiểm trên máy — mục 16)
 - [x] 9e — ING-12 COT (CFTC: đọc điều khoản + kiểm từ máy người dùng trước) (2026-11-13: điều khoản `VERIFIED` đọc từ máy người dùng; `ingestion/sources/cftc_cot.py`, lệnh `cli cot`, chạy tự động; thiết kế `docs/thiet-ke/20-cot-vang.md`; chờ kiểm trên máy — mục 17)
-- [ ] 9f — ING-28 ETF GLD/IAU (điều khoản đang `BLOCKED` → hỏi người dùng)
+- [x] 9f — ING-28 ETF GLD/IAU → **người dùng chọn tạm hoãn** 2026-11-13 (điều khoản GLD cấm tự tải + dùng kiếm tiền; điều khoản IAU trên `blackrock.com` chưa đọc được, trích đoạn có câu cấm → cả hai `BLOCKED`; ETF chỉ là đầu vào phụ của POSN-01, COT đã có). Xem lại ở Gate
 - [ ] ~~Người dùng đăng ký khóa FRED~~ — **bỏ** (2026-11-13: FRED `BLOCKED`, thay bằng H.15)
 - [x] ING-11: khung series vĩ mô theo `releaseAt` (point-in-time, revision) — 9b
 - [x] ING-25 (lợi suất thực 10 năm), ING-26 (lợi suất 2 năm, 10 năm), ING-27 (proxy Fed, DEC-04) — 9b, 9c (nguồn H.15 thay FRED)
 - [x] ING-24: chỉ số USD tự tính (DEC-03); thiếu cặp / lệch thời điểm → không đủ dữ liệu — 9d
 - [x] 1E-C01..C05 (công bố D+1, giá trị ".", series ngừng, đổi đơn vị, khóa hết hạn — không lộ khóa) — 9b
 - [x] ING-12: COT vàng (`available_at` = thứ Sáu công bố) — 9e
-- [ ] ING-28: ETF GLD, IAU (kiểm điều khoản tải trước khi bật)
-- [ ] 1F-C01..C03
+- [ ] ~~ING-28: ETF GLD, IAU~~ — **hoãn** (2026-11-13, 9f: điều khoản `BLOCKED`)
+- [x] 1F-C01..C03 — đạt với COT (9e); phần ETF không áp dụng khi hoãn
 - [ ] ING-29 NHTW: **hoãn** (không làm)
 
 ### Bước 10 — Tin tức (1D) + hoàn thiện
@@ -172,6 +172,7 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 
 - [ ] Mọi việc 1A–1G xong (trừ việc người dùng hoãn: ING-29), mọi case có test
 - [ ] **Doanh số bán lẻ (tạm hoãn 2026-11-13, Census chặn Việt Nam):** quyết định lại — lịch chép tay có phiên bản / số qua FRED (ngoại lệ DEC-01) / bỏ hẳn. Trong lúc hoãn **không có cửa sổ chặn quanh tin bán lẻ** → phải xử lý trước khi chạy SHADOW/LIVE
+- [ ] **ETF GLD/IAU (tạm hoãn 2026-11-13, điều khoản `BLOCKED`):** quyết định lại trước GĐ3 — xin phép bằng văn bản (GLD: `sprdgoldshares@gold.org`; IAU: BlackRock) / bỏ hẳn. Trong lúc hoãn, bộ Vị thế (POSN-01) chỉ dùng COT, ghi "thiếu dữ liệu ETF"
 - [ ] MT-12..MT-15 + case MT-C08, MT-C11, MT-C14 (phần dữ liệu) xong
 - [ ] Chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục**
 - [ ] Bắt được **ít nhất một lần công bố lớn** (CPI hoặc NFP): đúng giờ, đúng actual
