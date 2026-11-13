@@ -126,23 +126,43 @@ class Dispatcher:
         return h.version if h is not None else UNHANDLED_VERSION
 
     def create_jobs(self, now: datetime, since: datetime | None = None) -> TickResult:
+        """Tạo job cho sự kiện mới (thứ tự nhân quả). Route ``debounce``: trong lô này chỉ sự kiện
+        **mới nhất** của mỗi (loại job, chủ thể) được tạo job — sự kiện cũ hơn đếm vào
+        ``superseded`` mà không tạo job (nạp bù hàng nghìn nến không sinh hàng nghìn job).
+        Route không debounce (công bố, lịch, tin) luôn có job."""
         res = TickResult()
         lo = since if since is not None else (
             self._event_mark - OVERLAP if self._event_mark else now - LOOKBACK)
         events = self.orch.events(since=lo, until=now)
         res.events = len(events)
-        for e in events:                      # thứ tự nhân quả (2-C02)
-            self._events_by_id[e.event_id] = e
+        newest: dict[tuple[str, str], tuple] = {}
+        for e in events:
             for r in routes_for(e):
+                if r.debounce:
+                    k, rank = (r.job_type, e.subject), (e.occurred_at, e.event_version)
+                    if k not in newest or rank > newest[k]:
+                        newest[k] = rank
+        jobs: list[Job] = []
+        firsts: list[Attempt] = []
+        for e in events:                      # thứ tự nhân quả (2-C02)
+            for r in routes_for(e):
+                if r.debounce and (e.occurred_at, e.event_version) < newest[
+                        (r.job_type, e.subject)]:
+                    res.superseded += 1
+                    continue
                 ver = self._version(r.job_type)
                 j = Job(job_key_for(e, r.job_type, ver), e.event_id, r.job_type, ver,
                         e.correlation_id, now)
-                if self.orch.create_job(j):
-                    res.created += 1
-                    self.orch.append_attempt(Attempt(j.job_key, JobState.PENDING, 0, now))
-                    self._open[j.job_key] = j
+                jobs.append(j)
+                firsts.append(Attempt(j.job_key, JobState.PENDING, 0, now))
+                self._events_by_id[e.event_id] = e
             if self._event_mark is None or e.known_at > self._event_mark:
                 self._event_mark = e.known_at
+        made = set(self.orch.create_jobs_bulk(jobs, firsts))
+        res.created = len(made)
+        for j in jobs:
+            if j.job_key in made:
+                self._open[j.job_key] = j
         return res
 
     def _restore(self, now: datetime) -> None:

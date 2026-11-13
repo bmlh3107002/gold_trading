@@ -134,8 +134,9 @@ def test_debounce_candles_but_never_releases(orch):
     r = d.tick(k + timedelta(seconds=1))
     assert tech.calls == [(GOLD, candle(19).event_version)]
     assert len(ev.calls) == 20 and r.superseded == 19 + 19         # TECHNICAL + REGIME
+    # nến cũ trong cùng lô không sinh job (debounce khi tạo) → chỉ 1 job TECHNICAL
     st = latest_states(orch, d, "TECHNICAL")
-    assert sorted(v.value for v in st.values()).count("SUPERSEDED") == 19
+    assert list(st.values()) == [JobState.SUCCEEDED]
 
 
 def test_debounce_per_subject(orch):
@@ -262,7 +263,13 @@ def test_replay_same_outcome(orch):
                  for j in store.jobs_created_since(T - timedelta(days=1))}, tech.calls, ev.calls)
     one = build(OrchestratorStore(), lambda end: [end])
     many = build(orch, lambda end: [T + timedelta(minutes=m) for m in range(0, 241, 7)] + [end])
-    assert set(one[0]) == set(many[0])
+    # job không debounce (công bố) giống hệt; job debounce: nến mới nhất có ở cả hai
+    def nodeb(keys):
+        return {k for k in keys if "CANDLE_CLOSED" not in k}
+    assert nodeb(one[0]) == nodeb(many[0])
+    last = f"{candle(11).event_version}|TECHNICAL@t-1"
+    assert any(k.endswith(last) for k in one[0]) and any(k.endswith(last) for k in many[0])
+    assert one[1][-1] == many[1][-1] == (GOLD, candle(11).event_version)
     assert all(v in ("SUCCEEDED", "SUPERSEDED", "NO_HANDLER") for v in many[0].values())
     assert sorted(one[2]) == sorted(many[2])           # mọi công bố đều được xử lý ở cả hai
 
@@ -274,3 +281,15 @@ def test_memory_bounded_after_jobs_finish(orch):
     put(orch, *[candle(i) for i in range(30)], *[actual(f"bea_nipa:X{i}") for i in range(30)])
     d.tick(T + timedelta(hours=9))
     assert d._events_by_id == {} and d._open == {}
+
+
+def test_bulk_create_scales(orch):
+    """Nạp bù lớn: 3.000 nến / 3 nguồn → chỉ 1 job / (loại, nguồn); 300 công bố → 300 job."""
+    d = D.Dispatcher(orch, {})
+    k = T + timedelta(days=1)
+    subs = ["MT5:a:XAUUSD:M15", "MT5:b:XAUUSD:M15", "MT5:a:EURUSD:M15"]
+    put(orch, *[candle(i, s, known=k) for s in subs for i in range(1000)],
+        *[actual(f"bea_nipa:X{i}", known=k) for i in range(300)])
+    r = d.tick(k)
+    assert r.created == 2 + 2 + 1 + 300 * 2
+    assert r.superseded == 999 * 5

@@ -186,6 +186,16 @@ class OrchestratorStore:
             self._jobs[j.job_key] = j
             return True
 
+    def create_jobs_bulk(self, jobs, attempts) -> list[str]:
+        """Tạo nhiều job + lần thử đầu; trả các ``job_key`` vừa tạo (trùng → bỏ qua)."""
+        made = []
+        by_key = {a.job_key: a for a in attempts}
+        for j in jobs:
+            if self.create_job(j):
+                made.append(j.job_key)
+                self.append_attempt(by_key[j.job_key])
+        return made
+
     def job(self, job_key: str) -> Job | None:
         with self._lock:
             return self._jobs.get(job_key)

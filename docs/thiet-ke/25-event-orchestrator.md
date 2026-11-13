@@ -82,3 +82,9 @@
 - Bảng định tuyến `router-2026.11.14b` (thêm `OUTPUT_EXPIRED`).
 - Bộ điều phối chỉ giữ trong RAM sự kiện của job chưa kết thúc (chạy nhiều tháng không phình bộ nhớ).
 - **Kiểm chứng:** `tests/test_orchestrator_runner.py` 11 test (bộ nhớ + SQLite): nạp 10 ngày lịch sử → Technical chạy 1 lần; không nến mới → không chạy; nến mới → chạy; kết quả hết hạn → đúng 1 sự kiện (`known_at = expires_at`) → `INVALIDATE_MARKETVIEW` `NO_HANDLER` + tính lại; kết quả cũ đã có kết quả mới thay → không sự kiện; nguồn không còn dùng → bỏ qua; đồng hồ bị chặn → không làm gì; backend mặc định dùng orchestrator, `GT_ORCHESTRATOR=0` → vòng cũ. **Soát lại** (Postgres 16, kịch bản riêng): 6 giờ dữ liệu mẫu, nhịp 15 giây — orchestrator và vòng cũ ra **cùng 24 kết quả Technical** (cùng `as_of`); nhịp đầu 3,6 giây (đọc 5 ngày lịch sử), nhịp sau ≤ 0,4 giây. **Lỗi tìm được khi soát:** bộ điều phối giữ mọi sự kiện đã xử lý trong RAM → sửa chỉ giữ sự kiện của job chưa xong (có test).
+
+## 7. Sửa hiệu năng sau kiểm trên máy (2026-11-14)
+
+- **Trên máy người dùng** (dựng lại bước 3): nhịp đầu quét 2 ngày gặp **31.507 sự kiện** (30.000 nến 6 cặp tiền nạp bù 12/11) → bộ điều phối tạo job từng cái (~57 job/giây) rồi mới debounce → nhịp đầu ước 10–20 phút, mỗi lần khởi động lại mất vài phút kiểm lại — trong lúc đó Technical không chạy.
+- **Sửa:** (1) debounce **ngay khi tạo**: route debounce trong một lô chỉ tạo job cho sự kiện mới nhất của mỗi (loại job, chủ thể), sự kiện cũ hơn đếm `superseded` mà không tạo job (không còn dòng `SUPERSEDED` cho chúng); route không debounce (công bố, lịch, tin) vẫn đủ job; (2) `create_jobs_bulk`: một transaction, kiểm khóa đã có theo lô 500, chèn job + lần thử đầu theo lô.
+- **Đo (Postgres 16):** 35.327 sự kiện → 542 job (bỏ 39.992 job nến cũ) trong **2,4 giây**; khởi động lại 1,3 giây. Kịch bản ngẫu nhiên + so với vòng cũ (24 / 24 kết quả) vẫn đạt.

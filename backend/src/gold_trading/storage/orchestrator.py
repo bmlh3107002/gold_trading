@@ -122,6 +122,39 @@ class SqlOrchestratorStore:
             return False
         return True
 
+    def create_jobs_bulk(self, jobs, attempts) -> list[str]:
+        """Một transaction: bỏ khóa đã có (một truy vấn / 500 khóa), chèn job + lần thử đầu.
+        Đụng ghi đồng thời → làm lại từng cái."""
+        jobs = {j.job_key: j for j in jobs}
+        by_key = {a.job_key: a for a in attempts}
+        if not jobs:
+            return []
+        try:
+            with self.engine.begin() as conn:
+                have: set[str] = set()
+                keys = list(jobs)
+                for i in range(0, len(keys), 500):
+                    have |= set(conn.execute(select(_J.job_key).where(
+                        _J.job_key.in_(keys[i:i + 500]))).scalars())
+                new = [j for k, j in jobs.items() if k not in have]
+                if new:
+                    conn.execute(orchestrator_jobs.insert(), [dict(
+                        job_key=j.job_key, event_id=j.event_id, job_type=j.job_type,
+                        analyzer_version=j.analyzer_version, correlation_id=j.correlation_id,
+                        created_at=j.created_at) for j in new])
+                    conn.execute(orchestrator_job_attempts.insert(), [dict(
+                        job_key=a.job_key, state=a.state.value, attempt=a.attempt, at=a.at,
+                        deadline_at=a.deadline_at, error_code=a.error_code,
+                        output_ref=a.output_ref) for a in (by_key[j.job_key] for j in new)])
+                return [j.job_key for j in new]
+        except IntegrityError:
+            made = []
+            for k, j in jobs.items():
+                if self.create_job(j):
+                    made.append(k)
+                    self.append_attempt(by_key[k])
+            return made
+
     def job(self, job_key: str) -> Job | None:
         with self.engine.connect() as conn:
             m = conn.execute(select(orchestrator_jobs).where(_J.job_key == job_key)
