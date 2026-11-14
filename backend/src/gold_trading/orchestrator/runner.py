@@ -64,7 +64,7 @@ class OrchestratorRunner:
                  handlers: dict[str, Handler],
                  blocked: Callable[[], str | None] = lambda: None,
                  now: Callable[[], datetime] = utcnow, tick: timedelta = TICK,
-                 monitor=None) -> None:
+                 monitor=None, periodic: tuple[Callable[[datetime], object], ...] = ()) -> None:
         self.orch = orch
         self.candle_store = candle_store
         self.record_store = record_store
@@ -77,6 +77,7 @@ class OrchestratorRunner:
         self._thread: threading.Thread | None = None
         self._blocked_logged = False
         self.monitor = monitor          # FastLaneMonitor: nhịp + sự kiện làn nhanh tồn đọng
+        self.periodic = periodic        # việc dự phòng mỗi nhịp (vd. analyst Lịch sự kiện)
 
     def tick(self, now: datetime | None = None):
         reason = self._blocked()
@@ -95,6 +96,11 @@ class OrchestratorRunner:
             # Đồng hồ bị chặn / lỗi → không tới đây → không báo nhịp → Safety chặn sau 10 giây.
             self.monitor.backlog("events", self.dispatcher.oldest_open_known_at("FAST_LANE"))
             self.monitor.ok("events", now)
+        for fn in self.periodic:
+            try:
+                fn(now)
+            except Exception:
+                log.exception("Việc dự phòng của orchestrator lỗi, thử lại nhịp sau")
         # Chỉ ghi log khi có việc thật (quét lại vùng chồng lấn không tạo dòng log mỗi 10 giây).
         if dres.created or dres.ran or dres.superseded:
             log.info("Orchestrator: sự kiện mới %s, job mới %d, bỏ qua (debounce) %d, chạy %s",

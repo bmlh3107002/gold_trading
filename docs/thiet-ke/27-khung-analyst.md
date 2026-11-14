@@ -45,7 +45,7 @@ Mỗi đầu vào khai báo: tên, bắt buộc hay không, `known_at` của b�
 | Tình huống | Đầu vào bắt buộc | Đầu vào tùy chọn |
 | --- | --- | --- |
 | Không có (`known_at = None`) — 3-C01 | `MISSING`, chặn: `MISSING_INPUT:<tên>` | cờ chất lượng `OPTIONAL_MISSING:<tên>` |
-| Quá cũ (`as_of − known_at > max_age`) — 3-C02 | `STALE`, chặn: `STALE_INPUT:<tên>` | cờ `OPTIONAL_STALE:<tên>` |
+| Quá cũ (`as_of − known_at > max_age`, hoặc `healthy=False` — nguồn không khỏe theo ING-30) — 3-C02 | `STALE`, chặn: `STALE_INPUT:<tên>` | cờ `OPTIONAL_STALE:<tên>` |
 | Chưa đủ lịch sử — 3-C03 | `INVALID`, chặn: `INSUFFICIENT_HISTORY:<tên>` | cờ `OPTIONAL_INSUFFICIENT_HISTORY:<tên>` |
 | Có điểm cực đoan — 3-C04 | cờ `SPIKE_IN_INPUT:<tên>`, trần confidence × 0,5 (như Technical) | như bắt buộc |
 | SAMPLE — 3-C05 | cờ `SAMPLE_DATA` | như bắt buộc |

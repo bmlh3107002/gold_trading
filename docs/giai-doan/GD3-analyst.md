@@ -27,10 +27,10 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | TEC-07 | `volForecast` bằng luật (ATR/EWMA), ghi rõ không phải mô hình | `[ ]` | |
 | TEC-09 | Bối cảnh đa khung (H1/H4/D1) | `[ ]` | ← ING-14 |
 | **Event & calendar** | | | |
-| EVT-01 | Phân loại FOMC/NFP/CPI…, mức quan trọng (luật cứng, không LLM) | `[ ]` | ← ING-09, ING-20 |
-| EVT-02 | Cửa sổ rủi ro trước/sau công bố → cờ `EVENT_WINDOW` (độ dài theo mức quan trọng, có phiên bản) | `[ ]` | |
-| EVT-03 | Actual – forecast → hướng bất ngờ, `eventRisk` | `[ ]` | Không có forecast → "không đủ dữ liệu" |
-| EVT-04 | Xử lý công bố bị hoãn/hủy/đổi giờ | `[ ]` | |
+| EVT-01 | Phân loại FOMC/NFP/CPI…, mức quan trọng (luật cứng, không LLM) | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md` — dùng bảng có phiên bản GĐ1 (`event_importance`), không viết lại |
+| EVT-02 | Cửa sổ rủi ro trước/sau công bố → cờ `EVENT_WINDOW` (độ dài theo mức quan trọng, có phiên bản) | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md`: cùng hàm `calendar_blocks` của làn nhanh → khớp Safety (test + soát); thêm `EVENT_SOON` (60 phút, chưa hiệu chỉnh) |
+| EVT-03 | Actual – forecast → hướng bất ngờ, `eventRisk` | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md`: `event_risk`; số actual giữ chuỗi gốc ("0" ≠ chưa công bố); không có forecast (DEC-01) → `surprise_status = INSUFFICIENT_DATA`, không suy hướng |
+| EVT-04 | Xử lý công bố bị hoãn/hủy/đổi giờ | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md`: bản sửa lịch dùng từ lúc biết (point-in-time), bị gỡ → `removed` + driver `EVENT_REMOVED`, không cửa sổ |
 | **News (LLM)** | | | |
 | DEC-08 | Chọn nhà cung cấp LLM + ngân sách | `[!]` | |
 | NEWS-01 | Lọc trùng, nhận diện thực thể | `[ ]` | ← ING-10, ING-23 |
@@ -56,13 +56,15 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | 3-C05 | Dữ liệu SAMPLE | Cờ `SAMPLE_DATA` | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
 | 3-C06 | Thêm dữ liệu tương lai rồi tính lại tại thời điểm cũ | Kết quả không đổi | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
 | 3-C07 | Đổi công thức/ngưỡng | Tăng `version`, output cũ giữ nguyên | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
-| 3-C08 | Các nguồn của một analyst mâu thuẫn nhau | Hạ confidence, ghi driver | `[ ]` |
-| 3-C09 | (Event) công bố đúng lúc thị trường đóng / cuối tuần | Cửa sổ áp dụng khi mở cửa | `[ ]` |
+| 3-C08 | Các nguồn của một analyst mâu thuẫn nhau | Hạ confidence, ghi driver | `[~]` Event (lịch mâu thuẫn → trần 0,5 + driver + cửa sổ cả ngày) |
+| 3-C09 | (Event) công bố đúng lúc thị trường đóng / cuối tuần | Cửa sổ áp dụng khi mở cửa | `[x]` 2026-11-14: giữ 15 phút sau số HIGH tính bằng phút thị trường mở (`hold_end`, như làn nhanh); test số nhận 2 phút trước giờ đóng thứ Sáu |
 | 3-C10 | (News) tin chứa lệnh "bỏ qua hướng dẫn…" | Không làm theo; gắn cờ injection | `[ ]` |
 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 2a + 2b: analyst Lịch sự kiện (EVT-01..04, 3-C08, 3-C09).** Thiết kế `28-event-analyst.md`. `analysts/event.py`: chỉ quan sát (không chặn); cửa sổ bằng đúng `economic_calendar` + `calendar_blocks` + `merge_windows` của làn nhanh; đầu vào 4 nguồn lịch bắt buộc (lịch không phủ quá 24 giờ → `MISSING` — lịch rỗng không có nghĩa là không rủi ro; nguồn không khỏe ING-30 → `STALE`), 4 nguồn số tùy chọn; đặc trưng `event_risk`, `window`, `next_event`, `upcoming`, `recent_releases` (actual chuỗi gốc, `surprise_status = INSUFFICIENT_DATA`), `removed`; hết hạn theo mốc gần nhất, chậm nhất 15 phút (bị chặn: 2 phút). Orchestrator: bộ xử lý `EVENT_CALENDAR`, `OUTPUT_EXPIRED` của `event` → tính lại (`router-2026.11.14c`), dự phòng mỗi nhịp khi không có kết quả còn hạn > 60 giây. Khung chung thêm `InputCheck.healthy`; `economic_calendar.health_details`. 44 test (bộ nhớ + SQLite). **Soát riêng trên Postgres 16:** orchestrator thật 6 giờ quanh CPI, nhịp 20 giây (1080 nhịp) → 31 kết quả, không trùng `as_of`, 31/31 khớp lý do chặn của `CalendarBlocks`, chỉ 1 nhịp chờ tính lại sau hết hạn, CPI +10 phút: `RECEIVED` + `INSUFFICIENT_DATA`. **Lỗi tìm được khi viết test:** không có — nhưng ghi nhận giới hạn: số đến trễ > 24 giờ nằm ngoài khung tra cứu của analyst (giống `CalendarBlocks`; Safety vẫn chặn nhờ lệnh cấm đã lưu của job `FAST_LANE`). Test DST cho analyst bỏ (lịch mẫu không phủ 3/2027) — DST đã có test ở GĐ1, analyst chỉ dùng UTC. Còn: 2c (API + thẻ giao diện + kiểm trên máy).
 
 - **2026-11-14** — **Bước 1: khung chung analyst (ANA-01).** Thiết kế `27-khung-analyst.md`: analyst theo nguồn giá vs. toàn cục; toàn cục lưu cùng bảng `analyst_outputs` với `(*, *, GLOBAL, "")` — không migration (bảng đã chỉ-thêm từ 0003). `analysts/framework.py`: `Scope`, `input_digest` (JSON chuẩn, kiểu lạ / datetime không múi giờ / NaN → lỗi), `output_id` có phiên bản, `assess` (bắt buộc: MISSING > STALE > INVALID chặn; tùy chọn: chỉ cờ `OPTIONAL_*` — không tự đặt hệ số hạ confidence chung; cực đoan → trần 0,5 như Technical; `known_at > as_of` → `LookAheadError`), `build_output` (chặn → chỉ `features.input` để truy vết, confidence 0). Kho: `append_scoped` (chặn output khác phạm vi), `latest_scoped(known_by=)` point-in-time. 35 test (analyst mẫu: 3-C01..C07, kho bộ nhớ + SQLite). Soát riêng trên Postgres 16: ghi trùng 8 luồng → đúng 1, trigger chặn UPDATE/DELETE, 300 kết quả ngẫu nhiên → `latest_scoped` / `expired_unreplaced` / `computed_between` bộ nhớ ≡ Postgres. Giới hạn: router chưa tính lại analyst toàn cục khi hết hạn (bước 2); Technical chưa chuyển sang khung.
 

@@ -22,6 +22,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from gold_trading import __version__
 from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
+from gold_trading.analysts.event import EventAnalyst, event_handler
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import Guard, accounts_router
 from gold_trading.api.analysts import account_analysts_router, analysts_router
@@ -342,14 +343,20 @@ def create_app(
             orch_store = OrchestratorStore()
             record_store = (getattr(external_runner, "store", None) if external_runner
                             else None) or PointInTimeStore()
+        event_analyst = EventAnalyst(record_store, analyst_store,
+                                     check_log=getattr(external_runner, "check_log", None),
+                                     market_calendar=market.calendar)
         orchestrator = OrchestratorRunner(
             orch=orch_store, candle_store=candle_store, record_store=record_store,
             analyst_store=analyst_store,
             handlers={"TECHNICAL": technical_handler(runner, active_feeds),
+                      # GĐ3 bước 2 (EVT-01..04): analyst Lịch sự kiện (chỉ quan sát, không chặn)
+                      "EVENT_CALENDAR": event_handler(event_analyst),
                       # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
                       "FAST_LANE": fast_lane_handler(block_store, record_store,
                                                      market.calendar, monitor=fast_monitor)},
-            blocked=clock.ingest_block_reason, monitor=fast_monitor)
+            blocked=clock.ingest_block_reason, monitor=fast_monitor,
+            periodic=(event_analyst.ensure_fresh,))
         fast_lane["monitor"] = fast_monitor
 
     @asynccontextmanager

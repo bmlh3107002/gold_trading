@@ -206,17 +206,23 @@ def _distrust_schedule(it: CalendarItem, as_of: datetime) -> CalendarItem:
                    window_end=max(e, it.window_end), notes=notes)
 
 
-def health_map(check_log, store, as_of: datetime) -> dict[str, bool]:
-    """Nguồn → HEALTHY hay không (ING-30), cho các nguồn lịch + nguồn số đang chạy."""
-    from gold_trading.common.enums import SourceStatus
+def health_details(check_log, store, as_of: datetime) -> dict:
+    """Nguồn → ``SourceHealth`` (ING-30) cho các nguồn lịch + nguồn số đang chạy."""
     from gold_trading.ingestion.source_status import SourceRegistry, source_health
     from gold_trading.ingestion.sources import bea, bls, dol, fed_fomc
 
     reg = SourceRegistry([fed_fomc.fomc_spec(), bea.schedule_spec(), bea.values_spec(),
                           dol.schedule_spec(), dol.values_spec(), bls.schedule_spec(),
                           bls.values_spec()])
-    return {h.source: h.status is SourceStatus.HEALTHY
-            for h in source_health(reg, check_log, store, as_of)}
+    return {h.source: h for h in source_health(reg, check_log, store, as_of)}
+
+
+def health_map(check_log, store, as_of: datetime) -> dict[str, bool]:
+    """Nguồn → HEALTHY hay không (ING-30), cho các nguồn lịch + nguồn số đang chạy."""
+    from gold_trading.common.enums import SourceStatus
+
+    return {src: h.status is SourceStatus.HEALTHY
+            for src, h in health_details(check_log, store, as_of).items()}
 
 
 def economic_calendar(store, as_of: datetime, *, start: datetime | None = None,

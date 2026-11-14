@@ -103,7 +103,8 @@ def output_id(analyst_id: str, version: str, scope: Scope, as_of: datetime, dige
 class InputCheck:
     """Một đầu vào tại ``as_of``. ``known_at``: lúc hệ thống biết bản ghi mới nhất được dùng
     (None = không có). ``history`` / ``min_history``: số mẫu có / cần. ``spikes``: số điểm cực đoan
-    analyst đã phát hiện. ``sample``: dữ liệu mẫu."""
+    analyst đã phát hiện. ``sample``: dữ liệu mẫu. ``healthy=False``: nguồn bị đánh giá không khỏe
+    theo trạng thái nguồn (ING-30) dù tuổi chưa quá ``max_age`` → xử lý như quá cũ."""
 
     name: str
     known_at: datetime | None
@@ -113,6 +114,7 @@ class InputCheck:
     min_history: int = 1
     spikes: int = 0
     sample: bool = False
+    healthy: bool = True
 
     def __post_init__(self) -> None:
         if not self.name or ":" in self.name:
@@ -171,12 +173,12 @@ def assess(checks: Iterable[InputCheck], as_of: datetime) -> Assessment:
                         "known_at": known.isoformat() if known else None,
                         "age_s": int(age.total_seconds()) if age is not None else None,
                         "history": c.history, "min_history": c.min_history,
-                        "spikes": c.spikes, "sample": c.sample})
+                        "spikes": c.spikes, "sample": c.sample, "healthy": c.healthy})
         problems: list[tuple[SourceStatus, str]] = []
         if known is None:
             problems.append((SourceStatus.MISSING, "MISSING"))
         else:
-            if age > c.max_age:
+            if age > c.max_age or not c.healthy:
                 problems.append((SourceStatus.STALE, "STALE"))
             if c.history < c.min_history:
                 problems.append((SourceStatus.INVALID, "INSUFFICIENT_HISTORY"))

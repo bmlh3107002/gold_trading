@@ -32,9 +32,13 @@ from gold_trading.orchestrator.model import (
     job_key_for,
 )
 
-ROUTER_VERSION = "router-2026.11.14b"
+ROUTER_VERSION = "router-2026.11.14c"   # c: tính lại analyst Lịch sự kiện khi hết hạn (GĐ3)
 LOOKBACK = timedelta(days=2)          # sự kiện / job xét lại khi khởi động (idempotent)
 OVERLAP = timedelta(minutes=15)
+
+
+# Analyst → loại job tính lại khi kết quả hết hạn mà chưa có kết quả mới (ORC-07).
+RECOMPUTE = {"TECHNICAL": "TECHNICAL", "EVENT": "EVENT_CALENDAR"}
 
 
 @dataclass(frozen=True)
@@ -68,7 +72,8 @@ def routes_for(e: Event) -> tuple[Route, ...]:
     if t is EventType.OUTPUT_EXPIRED:
         # ORC-07: kết quả hết hạn mà chưa có kết quả mới → vô hiệu MarketView (GĐ4) + tính lại.
         analyst = e.subject.split(":", 1)[0].upper()
-        recompute = (Route(analyst, debounce=True),) if analyst == "TECHNICAL" else ()
+        job = RECOMPUTE.get(analyst)
+        recompute = (Route(job, debounce=True),) if job else ()
         return (Route("INVALIDATE_MARKETVIEW"), *recompute)
     return ()
 
