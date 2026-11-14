@@ -44,6 +44,11 @@ export function usePositioning() {
   return usePolling(useCallback(() => api.positioningLatest(), []), 300_000, 900_000);
 }
 
+/** Tin chính thức: 60 giây/lần. */
+export function useNews() {
+  return usePolling(useCallback(() => api.newsLatest(), []), 60_000, 180_000);
+}
+
 /** Analyst Lịch sự kiện: 30 giây/lần (chung cho mọi tài khoản). */
 export function useEventAnalyst() {
   return usePolling(useCallback(() => api.eventLatest(), []), 30_000, 90_000);

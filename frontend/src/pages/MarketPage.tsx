@@ -6,7 +6,7 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { InfoTip } from "../components/ui/InfoTip";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StateView";
-import { useCandles, useDataQuality, useEventAnalyst, useLiveQuote, useMacro, useMarketSummary, usePositioning, useRegime, useTechnical } from "../hooks/useMarket";
+import { useCandles, useDataQuality, useEventAnalyst, useLiveQuote, useMacro, useMarketSummary, useNews, usePositioning, useRegime, useTechnical } from "../hooks/useMarket";
 import type { Theme } from "../hooks/useTheme";
 import { formatDateTime, formatNumber, formatTime } from "../lib/format";
 import { flagLabel } from "../lib/labels";
@@ -15,6 +15,7 @@ import { DataQualityCard } from "./market/DataQualityCard";
 import { LiveQuoteCard } from "./market/LiveQuoteCard";
 import { EventCard } from "./market/EventCard";
 import { MacroCard } from "./market/MacroCard";
+import { NewsCard } from "./market/NewsCard";
 import { PositioningCard } from "./market/PositioningCard";
 import { RegimeCard } from "./market/RegimeCard";
 import { TechnicalCard } from "./market/TechnicalCard";
@@ -38,6 +39,7 @@ export function MarketPage({
   const regime = useRegime(accountId);
   const macro = useMacro(accountId);
   const positioning = usePositioning();
+  const news = useNews();
   const quote = useLiveQuote(accountId);
   // Chỉ vẽ hỗ trợ/kháng cự từ kết quả còn hiệu lực và không bị chặn bởi cổng chất lượng
   const techOut = tech.data?.output;
@@ -176,6 +178,7 @@ export function MarketPage({
         <MacroCard data={macro.data} loading={macro.loading} onRetry={() => void macro.refresh()} />
         <PositioningCard data={positioning.data} loading={positioning.loading} onRetry={() => void positioning.refresh()} />
       </div>
+      <NewsCard data={news.data} loading={news.loading} onRetry={() => void news.refresh()} />
     </div>
   );
 }

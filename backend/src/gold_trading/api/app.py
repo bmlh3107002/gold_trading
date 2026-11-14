@@ -10,6 +10,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import Depends, FastAPI
@@ -22,8 +23,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from gold_trading import __version__
 from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
+from gold_trading.analysts import news_llm
 from gold_trading.analysts.event import EventAnalyst, event_handler
 from gold_trading.analysts.macro import MacroAnalyst, macro_handler
+from gold_trading.analysts.news import NewsAnalyst, NewsLlmWorker, client_from_env, news_handler
 from gold_trading.analysts.positioning import PositioningAnalyst, positioning_handler
 from gold_trading.analysts.regime import RegimeRunner, regime_handler
 from gold_trading.analysts.runner import TechnicalRunner
@@ -66,6 +69,7 @@ from gold_trading.storage.analyst_outputs import (
 )
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
 from gold_trading.storage.external_records import SqlExternalRecordStore
+from gold_trading.storage.news_llm import InMemoryNewsLlmStore, SqlNewsLlmStore
 from gold_trading.storage.orchestrator import SqlOrchestratorStore
 from gold_trading.storage.quotes import InMemoryQuoteStore, SqlQuoteStore
 from gold_trading.storage.repository import (
@@ -338,6 +342,7 @@ def create_app(
     # GĐ2 bước 3 (ORC-01): Event Orchestrator thay vòng Technical 15 giây (GT_ORCHESTRATOR=0 →
     # quay về runner cũ). Sự kiện suy ra từ dữ liệu đã lưu; nhật ký sự kiện / job trong DB.
     orchestrator: OrchestratorRunner | None = None
+    news_worker: NewsLlmWorker | None = None
     if runner is not None and orchestrator_enabled(os.environ):
         engine = getattr(repo, "engine", None)
         if engine is not None:
@@ -353,6 +358,30 @@ def create_app(
                                      record_store=record_store, out_store=analyst_store,
                                      market=market, active_feeds=active_feeds)
         positioning_analyst = PositioningAnalyst(record_store, analyst_store)
+        news_llm_store = (SqlNewsLlmStore(engine) if engine is not None
+                          else InMemoryNewsLlmStore())
+        news_model = (os.environ.get("GT_NEWS_MODEL") or news_llm.DEFAULT_MODEL).strip()
+        # Người dùng 2026-11-14: dùng MIỄN PHÍ trước → mặc định TẮT gọi Claude và ngân sách 0 USD.
+        # Bật khi sẵn sàng trả tiền: GT_NEWS_LLM=1 + GT_NEWS_BUDGET_USD=20 + ANTHROPIC_API_KEY.
+        news_budget = news_llm.Budget(news_llm.parse_budget(os.environ.get("GT_NEWS_BUDGET_USD"),
+                                                            default=Decimal(0)))
+        llm_on = (os.environ.get("GT_NEWS_LLM") or "0").strip().lower() in {"1", "on", "true"}
+        news_worker = NewsLlmWorker(
+            record_store=record_store, llm_store=news_llm_store,
+            client_factory=client_from_env(os.environ) if llm_on else (lambda: None),
+            model=news_model, budget=news_budget)
+
+        def news_llm_status() -> str | None:
+            if not llm_on:
+                return "LLM_DISABLED"
+            if not (os.environ.get("ANTHROPIC_API_KEY") or "").strip():
+                return "LLM_NOT_CONFIGURED"
+            return news_worker.disabled_reason
+
+        news_analyst = NewsAnalyst(record_store, news_llm_store, analyst_store,
+                                   llm_status=news_llm_status, model=news_model,
+                                   budget=news_budget)
+        news_worker.on_result = news_analyst.after_llm
         orchestrator = OrchestratorRunner(
             orch=orch_store, candle_store=candle_store, record_store=record_store,
             analyst_store=analyst_store,
@@ -366,12 +395,14 @@ def create_app(
                       "MACRO": macro_handler(macro_analyst),
                       # GĐ3 bước 5 (POSN-01, POSN-02): COT vàng (toàn cục, tuần, trễ)
                       "POSITIONING": positioning_handler(positioning_analyst),
+                      # GĐ3 bước 6 (NEWS-01..04, DEC-08): chỉ tổng hợp; gọi Claude ở luồng riêng
+                      "NEWS": news_handler(news_analyst),
                       # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
                       "FAST_LANE": fast_lane_handler(block_store, record_store,
                                                      market.calendar, monitor=fast_monitor)},
             blocked=clock.ingest_block_reason, monitor=fast_monitor,
             periodic=(event_analyst.ensure_fresh, macro_analyst.ensure_fresh,
-                      positioning_analyst.ensure_fresh))
+                      positioning_analyst.ensure_fresh, news_analyst.ensure_fresh))
         fast_lane["monitor"] = fast_monitor
 
     @asynccontextmanager
@@ -385,6 +416,8 @@ def create_app(
             spread_loop.start()
         if orchestrator:
             orchestrator.start()
+            if news_worker is not None:
+                news_worker.start()
         elif runner:
             runner.start()
         if external_runner:
@@ -392,6 +425,8 @@ def create_app(
         yield
         if external_runner:
             external_runner.stop()
+        if news_worker is not None:
+            news_worker.stop()
         if orchestrator:
             orchestrator.stop()
         if spread_loop:

@@ -195,6 +195,28 @@
         }
       }
     },
+    "/api/analysts/news/latest": {
+      "get": {
+        "tags": [
+          "analysts"
+        ],
+        "summary": "News Latest",
+        "description": "GĐ3 bước 6: tin chính thức đã được Claude đọc (dữ liệu chung).",
+        "operationId": "news_latest_api_analysts_news_latest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventLatest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/analysts/positioning/latest": {
       "get": {
         "tags": [

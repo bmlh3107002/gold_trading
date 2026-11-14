@@ -32,14 +32,15 @@ from gold_trading.orchestrator.model import (
     job_key_for,
 )
 
-ROUTER_VERSION = "router-2026.11.14f"   # c: Lịch sự kiện; d: Regime; e: Macro; f: Positioning
+# c: Lịch sự kiện; d: Regime; e: Macro; f: Positioning; g: News (tính lại khi hết hạn — GĐ3)
+ROUTER_VERSION = "router-2026.11.14g"
 LOOKBACK = timedelta(days=2)          # sự kiện / job xét lại khi khởi động (idempotent)
 OVERLAP = timedelta(minutes=15)
 
 
 # Analyst → loại job tính lại khi kết quả hết hạn mà chưa có kết quả mới (ORC-07).
 RECOMPUTE = {"TECHNICAL": "TECHNICAL", "EVENT": "EVENT_CALENDAR", "REGIME": "REGIME",
-             "MACRO": "MACRO", "POSITIONING": "POSITIONING"}
+             "MACRO": "MACRO", "POSITIONING": "POSITIONING", "NEWS": "NEWS"}
 
 
 @dataclass(frozen=True)

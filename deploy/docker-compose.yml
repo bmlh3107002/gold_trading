@@ -119,6 +119,13 @@ services:
       GT_BLS_API_KEY: ${GT_BLS_API_KEY:-}
       GT_BEA_API_KEY: ${GT_BEA_API_KEY:-}
       GT_CENSUS_API_KEY: ${GT_CENSUS_API_KEY:-}
+      # Đọc tin bằng Claude (GĐ3, DEC-08) — MẶC ĐỊNH TẮT, MIỄN PHÍ (người dùng 2026-11-14).
+      # Bật khi sẵn sàng trả tiền: GT_NEWS_LLM=1, GT_NEWS_BUDGET_USD=20, ANTHROPIC_API_KEY=<khóa>
+      # (khóa CHỈ đặt trong .env). Ngân sách là trần cứng / tháng; hết → ngừng gọi.
+      GT_NEWS_LLM: ${GT_NEWS_LLM:-0}
+      GT_NEWS_BUDGET_USD: ${GT_NEWS_BUDGET_USD:-0}
+      GT_NEWS_MODEL: ${GT_NEWS_MODEL:-claude-opus-5-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # Tự nạp lịch kinh tế (bước 8g): trống = FOMC + BEA + DOL; 0 = tắt. Census đang hoãn.
       GT_EXTERNAL_SOURCES: ${GT_EXTERNAL_SOURCES:-}
       # Đọc trạng thái sao lưu + đo dung lượng ổ để cảnh báo trên Dashboard (chỉ đọc)

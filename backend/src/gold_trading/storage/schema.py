@@ -494,3 +494,32 @@ risk_block_lifts = Table(
     Column("reason_code", String(64), nullable=False),
 )
 
+
+# --- GĐ3 bước 6 (NEWS-02..04, DEC-08): mỗi lần gọi Claude cho một tin — chỉ thêm (migration 0017).
+# Vừa là sổ ngân sách (chi phí theo tháng tính từ bảng này) vừa là kết quả trích xuất có phiên bản
+# prompt + mô hình. Thiết kế: docs/thiet-ke/32-news-analyst.md
+news_llm_calls = Table(
+    "news_llm_calls",
+    metadata,
+    Column("call_id", String(64), primary_key=True),
+    Column("story_key", String(256), nullable=False),
+    Column("attempt", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("model", String(64), nullable=False),
+    Column("served_model", String(64)),
+    Column("prompt_version", String(40), nullable=False),
+    Column("status", String(24), nullable=False),
+    Column("input_tokens", Integer, nullable=False),
+    Column("output_tokens", Integer, nullable=False),
+    Column("cost_usd", String(24), nullable=False),        # Decimal dạng chuỗi (tiền)
+    Column("error_code", String(64)),
+    Column("request_id", String(128)),
+    Column("result", JsonType),
+    CheckConstraint("status IN ('OK', 'REFUSED', 'ERROR', 'INVALID_OUTPUT', 'TRUNCATED')",
+                    name="ck_news_llm_calls_status"),
+    CheckConstraint("attempt >= 1", name="ck_news_llm_calls_attempt"),
+    UniqueConstraint("story_key", "prompt_version", "model", "attempt",
+                     name="uq_news_llm_calls_attempt"),
+)
+Index("ix_news_llm_calls_created", news_llm_calls.c.created_at)
+Index("ix_news_llm_calls_story", news_llm_calls.c.story_key)

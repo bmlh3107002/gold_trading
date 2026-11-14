@@ -16,7 +16,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ANA-01 | Khung chung: hết hạn, trạng thái nguồn, phiên bản, lưu append-only cho mọi analyst | `[x]` | 2026-11-14: `analysts/framework.py` + `append_scoped`/`latest_scoped` (`storage/analyst_outputs.py`); thiết kế `docs/thiet-ke/27-khung-analyst.md`. Technical giữ đường cũ (chưa chuyển sang khung — không đổi kết quả) |
-| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | + Positioning (`/api/analysts/positioning/latest`, `PositioningCard.tsx`) + Macro (`/analysts/macro/latest`, `MacroCard.tsx`) · Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) + Regime (`GET /api/accounts/{id}/analysts/regime/latest`, `pages/market/RegimeCard.tsx`) |
+| ANA-02 | Thẻ giao diện cho từng analyst | `[x]` | 6/6 analyst có thẻ (14/11) — + News (`/analysts/news/latest`, `NewsCard.tsx`) · + Positioning (`/api/analysts/positioning/latest`, `PositioningCard.tsx`) + Macro (`/analysts/macro/latest`, `MacroCard.tsx`) · Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) + Regime (`GET /api/accounts/{id}/analysts/regime/latest`, `pages/market/RegimeCard.tsx`) |
 | **Technical** | | | |
 | TEC-01 | EMA, RSI Wilder, ATR Wilder (đối chiếu thư viện chuẩn) | `[x]` | `analysts/indicators.py` |
 | TEC-02 | Cổng chất lượng R2–R6 + `CALENDAR_MISMATCH` | `[x]` | `market/quality.py` |
@@ -32,11 +32,11 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | EVT-03 | Actual – forecast → hướng bất ngờ, `eventRisk` | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md`: `event_risk`; số actual giữ chuỗi gốc ("0" ≠ chưa công bố); không có forecast (DEC-01) → `surprise_status = INSUFFICIENT_DATA`, không suy hướng |
 | EVT-04 | Xử lý công bố bị hoãn/hủy/đổi giờ | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md`: bản sửa lịch dùng từ lúc biết (point-in-time), bị gỡ → `removed` + driver `EVENT_REMOVED`, không cửa sổ |
 | **News (LLM)** | | | |
-| DEC-08 | Chọn nhà cung cấp LLM + ngân sách | `[!]` | |
-| NEWS-01 | Lọc trùng, nhận diện thực thể | `[ ]` | ← ING-10, ING-23 |
-| NEWS-02 | Lọc trước (FinBERT hoặc luật) → LLM trích stance, impact, novelty, horizon, `newsShock`, có trích dẫn bài gốc | `[ ]` | |
-| NEWS-03 | Giới hạn token/timeout, chống prompt injection, lưu prompt + phiên bản mô hình | `[ ]` | |
-| NEWS-04 | LLM lỗi/hết ngân sách → analyst MISSING (không đoán) | `[ ]` | |
+| DEC-08 | Chọn nhà cung cấp LLM + ngân sách | `[x]` | Người dùng 2026-11-14: **Claude (Anthropic), 20 USD / tháng**; cùng ngày: **dùng miễn phí trước** → mặc định tắt gọi Claude + ngân sách 0 (bật bằng `GT_NEWS_LLM=1`, `GT_NEWS_BUDGET_USD=20`, `ANTHROPIC_API_KEY`). Thiết kế 32 |
+| NEWS-01 | Lọc trùng, nhận diện thực thể | `[x]` | 2026-11-14: dùng gộp trùng + thực thể GĐ1 (`news_stories`, `news_tags`) |
+| NEWS-02 | Lọc trước (FinBERT hoặc luật) → LLM trích stance, impact, novelty, horizon, `newsShock`, có trích dẫn bài gốc | `[x]` | 2026-11-14: lọc luật (tiếng Anh + thực thể liên quan) → Claude trích theo schema, trích dẫn nguyên văn đã kiểm (`analysts/news_llm.py`); mặc định tắt (miễn phí) |
+| NEWS-03 | Giới hạn token/timeout, chống prompt injection, lưu prompt + phiên bản mô hình | `[x]` | 2026-11-14: max_tokens 4.000, timeout 60 giây, thử lại có giới hạn, bài trong `<article>` không tin cậy, lưu prompt + mô hình + chi phí vào sổ chỉ-thêm (migration 0017), ngân sách trần cứng tháng + ngày |
+| NEWS-04 | LLM lỗi/hết ngân sách → analyst MISSING (không đoán) | `[x]` | 2026-11-14: lỗi / từ chối / cắt cụt / hết ngân sách → không đoán, cờ + trần 0,5; tắt Claude → chế độ chỉ luật |
 | **Macro** | | | |
 | MAC-01 | Đồng bộ DXY, lợi suất thực 10Y, kỳ vọng Fed theo thời điểm công bố | `[x]` | 2026-11-14: `analysts/macro.py` (thiết kế 30) — lợi suất thực 10 năm (bắt buộc), 10 / 2 năm, chỉ số USD tự tính theo broker (tùy chọn), proxy Fed; point-in-time, bản sửa biết sau không viết lại quá khứ |
 | MAC-02 | Thay đổi/độ bất thường, macro bias, cờ stress | `[x]` | 2026-11-14: Δ 1/5 kỳ, z theo độ lệch chuẩn của chính chuỗi, hướng |z5| ≥ 1, `macro_bias` (ngược chiều lý thuyết, chưa hiệu chỉnh), `MACRO_STRESS` |z1| ≥ 3, proxy trú ẩn; TTL 17 phút; < 21 quan sát H.15 → không tính z / bias |
@@ -58,11 +58,13 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | 3-C07 | Đổi công thức/ngưỡng | Tăng `version`, output cũ giữ nguyên | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
 | 3-C08 | Các nguồn của một analyst mâu thuẫn nhau | Hạ confidence, ghi driver | `[~]` Event (lịch mâu thuẫn → trần 0,5 + driver + cửa sổ cả ngày); Macro (USD và lợi suất thực trái chiều → `MIXED`, `MACRO_DRIVERS_CONFLICT`, trần 0,5) |
 | 3-C09 | (Event) công bố đúng lúc thị trường đóng / cuối tuần | Cửa sổ áp dụng khi mở cửa | `[x]` 2026-11-14: giữ 15 phút sau số HIGH tính bằng phút thị trường mở (`hold_end`, như làn nhanh); test số nhận 2 phút trước giờ đóng thứ Sáu |
-| 3-C10 | (News) tin chứa lệnh "bỏ qua hướng dẫn…" | Không làm theo; gắn cờ injection | `[ ]` |
+| 3-C10 | (News) tin chứa lệnh "bỏ qua hướng dẫn…" | Không làm theo; gắn cờ injection | `[x]` 2026-11-14: bài là dữ liệu không tin cậy; mô hình hoặc luật GĐ1 gắn cờ → kết quả không dùng (test: mô hình nói sạch vẫn loại) |
 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 6: News (NEWS-01..04, 3-C10, DEC-08).** DEC-08: Claude, 20 USD/tháng; người dùng sau đó: **miễn phí trước** → mặc định tắt + ngân sách 0. Thiết kế 32. Luồng đọc tin riêng (không chặn nhịp 2 giây), sổ chỉ-thêm `news_llm_calls` (migration 0017), ngân sách trần cứng theo chi phí xấu nhất, structured outputs + fallback phía máy chủ, effort low, trích dẫn phải nguyên văn, injection → loại. Chế độ miễn phí: liệt kê tin liên quan theo luật, không đánh giá. Thẻ "Tin chính thức". 42 test (client giả — chưa gọi Claude thật). **Lỗi tìm được:** tính tiền khi phản hồi không ghi mô hình phục vụ → áp nhầm giá cao nhất; đã sửa. Soát Postgres ĐẠT. Backend 2002, frontend 114.
 
 - **2026-11-14** — **Regime 1.1.0: RISK_OFF từ proxy trú ẩn của Macro (người dùng duyệt).** Thiết kế 29 mục 7. Macro cùng nguồn giá, tính trước giờ đóng nến, còn hạn → `RISK_OFF` (ưu tiên cao nhất), nhãn giá giữ ở `price_regime`; thiếu / hết hạn / bị chặn → `NOT_EVALUATED`. 6 test; soát Postgres Macro + Regime cùng chạy, cú sốc → RISK_OFF, point-in-time + tính lại cùng id 60/60. Thẻ web: nhãn "Né rủi ro (proxy)" + băng giải thích + nhãn theo giá. Backend 1960, frontend 111.
 

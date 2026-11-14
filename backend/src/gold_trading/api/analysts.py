@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from gold_trading.analysts import event, macro, positioning, regime, technical
+from gold_trading.analysts import event, macro, news, positioning, regime, technical
 from gold_trading.analysts.framework import GLOBAL_SCOPE, Scope
 from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
@@ -111,6 +111,11 @@ def analysts_router(market: MarketDataService, store: AnalystOutputStore) -> API
     @r.get("/event/latest", response_model=EventLatest)
     def event_latest(p: CurrentUser) -> EventLatest:
         return event_of(store)
+
+    @r.get("/news/latest", response_model=EventLatest)
+    def news_latest(p: CurrentUser) -> EventLatest:
+        """GĐ3 bước 6: tin chính thức đã được Claude đọc (dữ liệu chung)."""
+        return event_of(store, news)
 
     @r.get("/positioning/latest", response_model=EventLatest)
     def positioning_latest(p: CurrentUser) -> EventLatest:

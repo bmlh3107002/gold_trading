@@ -33,8 +33,8 @@
 ### Bước 5 — Positioning (POSN-01, POSN-02)
 - [x] (2026-11-14: `analysts/positioning.py` + API + thẻ COT; 23 test; soát Postgres + pandas khớp; cực trị cần ≥ 52 tuần — hiện chưa đủ, đề xuất nạp bù lịch sử CFTC chờ người dùng; **còn: kiểm trên máy** — mục 4) COT vàng: z-score lịch sử, cực trị, crowding; đánh dấu rõ độ trễ (chốt thứ Ba, công bố thứ Sáu); ETF / NHTW **phụ thuộc quyết định ở Gate GĐ1** — chưa có thì `MISSING`, không đoán
 
-### Bước 6 — News (DEC-08; NEWS-01..04; 3-C10) — cần người dùng chốt DEC-08 trước
-- [ ] Hỏi DEC-08 (nhà cung cấp LLM + ngân sách tháng) → thiết kế → lọc trùng, lọc trước bằng luật, LLM trích stance/impact có trích dẫn, giới hạn token / timeout, chống prompt injection (3-C10), lưu prompt + phiên bản mô hình; lỗi / hết ngân sách → `MISSING`
+### Bước 6 — News (DEC-08; NEWS-01..04; 3-C10)
+- [x] (2026-11-14: DEC-08 Claude 20 USD/tháng, **mặc định miễn phí** (tắt + ngân sách 0); `analysts/news.py`, `news_llm.py`, migration 0017; 42 test bằng client giả; **chưa gọi Claude thật** — bật khi người dùng sẵn sàng trả tiền) Hỏi DEC-08 (nhà cung cấp LLM + ngân sách tháng) → thiết kế → lọc trùng, lọc trước bằng luật, LLM trích stance/impact có trích dẫn, giới hạn token / timeout, chống prompt injection (3-C10), lưu prompt + phiên bản mô hình; lỗi / hết ngân sách → `MISSING`
 
 ### Bước 7 — Technical còn lại (TEC-05, TEC-06, TEC-07, TEC-09)
 - [ ] TEC-05 theo dõi R3/R5 trên dữ liệu thật; TEC-07 `volForecast` bằng luật (ghi rõ không phải mô hình); TEC-09 đa khung H1/H4/D1; TEC-06 mẫu hình (chỉ sau khi đủ nến xác nhận)

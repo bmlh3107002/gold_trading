@@ -166,7 +166,7 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(urls().some((u) => u.startsWith("/api/accounts/default/analysts/technical/latest"))).toBe(true);
     // Lịch sự kiện là dữ liệu chung (không phải giá) — endpoint chung duy nhất được phép.
     const shared = urls().filter((u) => u.startsWith("/api/market/") || u.startsWith("/api/analysts/"));
-    const allowed = ["/api/analysts/event/latest", "/api/analysts/positioning/latest"];
+    const allowed = ["/api/analysts/event/latest", "/api/analysts/positioning/latest", "/api/analysts/news/latest"];
     expect(shared.every((u) => allowed.some((a) => u.startsWith(a)))).toBe(true);
   });
 
@@ -329,6 +329,45 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(screen.getByText("Chưa đủ lịch sử")).toBeInTheDocument();
     expect(screen.getByText(/1 \/ 52 tuần/)).toBeInTheDocument();
     expect(screen.queryByText(/Giả thuyết/)).not.toBeInTheDocument();
+  });
+
+  it("GĐ3: thẻ Tin chính thức — chế độ miễn phí, cờ tin đáng ngờ, liên kết an toàn", async () => {
+    routes({
+      "/api/analysts/news/latest": {
+        computed_at: "2026-11-12T20:00:05Z",
+        valid_now: true,
+        confidence_meaning: "DATA_QUALITY_ONLY",
+        observer_only: true,
+        output: {
+          output_id: "news:x",
+          analyst_id: "news",
+          as_of: "2026-11-12T20:00:00Z",
+          expires_at: "2026-11-12T20:15:00Z",
+          confidence: 0.5,
+          features: {
+            mode: "RULES_ONLY",
+            items: [],
+            unassessed: [
+              { title: "Federal Reserve issues FOMC statement", url: "https://www.federalreserve.gov/a1.htm", first_seen_at: "2026-11-12T19:00:00Z", topics: "FED,RATES", assessed: false },
+              { title: "Evil", url: "javascript:alert(1)", first_seen_at: "2026-11-12T19:20:00Z", suspect_instructions: true, assessed: false },
+            ],
+            news_shock: false,
+            unprocessed: 0,
+          },
+          drivers: [],
+          risk_flags: [],
+          source_status: "HEALTHY",
+          quality_flags: ["RULES_ONLY"],
+          version: "news-1.0.0",
+          correlation_id: "c",
+        },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByText(/Chế độ miễn phí/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Federal Reserve issues FOMC statement" })).toHaveAttribute("href", "https://www.federalreserve.gov/a1.htm");
+    expect(screen.queryByRole("link", { name: "Evil" })).not.toBeInTheDocument();
+    expect(screen.getByText(/giống lệnh cho AI/)).toBeInTheDocument();
   });
 
   it("GĐ3: thẻ Lịch sự kiện — lịch thiếu thì báo không đạt, không nói 'không có sự kiện'", async () => {
