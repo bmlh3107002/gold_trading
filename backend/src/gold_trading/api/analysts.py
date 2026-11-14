@@ -8,8 +8,8 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from gold_trading.analysts import event, technical
-from gold_trading.analysts.framework import GLOBAL_SCOPE
+from gold_trading.analysts import event, regime, technical
+from gold_trading.analysts.framework import GLOBAL_SCOPE, Scope
 from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.analyst import AnalystOutput
@@ -24,8 +24,8 @@ class AnalystLatest(BaseModel):
     is_sample: bool
     confidence_meaning: str = Field(
         default="DATA_QUALITY_ONLY",
-        description="confidence của technical v1 chỉ đo chất lượng dữ liệu, không đo khả năng "
-        "dự báo",
+        description="confidence của analyst (technical, regime) chỉ đo chất lượng dữ liệu (và độ "
+        "rõ ràng của nhãn với regime), không đo khả năng dự báo",
     )
 
 
@@ -75,6 +75,22 @@ def technical_of(market: MarketDataService, store: AnalystOutputStore) -> Analys
     )
 
 
+def regime_of(market: MarketDataService, store: AnalystOutputStore) -> AnalystLatest:
+    """GĐ3 bước 3: Regime trên nguồn giá của tài khoản (MT-05)."""
+    now = utcnow()
+    feed = market.feed
+    if market.source is None or feed is None:
+        return AnalystLatest(output=None, computed_at=None, valid_now=False, is_sample=False)
+    got = store.latest_scoped(regime.ANALYST_ID,
+                              Scope.of_feed(market.symbol, market.timeframe, market.source, feed),
+                              known_by=now)
+    if got is None or got.output.version != regime.VERSION:
+        return AnalystLatest(output=None, computed_at=None, valid_now=False,
+                             is_sample=market.is_sample)
+    return AnalystLatest(output=got.output, computed_at=got.computed_at,
+                         valid_now=got.output.is_valid_at(now), is_sample=market.is_sample)
+
+
 def analysts_router(market: MarketDataService, store: AnalystOutputStore) -> APIRouter:
     r = APIRouter(prefix="/api/analysts", tags=["analysts"])
 
@@ -101,5 +117,10 @@ def account_analysts_router(
     def acc_technical_latest(account_id: str, p: CurrentUser) -> AnalystLatest:
         check(account_id, p, "analysts.technical")
         return technical_of(market_for(account_id), store)
+
+    @r.get("/regime/latest", response_model=AnalystLatest)
+    def acc_regime_latest(account_id: str, p: CurrentUser) -> AnalystLatest:
+        check(account_id, p, "analysts.regime")
+        return regime_of(market_for(account_id), store)
 
     return r

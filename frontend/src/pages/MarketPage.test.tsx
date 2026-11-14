@@ -212,6 +212,37 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(screen.getByText(/không đánh giá được mức bất ngờ/)).toBeInTheDocument();
   });
 
+  it("GĐ3: thẻ Trạng thái thị trường — xu hướng, sát ngưỡng, RISK_OFF chưa đánh giá", async () => {
+    routes({
+      "/api/accounts/default/analysts/regime/latest": makeTechnical(
+        {},
+        {
+          analyst_id: "regime",
+          version: "regime-1.0.0",
+          confidence: 0.5,
+          features: {
+            regime: "TREND",
+            direction: "DOWN",
+            ambiguous: true,
+            adx14: 23.4,
+            vol_ratio: 1.12,
+            bars_in_regime: 7,
+            bars_in_regime_capped: false,
+            regime_since: "2026-01-06T13:00:00Z",
+            previous_regime: "RANGE",
+            risk_off: "NOT_EVALUATED",
+            fusion_weights: { calibrated: false },
+          },
+        },
+      ),
+    });
+    render(<App />);
+    expect(await screen.findByText(/Có xu hướng · đi xuống/)).toBeInTheDocument();
+    expect(screen.getByText("Sát ngưỡng — chưa rõ ràng")).toBeInTheDocument();
+    expect(screen.getByText(/7 nến \(từ .*trước đó: Đi ngang\)/)).toBeInTheDocument();
+    expect(screen.getByText(/RISK_OFF\) chưa đánh giá/)).toBeInTheDocument();
+  });
+
   it("GĐ3: thẻ Lịch sự kiện — lịch thiếu thì báo không đạt, không nói 'không có sự kiện'", async () => {
     routes({
       "/api/analysts/event/latest": {

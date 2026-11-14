@@ -24,7 +24,7 @@
 
 ### Bước 3 — Regime bằng luật (REG-01, REG-02)
 - [x] 3a — Thiết kế `29-regime-analyst.md` + code + job `REGIME` (2026-11-14: 29 test; soát Postgres 190/190 + phân loại độc lập bằng `ta` khớp 190/190; RISK_OFF chờ Macro; trọng số trung tính)
-- [ ] 3b — API + thẻ giao diện; kiểm trên máy
+- [~] 3b — API + thẻ giao diện; kiểm trên máy (2026-11-14: `GET /api/accounts/{id}/analysts/regime/latest` (MT-05: nguồn giá của chính tài khoản), thẻ "Trạng thái thị trường" trang Thị trường; **còn: kiểm trên máy** — mục 2 dưới)
 - Ghi chú gốc: Thiết kế + code: `TREND/RANGE/RISK_OFF/HIGH_VOL` từ biến động (ATR / độ lệch chuẩn lợi suất), độ dốc xu hướng, output Technical; ngưỡng là **giá trị khởi đầu chưa hiệu chỉnh** (ghi rõ, có phiên bản); không có "xác suất" (bản HMM ở GĐ7); trọng số gợi ý cho Fusion chỉ là bảng có phiên bản
 
 ### Bước 4 — Macro (MAC-01, MAC-02)
@@ -48,6 +48,8 @@
 ## Kiểm trên máy người dùng (điền khi tới)
 
 1. **Bước 2 (analyst Lịch sự kiện)** — đi cùng lần dựng lại thứ Hai 16/11 trước 22:00 (lịch kiểm GĐ2, không dựng thêm lần nào): sau `docker compose up -d` chờ 1 phút → trang **Thị trường**, thẻ **"Lịch sự kiện kinh tế"** (dưới cùng): nhãn "Còn hiệu lực", mức rủi ro "Không có cửa sổ", "Sự kiện kế tiếp" có tên + "còn … phút", "Tính lúc" cập nhật ít nhất 15 phút / lần. Nếu thẻ báo **"Dữ liệu không đạt"** → chụp màn hình gửi người phát triển (nghĩa là một nguồn lịch đang lỗi / thiếu — đúng hướng an toàn, nhưng cần xem). **Thứ Năm 19/11 20:25–20:40 VN:** thẻ hiện "Đang trong cửa sổ công bố tới …" **cùng lúc** với băng đỏ trang Tổng quan; sau 20:30 phần "Vừa công bố" có "Đơn xin trợ cấp thất nghiệp · Đã có số (ICSA=…)" và dòng "Chưa có số dự báo nên không đánh giá được mức bất ngờ".
+
+2. **Bước 3 (Regime)** — cũng đi cùng lần dựng lại thứ Hai 16/11 (không dựng thêm): sau khi thị trường mở và có nến M15 mới, trang **Thị trường**, thẻ **"Trạng thái thị trường"**: nhãn "Có xu hướng · đi lên/xuống", "Đi ngang" hoặc "Biến động mạnh"; "Tính tại nến đóng lúc" cập nhật mỗi 15 phút cùng thẻ Phân tích kỹ thuật. Thẻ báo "Dữ liệu không đạt" → chụp màn hình gửi người phát triển (thường là thiếu nến — cần ~11 ngày giao dịch M15; Gateway đã nạp bù 5.000 nến nên phải đủ).
 
 ## Prompt cho phiên mới
 Đọc CLAUDE.md, PROGRESS.md, rồi docs/ke-hoach/GD3-ke-hoach.md và chỉ các mục liên quan của docs/giai-doan/GD3-analyst.md. Làm bước tiếp theo chưa tick. GĐ3 làm song song GĐ1/GĐ2 (DEC-22) — việc kiểm trên máy của GĐ1/GĐ2 theo docs/ke-hoach/lich-kiem-tren-may.md được ưu tiên; GĐ3 không đóng trước GĐ1, GĐ2. Analyst chỉ quan sát, không tự chặn lệnh (chặn do Safety / làn nhanh DEC-20). Không forecast → surprise "không đủ dữ liệu" (DEC-01). Quy trình: thiết kế → code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick ở cả hai file, ghi nhật ký GĐ3, cập nhật PROGRESS.md ngắn gọn → chạy test → commit (nhắc mã việc) → push develop → kiểm CI. Người dùng không rành kỹ thuật: tiếng Việt đơn giản, mỗi lần hỏi một câu. Không bao giờ yêu cầu dán mật khẩu / token / khóa API vào chat.

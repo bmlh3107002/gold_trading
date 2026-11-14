@@ -16,7 +16,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ANA-01 | Khung chung: hết hạn, trạng thái nguồn, phiên bản, lưu append-only cho mọi analyst | `[x]` | 2026-11-14: `analysts/framework.py` + `append_scoped`/`latest_scoped` (`storage/analyst_outputs.py`); thiết kế `docs/thiet-ke/27-khung-analyst.md`. Technical giữ đường cũ (chưa chuyển sang khung — không đổi kết quả) |
-| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) |
+| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) + Regime (`GET /api/accounts/{id}/analysts/regime/latest`, `pages/market/RegimeCard.tsx`) |
 | **Technical** | | | |
 | TEC-01 | EMA, RSI Wilder, ATR Wilder (đối chiếu thư viện chuẩn) | `[x]` | `analysts/indicators.py` |
 | TEC-02 | Cổng chất lượng R2–R6 + `CALENDAR_MISMATCH` | `[x]` | `market/quality.py` |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 3b (code): API + thẻ Regime.** `GET /api/accounts/{id}/analysts/regime/latest` (chủ tài khoản, nguồn giá của tài khoản — MT-05; tài khoản khác → 404). Thẻ "Trạng thái thị trường" (trang Thị trường, cạnh thẻ Lịch sự kiện): nhãn + hướng, "sát ngưỡng", ADX, biến động so 10 ngày, kéo dài bao nhiêu nến / từ lúc nào / trước đó là gì, câu "RISK_OFF chưa đánh giá" + "trọng số chưa hiệu chỉnh". Backend 1878, frontend 104, build đạt. Còn: kiểm trên máy (cùng lần dựng lại 16/11).
 
 - **2026-11-14** — **Bước 3 (backend): Regime bằng luật (REG-01, REG-02).** Thiết kế `29-regime-analyst.md`. `indicators.adx` (Wilder) — khớp thư viện `ta` tới 3,6e-14 (20 chuỗi × 600 nến, kể cả khởi tạo), giá trị tham chiếu ghi cứng trong test. `analysts/regime.py`: `HIGH_VOL` (ATR14 ≥ 2× trung vị 960 nến) > `TREND` (ADX ≥ 25, hướng theo DI) > `RANGE` (ADX ≤ 20); vùng mơ hồ → driver + trần 0,5; `RISK_OFF` = `NOT_EVALUATED` (không suy từ giá vàng); theo dõi chuyển regime bằng phân loại lại 96 nến (không lưu trạng thái); trọng số Fusion trung tính `calibrated: false`. Khung chung thêm `InputCheck.problems`. Job `REGIME` có bộ xử lý, hết hạn → tính lại (`router-2026.11.14d`). 29 test. **Soát riêng (Postgres 16):** orchestrator thật từng nến 2 ngày → 190/190 kết quả, không trùng, tính lại cùng `output_id` 190/190, phân loại độc lập bằng `ta` + pandas khớp 190/190 nhãn. **Ghi nhận khi viết test:** chuỗi dao động hình sin (chu kỳ ~19 nến) cho ADX ~21 → rơi đúng vào vùng mơ hồ và đổi nhãn qua lại TREND/RANGE — đúng thiết kế (vùng mơ hồ chính là để báo trường hợp này). Còn: API + thẻ giao diện, kiểm trên máy.
 

@@ -250,3 +250,27 @@ def test_handler_runs_per_feed_and_is_idempotent(outs):
     assert runner.run_feed(feed, now) is False                 # cùng dữ liệu → không ghi lại
     assert h.run(ev, now) == "regime:unchanged"
     assert R.regime_handler(runner, lambda: []).run(ev, now) == "skipped:feed_inactive"
+
+
+# ------------------------------------------------------------------ API (ANA-02)
+
+def test_api_regime_latest_for_own_account_only():
+    from gold_trading.storage.repository import InMemoryRepository
+
+    from .auth_helpers import user_client
+    rows = series("trend", source=DataSource.SAMPLE)
+    candles = InMemoryCandleStore()
+    candles.append(rows, [])
+    outs = InMemoryAnalystOutputStore()
+    c = user_client(InMemoryRepository(), candle_store=candles, analyst_store=outs,
+                    data_source=DataSource.SAMPLE, run_sample_feed=False, run_analysts=False,
+                    external_runner=None)
+    url = "/api/accounts/default/analysts/regime/latest"
+    body = c.get(url).json()
+    assert body["output"] is None and body["is_sample"] is True
+    market = MarketDataService(candles, source=DataSource.SAMPLE)
+    assert R.RegimeRunner(market, outs).run_feed(market.feed, rows[-1].close_time) is True
+    body = c.get(url).json()
+    assert body["output"]["features"]["regime"] == "TREND"
+    assert "SAMPLE_DATA" in body["output"]["quality_flags"]
+    assert c.get("/api/accounts/khac/analysts/regime/latest").status_code == 404

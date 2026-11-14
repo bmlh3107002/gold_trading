@@ -478,6 +478,48 @@
         }
       }
     },
+    "/api/accounts/{account_id}/analysts/regime/latest": {
+      "get": {
+        "tags": [
+          "analysts"
+        ],
+        "summary": "Acc Regime Latest",
+        "operationId": "acc_regime_latest_api_accounts__account_id__analysts_regime_latest_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalystLatest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/mt5/candles": {
       "post": {
         "tags": [
@@ -2138,7 +2180,7 @@
           "confidence_meaning": {
             "type": "string",
             "title": "Confidence Meaning",
-            "description": "confidence của technical v1 chỉ đo chất lượng dữ liệu, không đo khả năng dự báo",
+            "description": "confidence của analyst (technical, regime) chỉ đo chất lượng dữ liệu (và độ rõ ràng của nhãn với regime), không đo khả năng dự báo",
             "default": "DATA_QUALITY_ONLY"
           }
         },

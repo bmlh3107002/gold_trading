@@ -6,7 +6,7 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { InfoTip } from "../components/ui/InfoTip";
 import { EmptyState, ErrorState, LoadingState } from "../components/ui/StateView";
-import { useCandles, useDataQuality, useEventAnalyst, useLiveQuote, useMarketSummary, useTechnical } from "../hooks/useMarket";
+import { useCandles, useDataQuality, useEventAnalyst, useLiveQuote, useMarketSummary, useRegime, useTechnical } from "../hooks/useMarket";
 import type { Theme } from "../hooks/useTheme";
 import { formatDateTime, formatNumber, formatTime } from "../lib/format";
 import { flagLabel } from "../lib/labels";
@@ -14,6 +14,7 @@ import { readTechnical } from "../lib/technical";
 import { DataQualityCard } from "./market/DataQualityCard";
 import { LiveQuoteCard } from "./market/LiveQuoteCard";
 import { EventCard } from "./market/EventCard";
+import { RegimeCard } from "./market/RegimeCard";
 import { TechnicalCard } from "./market/TechnicalCard";
 
 type SummaryState = ReturnType<typeof useMarketSummary>;
@@ -32,6 +33,7 @@ export function MarketPage({
   const quality = useDataQuality(accountId);
   const tech = useTechnical(accountId);
   const events = useEventAnalyst();
+  const regime = useRegime(accountId);
   const quote = useLiveQuote(accountId);
   // Chỉ vẽ hỗ trợ/kháng cự từ kết quả còn hiệu lực và không bị chặn bởi cổng chất lượng
   const techOut = tech.data?.output;
@@ -162,7 +164,10 @@ export function MarketPage({
         <TechnicalCard data={tech.data} loading={tech.loading} onRetry={() => void tech.refresh()} />
         <DataQualityCard q={quality.data} />
       </div>
-      <EventCard data={events.data} loading={events.loading} onRetry={() => void events.refresh()} />
+      <div className="grid-main">
+        <RegimeCard data={regime.data} loading={regime.loading} onRetry={() => void regime.refresh()} />
+        <EventCard data={events.data} loading={events.loading} onRetry={() => void events.refresh()} />
+      </div>
     </div>
   );
 }

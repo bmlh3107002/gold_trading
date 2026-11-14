@@ -242,6 +242,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/analysts/regime/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Acc Regime Latest */
+        get: operations["acc_regime_latest_api_accounts__account_id__analysts_regime_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/mt5/candles": {
         parameters: {
             query?: never;
@@ -848,7 +865,7 @@ export interface components {
             is_sample: boolean;
             /**
              * Confidence Meaning
-             * @description confidence của technical v1 chỉ đo chất lượng dữ liệu, không đo khả năng dự báo
+             * @description confidence của analyst (technical, regime) chỉ đo chất lượng dữ liệu (và độ rõ ràng của nhãn với regime), không đo khả năng dự báo
              * @default DATA_QUALITY_ONLY
              */
             confidence_meaning: string;
@@ -2592,6 +2609,37 @@ export interface operations {
         };
     };
     acc_technical_latest_api_accounts__account_id__analysts_technical_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalystLatest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acc_regime_latest_api_accounts__account_id__analysts_regime_latest_get: {
         parameters: {
             query?: never;
             header?: never;
