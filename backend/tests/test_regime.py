@@ -191,7 +191,7 @@ def test_spike_flag_caps_confidence():
 def test_sample_flag():
     o = run(series("range", source=DataSource.SAMPLE), source=DataSource.SAMPLE, feed="")
     assert "SAMPLE_DATA" in o.quality_flags
-    assert o.output_id.startswith("regime:regime-1.0.0:SAMPLE::XAUUSD:M15:")
+    assert o.output_id.startswith("regime:regime-1.1.0:SAMPLE::XAUUSD:M15:")
 
 
 # ---------------------------------------------------------- 3-C06 / 3-C07 / không nhìn trước
@@ -274,3 +274,80 @@ def test_api_regime_latest_for_own_account_only():
     assert body["output"]["features"]["regime"] == "TREND"
     assert "SAMPLE_DATA" in body["output"]["quality_flags"]
     assert c.get("/api/accounts/khac/analysts/regime/latest").status_code == 404
+
+
+# ---------------------------------------------------------- RISK_OFF từ proxy trú ẩn của Macro
+
+def macro_out(at, flight, *, status=None, ttl=17, feed="f1", computed=None):
+    from gold_trading.analysts.framework import GLOBAL_SCOPE  # noqa: F401
+    from gold_trading.contracts.analyst import AnalystOutput
+    st = status or SourceStatus.HEALTHY
+    feats = {"flight_to_safety_proxy": flight} if st is SourceStatus.HEALTHY else {"input": {}}
+    return AnalystOutput(
+        output_id=f"macro:macro-1.0.0:CSV:{feed}:XAUUSD:M15:{at.isoformat()}:x{flight}{st}",
+        analyst_id="macro", as_of=at, expires_at=at + timedelta(minutes=ttl), confidence=1.0,
+        features=feats, source_status=st, version="macro-1.0.0", correlation_id="c")
+
+
+@pytest.mark.parametrize("flight,want,reason", [
+    (True, "YES", "FLIGHT_TO_SAFETY_PROXY"), (False, "NO", "NO_FLIGHT_TO_SAFETY"),
+    (None, "NOT_EVALUATED", "PROXY_UNAVAILABLE"),
+])
+def test_risk_off_from_macro_proxy(flight, want, reason):
+    rows = series("range")
+    t = rows[-1].close_time
+    o = R.analyze(rows, symbol="XAUUSD", timeframe=TF, source=DataSource.CSV, feed="f1",
+                  expected_last_close=t, correlation_id="t",
+                  macro=macro_out(t - timedelta(minutes=10), flight))
+    f = o.features
+    assert (f["risk_off"], f["risk_off_reason"]) == (want, reason)
+    assert f["price_regime"] == "RANGE"
+    if want == "YES":
+        assert f["regime"] == "RISK_OFF" and "RISK_OFF_REGIME" in o.risk_flags
+        assert "RISK_OFF_FLIGHT_TO_SAFETY_PROXY" in o.drivers
+        assert f["fusion_weights"]["weights"]["macro"] == 1.0
+    else:
+        assert f["regime"] == "RANGE" and "RISK_OFF_REGIME" not in o.risk_flags
+    assert ("RISK_OFF_NOT_EVALUATED" in o.drivers) == (want == "NOT_EVALUATED")
+
+
+def test_risk_off_not_evaluated_when_macro_missing_expired_or_blocked():
+    rows = series("trend")
+    t = rows[-1].close_time
+    kw = dict(symbol="XAUUSD", timeframe=TF, source=DataSource.CSV, feed="f1",
+              expected_last_close=t, correlation_id="t")
+    assert R.analyze(rows, **kw).features["risk_off_reason"] == "MACRO_MISSING"
+    old = macro_out(t - timedelta(minutes=40), True)                 # hết hạn trước as_of
+    f = R.analyze(rows, macro=old, **kw).features
+    assert (f["regime"], f["risk_off_reason"]) == ("TREND", "MACRO_EXPIRED")
+    bad = macro_out(t - timedelta(minutes=5), True, status=SourceStatus.STALE)
+    assert R.analyze(rows, macro=bad, **kw).features["risk_off_reason"] == "MACRO_STALE"
+
+
+def test_runner_uses_macro_known_before_bar_close_same_feed_only(outs):
+    rows = series("range")
+    candles = InMemoryCandleStore()
+    candles.append(rows, [])
+    market = MarketDataService(candles, source=DataSource.CSV)
+    feed = market.feed
+    t = rows[-1].close_time
+    scope = Scope.of_feed("XAUUSD", TF, DataSource.CSV, feed)
+    runner = R.RegimeRunner(market, outs)
+    # Macro tính SAU lúc nến đóng → không được dùng (point-in-time)
+    late = macro_out(t - timedelta(minutes=5), True, feed=feed)
+    outs.append_scoped(late, scope, computed_at=t + timedelta(seconds=30))
+    runner.run_feed(feed, t + timedelta(minutes=1))
+    got = outs.latest_scoped("regime", scope).output
+    assert got.features["risk_off"] == "NOT_EVALUATED" and got.features["regime"] == "RANGE"
+    # Macro của nguồn khác → không dùng
+    other = Scope.of_feed("XAUUSD", TF, DataSource.CSV, "khac")
+    outs.append_scoped(macro_out(t - timedelta(minutes=8), True, feed="khac"), other,
+                       computed_at=t - timedelta(minutes=7))
+    assert R.RegimeRunner(market, outs).run_feed(feed, t + timedelta(minutes=2)) is False
+    # Macro cùng nguồn, tính trước lúc nến đóng, còn hạn → RISK_OFF; tính lại cùng id
+    outs.append_scoped(macro_out(t - timedelta(minutes=9), True, feed=feed), scope,
+                       computed_at=t - timedelta(minutes=8))
+    assert runner.run_feed(feed, t + timedelta(minutes=3)) is True
+    got = outs.latest_scoped("regime", scope).output
+    assert got.features["regime"] == "RISK_OFF"
+    assert runner.run_feed(feed, t + timedelta(minutes=4)) is False   # idempotent

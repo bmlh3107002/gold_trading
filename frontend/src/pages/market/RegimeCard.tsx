@@ -14,7 +14,7 @@ interface Props {
   onRetry: () => void;
 }
 
-const tone: Record<string, BadgeTone> = { TREND: "gold", RANGE: "neutral", HIGH_VOL: "loss" };
+const tone: Record<string, BadgeTone> = { TREND: "gold", RANGE: "neutral", HIGH_VOL: "loss", RISK_OFF: "loss" };
 
 function Item({ label, tip, children }: { label: string; tip?: string; children: React.ReactNode }) {
   return (
@@ -116,6 +116,13 @@ export function RegimeCard({ data, loading, onRetry }: Props) {
       {out && (
         <>
           {!blocked && f.risk_off === "NOT_EVALUATED" && <p className="card__desc">{t("regime.riskOff")}</p>}
+          {!blocked && f.risk_off === "YES" && (
+            <div className="banner banner--error" role="status" style={{ marginBottom: 12 }}>
+              <div className="banner__body">
+                {t("regime.riskOffYes", { price: f.priceRegime ? t(`regime.value.${f.priceRegime}`) : "—" })}
+              </div>
+            </div>
+          )}
           {!blocked && !f.weights_calibrated && <p className="card__desc">{t("regime.weightsNote")}</p>}
           <div className="kv" style={{ margin: "10px 0" }}>
             <Item label={t("regime.asOf")}>{formatDateTime(out.as_of)}</Item>

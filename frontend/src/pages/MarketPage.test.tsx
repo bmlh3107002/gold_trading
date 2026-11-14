@@ -244,6 +244,22 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(screen.getByText(/RISK_OFF\) chưa đánh giá/)).toBeInTheDocument();
   });
 
+  it("GĐ3: Regime RISK_OFF từ proxy trú ẩn — vẫn hiện nhãn theo giá", async () => {
+    routes({
+      "/api/accounts/default/analysts/regime/latest": makeTechnical(
+        {},
+        {
+          analyst_id: "regime",
+          version: "regime-1.1.0",
+          features: { regime: "RISK_OFF", price_regime: "RANGE", risk_off: "YES", bars_in_regime: 3, fusion_weights: { calibrated: false } },
+        },
+      ),
+    });
+    render(<App />);
+    expect(await screen.findByText("Né rủi ro (proxy)")).toBeInTheDocument();
+    expect(screen.getByText(/Theo giá riêng: Đi ngang/)).toBeInTheDocument();
+  });
+
   it("GĐ3: thẻ Bối cảnh vĩ mô — bias một phần, USD chưa có, lợi suất chưa đủ lịch sử", async () => {
     routes({
       "/api/accounts/default/analysts/macro/latest": makeTechnical(

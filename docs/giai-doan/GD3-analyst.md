@@ -44,7 +44,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | POSN-01 | Z-score lịch sử COT, ETF, NHTW | `[~]` | 2026-11-14: COT xong (`analysts/positioning.py`, thiết kế 31) — z + thứ hạng `ròng / OI`, cần ≥ 52 tuần (hiện chỉ có từ 11/2026 → `INSUFFICIENT_DATA` tới khi nạp bù); ETF / NHTW chưa có nguồn (Gate GĐ1) |
 | POSN-02 | Crowding risk, giả thuyết contrarian ở cực trị | `[x]` | 2026-11-14: |z| ≥ 2 → `CROWDED_*`, `CROWDING_RISK`, giả thuyết ghi "chưa kiểm chứng"; `COT_LAGGED` + `data_lag_days` mọi kết quả |
 | **Regime** | | | |
-| REG-01 | Phân loại `TREND/RANGE/RISK_OFF/HIGH_VOL` bằng luật (biến động, độ dốc xu hướng…) | `[~]` | 2026-11-14: `analysts/regime.py` (thiết kế 29): `TREND/RANGE/HIGH_VOL` bằng ADX Wilder + biến động so 10 ngày, vùng mơ hồ → trần confidence 0,5; **`RISK_OFF` chưa đánh giá** (cần Macro — bước 4). Bản HMM/classifier ở GĐ7 |
+| REG-01 | Phân loại `TREND/RANGE/RISK_OFF/HIGH_VOL` bằng luật (biến động, độ dốc xu hướng…) | `[~]` | 2026-11-14: `analysts/regime.py` (thiết kế 29): `TREND/RANGE/HIGH_VOL` bằng ADX Wilder + biến động so 10 ngày, vùng mơ hồ → trần confidence 0,5; `RISK_OFF` từ proxy trú ẩn của Macro (1.1.0, 14/11). Bản HMM/classifier ở GĐ7 |
 | REG-02 | Trọng số gợi ý cho Fusion, theo dõi chuyển regime | `[~]` | 2026-11-14: theo dõi chuyển regime xong (96 nến, tính lại được); trọng số: bảng **trung tính**, `calibrated: false` — chốt ở GĐ4/GĐ6 |
 
 | Mã | Tình huống (áp dụng cho **mọi** analyst) | Hành vi bắt buộc | TT |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Regime 1.1.0: RISK_OFF từ proxy trú ẩn của Macro (người dùng duyệt).** Thiết kế 29 mục 7. Macro cùng nguồn giá, tính trước giờ đóng nến, còn hạn → `RISK_OFF` (ưu tiên cao nhất), nhãn giá giữ ở `price_regime`; thiếu / hết hạn / bị chặn → `NOT_EVALUATED`. 6 test; soát Postgres Macro + Regime cùng chạy, cú sốc → RISK_OFF, point-in-time + tính lại cùng id 60/60. Thẻ web: nhãn "Né rủi ro (proxy)" + băng giải thích + nhãn theo giá. Backend 1960, frontend 111.
 
 - **2026-11-14** — **Nạp bù lịch sử (người dùng chọn):** H.15 (lệnh `h15-bu`) → Macro có ngay 61 quan sát (soát thật: z / hướng / bias tính được); COT (lệnh `cot-bu`, chạy trên máy người dùng vì CFTC chặn máy chủ đám mây) → Positioning đủ 52 tuần sau khi nạp. Chi tiết ở nhật ký GĐ1.
 

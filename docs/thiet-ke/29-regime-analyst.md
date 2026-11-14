@@ -50,3 +50,11 @@ Job `REGIME` (định tuyến có từ GĐ2: nến M15 vàng đóng, debounce) �
 ## 6. Kiểm chứng
 
 29 test (tham chiếu ADX, ngưỡng, đi ngang / xu hướng lên / xuống / biến động cao + chuyển regime, mơ hồ, trọng số trung tính, thiếu lịch sử, trễ, đóng băng, độ phủ, spike, SAMPLE, 3-C06 thêm nến tương lai không đổi kết quả, đổi dữ liệu → id mới, router, bộ xử lý theo nguồn + idempotent). **Soát riêng (Postgres 16):** orchestrator thật, nạp từng nến 2 ngày (190 nến) → 190 kết quả, không trùng; tính lại tại đúng thời điểm → cùng `output_id` 190/190; **phân loại lại độc lập bằng `ta` + pandas** (ADX, ATR, trung vị trượt 960) → khớp 190/190 nhãn kể cả cờ mơ hồ (|ΔADX| ≤ 0,005 do làm tròn).
+
+## 7. RISK_OFF từ proxy trú ẩn của Macro (`regime-1.1.0`, người dùng duyệt 2026-11-14)
+
+- **Nguồn:** `flight_to_safety_proxy` của Macro (USD `z_1d ≥ 2` **và** lợi suất 10 năm `z_1d ≤ −2` — `30-macro-analyst.md`). Chỉ là **proxy** (thiếu cổ phiếu / VIX), chưa hiệu chỉnh.
+- **Chọn kết quả Macro (point-in-time):** cùng **nguồn giá** (scope), `computed_at ≤ giờ đóng nến` (Macro tính sau lúc nến đóng không được dùng), còn hạn tại `as_of`. Thường là Macro của nến trước (trễ ≤ 1 nến). `output_id` Macro nằm trong băm đầu vào → tính lại cùng kết quả.
+- **Kết quả:** proxy `true` → `regime = RISK_OFF` (ưu tiên cao nhất), cờ `RISK_OFF_REGIME`, driver `RISK_OFF_FLIGHT_TO_SAFETY_PROXY`; nhãn theo giá giữ ở `price_regime` (theo dõi chuyển regime vẫn tính trên `price_regime`). `false` → `risk_off = NO`. Macro thiếu / hết hạn / bị chặn / proxy không đánh giá được (thiếu USD hoặc lợi suất 10 năm chưa đủ lịch sử) → `risk_off = NOT_EVALUATED` + lý do (`MACRO_MISSING`, `MACRO_EXPIRED`, `MACRO_<trạng thái>`, `PROXY_UNAVAILABLE`), nhãn theo giá giữ nguyên.
+- Trọng số Fusion cho `RISK_OFF`: vẫn trung tính (`calibrated: false`).
+- **Kiểm chứng:** 6 test (YES / NO / không đánh giá; Macro thiếu / hết hạn / STALE; Macro tính sau nến đóng không dùng; Macro nguồn khác không dùng; idempotent). Soát Postgres: orchestrator thật Macro + Regime 60 nến có cú sốc USD + lợi suất → `RISK_OFF` 36 nến sau cú sốc, nến đầu `NOT_EVALUATED` (chưa có Macro tính trước); mọi Macro được dùng đều tính trước giờ đóng nến và còn hạn; tính lại cùng id 60/60.

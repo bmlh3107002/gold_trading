@@ -13,6 +13,6 @@ describe("readRegime", () => {
   it("đọc đúng giá trị hợp lệ và mọi nhãn có tiếng Việt", () => {
     const f = readRegime({ regime: "TREND", direction: "UP", adx14: 31.2, bars_in_regime: 7, previous_regime: "RANGE" });
     expect(f).toMatchObject({ regime: "TREND", direction: "UP", adx14: 31.2, bars_in_regime: 7, previous_regime: "RANGE" });
-    for (const k of ["TREND", "RANGE", "HIGH_VOL"] as const) expect(dict.regime.value[k]).toBeTruthy();
+    for (const k of ["TREND", "RANGE", "HIGH_VOL", "RISK_OFF"] as const) expect(dict.regime.value[k]).toBeTruthy();
   });
 });

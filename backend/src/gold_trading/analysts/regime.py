@@ -8,8 +8,11 @@ nguồn giá (mỗi broker một chuỗi — MT-05) từ nến M15 **đã đóng
 - ``RANGE``: ADX14 ≤ 20.
 - ADX trong (20, 25) hoặc tỉ lệ biến động trong [1,8; 2,2) → **mơ hồ**: vẫn gán nhãn gần nhất
   nhưng gắn ``AMBIGUOUS_REGIME`` + trần confidence 0,5.
-- ``RISK_OFF``: cần dữ liệu liên thị trường (USD, lợi suất) → **chưa đánh giá** tới khi có Macro
-  analyst (bước 4); không suy từ giá vàng.
+- ``RISK_OFF`` (1.1.0, người dùng duyệt 2026-11-14): lấy từ **proxy trú ẩn của Macro** (USD z1 ≥ 2
+  **và** lợi suất 10 năm z1 ≤ −2) — kết quả Macro **cùng nguồn giá**, đã tính trước ``as_of`` và
+  còn hạn tại ``as_of``. Có → nhãn ``RISK_OFF`` (ưu tiên cao nhất), nhãn theo giá giữ ở
+  ``price_regime``. Macro thiếu / hết hạn / bị chặn / không đánh giá được proxy → ``risk_off =
+  NOT_EVALUATED`` (không đoán, không suy từ giá vàng).
 
 KHÔNG có xác suất (luật chưa hiệu chỉnh), KHÔNG ra tín hiệu mua/bán. Ngưỡng ADX 25 / 20 là quy
 ước của Wilder; 2× biến động như Technical; vùng mơ hồ và cửa sổ là giá trị khởi đầu **chưa hiệu
@@ -31,7 +34,7 @@ from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
 ANALYST_ID = "regime"
-VERSION = "regime-1.0.0"
+VERSION = "regime-1.1.0"   # 1.1.0: RISK_OFF từ proxy trú ẩn của Macro
 HANDLER_VERSION = "regime-job-1"
 
 PERIOD = 14
@@ -51,7 +54,25 @@ EXPIRY_GRACE = timedelta(minutes=2)
 # ghi rõ ``calibrated: false``. GĐ4 / GĐ6 chốt bảng thật (đổi bảng → đổi WEIGHTS_VERSION + VERSION).
 WEIGHTS_VERSION = "regime-weights-0-neutral"
 _ANALYSTS = ("event", "macro", "news", "positioning", "technical")
-FUSION_WEIGHTS = {r: {a: 1.0 for a in _ANALYSTS} for r in ("TREND", "RANGE", "HIGH_VOL")}
+FUSION_WEIGHTS = {r: {a: 1.0 for a in _ANALYSTS}
+                  for r in ("TREND", "RANGE", "HIGH_VOL", "RISK_OFF")}
+
+
+def risk_off_from(macro: AnalystOutput | None, as_of: datetime) -> tuple[str, str]:
+    """(YES / NO / NOT_EVALUATED, lý do) từ kết quả Macro đã chọn cho ``as_of``."""
+    from gold_trading.common.enums import SourceStatus
+    if macro is None:
+        return "NOT_EVALUATED", "MACRO_MISSING"
+    if not macro.is_valid_at(as_of):
+        return "NOT_EVALUATED", "MACRO_EXPIRED"
+    if macro.source_status is not SourceStatus.HEALTHY:
+        return "NOT_EVALUATED", f"MACRO_{macro.source_status.value}"
+    flight = macro.features.get("flight_to_safety_proxy")
+    if flight is True:
+        return "YES", "FLIGHT_TO_SAFETY_PROXY"
+    if flight is False:
+        return "NO", "NO_FLIGHT_TO_SAFETY"
+    return "NOT_EVALUATED", "PROXY_UNAVAILABLE"   # thiếu USD hoặc lợi suất 10 năm
 
 
 def classify(adx_v: float, vol_ratio: float) -> tuple[str, bool]:
@@ -76,6 +97,7 @@ def analyze(
     expected_last_close: datetime,
     correlation_id: str,
     calendar: MarketCalendar = REFERENCE,
+    macro: AnalystOutput | None = None,
 ) -> AnalystOutput | None:
     """``rows``: nến đã đóng point-in-time (cũ → mới). None nếu không có nến nào."""
     if not rows:
@@ -112,7 +134,9 @@ def analyze(
     highs = [c.high for c in window]
     lows = [c.low for c in window]
     closes = [c.close for c in window]
-    digest = {"scope": scope.key, "bars": [[c.open_time, c.open, c.high, c.low, c.close,
+    risk_off, risk_off_reason = risk_off_from(macro, as_of)
+    digest = {"scope": scope.key, "macro": macro.output_id if macro is not None else None,
+              "bars": [[c.open_time, c.open, c.high, c.low, c.close,
                                             c.revision] for c in window]}
     base = dict(analyst_id=ANALYST_ID, version=VERSION, scope=scope, as_of=as_of,
                 expires_at=as_of + timeframe.delta + EXPIRY_GRACE,
@@ -135,25 +159,33 @@ def analyze(
         ratios.append(ratio)
         labels.append(classify(adx_s[i], ratio))
 
-    regime, ambiguous = labels[-1]
+    price_regime, ambiguous = labels[-1]
+    regime = price_regime
     run = 1
-    while run < len(labels) and labels[-1 - run][0] == regime:
+    while run < len(labels) and labels[-1 - run][0] == price_regime:
         run += 1
     capped = run == len(labels)
     since = None if capped else window[n - run].open_time
     previous = None if capped else labels[-1 - run][0]
     pdi, mdi = pdi_s[-1], mdi_s[-1]
     direction = ("UP" if pdi > mdi else "DOWN" if mdi > pdi else None) \
-        if regime == "TREND" else None
+        if price_regime == "TREND" else None
+    if risk_off == "YES":
+        regime = "RISK_OFF"
 
-    drivers = [f"REGIME_{regime}", "RISK_OFF_NOT_EVALUATED"]
+    drivers = [f"REGIME_{regime}"]
+    if risk_off == "YES":
+        drivers.append("RISK_OFF_FLIGHT_TO_SAFETY_PROXY")
+        risk_flags.add("RISK_OFF_REGIME")
+    elif risk_off == "NOT_EVALUATED":
+        drivers.append("RISK_OFF_NOT_EVALUATED")
     if direction:
         drivers.append(f"TREND_{direction}")
     if ambiguous:
         drivers.append("AMBIGUOUS_REGIME")
     if run == 1:
         drivers.append("REGIME_CHANGED")
-    if regime == "HIGH_VOL":
+    if price_regime == "HIGH_VOL":
         risk_flags.add("HIGH_VOLATILITY_REGIME")
 
     confidence = 1.0 if recent.coverage >= 1.0 else 0.9
@@ -165,6 +197,7 @@ def analyze(
 
     features: dict[str, Any] = {
         "regime": regime,
+        "price_regime": price_regime,
         "direction": direction,
         "ambiguous": ambiguous,
         "adx14": r(adx_s[-1], 2),
@@ -172,7 +205,10 @@ def analyze(
         "minus_di": r(mdi, 2),
         "atr14": r(atr_s[-1], 4),
         "vol_ratio": r(ratios[-1]),
-        "risk_off": "NOT_EVALUATED",
+        "risk_off": risk_off,
+        "risk_off_reason": risk_off_reason,
+        "risk_off_source": macro.output_id if macro is not None else None,
+        "transition_tracks": "price_regime",
         "bars_in_regime": run,
         "bars_in_regime_capped": capped,
         "regime_since": since,
@@ -199,7 +235,13 @@ class RegimeRunner:
         if m.source is None or m.feed is None:
             return False
         rows = m.candles(as_of=now, limit=WINDOW)
-        out = analyze(rows, symbol=m.symbol, timeframe=m.timeframe, source=m.source,
+        scope = Scope.of_feed(m.symbol, m.timeframe, m.source, m.feed)
+        macro = None
+        if rows:
+            # Macro cùng nguồn giá, đã tính trước lúc nến đóng (point-in-time, tính lại được)
+            got = self.store.latest_scoped("macro", scope, known_by=rows[-1].close_time)
+            macro = got.output if got is not None else None
+        out = analyze(rows, macro=macro, symbol=m.symbol, timeframe=m.timeframe, source=m.source,
                       feed=m.feed, expected_last_close=m.expected_last_close(now),
                       correlation_id=f"bar-close:{rows[-1].close_time.isoformat()}"
                       if rows else "none", calendar=m.calendar)

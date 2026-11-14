@@ -1,8 +1,9 @@
 /** Đọc an toàn features của analyst Regime (docs/thiet-ke/29). Thiếu/sai kiểu → null. */
-export type RegimeLabel = "TREND" | "RANGE" | "HIGH_VOL";
+export type RegimeLabel = "TREND" | "RANGE" | "HIGH_VOL" | "RISK_OFF";
 
 export interface RegimeFeatures {
   regime: RegimeLabel | null;
+  priceRegime: RegimeLabel | null;
   direction: "UP" | "DOWN" | null;
   ambiguous: boolean;
   adx14: number | null;
@@ -12,11 +13,12 @@ export interface RegimeFeatures {
   regime_since: string | null;
   previous_regime: RegimeLabel | null;
   risk_off: string | null;
+  riskOffReason: string | null;
   weights_calibrated: boolean;
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
-const LABELS = ["TREND", "RANGE", "HIGH_VOL"] as const;
+const LABELS = ["TREND", "RANGE", "HIGH_VOL", "RISK_OFF"] as const;
 const oneOf = <T extends string>(v: unknown, allowed: readonly T[]) =>
   typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : null;
 
@@ -25,6 +27,7 @@ export function readRegime(features: Record<string, unknown> | undefined): Regim
   const w = f.fusion_weights && typeof f.fusion_weights === "object" ? (f.fusion_weights as Record<string, unknown>) : {};
   return {
     regime: oneOf(f.regime, LABELS),
+    priceRegime: oneOf(f.price_regime, LABELS),
     direction: oneOf(f.direction, ["UP", "DOWN"] as const),
     ambiguous: f.ambiguous === true,
     adx14: num(f.adx14),
@@ -34,6 +37,7 @@ export function readRegime(features: Record<string, unknown> | undefined): Regim
     regime_since: typeof f.regime_since === "string" ? f.regime_since : null,
     previous_regime: oneOf(f.previous_regime, LABELS),
     risk_off: typeof f.risk_off === "string" ? f.risk_off : null,
+    riskOffReason: typeof f.risk_off_reason === "string" ? f.risk_off_reason : null,
     weights_calibrated: w.calibrated === true,
   };
 }
