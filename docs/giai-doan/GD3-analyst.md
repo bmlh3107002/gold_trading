@@ -15,7 +15,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
-| ANA-01 | Khung chung: hết hạn, trạng thái nguồn, phiên bản, lưu append-only cho mọi analyst | `[~]` | Có cho Technical (`storage/analyst_outputs.py`) |
+| ANA-01 | Khung chung: hết hạn, trạng thái nguồn, phiên bản, lưu append-only cho mọi analyst | `[x]` | 2026-11-14: `analysts/framework.py` + `append_scoped`/`latest_scoped` (`storage/analyst_outputs.py`); thiết kế `docs/thiet-ke/27-khung-analyst.md`. Technical giữ đường cũ (chưa chuyển sang khung — không đổi kết quả) |
 | ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | Có cho Technical |
 | **Technical** | | | |
 | TEC-01 | EMA, RSI Wilder, ATR Wilder (đối chiếu thư viện chuẩn) | `[x]` | `analysts/indicators.py` |
@@ -49,13 +49,13 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 
 | Mã | Tình huống (áp dụng cho **mọi** analyst) | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
-| 3-C01 | Thiếu input bắt buộc | `sourceStatus=MISSING`, không xuất đặc trưng | `[~]` (Technical) |
-| 3-C02 | Input quá cũ | STALE | `[~]` (Technical) |
-| 3-C03 | Chưa đủ lịch sử | `INSUFFICIENT_HISTORY` | `[~]` (Technical) |
-| 3-C04 | Giá trị cực đoan / spike trong input | Gắn cờ, hạ độ tin cậy | `[~]` (Technical) |
-| 3-C05 | Dữ liệu SAMPLE | Cờ `SAMPLE_DATA` | `[~]` (Technical) |
-| 3-C06 | Thêm dữ liệu tương lai rồi tính lại tại thời điểm cũ | Kết quả không đổi | `[~]` (Technical 40/40) |
-| 3-C07 | Đổi công thức/ngưỡng | Tăng `version`, output cũ giữ nguyên | `[~]` |
+| 3-C01 | Thiếu input bắt buộc | `sourceStatus=MISSING`, không xuất đặc trưng | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
+| 3-C02 | Input quá cũ | STALE | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
+| 3-C03 | Chưa đủ lịch sử | `INSUFFICIENT_HISTORY` | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
+| 3-C04 | Giá trị cực đoan / spike trong input | Gắn cờ, hạ độ tin cậy | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
+| 3-C05 | Dữ liệu SAMPLE | Cờ `SAMPLE_DATA` | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
+| 3-C06 | Thêm dữ liệu tương lai rồi tính lại tại thời điểm cũ | Kết quả không đổi | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
+| 3-C07 | Đổi công thức/ngưỡng | Tăng `version`, output cũ giữ nguyên | `[~]` Technical + khung chung (bước 1); mỗi analyst mới tick khi có test riêng |
 | 3-C08 | Các nguồn của một analyst mâu thuẫn nhau | Hạ confidence, ghi driver | `[ ]` |
 | 3-C09 | (Event) công bố đúng lúc thị trường đóng / cuối tuần | Cửa sổ áp dụng khi mở cửa | `[ ]` |
 | 3-C10 | (News) tin chứa lệnh "bỏ qua hướng dẫn…" | Không làm theo; gắn cờ injection | `[ ]` |
@@ -63,5 +63,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 1: khung chung analyst (ANA-01).** Thiết kế `27-khung-analyst.md`: analyst theo nguồn giá vs. toàn cục; toàn cục lưu cùng bảng `analyst_outputs` với `(*, *, GLOBAL, "")` — không migration (bảng đã chỉ-thêm từ 0003). `analysts/framework.py`: `Scope`, `input_digest` (JSON chuẩn, kiểu lạ / datetime không múi giờ / NaN → lỗi), `output_id` có phiên bản, `assess` (bắt buộc: MISSING > STALE > INVALID chặn; tùy chọn: chỉ cờ `OPTIONAL_*` — không tự đặt hệ số hạ confidence chung; cực đoan → trần 0,5 như Technical; `known_at > as_of` → `LookAheadError`), `build_output` (chặn → chỉ `features.input` để truy vết, confidence 0). Kho: `append_scoped` (chặn output khác phạm vi), `latest_scoped(known_by=)` point-in-time. 35 test (analyst mẫu: 3-C01..C07, kho bộ nhớ + SQLite). Soát riêng trên Postgres 16: ghi trùng 8 luồng → đúng 1, trigger chặn UPDATE/DELETE, 300 kết quả ngẫu nhiên → `latest_scoped` / `expired_unreplaced` / `computed_between` bộ nhớ ≡ Postgres. Giới hạn: router chưa tính lại analyst toàn cục khi hết hạn (bước 2); Technical chưa chuyển sang khung.
 
 - **2026-11-14** — **DEC-22: bắt đầu GĐ3 song song.** Viết `docs/ke-hoach/GD3-ke-hoach.md` (8 bước: khung chung → Lịch sự kiện → Regime → Macro → Positioning → News (cần DEC-08) → Technical còn lại → Gate). Nguyên tắc: analyst chỉ quan sát, chặn lệnh vẫn do Safety / làn nhanh; analyst Lịch sự kiện dùng chung bảng lịch hợp nhất + `event_importance` với làn nhanh. Ghi nhận: phần lớn EVT-01/02 đã có từ GĐ1 (`ingestion/event_importance.py`, `economic_calendar.py`) — GĐ3 bọc thành output analyst, không viết lại chính sách.

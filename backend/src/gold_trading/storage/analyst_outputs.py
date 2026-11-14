@@ -2,6 +2,9 @@
 
 Cùng (nguồn giá, output_id) (cùng phiên bản + as_of + hash đầu vào) thì không ghi lại. MT-05:
 hai nguồn có nến giống hệt nhau vẫn mỗi nguồn một kết quả (migration 0010).
+
+GĐ3 (ANA-01, ``docs/thiet-ke/27-khung-analyst.md``): ``append_scoped`` / ``latest_scoped`` theo
+``Scope`` — analyst toàn cục (lịch, macro…) lưu với ``(*, *, GLOBAL, "")``, không cần migration.
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ from sqlalchemy import Engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
+from gold_trading.analysts.framework import Scope
 from gold_trading.contracts.analyst import AnalystOutput
 from gold_trading.contracts.candle import DataSource
 from gold_trading.market.timeframes import Timeframe
@@ -41,6 +45,20 @@ class StoredOutput:
     source: DataSource
 
 
+@dataclass(frozen=True)
+class ScopedOutput:
+    output: AnalystOutput
+    computed_at: datetime
+    scope: Scope
+
+
+def _check_scope(out: AnalystOutput, scope: Scope) -> None:
+    if not isinstance(scope, Scope):
+        raise TypeError("cần Scope")
+    if f":{scope.key}:" not in out.output_id:
+        raise ValueError("output_id không thuộc phạm vi này (tạo bằng framework.output_id)")
+
+
 class AnalystOutputStore(Protocol):
     def append(
         self,
@@ -55,21 +73,34 @@ class AnalystOutputStore(Protocol):
     def latest(
         self, analyst_id: str, *, symbol: str, tf: Timeframe, source: DataSource, feed: str = ""
     ) -> StoredOutput | None: ...
+    def append_scoped(self, out: AnalystOutput, scope: Scope, *, computed_at: datetime
+                      ) -> bool: ...
+    def latest_scoped(self, analyst_id: str, scope: Scope, *, known_by: datetime | None = None
+                      ) -> ScopedOutput | None: ...
 
 
 class InMemoryAnalystOutputStore:
     def __init__(self) -> None:
-        self._rows: list[tuple[str, Timeframe, DataSource, str, StoredOutput]] = []
+        # (symbol, timeframe, source, feed, StoredOutput) — timeframe / source là chuỗi
+        self._rows: list[tuple[str, str, str, str, StoredOutput]] = []
         self._ids: set[tuple[str, str]] = set()  # (feed, output_id)
         self._lock = threading.Lock()
 
-    def append(self, out, *, symbol, tf, source, computed_at, feed=""):
+    def _add(self, out, symbol, tf, src, feed, computed_at, source_obj) -> bool:
         with self._lock:
             if (feed, out.output_id) in self._ids:
                 return False
             self._ids.add((feed, out.output_id))
-            self._rows.append((symbol, tf, source, feed, StoredOutput(out, computed_at, source)))
+            self._rows.append((symbol, tf, src, feed, StoredOutput(out, computed_at, source_obj)))
             return True
+
+    def append(self, out, *, symbol, tf, source, computed_at, feed=""):
+        return self._add(out, symbol, tf.value, source.value, feed, computed_at, source)
+
+    def append_scoped(self, out, scope, *, computed_at):
+        _check_scope(out, scope)
+        return self._add(out, scope.symbol, scope.timeframe, scope.source, scope.feed,
+                         computed_at, scope.source)
 
     def expired_unreplaced(self, lo: datetime, hi: datetime) -> list[ExpiredOutput]:
         """``lo < expires_at <= hi`` và không có kết quả cùng chuỗi tính sau nó, trước khi nó hết
@@ -86,8 +117,7 @@ class InMemoryAnalystOutputStore:
                         and r.computed_at < r2.computed_at <= o.expires_at
                         for (s2, t2, src2, f2, r2) in rows)
             if not newer:
-                out.append(ExpiredOutput(o.analyst_id, s, t.value, src.value, f, o.output_id,
-                                         o.expires_at))
+                out.append(ExpiredOutput(o.analyst_id, s, t, src, f, o.output_id, o.expires_at))
         return out
 
     def computed_between(self, lo: datetime, hi: datetime) -> list[tuple]:
@@ -95,17 +125,24 @@ class InMemoryAnalystOutputStore:
         <= hi`` (GĐ2 replay)."""
         with self._lock:
             rows = list(self._rows)
-        return sorted(((r.output.analyst_id, f, s, t.value, src.value, r.output.output_id,
+        return sorted(((r.output.analyst_id, f, s, t, src, r.output.output_id,
                         r.computed_at) for (s, t, src, f, r) in rows
                        if lo < r.computed_at <= hi), key=lambda x: (x[6], x[5]))
 
-    def latest(self, analyst_id, *, symbol, tf, source, feed=""):
-        rows = [
-            r
-            for (s, t, src, f, r) in self._rows
-            if (s, t, src, f) == (symbol, tf, source, feed) and r.output.analyst_id == analyst_id
-        ]
+    def _latest(self, analyst_id, key, known_by=None):
+        with self._lock:
+            rows = [r for (s, t, src, f, r) in self._rows
+                    if (s, t, src, f) == key and r.output.analyst_id == analyst_id
+                    and (known_by is None or r.computed_at <= known_by)]
         return max(rows, key=lambda r: (r.output.as_of, r.computed_at)) if rows else None
+
+    def latest(self, analyst_id, *, symbol, tf, source, feed=""):
+        return self._latest(analyst_id, (symbol, tf.value, source.value, feed))
+
+    def latest_scoped(self, analyst_id, scope, *, known_by=None):
+        r = self._latest(analyst_id, (scope.symbol, scope.timeframe, scope.source, scope.feed),
+                         known_by)
+        return ScopedOutput(r.output, r.computed_at, scope) if r else None
 
 
 def _utc(v: datetime) -> datetime:
@@ -117,14 +154,22 @@ class SqlAnalystOutputStore:
         self.engine = engine
 
     def append(self, out, *, symbol, tf, source, computed_at, feed=""):
+        return self._insert(out, symbol, tf.value, source.value, feed, computed_at)
+
+    def append_scoped(self, out, scope, *, computed_at):
+        _check_scope(out, scope)
+        return self._insert(out, scope.symbol, scope.timeframe, scope.source, scope.feed,
+                            computed_at)
+
+    def _insert(self, out, symbol, tf, src, feed, computed_at):
         row = dict(
             feed_id=feed,
             output_id=out.output_id,
             analyst_id=out.analyst_id,
             version=out.version,
             symbol=symbol,
-            timeframe=tf.value,
-            source=source.value,
+            timeframe=tf,
+            source=src,
             as_of=out.as_of,
             expires_at=out.expires_at,
             computed_at=computed_at,
@@ -202,3 +247,19 @@ class SqlAnalystOutputStore:
         return StoredOutput(
             AnalystOutput.model_validate(row.payload), _utc(row.computed_at), source
         )
+
+    def latest_scoped(self, analyst_id, scope, *, known_by=None):
+        c = analyst_outputs.c
+        q = (select(c.payload, c.computed_at)
+             .where(c.analyst_id == analyst_id, c.symbol == scope.symbol,
+                    c.timeframe == scope.timeframe, c.source == scope.source,
+                    c.feed_id == scope.feed))
+        if known_by is not None:
+            q = q.where(c.computed_at <= known_by)
+        q = q.order_by(c.as_of.desc(), c.computed_at.desc(), c.seq.desc()).limit(1)
+        with self.engine.connect() as conn:
+            row = conn.execute(q).first()
+        if row is None:
+            return None
+        return ScopedOutput(AnalystOutput.model_validate(row.payload), _utc(row.computed_at),
+                            scope)
