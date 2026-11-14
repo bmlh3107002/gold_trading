@@ -52,6 +52,7 @@ from gold_trading.orchestrator.model import OrchestratorStore
 from gold_trading.orchestrator.runner import OrchestratorRunner, technical_handler
 from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
 from gold_trading.risk.blocks import BlockStore
+from gold_trading.risk.fast_lane import CalendarBlocks, dedupe, fast_lane_handler
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -68,6 +69,7 @@ from gold_trading.storage.repository import (
     SqlRepository,
 )
 from gold_trading.storage.risk_blocks import SqlBlockStore
+from gold_trading.storage.source_checks import SqlSourceCheckLog
 
 POLICY_VERSION = "policy-0.1.0"
 log = logging.getLogger("gold_trading.api")
@@ -259,10 +261,18 @@ def create_app(
     # GĐ2 4a (DEC-20): lệnh cấm có hạn của làn nhanh — Safety đọc theo nguồn giá của tài khoản.
     engine_ = getattr(repo, "engine", None)
     block_store = SqlBlockStore(engine_) if engine_ is not None else BlockStore()
+    # GĐ2 4b: cửa sổ lịch kinh tế + 15 phút sau khi nhận số HIGH (tính khi đọc, point-in-time,
+    # có trạng thái nguồn). Chỉ khi có DB (bảng lịch nằm trong DB); bộ nhớ: nối ở dưới nếu có.
+    calendar_blocks: CalendarBlocks | None = None
+    if engine_ is not None:
+        calendar_blocks = CalendarBlocks(SqlExternalRecordStore(engine_),
+                                         SqlSourceCheckLog(engine_), market.calendar)
 
     def account_entry_blocks(account_id: str, now):
         feed_ = account_feed(repo, account_id) if source is DataSource.MT5 else ""
-        return block_store.active(now, feed_)
+        stored = block_store.active(now, feed_)
+        cal = calendar_blocks.active(now) if calendar_blocks is not None else []
+        return dedupe([*stored, *cal])
 
     registry = AccountRegistry(
         repo,
@@ -304,6 +314,10 @@ def create_app(
         # Đồng hồ máy chủ bị chặn → không nạp (giờ sai làm sai thời điểm "đã biết").
         external_runner = runner_from_env(getattr(repo, "engine", None), os.environ,
                                           blocked=clock.ingest_block_reason)
+    if calendar_blocks is None and getattr(external_runner, "store", None) is not None:
+        calendar_blocks = CalendarBlocks(external_runner.store,
+                                         getattr(external_runner, "check_log", None),
+                                         market.calendar)
 
     # GĐ2 bước 3 (ORC-01): Event Orchestrator thay vòng Technical 15 giây (GT_ORCHESTRATOR=0 →
     # quay về runner cũ). Sự kiện suy ra từ dữ liệu đã lưu; nhật ký sự kiện / job trong DB.
@@ -319,7 +333,10 @@ def create_app(
         orchestrator = OrchestratorRunner(
             orch=orch_store, candle_store=candle_store, record_store=record_store,
             analyst_store=analyst_store,
-            handlers={"TECHNICAL": technical_handler(runner, active_feeds)},
+            handlers={"TECHNICAL": technical_handler(runner, active_feeds),
+                      # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
+                      "FAST_LANE": fast_lane_handler(block_store, record_store,
+                                                     market.calendar)},
             blocked=clock.ingest_block_reason)
 
     @asynccontextmanager
