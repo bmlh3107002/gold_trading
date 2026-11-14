@@ -16,7 +16,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ANA-01 | Khung chung: hết hạn, trạng thái nguồn, phiên bản, lưu append-only cho mọi analyst | `[x]` | 2026-11-14: `analysts/framework.py` + `append_scoped`/`latest_scoped` (`storage/analyst_outputs.py`); thiết kế `docs/thiet-ke/27-khung-analyst.md`. Technical giữ đường cũ (chưa chuyển sang khung — không đổi kết quả) |
-| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | Có cho Technical |
+| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) |
 | **Technical** | | | |
 | TEC-01 | EMA, RSI Wilder, ATR Wilder (đối chiếu thư viện chuẩn) | `[x]` | `analysts/indicators.py` |
 | TEC-02 | Cổng chất lượng R2–R6 + `CALENDAR_MISMATCH` | `[x]` | `market/quality.py` |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 2c (code): API + thẻ Lịch sự kiện.** `GET /api/analysts/event/latest` (cần đăng nhập; dữ liệu chung mọi tài khoản; `observer_only`, `confidence_meaning = DATA_QUALITY_ONLY`). Giao diện: `lib/event.ts` (đọc an toàn, sai kiểu → bỏ; actual giữ chuỗi), thẻ "Lịch sự kiện kinh tế" ở trang Thị trường: mức rủi ro, sự kiện kế tiếp, cửa sổ đang mở / sắp mở, 24 giờ tới, vừa công bố (trạng thái số + câu "chưa có dự báo"), đã gỡ; bị chặn → liệt kê nguồn lỗi + câu "lịch thiếu không có nghĩa là không có sự kiện". Test MT-05 (không gọi endpoint giá chung) sửa: cho phép đúng `/api/analysts/event/latest` (không phải giá). Backend 1848, frontend 101, build đạt. Còn: kiểm trên máy (đi cùng lần dựng lại thứ Hai 16/11).
 
 - **2026-11-14** — **Bước 2a + 2b: analyst Lịch sự kiện (EVT-01..04, 3-C08, 3-C09).** Thiết kế `28-event-analyst.md`. `analysts/event.py`: chỉ quan sát (không chặn); cửa sổ bằng đúng `economic_calendar` + `calendar_blocks` + `merge_windows` của làn nhanh; đầu vào 4 nguồn lịch bắt buộc (lịch không phủ quá 24 giờ → `MISSING` — lịch rỗng không có nghĩa là không rủi ro; nguồn không khỏe ING-30 → `STALE`), 4 nguồn số tùy chọn; đặc trưng `event_risk`, `window`, `next_event`, `upcoming`, `recent_releases` (actual chuỗi gốc, `surprise_status = INSUFFICIENT_DATA`), `removed`; hết hạn theo mốc gần nhất, chậm nhất 15 phút (bị chặn: 2 phút). Orchestrator: bộ xử lý `EVENT_CALENDAR`, `OUTPUT_EXPIRED` của `event` → tính lại (`router-2026.11.14c`), dự phòng mỗi nhịp khi không có kết quả còn hạn > 60 giây. Khung chung thêm `InputCheck.healthy`; `economic_calendar.health_details`. 44 test (bộ nhớ + SQLite). **Soát riêng trên Postgres 16:** orchestrator thật 6 giờ quanh CPI, nhịp 20 giây (1080 nhịp) → 31 kết quả, không trùng `as_of`, 31/31 khớp lý do chặn của `CalendarBlocks`, chỉ 1 nhịp chờ tính lại sau hết hạn, CPI +10 phút: `RECEIVED` + `INSUFFICIENT_DATA`. **Lỗi tìm được khi viết test:** không có — nhưng ghi nhận giới hạn: số đến trễ > 24 giờ nằm ngoài khung tra cứu của analyst (giống `CalendarBlocks`; Safety vẫn chặn nhờ lệnh cấm đã lưu của job `FAST_LANE`). Test DST cho analyst bỏ (lịch mẫu không phủ 3/2027) — DST đã có test ở GĐ1, analyst chỉ dùng UTC. Còn: 2c (API + thẻ giao diện + kiểm trên máy).
 

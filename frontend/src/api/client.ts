@@ -17,6 +17,7 @@ export type CandleOut = components["schemas"]["CandleOut"];
 export type DataQuality = components["schemas"]["DataQuality"];
 export type LiveQuote = components["schemas"]["LiveQuote"];
 export type AnalystLatest = components["schemas"]["AnalystLatest"];
+export type EventLatest = components["schemas"]["EventLatest"];
 export type GatewayStatus = components["schemas"]["GatewayStatus"];
 export type AnalystOutputDto = components["schemas"]["AnalystOutput"];
 export type Me = components["schemas"]["Me"];
@@ -119,6 +120,8 @@ export const api = {
   dataSources: () => request<DataSourcesResponse>("/api/data-sources"),
   pipeline: () => request<PipelineResponse>("/api/pipeline"),
   technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
+  /** GĐ3: analyst Lịch sự kiện (chung cho mọi tài khoản; chỉ mô tả, không chặn). */
+  eventLatest: () => request<EventLatest>("/api/analysts/event/latest"),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),
   /** DEC-17: USER xin cấp (lại) token Gateway; ADMIN cấp hoặc từ chối. */

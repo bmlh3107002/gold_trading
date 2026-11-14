@@ -20,7 +20,7 @@
 ### Bước 2 — Analyst Lịch sự kiện (EVT-01..04; 3-C09)
 - [x] 2a — Thiết kế `docs/thiet-ke/28-event-analyst.md`: input = bảng lịch hợp nhất (GĐ1, `economic_calendar`) tại `as_of`; output `eventRisk` (mức cao nhất trong khung sắp tới), sự kiện kế tiếp + phút còn lại, cửa sổ đang mở / giờ kết thúc, cờ `EVENT_WINDOW` / `EVENT_SOON`, `surprise` = `INSUFFICIENT_DATA` (DEC-01); phân biệt "chưa công bố" với actual = 0; hoãn / hủy / đổi giờ (REMOVED, revision); công bố lúc thị trường đóng (3-C09); hết hạn = sớm nhất trong {mốc cửa sổ kế tiếp, TTL cố định}
 - [x] 2b — Code `analysts/event.py` + handler job `EVENT_CALENDAR` (+ tính lại khi hết hạn); test gồm DST, công bố trùng phút, lịch nguồn mâu thuẫn (3-C08), lịch hỏng / nguồn lịch lỗi → `STALE`/`MISSING`; soát lại: so cờ analyst với cửa sổ làn nhanh trên cùng dữ liệu → khớp 100 % (2026-11-14: 44 test; soát Postgres: orchestrator thật 1080 nhịp → 31 kết quả, 31/31 khớp `CalendarBlocks`, không trùng; router `2026.11.14c` tính lại khi hết hạn + dự phòng mỗi nhịp)
-- [ ] 2c — API + thẻ giao diện (ANA-02); kiểm trên máy (DOL 19/11 hoặc dịp sau)
+- [~] 2c — API + thẻ giao diện (ANA-02); kiểm trên máy (DOL 19/11 hoặc dịp sau) (2026-11-14: `GET /api/analysts/event/latest` (đăng nhập, dữ liệu chung), thẻ "Lịch sự kiện kinh tế" trang Thị trường; 2 test API + 5 test giao diện; **còn: kiểm trên máy** — mục 1 dưới)
 
 ### Bước 3 — Regime bằng luật (REG-01, REG-02)
 - [ ] Thiết kế + code: `TREND/RANGE/RISK_OFF/HIGH_VOL` từ biến động (ATR / độ lệch chuẩn lợi suất), độ dốc xu hướng, output Technical; ngưỡng là **giá trị khởi đầu chưa hiệu chỉnh** (ghi rõ, có phiên bản); không có "xác suất" (bản HMM ở GĐ7); trọng số gợi ý cho Fusion chỉ là bảng có phiên bản
@@ -45,7 +45,7 @@
 
 ## Kiểm trên máy người dùng (điền khi tới)
 
-(chưa có)
+1. **Bước 2 (analyst Lịch sự kiện)** — đi cùng lần dựng lại thứ Hai 16/11 trước 22:00 (lịch kiểm GĐ2, không dựng thêm lần nào): sau `docker compose up -d` chờ 1 phút → trang **Thị trường**, thẻ **"Lịch sự kiện kinh tế"** (dưới cùng): nhãn "Còn hiệu lực", mức rủi ro "Không có cửa sổ", "Sự kiện kế tiếp" có tên + "còn … phút", "Tính lúc" cập nhật ít nhất 15 phút / lần. Nếu thẻ báo **"Dữ liệu không đạt"** → chụp màn hình gửi người phát triển (nghĩa là một nguồn lịch đang lỗi / thiếu — đúng hướng an toàn, nhưng cần xem). **Thứ Năm 19/11 20:25–20:40 VN:** thẻ hiện "Đang trong cửa sổ công bố tới …" **cùng lúc** với băng đỏ trang Tổng quan; sau 20:30 phần "Vừa công bố" có "Đơn xin trợ cấp thất nghiệp · Đã có số (ICSA=…)" và dòng "Chưa có số dự báo nên không đánh giá được mức bất ngờ".
 
 ## Prompt cho phiên mới
 Đọc CLAUDE.md, PROGRESS.md, rồi docs/ke-hoach/GD3-ke-hoach.md và chỉ các mục liên quan của docs/giai-doan/GD3-analyst.md. Làm bước tiếp theo chưa tick. GĐ3 làm song song GĐ1/GĐ2 (DEC-22) — việc kiểm trên máy của GĐ1/GĐ2 theo docs/ke-hoach/lich-kiem-tren-may.md được ưu tiên; GĐ3 không đóng trước GĐ1, GĐ2. Analyst chỉ quan sát, không tự chặn lệnh (chặn do Safety / làn nhanh DEC-20). Không forecast → surprise "không đủ dữ liệu" (DEC-01). Quy trình: thiết kế → code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick ở cả hai file, ghi nhật ký GĐ3, cập nhật PROGRESS.md ngắn gọn → chạy test → commit (nhắc mã việc) → push develop → kiểm CI. Người dùng không rành kỹ thuật: tiếng Việt đơn giản, mỗi lần hỏi một câu. Không bao giờ yêu cầu dán mật khẩu / token / khóa API vào chat.

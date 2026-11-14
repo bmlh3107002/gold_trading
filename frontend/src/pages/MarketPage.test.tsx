@@ -164,7 +164,81 @@ describe("Trạng thái MT5 Gateway", () => {
       expect(urls().some((u) => u.startsWith("/api/accounts/default/market/candles"))).toBe(true),
     );
     expect(urls().some((u) => u.startsWith("/api/accounts/default/analysts/technical/latest"))).toBe(true);
-    expect(urls().some((u) => u.startsWith("/api/market/") || u.startsWith("/api/analysts/"))).toBe(false);
+    // Lịch sự kiện là dữ liệu chung (không phải giá) — endpoint chung duy nhất được phép.
+    const shared = urls().filter((u) => u.startsWith("/api/market/") || u.startsWith("/api/analysts/"));
+    expect(shared.every((u) => u.startsWith("/api/analysts/event/latest"))).toBe(true);
+  });
+
+  it("GĐ3: thẻ Lịch sự kiện — đang trong cửa sổ, số actual '0' khác chưa công bố", async () => {
+    routes({
+      "/api/analysts/event/latest": {
+        computed_at: "2026-12-10T13:30:05Z",
+        valid_now: true,
+        confidence_meaning: "DATA_QUALITY_ONLY",
+        observer_only: true,
+        output: {
+          output_id: "event:event-1.0.0:GLOBAL::*:*:2026-12-10T13:30:00+00:00:abc",
+          analyst_id: "event",
+          as_of: "2026-12-10T13:30:00Z",
+          expires_at: "2026-12-10T13:35:00Z",
+          confidence: 1,
+          features: {
+            event_risk: "HIGH",
+            window: { start: "2026-12-10T13:15:00Z", end: "2026-12-10T13:45:00Z", reasons: ["CALENDAR_HIGH"] },
+            next_event: null,
+            soon: false,
+            upcoming: [],
+            recent_releases: [
+              { event: "BLS_CPI", release_at: "2026-12-10T13:30:00Z", importance: "HIGH", actual_status: "RECEIVED", actuals: [["CUUR0000SA0", "0"]] },
+              { event: "DOL_JOBLESS_CLAIMS", release_at: "2026-12-10T13:30:00Z", importance: "MEDIUM", actual_status: "AWAITING", actuals: [] },
+            ],
+            removed: [],
+          },
+          drivers: ["EVENT_RISK_HIGH", "IN_EVENT_WINDOW"],
+          risk_flags: ["EVENT_WINDOW"],
+          source_status: "HEALTHY",
+          quality_flags: [],
+          version: "event-1.0.0",
+          correlation_id: "c",
+        },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByText("Lịch sự kiện kinh tế")).toBeInTheDocument();
+    expect((await screen.findAllByText("Cao")).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Đang trong cửa sổ công bố tới/)).toBeInTheDocument();
+    expect(screen.getByText(/CUUR0000SA0=0/)).toBeInTheDocument();
+    expect(screen.getByText(/Đang chờ số/)).toBeInTheDocument();
+    expect(screen.getByText(/không đánh giá được mức bất ngờ/)).toBeInTheDocument();
+  });
+
+  it("GĐ3: thẻ Lịch sự kiện — lịch thiếu thì báo không đạt, không nói 'không có sự kiện'", async () => {
+    routes({
+      "/api/analysts/event/latest": {
+        computed_at: "2026-12-10T13:30:05Z",
+        valid_now: true,
+        confidence_meaning: "DATA_QUALITY_ONLY",
+        observer_only: true,
+        output: {
+          output_id: "event:x",
+          analyst_id: "event",
+          as_of: "2026-12-10T13:30:00Z",
+          expires_at: "2026-12-10T13:32:00Z",
+          confidence: 0,
+          features: { input: {} },
+          drivers: ["MISSING_INPUT:bls_schedule"],
+          risk_flags: [],
+          source_status: "MISSING",
+          quality_flags: ["MISSING_INPUT:bls_schedule"],
+          version: "event-1.0.0",
+          correlation_id: "c",
+        },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByText("Không đánh giá được lịch vì dữ liệu không đạt")).toBeInTheDocument();
+    expect(screen.getByText("Thiếu lịch của nguồn bls_schedule")).toBeInTheDocument();
+    expect(screen.queryByText(/Không có sự kiện nào trong 24 giờ tới/)).not.toBeInTheDocument();
   });
 
   it("DSH-07: thẻ giá sống hiện bid/ask/spread đúng chữ số của broker", async () => {

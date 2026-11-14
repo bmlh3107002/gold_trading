@@ -29,6 +29,11 @@ export function useTechnical(accountId: string | null) {
   return usePolling(useCallback(() => (accountId ? api.technicalLatest(accountId) : Promise.resolve(null)), [accountId]), 30_000, 90_000);
 }
 
+/** Analyst Lịch sự kiện: 30 giây/lần (chung cho mọi tài khoản). */
+export function useEventAnalyst() {
+  return usePolling(useCallback(() => api.eventLatest(), []), 30_000, 90_000);
+}
+
 /** Trạng thái MT5 Gateway: 10 giây/lần. */
 /** Trạng thái Gateway của tài khoản đang chọn (mỗi tài khoản một Gateway). */
 export function useGatewayStatus(accountId: string | null) {

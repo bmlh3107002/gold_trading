@@ -6,7 +6,7 @@
 ## Thứ Hai 16/11
 
 - [ ] **~06:00–06:15 — thị trường mở cửa (GĐ2):** trang Tổng quan có thể hiện băng đỏ "Chưa đủ dữ liệu spread để đánh giá" khoảng 3 phút rồi **tự hết**. Trang Pipeline: hai làn "Đạt". Chụp màn hình nếu băng không tự hết sau 10 phút.
-- [ ] **Trong ngày, trước 22:00 — dựng lại để có công cụ replay (GĐ2):** `docker compose build --no-cache backend frontend` → `docker compose up -d` → chờ 1 phút → `docker compose exec backend python -m gold_trading.orchestrator.replay` → mong đợi 4 dòng "ĐẠT" + "KẾT LUẬN: ĐẠT" (gửi toàn bộ nội dung cho người phát triển nếu có "KHÔNG ĐẠT"). Phải làm **trước 6a** để không cắt quãng đếm 5 ngày.
+- [ ] **Trong ngày, trước 22:00 — dựng lại để có công cụ replay (GĐ2):** `docker compose build --no-cache backend frontend` → `docker compose up -d` → chờ 1 phút → `docker compose exec backend python -m gold_trading.orchestrator.replay` → mong đợi 4 dòng "ĐẠT" + "KẾT LUẬN: ĐẠT" (gửi toàn bộ nội dung cho người phát triển nếu có "KHÔNG ĐẠT"). Phải làm **trước 6a** để không cắt quãng đếm 5 ngày. Lần dựng này cũng đưa lên **thẻ "Lịch sự kiện kinh tế"** (GĐ3) ở trang Thị trường → xem `GD3-ke-hoach.md` mục kiểm trên máy 1 (chỉ nhìn, không thao tác thêm).
 - [ ] **Sau 22:30 — COT (GĐ1, mục 17):** `docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run` → báo cáo **chốt 10/11**, số khớp trang `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD.
 - [ ] **~23:00 — mục 6a (GĐ1, mục 8):** kiểm Gateway đang chạy (`Get-Process python`) → `docker compose stop backend` → đi ngủ (**không** tắt Gateway, không tắt máy).
 
@@ -16,7 +16,7 @@
 
 ## Các ngày sau
 
-- [ ] **Thứ Năm 19/11, 20:25–20:45 — DOL (GĐ1 mục 13–14 + GĐ2):** 20:25–20:40 trang Tổng quan có băng đỏ "Cửa sổ công bố số liệu"; sau 20:30 `docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14` → dòng `CLAIMS:2026-11-19` có `số: RECEIVED ICSA=…` khớp `dol.gov/ui/data.pdf`.
+- [ ] **Thứ Năm 19/11, 20:25–20:45 — DOL (GĐ1 mục 13–14 + GĐ2 + GĐ3):** thẻ "Lịch sự kiện kinh tế" (trang Thị trường) phải báo "Đang trong cửa sổ" cùng lúc với băng đỏ; 20:25–20:40 trang Tổng quan có băng đỏ "Cửa sổ công bố số liệu"; sau 20:30 `docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14` → dòng `CLAIMS:2026-11-19` có `số: RECEIVED ICSA=…` khớp `dol.gov/ui/data.pdf`.
 - [ ] **~Thứ Sáu 20/11 — đo lại dung lượng sau 7 ngày (GĐ1 mục 20):** `docker compose exec backend python -m gold_trading.ingestion.cli dung-luong` → gửi bảng.
 - [ ] **Thứ Tư–Sáu 25–27/11 — tuần Lễ Tạ ơn (GĐ2):** băng đỏ chặn **cả ngày** thứ Tư (có thể tới thứ Sáu) cho tới khi có số DOL — đúng chính sách. **26–27/11 (GĐ1):** đối chiếu giờ mở / đóng thật của broker với bảng giờ đặc biệt (lệch → báo để chỉnh `GT_BROKER_SPECIAL_HOURS`).
 - [ ] **Thứ Sáu 04/12, 20:30 — NFP (Gate GĐ1 + GĐ2):** số NFP vào đúng giờ, đúng giá trị (`cli lich`); 20:15–20:45+ có băng đỏ, sau khi nhận số thêm 15 phút; trang Pipeline: ghi lại "độ trễ gần nhất" (phải < 10 giây); rồi chạy lại `… orchestrator.replay` → ĐẠT.

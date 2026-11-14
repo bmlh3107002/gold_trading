@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analysts/event/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Event Latest */
+        get: operations["event_latest_api_analysts_event_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-sources": {
         parameters: {
             query?: never;
@@ -1234,6 +1251,32 @@ export interface components {
             reason_codes: string[];
         };
         /**
+         * EventLatest
+         * @description GĐ3 bước 2 (ANA-02): kết quả analyst Lịch sự kiện — chung cho mọi tài khoản.
+         */
+        EventLatest: {
+            output: components["schemas"]["AnalystOutput"] | null;
+            /** Computed At */
+            computed_at: string | null;
+            /**
+             * Valid Now
+             * @description Còn hiệu lực tại thời điểm trả lời (chưa quá expires_at)
+             */
+            valid_now: boolean;
+            /**
+             * Confidence Meaning
+             * @description confidence chỉ đo chất lượng dữ liệu lịch, không phải xác suất
+             * @default DATA_QUALITY_ONLY
+             */
+            confidence_meaning: string;
+            /**
+             * Observer Only
+             * @description Analyst chỉ mô tả; chặn mở lệnh do Safety / làn nhanh quyết
+             * @default true
+             */
+            observer_only: boolean;
+        };
+        /**
          * Freshness
          * @enum {string}
          */
@@ -2356,6 +2399,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalystLatest"];
+                };
+            };
+        };
+    };
+    event_latest_api_analysts_event_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventLatest"];
                 };
             };
         };

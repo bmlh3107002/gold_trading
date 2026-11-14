@@ -8,7 +8,8 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from gold_trading.analysts import technical
+from gold_trading.analysts import event, technical
+from gold_trading.analysts.framework import GLOBAL_SCOPE
 from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.analyst import AnalystOutput
@@ -26,6 +27,31 @@ class AnalystLatest(BaseModel):
         description="confidence của technical v1 chỉ đo chất lượng dữ liệu, không đo khả năng "
         "dự báo",
     )
+
+
+class EventLatest(BaseModel):
+    """GĐ3 bước 2 (ANA-02): kết quả analyst Lịch sự kiện — chung cho mọi tài khoản."""
+
+    output: AnalystOutput | None
+    computed_at: datetime | None
+    valid_now: bool = Field(description="Còn hiệu lực tại thời điểm trả lời (chưa quá expires_at)")
+    confidence_meaning: str = Field(
+        default="DATA_QUALITY_ONLY",
+        description="confidence chỉ đo chất lượng dữ liệu lịch, không phải xác suất",
+    )
+    observer_only: bool = Field(
+        default=True,
+        description="Analyst chỉ mô tả; chặn mở lệnh do Safety / làn nhanh quyết",
+    )
+
+
+def event_of(store: AnalystOutputStore) -> EventLatest:
+    now = utcnow()
+    got = store.latest_scoped(event.ANALYST_ID, GLOBAL_SCOPE, known_by=now)
+    if got is None or got.output.version != event.VERSION:
+        return EventLatest(output=None, computed_at=None, valid_now=False)
+    return EventLatest(output=got.output, computed_at=got.computed_at,
+                       valid_now=got.output.is_valid_at(now))
 
 
 def technical_of(market: MarketDataService, store: AnalystOutputStore) -> AnalystLatest:
@@ -55,6 +81,10 @@ def analysts_router(market: MarketDataService, store: AnalystOutputStore) -> API
     @r.get("/technical/latest", response_model=AnalystLatest)
     def technical_latest() -> AnalystLatest:
         return technical_of(market, store)
+
+    @r.get("/event/latest", response_model=EventLatest)
+    def event_latest(p: CurrentUser) -> EventLatest:
+        return event_of(store)
 
     return r
 

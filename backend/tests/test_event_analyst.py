@@ -334,3 +334,27 @@ def test_expiry_event_job_recomputes(st, outs):
     new = outs.latest_scoped("event", GLOBAL_SCOPE).output
     assert new.as_of == first.expires_at and new.output_id != first.output_id
     assert new.is_valid_at(first.expires_at + S)
+
+
+# ------------------------------------------------------------------ API (ANA-02)
+
+def test_api_event_latest_requires_login_and_returns_output(st):
+    from fastapi.testclient import TestClient
+
+    from gold_trading.storage.repository import InMemoryRepository
+
+    from .auth_helpers import make_app, user_client
+    outs = InMemoryAnalystOutputStore()
+    c = user_client(InMemoryRepository(), analyst_store=outs, data_source=None,
+                    run_analysts=False, external_runner=None)
+    body = c.get("/api/analysts/event/latest").json()
+    assert body["output"] is None and body["valid_now"] is False
+    from gold_trading.common.time import utcnow
+    now = utcnow()
+    EA.EventAnalyst(st, outs, market_calendar=REFERENCE).run_at(now - EA.SETTLE, now)
+    body = c.get("/api/analysts/event/latest").json()
+    assert body["output"]["analyst_id"] == "event" and body["observer_only"] is True
+    assert body["confidence_meaning"] == "DATA_QUALITY_ONLY"
+    app, _ = make_app(InMemoryRepository(), analyst_store=outs, data_source=None,
+                      run_analysts=False, external_runner=None)
+    assert TestClient(app).get("/api/analysts/event/latest").status_code == 401
