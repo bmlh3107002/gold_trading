@@ -44,8 +44,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | POSN-01 | Z-score lịch sử COT, ETF, NHTW | `[ ]` | ← ING-12, ING-28, ING-29 |
 | POSN-02 | Crowding risk, giả thuyết contrarian ở cực trị | `[ ]` | COT trễ, không coi là thời gian thực |
 | **Regime** | | | |
-| REG-01 | Phân loại `TREND/RANGE/RISK_OFF/HIGH_VOL` bằng luật (biến động, độ dốc xu hướng…) | `[ ]` | Bản HMM/classifier ở GĐ7 |
-| REG-02 | Trọng số gợi ý cho Fusion, theo dõi chuyển regime | `[ ]` | |
+| REG-01 | Phân loại `TREND/RANGE/RISK_OFF/HIGH_VOL` bằng luật (biến động, độ dốc xu hướng…) | `[~]` | 2026-11-14: `analysts/regime.py` (thiết kế 29): `TREND/RANGE/HIGH_VOL` bằng ADX Wilder + biến động so 10 ngày, vùng mơ hồ → trần confidence 0,5; **`RISK_OFF` chưa đánh giá** (cần Macro — bước 4). Bản HMM/classifier ở GĐ7 |
+| REG-02 | Trọng số gợi ý cho Fusion, theo dõi chuyển regime | `[~]` | 2026-11-14: theo dõi chuyển regime xong (96 nến, tính lại được); trọng số: bảng **trung tính**, `calibrated: false` — chốt ở GĐ4/GĐ6 |
 
 | Mã | Tình huống (áp dụng cho **mọi** analyst) | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 3 (backend): Regime bằng luật (REG-01, REG-02).** Thiết kế `29-regime-analyst.md`. `indicators.adx` (Wilder) — khớp thư viện `ta` tới 3,6e-14 (20 chuỗi × 600 nến, kể cả khởi tạo), giá trị tham chiếu ghi cứng trong test. `analysts/regime.py`: `HIGH_VOL` (ATR14 ≥ 2× trung vị 960 nến) > `TREND` (ADX ≥ 25, hướng theo DI) > `RANGE` (ADX ≤ 20); vùng mơ hồ → driver + trần 0,5; `RISK_OFF` = `NOT_EVALUATED` (không suy từ giá vàng); theo dõi chuyển regime bằng phân loại lại 96 nến (không lưu trạng thái); trọng số Fusion trung tính `calibrated: false`. Khung chung thêm `InputCheck.problems`. Job `REGIME` có bộ xử lý, hết hạn → tính lại (`router-2026.11.14d`). 29 test. **Soát riêng (Postgres 16):** orchestrator thật từng nến 2 ngày → 190/190 kết quả, không trùng, tính lại cùng `output_id` 190/190, phân loại độc lập bằng `ta` + pandas khớp 190/190 nhãn. **Ghi nhận khi viết test:** chuỗi dao động hình sin (chu kỳ ~19 nến) cho ADX ~21 → rơi đúng vào vùng mơ hồ và đổi nhãn qua lại TREND/RANGE — đúng thiết kế (vùng mơ hồ chính là để báo trường hợp này). Còn: API + thẻ giao diện, kiểm trên máy.
 
 - **2026-11-14** — **Bước 2c (code): API + thẻ Lịch sự kiện.** `GET /api/analysts/event/latest` (cần đăng nhập; dữ liệu chung mọi tài khoản; `observer_only`, `confidence_meaning = DATA_QUALITY_ONLY`). Giao diện: `lib/event.ts` (đọc an toàn, sai kiểu → bỏ; actual giữ chuỗi), thẻ "Lịch sự kiện kinh tế" ở trang Thị trường: mức rủi ro, sự kiện kế tiếp, cửa sổ đang mở / sắp mở, 24 giờ tới, vừa công bố (trạng thái số + câu "chưa có dự báo"), đã gỡ; bị chặn → liệt kê nguồn lỗi + câu "lịch thiếu không có nghĩa là không có sự kiện". Test MT-05 (không gọi endpoint giá chung) sửa: cho phép đúng `/api/analysts/event/latest` (không phải giá). Backend 1848, frontend 101, build đạt. Còn: kiểm trên máy (đi cùng lần dựng lại thứ Hai 16/11).
 

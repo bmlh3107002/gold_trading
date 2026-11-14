@@ -23,6 +23,7 @@ from gold_trading import __version__
 from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.event import EventAnalyst, event_handler
+from gold_trading.analysts.regime import RegimeRunner, regime_handler
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import Guard, accounts_router
 from gold_trading.api.analysts import account_analysts_router, analysts_router
@@ -352,6 +353,9 @@ def create_app(
             handlers={"TECHNICAL": technical_handler(runner, active_feeds),
                       # GĐ3 bước 2 (EVT-01..04): analyst Lịch sự kiện (chỉ quan sát, không chặn)
                       "EVENT_CALENDAR": event_handler(event_analyst),
+                      # GĐ3 bước 3 (REG-01, REG-02): Regime bằng luật theo từng nguồn giá
+                      "REGIME": regime_handler(RegimeRunner(market, analyst_store),
+                                               active_feeds),
                       # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
                       "FAST_LANE": fast_lane_handler(block_store, record_store,
                                                      market.calendar, monitor=fast_monitor)},

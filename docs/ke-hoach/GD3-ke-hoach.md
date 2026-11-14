@@ -23,7 +23,9 @@
 - [~] 2c — API + thẻ giao diện (ANA-02); kiểm trên máy (DOL 19/11 hoặc dịp sau) (2026-11-14: `GET /api/analysts/event/latest` (đăng nhập, dữ liệu chung), thẻ "Lịch sự kiện kinh tế" trang Thị trường; 2 test API + 5 test giao diện; **còn: kiểm trên máy** — mục 1 dưới)
 
 ### Bước 3 — Regime bằng luật (REG-01, REG-02)
-- [ ] Thiết kế + code: `TREND/RANGE/RISK_OFF/HIGH_VOL` từ biến động (ATR / độ lệch chuẩn lợi suất), độ dốc xu hướng, output Technical; ngưỡng là **giá trị khởi đầu chưa hiệu chỉnh** (ghi rõ, có phiên bản); không có "xác suất" (bản HMM ở GĐ7); trọng số gợi ý cho Fusion chỉ là bảng có phiên bản
+- [x] 3a — Thiết kế `29-regime-analyst.md` + code + job `REGIME` (2026-11-14: 29 test; soát Postgres 190/190 + phân loại độc lập bằng `ta` khớp 190/190; RISK_OFF chờ Macro; trọng số trung tính)
+- [ ] 3b — API + thẻ giao diện; kiểm trên máy
+- Ghi chú gốc: Thiết kế + code: `TREND/RANGE/RISK_OFF/HIGH_VOL` từ biến động (ATR / độ lệch chuẩn lợi suất), độ dốc xu hướng, output Technical; ngưỡng là **giá trị khởi đầu chưa hiệu chỉnh** (ghi rõ, có phiên bản); không có "xác suất" (bản HMM ở GĐ7); trọng số gợi ý cho Fusion chỉ là bảng có phiên bản
 
 ### Bước 4 — Macro (MAC-01, MAC-02)
 - [ ] Từ H.15 (lợi suất, lợi suất thực 10Y nếu có) + chỉ số USD đã nạp ở GĐ1, đồng bộ theo giờ công bố; thay đổi / độ bất thường (z-score theo cửa sổ), macro bias, cờ stress; TTL theo tần suất dữ liệu; revision không viết lại quá khứ

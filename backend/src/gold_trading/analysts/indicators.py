@@ -87,3 +87,57 @@ def atr(
         prev = (prev * (period - 1) + tr[i]) / period
         out[i] = prev
     return out
+
+
+def adx(
+    highs: Sequence[float], lows: Sequence[float], closes: Sequence[float], period: int = 14
+) -> tuple[list[float | None], list[float | None], list[float | None]]:
+    """ADX Wilder (1978) → ``(adx, +DI, −DI)``, cùng độ dài input.
+
+    - +DM = H − H₋₁ nếu > (L₋₁ − L) và > 0, ngược lại 0; −DM đối xứng. TR như ``true_range``.
+    - TR / +DM / −DM làm mượt Wilder: tổng ``period`` giá trị đầu (từ chỉ số 1), sau đó
+      S = S₋₁ − S₋₁/n + x. +DI = 100·(+DM)/TR, −DI = 100·(−DM)/TR (giá trị đầu ở chỉ số ``period``).
+    - DX = 100·|+DI − −DI| / (+DI + −DI) (tổng 0 → 0). ADX đầu = trung bình ``period`` DX đầu
+      (ở chỉ số ``2·period − 1``), sau đó (ADX₋₁·(n−1) + DX) / n.
+    """
+    if period < 1:
+        raise ValueError("period phải >= 1")
+    if not (len(highs) == len(lows) == len(closes)):
+        raise ValueError("highs, lows, closes phải cùng độ dài")
+    n = len(highs)
+    adx_out: list[float | None] = [None] * n
+    pdi_out: list[float | None] = [None] * n
+    mdi_out: list[float | None] = [None] * n
+    if n <= period:
+        return adx_out, pdi_out, mdi_out
+    tr = true_range(highs, lows, closes)
+    pdm = [0.0] * n
+    mdm = [0.0] * n
+    for i in range(1, n):
+        up = highs[i] - highs[i - 1]
+        down = lows[i - 1] - lows[i]
+        pdm[i] = up if up > down and up > 0 else 0.0
+        mdm[i] = down if down > up and down > 0 else 0.0
+    s_tr = sum(tr[1 : period + 1])
+    s_p = sum(pdm[1 : period + 1])
+    s_m = sum(mdm[1 : period + 1])
+    dx: list[float | None] = [None] * n
+    for i in range(period, n):
+        if i > period:
+            s_tr = s_tr - s_tr / period + tr[i]
+            s_p = s_p - s_p / period + pdm[i]
+            s_m = s_m - s_m / period + mdm[i]
+        pdi = 100 * s_p / s_tr if s_tr > 0 else 0.0
+        mdi = 100 * s_m / s_tr if s_tr > 0 else 0.0
+        pdi_out[i], mdi_out[i] = pdi, mdi
+        tot = pdi + mdi
+        dx[i] = 100 * abs(pdi - mdi) / tot if tot > 0 else 0.0
+    first = 2 * period - 1
+    if n <= first:
+        return adx_out, pdi_out, mdi_out
+    prev = sum(dx[period : first + 1]) / period  # type: ignore[arg-type]
+    adx_out[first] = prev
+    for i in range(first + 1, n):
+        prev = (prev * (period - 1) + dx[i]) / period  # type: ignore[operator]
+        adx_out[i] = prev
+    return adx_out, pdi_out, mdi_out

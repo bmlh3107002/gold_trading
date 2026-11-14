@@ -104,7 +104,9 @@ class InputCheck:
     """Một đầu vào tại ``as_of``. ``known_at``: lúc hệ thống biết bản ghi mới nhất được dùng
     (None = không có). ``history`` / ``min_history``: số mẫu có / cần. ``spikes``: số điểm cực đoan
     analyst đã phát hiện. ``sample``: dữ liệu mẫu. ``healthy=False``: nguồn bị đánh giá không khỏe
-    theo trạng thái nguồn (ING-30) dù tuổi chưa quá ``max_age`` → xử lý như quá cũ."""
+    theo trạng thái nguồn (ING-30) dù tuổi chưa quá ``max_age`` → xử lý như quá cũ.
+    ``problems``: lỗi chất lượng khác analyst tự phát hiện (vd. ``LOW_COVERAGE``) → như thiếu lịch
+    sử: bắt buộc → ``INVALID`` + chặn ``<mã>:<tên>``; tùy chọn → cờ ``OPTIONAL_<mã>:<tên>``."""
 
     name: str
     known_at: datetime | None
@@ -115,6 +117,7 @@ class InputCheck:
     spikes: int = 0
     sample: bool = False
     healthy: bool = True
+    problems: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name or ":" in self.name:
@@ -182,11 +185,13 @@ def assess(checks: Iterable[InputCheck], as_of: datetime) -> Assessment:
                 problems.append((SourceStatus.STALE, "STALE"))
             if c.history < c.min_history:
                 problems.append((SourceStatus.INVALID, "INSUFFICIENT_HISTORY"))
+            for code in sorted(set(c.problems)):
+                problems.append((SourceStatus.INVALID, code))
         for st, code in problems:
             if c.required:
                 worsen(st)
-                reason = f"{code}_INPUT:{c.name}" if code != "INSUFFICIENT_HISTORY" \
-                    else f"INSUFFICIENT_HISTORY:{c.name}"
+                reason = f"{code}_INPUT:{c.name}" if code in ("MISSING", "STALE") \
+                    else f"{code}:{c.name}"
                 blocking.append(reason)
                 flags.add(reason)
             else:
