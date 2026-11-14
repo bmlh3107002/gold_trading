@@ -1,6 +1,6 @@
 """Chạy Event Orchestrator trong backend (GĐ2 bước 3 — ORC-01, ORC-07).
 
-Mỗi nhịp (10 giây): quét sự kiện mới từ dữ liệu đã lưu → bộ điều phối tạo + chạy job. Thay
+Mỗi nhịp (2 giây — GĐ2 4d): quét sự kiện mới từ dữ liệu đã lưu → bộ điều phối tạo + chạy job. Thay
 ``TechnicalRunner`` chạy theo vòng 15 giây: Technical chạy khi có nến M15 vàng đóng (theo đúng
 nguồn giá) hoặc khi kết quả cũ hết hạn mà chưa có kết quả mới (ORC-07). ``GT_ORCHESTRATOR=0`` →
 quay về runner cũ (đường lui).
@@ -23,7 +23,7 @@ from gold_trading.orchestrator.model import Event, EventType
 
 log = logging.getLogger("gold_trading.orchestrator")
 
-TICK = timedelta(seconds=10)
+TICK = timedelta(seconds=2)       # GĐ2 4d: làn nhanh (job FAST_LANE) — vòng 2 giây
 TECHNICAL_VERSION = "technical-job-1"
 
 
@@ -63,7 +63,8 @@ class OrchestratorRunner:
     def __init__(self, *, orch, candle_store, record_store, analyst_store,
                  handlers: dict[str, Handler],
                  blocked: Callable[[], str | None] = lambda: None,
-                 now: Callable[[], datetime] = utcnow, tick: timedelta = TICK) -> None:
+                 now: Callable[[], datetime] = utcnow, tick: timedelta = TICK,
+                 monitor=None) -> None:
         self.orch = orch
         self.candle_store = candle_store
         self.record_store = record_store
@@ -75,6 +76,7 @@ class OrchestratorRunner:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._blocked_logged = False
+        self.monitor = monitor          # FastLaneMonitor: nhịp + sự kiện làn nhanh tồn đọng
 
     def tick(self, now: datetime | None = None):
         reason = self._blocked()
@@ -89,6 +91,10 @@ class OrchestratorRunner:
                             record_store=self.record_store, analyst_store=self.analyst_store,
                             now=now)
         dres = self.dispatcher.tick(now)
+        if self.monitor is not None:
+            # Đồng hồ bị chặn / lỗi → không tới đây → không báo nhịp → Safety chặn sau 10 giây.
+            self.monitor.backlog("events", self.dispatcher.oldest_open_known_at("FAST_LANE"))
+            self.monitor.ok("events", now)
         # Chỉ ghi log khi có việc thật (quét lại vùng chồng lấn không tạo dòng log mỗi 10 giây).
         if dres.created or dres.ran or dres.superseded:
             log.info("Orchestrator: sự kiện mới %s, job mới %d, bỏ qua (debounce) %d, chạy %s",
@@ -106,10 +112,12 @@ class OrchestratorRunner:
 
     def start(self) -> None:
         if self._thread is None:
+            if self.monitor is not None:
+                self.monitor.start("events", self._now())
             self._stop.clear()
             self._thread = threading.Thread(target=self._loop, name="orchestrator", daemon=True)
             self._thread.start()
-            log.info("Bật Event Orchestrator (thay vòng Technical 15 giây)")
+            log.info("Bật Event Orchestrator (nhịp 2 giây, thay vòng Technical 15 giây)")
 
     def stop(self) -> None:
         self._stop.set()

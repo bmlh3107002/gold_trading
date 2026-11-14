@@ -53,6 +53,7 @@ from gold_trading.orchestrator.runner import OrchestratorRunner, technical_handl
 from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
 from gold_trading.risk.blocks import BlockStore
 from gold_trading.risk.fast_lane import CalendarBlocks, dedupe, fast_lane_handler
+from gold_trading.risk.fast_lane_loop import FastLaneMonitor, SpreadLoop
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -263,7 +264,7 @@ def create_app(
     block_store = SqlBlockStore(engine_) if engine_ is not None else BlockStore()
     # GĐ2 4b: cửa sổ lịch kinh tế + 15 phút sau khi nhận số HIGH (tính khi đọc, point-in-time,
     # có trạng thái nguồn). Chỉ khi có DB (bảng lịch nằm trong DB); bộ nhớ: nối ở dưới nếu có.
-    fast_lane: dict[str, CalendarBlocks | None] = {"calendar": None}
+    fast_lane: dict[str, Any] = {"calendar": None, "monitor": None}
     if engine_ is not None:
         fast_lane["calendar"] = CalendarBlocks(SqlExternalRecordStore(engine_),
                                                SqlSourceCheckLog(engine_), market.calendar)
@@ -272,7 +273,9 @@ def create_app(
         feed_ = account_feed(repo, account_id) if source is DataSource.MT5 else ""
         stored = block_store.active(now, feed_)
         cal_ = fast_lane["calendar"]
-        return dedupe([*stored, *(cal_.active(now) if cal_ is not None else [])])
+        mon_ = fast_lane["monitor"]
+        return dedupe([*stored, *(cal_.active(now) if cal_ is not None else []),
+                       *(mon_.blocks(now) if mon_ is not None else [])])
 
     registry = AccountRegistry(
         repo,
@@ -319,6 +322,14 @@ def create_app(
                                          getattr(external_runner, "check_log", None),
                                          market.calendar)
 
+    # GĐ2 4c–4d: vòng làn nhanh 2 giây (spread theo từng nguồn giá MT5) + ngân sách độ trễ 10 giây.
+    fast_monitor = FastLaneMonitor()
+    spread_loop: SpreadLoop | None = None
+    if source is DataSource.MT5 and os.environ.get("GT_FAST_LANE", "1") != "0":
+        spread_loop = SpreadLoop(quote_store=quote_store, block_store=block_store,
+                                 feeds=active_feeds, monitor=fast_monitor)
+        fast_lane["monitor"] = fast_monitor
+
     # GĐ2 bước 3 (ORC-01): Event Orchestrator thay vòng Technical 15 giây (GT_ORCHESTRATOR=0 →
     # quay về runner cũ). Sự kiện suy ra từ dữ liệu đã lưu; nhật ký sự kiện / job trong DB.
     orchestrator: OrchestratorRunner | None = None
@@ -336,8 +347,9 @@ def create_app(
             handlers={"TECHNICAL": technical_handler(runner, active_feeds),
                       # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
                       "FAST_LANE": fast_lane_handler(block_store, record_store,
-                                                     market.calendar)},
-            blocked=clock.ingest_block_reason)
+                                                     market.calendar, monitor=fast_monitor)},
+            blocked=clock.ingest_block_reason, monitor=fast_monitor)
+        fast_lane["monitor"] = fast_monitor
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -346,6 +358,8 @@ def create_app(
             clock.start()
         if feed:
             feed.start()
+        if spread_loop:
+            spread_loop.start()
         if orchestrator:
             orchestrator.start()
         elif runner:
@@ -357,6 +371,8 @@ def create_app(
             external_runner.stop()
         if orchestrator:
             orchestrator.stop()
+        if spread_loop:
+            spread_loop.stop()
         if runner:
             runner.stop()
         if feed:
@@ -474,7 +490,8 @@ def create_app(
     app.state.runner = runner  # MT-05: để kiểm tra / chẩn đoán analyst theo từng nguồn
     app.state.orchestrator = orchestrator
     app.state.block_store = block_store
-    app.state.fast_lane = fast_lane       # GĐ2 4b: cửa sổ lịch cho Safety (test thay được)
+    app.state.fast_lane = fast_lane       # GĐ2 4b–4d: cửa sổ lịch + nhịp làn nhanh cho Safety
+    app.state.spread_loop = spread_loop
 
     @app.get("/api/health")
     def health():

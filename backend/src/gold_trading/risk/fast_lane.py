@@ -267,7 +267,7 @@ def decide_news(e: Event, record_store, now: datetime, market_calendar=None) -> 
 
 
 def fast_lane_handler(block_store, record_store, market_calendar=None,
-                      clock: Callable[[], datetime] = utcnow) -> Handler:
+                      clock: Callable[[], datetime] = utcnow, monitor=None) -> Handler:
     """Job ``FAST_LANE``: áp luật, ghi lệnh cấm (idempotent theo nguyên nhân). Kết quả job:
     ``block:<id>,…`` hoặc ``flag:<mã>``. ``created_at`` = lúc ghi thật (đồng hồ hệ thống) →
     lệnh cấm chỉ có hiệu lực từ lúc hệ thống biết; độ trễ ghi ở ``latency_ms``."""
@@ -292,7 +292,12 @@ def fast_lane_handler(block_store, record_store, market_calendar=None,
                                        market_calendar))
             raise
         for b in d.blocks:
-            block_store.add(b)
+            added = block_store.add(b)
+            # > 10 giây → cảnh báo (2-C09). Sự kiện cũ xử lý lại lúc khởi động (lệnh cấm đã hết
+            # hạn) không tính — không phải độ trễ của làn nhanh.
+            if added and monitor is not None and b.latency_ms is not None \
+                    and (b.end_at is None or b.end_at > t):
+                monitor.latency(b.latency_ms)
         if d.blocks:
             return ("block:" + ",".join(b.block_id[:12] for b in d.blocks))[:256]
         return f"flag:{d.flag}"

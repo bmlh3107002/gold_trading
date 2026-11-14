@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from "../components/ui/StateView
 import type { useSystemStatus } from "../hooks/useSystemStatus";
 import { formatTime } from "../lib/format";
 import { ControlPanel } from "./overview/ControlPanel";
+import { EntryBlockBanner } from "./overview/EntryBlockBanner";
 import { MarketViewCard } from "./overview/MarketViewCard";
 import { MetricCards } from "./overview/MetricCards";
 import { SafetyHistory } from "./overview/SafetyHistory";
@@ -70,6 +71,8 @@ export function OverviewPage({ sys, accountId }: { sys: Sys; accountId: string |
           />
         </Card>
       )}
+
+      {status && <EntryBlockBanner status={status} />}
 
       {(status || loading) && <MetricCards status={status} />}
 

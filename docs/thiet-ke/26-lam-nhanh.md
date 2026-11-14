@@ -1,6 +1,6 @@
 # Thiết kế — Làn nhanh (GĐ2 bước 4 — FAST-01..03; 2-C07..C09)
 
-> Tạo 2026-11-14. Ngưỡng: **DEC-20** (người dùng chốt, `docs/giai-doan/GD2-event-orchestrator.md`). Code: `backend/src/gold_trading/risk/blocks.py`, `storage/risk_blocks.py` (4a); `risk/fast_lane.py` (4b); 4c–4d sau.
+> Tạo 2026-11-14. Ngưỡng: **DEC-20** (người dùng chốt, `docs/giai-doan/GD2-event-orchestrator.md`). Code: `backend/src/gold_trading/risk/blocks.py`, `storage/risk_blocks.py` (4a); `risk/fast_lane.py` (4b), `risk/spread_lane.py` (4c), `risk/fast_lane_loop.py` (4d).
 
 ## 1. Quyết định (DEC-20)
 
@@ -60,3 +60,41 @@ Cờ (chỉ cảnh báo) nằm ở kết quả job (`output_ref = flag:<mã>`); 
 - Các con số (15 phút, 60 phút, 36 giờ) là giá trị khởi đầu, chưa hiệu chỉnh trên dữ liệu giá thật.
 
 **Kiểm chứng:** `tests/test_fast_lane.py` 46 test (bộ nhớ + SQLite + API). Kịch bản soát lại riêng: 400 bộ lệnh cấm ngẫu nhiên so gộp cửa sổ với lấy mẫu từng phút; 307 mốc "15 phút thị trường mở" đếm lại bằng lấy mẫu 15 giây (gồm ngày đổi giờ 8/3 và 1/11, Giáng sinh, Lễ Tạ ơn, năm mới); chạy trọn quét → điều phối → Safety mỗi 10 giây từ 1 giờ trước FOMC 9/12 tới 1 giờ sau CPI 10/12: chặn đúng từng mốc, tin cũ không chặn.
+
+## 4. Spread giãn mạnh (4c — 2026-11-14)
+
+Code: `backend/src/gold_trading/risk/spread_lane.py` (`spread-lane-2026.11.14`). Dữ liệu: giá theo giây từng nguồn giá (`quote_seconds`, ING-08), chỉ giây đã biết tại lúc xét (`available_at <= now`).
+
+| Luật | Giá trị |
+| --- | --- |
+| Mốc | trung vị spread cuối giây trong 60 phút **trước giây bắt đầu đợt giãn**, cùng nguồn, bỏ giây lịch đóng cửa, cần ≥ 60 giây; **giữ nguyên suốt đợt giãn** |
+| Chặn | spread lớn nhất trong giây > **3 ×** mốc, mọi giây liên tục **≥ 5 giây** → `SPREAD` / `SPREAD_WIDE`, phạm vi = đúng nguồn giá đó, không giờ hết |
+| Gỡ | sau lúc chặn, spread < **1,5 ×** mốc (lúc chặn) liên tục ≥ **2 phút** và giá còn mới (≤ 10 giây) → gỡ, `lifted_at` = lúc hệ thống biết |
+| Giá cũ / mất giá | không gỡ, không kết luận "chưa đủ mốc"; nhưng **giây giãn đến trễ vẫn gây chặn** (an toàn) |
+| Chưa đủ mốc (vừa mở cửa, nguồn mới) mà đang có giá | `SPREAD_UNRATED` — **tự chọn theo hướng an toàn, DEC-20 chưa nói tới**: không biết spread có bình thường không → chặn; gỡ theo cùng luật khi đã có mốc (thường ~3 phút sau giờ mở cửa) |
+| 1,5–3 × | không chặn mới, không gỡ |
+
+Tìm đầu đợt giãn: lùi từng giây (tối đa 10 phút — đợt dài hơn đã bị chặn từ giây thứ 5), mốc tính trượt bằng danh sách đã sắp; dừng khi gặp giây rõ ràng bình thường (≤ 2 × mốc của nó).
+
+**Lỗi tìm được khi soát lại (đã sửa trước khi đưa lên):** bản đầu lấy mốc tại giây mới nhất → chính các giây đang giãn nằm trong cửa sổ 60 phút kéo trung vị từ 20 lên 22, giây 65 (> 3 × 20) bị coi là bình thường → **bỏ sót một đợt giãn 11 giây**. Sửa: mốc tại giây bắt đầu đợt giãn. Có test tái hiện (`test_wide_seconds_do_not_raise_their_own_baseline`) + test so cách tính nhanh với tính lại cả giờ cho từng giây.
+
+**Kiểm chứng:** `tests/test_spread_lane.py` 23 test (bộ nhớ + SQLite). Soát lại: mô phỏng ngẫu nhiên từng giây (giãn / lưng chừng / yên, mất giây), so với cách tính độc lập.
+
+## 5. Vòng 2 giây + ngân sách độ trễ (4d — 2026-11-14)
+
+Code: `backend/src/gold_trading/risk/fast_lane_loop.py`, `orchestrator/runner.py` (nhịp 2 giây).
+
+- **Hai làn báo nhịp** cho `FastLaneMonitor`: `spread` (luồng riêng, mỗi 2 giây xét mọi nguồn giá MT5 đang có tài khoản dùng; `GT_FAST_LANE=0` tắt) và `events` (Event Orchestrator nay chạy **2 giây / nhịp** thay vì 10, job `FAST_LANE`).
+- **Ngân sách 10 giây (DEC-20 câu 4, 2-C09)** — Safety thêm lệnh cấm `LATENCY` (tính khi đọc, phạm vi mọi nguồn, không giờ hết, tự hết khi hết nguyên nhân):
+
+| Mã | Khi nào |
+| --- | --- |
+| `FAST_LANE_STARTING` | làn đã bật mà chưa chạy xong lần nào |
+| `FAST_LANE_STALLED` | lần chạy xong gần nhất cũ hơn 10 giây (lỗi DB, luồng treo, đồng hồ máy chủ bị chặn, một vòng chạy quá 10 giây thì không tính là xong) |
+| `FAST_LANE_BACKLOG` | có sự kiện làn nhanh đã biết quá 10 giây mà job chưa xong (bộ xử lý lỗi đang thử lại…) |
+
+- Lệnh cấm ghi với `latency_ms` > 10 giây → log cảnh báo + đếm `budget_breaches` (sự kiện cũ xử lý lại lúc khởi động — lệnh cấm đã hết hạn — không tính).
+- **Băng cảnh báo web** (trang Tổng quan): "Đang chặn mở lệnh mới" + mỗi cửa sổ gộp một dòng: lý do tiếng Việt + "tới <giờ>" hoặc "tới khi hết nguyên nhân" + nhắc công tắc Safety không đổi, thao tác bảo vệ vẫn làm được.
+- Đo trên Postgres 16: nhịp orchestrator ~20 ms, vòng spread ~50 ms / nguồn (4.500 giây giá).
+
+**Kiểm chứng:** `tests/test_fast_lane_loop.py` 7 test + `frontend/.../EntryBlockBanner.test.tsx` 2 test. Soát lại bằng luồng thật, thời gian thật: kho giá lỗi → Safety chặn sau 10,0 giây, hồi phục → tự mở; orchestrator dừng → chặn sau 10,0 giây.

@@ -531,6 +531,28 @@ const vi = {
       "Không nhận được cập nhật từ {{time}}. Thông tin bên dưới chỉ để tham khảo, không phải trạng thái thời gian thực.",
     retry: "Thử lại",
   },
+  entryBlock: {
+    title: "Đang chặn mở lệnh mới",
+    until: "tới {{time}}",
+    untilCleared: "tới khi hết nguyên nhân",
+    note: "Lệnh cấm tự hết hạn; công tắc Safety không đổi. Đóng lệnh, dời cắt lỗ vẫn làm được.",
+    reasonUnknown: "Lý do khác ({{code}})",
+    reason: {
+      CALENDAR_HIGH: "Cửa sổ công bố số liệu quan trọng",
+      CALENDAR_MEDIUM: "Cửa sổ công bố số liệu",
+      CALENDAR_LOW: "Cửa sổ công bố số liệu nhỏ",
+      RELEASE_HIGH_RECEIVED: "Vừa có số liệu quan trọng (15 phút)",
+      RELEASE_UNMATCHED: "Vừa có số liệu không có trên lịch (15 phút)",
+      FOMC_RECEIVED: "Vừa có thông cáo FOMC (15 phút)",
+      FED_UNSCHEDULED_POLICY: "Fed ra thông cáo ngoài lịch (15 phút)",
+      FAST_LANE_ERROR: "Làn nhanh lỗi khi xét tin — chặn mặc định (15 phút)",
+      SPREAD_WIDE: "Spread giãn mạnh",
+      SPREAD_UNRATED: "Chưa đủ dữ liệu spread để đánh giá",
+      FAST_LANE_STARTING: "Làn nhanh đang khởi động",
+      FAST_LANE_STALLED: "Làn nhanh chậm quá 10 giây",
+      FAST_LANE_BACKLOG: "Tin chờ xử lý quá 10 giây",
+    },
+  },
   metric: {
     safety: "Safety",
     safetyTip:

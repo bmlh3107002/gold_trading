@@ -292,6 +292,12 @@ class Dispatcher:
         self._last = {k: v for k, v in self._last.items() if k in self._open}
         return res
 
+    def oldest_open_known_at(self, job_type: str) -> datetime | None:
+        """``known_at`` sớm nhất của sự kiện có job ``job_type`` chưa xong (ngân sách độ trễ)."""
+        ts = [self._events_by_id[j.event_id].known_at for j in self._open.values()
+              if j.job_type == job_type and j.event_id in self._events_by_id]
+        return min(ts, default=None)
+
     def state(self, job_key: str) -> JobState | None:
         last = self.orch.latest(job_key)
         return last.state if last else None
