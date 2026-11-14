@@ -785,6 +785,8 @@ export interface components {
             allows_new_orders: boolean;
             /** Entry Blocks */
             entry_blocks?: components["schemas"]["EntryBlockOut"][];
+            /** Entry Block Windows */
+            entry_block_windows?: components["schemas"]["EntryBlockWindowOut"][];
             /** Safety History */
             safety_history: components["schemas"]["SafetyTransition"][];
             market_view: components["schemas"]["MarketView"] | null;
@@ -1195,6 +1197,24 @@ export interface components {
             end_at: string | null;
             /** Cause Ref */
             cause_ref: string;
+        };
+        /**
+         * EntryBlockWindowOut
+         * @description Cửa sổ chặn đã gộp (2-C08): các lệnh cấm chồng / nối nhau → một cửa sổ liền.
+         */
+        EntryBlockWindowOut: {
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /**
+             * End At
+             * @description None: tới khi được gỡ (spread)
+             */
+            end_at: string | null;
+            /** Reason Codes */
+            reason_codes: string[];
         };
         /**
          * Freshness

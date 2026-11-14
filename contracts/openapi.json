@@ -1995,6 +1995,13 @@
             "type": "array",
             "title": "Entry Blocks"
           },
+          "entry_block_windows": {
+            "items": {
+              "$ref": "#/components/schemas/EntryBlockWindowOut"
+            },
+            "type": "array",
+            "title": "Entry Block Windows"
+          },
           "safety_history": {
             "items": {
               "$ref": "#/components/schemas/SafetyTransition"
@@ -3187,6 +3194,43 @@
         ],
         "title": "EntryBlockOut",
         "description": "Lệnh cấm mở lệnh mới có hạn của làn nhanh (GĐ2, DEC-20)."
+      },
+      "EntryBlockWindowOut": {
+        "properties": {
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End At",
+            "description": "None: tới khi được gỡ (spread)"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Codes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_at",
+          "end_at",
+          "reason_codes"
+        ],
+        "title": "EntryBlockWindowOut",
+        "description": "Cửa sổ chặn đã gộp (2-C08): các lệnh cấm chồng / nối nhau → một cửa sổ liền."
       },
       "Freshness": {
         "type": "string",

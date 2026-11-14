@@ -22,9 +22,9 @@
 | ORC-07 | Invalidate MarketView khi output hết hạn | `[~]` | 2026-11-14 (bước 3): sự kiện `OUTPUT_EXPIRED` (hết hạn mà chưa có kết quả mới) → job `INVALIDATE_MARKETVIEW` + tính lại; bộ xử lý invalidate có khi có MarketView (GĐ4) |
 | ORC-08 | Lưu job bền vững (restart không mất, không chạy lại job đã xong) | `[x]` | 2026-11-13 (1b): bảng chỉ-thêm `orchestrator_jobs` (khóa `job_key`) + `orchestrator_job_attempts` (trạng thái = dòng mới nhất), migration 0014; phần chạy lại / quá deadline ở bước 2 |
 | DSH-08 | Hiển thị trạng thái pipeline/job, dead-letter | `[ ]` | |
-| FAST-01 | Làn nhanh kích hoạt khi: CPI/NFP vừa ra, tin nóng cấp cao, spread giãn mạnh, bất ngờ so dự báo | `[ ]` | |
-| FAST-02 | Xử lý bằng luật (+ FinBERT nếu có), **không gọi LLM nặng**; ngân sách độ trễ tính bằng giây | `[ ]` | |
-| FAST-03 | Kết quả: cập nhật `riskFlags`, chặn lệnh 10–15 phút, giảm confidence, đi thẳng Safety (bỏ qua Fusion) | `[~]` | 2026-11-14 (4a): lệnh cấm có hạn + Safety đọc (DEC-20 câu 5); nguồn kích hoạt ở 4b–4d |
+| FAST-01 | Làn nhanh kích hoạt khi: CPI/NFP vừa ra, tin nóng cấp cao, spread giãn mạnh, bất ngờ so dự báo | `[~]` | 2026-11-14 (4b): số liệu HIGH vừa nhận + thông cáo tiền tệ Fed (trên / ngoài lịch) + cửa sổ lịch (`risk/fast_lane.py`); spread ở 4c; "bất ngờ so dự báo": không đủ dữ liệu (DEC-01) |
+| FAST-02 | Xử lý bằng luật (+ FinBERT nếu có), **không gọi LLM nặng**; ngân sách độ trễ tính bằng giây | `[~]` | 2026-11-14 (4b): chỉ luật, ghi `latency_ms`; vòng 2 giây + ngân sách 10 giây ở 4d |
+| FAST-03 | Kết quả: cập nhật `riskFlags`, chặn lệnh 10–15 phút, giảm confidence, đi thẳng Safety (bỏ qua Fusion) | `[~]` | 2026-11-14 (4a): lệnh cấm có hạn + Safety đọc (DEC-20 câu 5); (4b) Safety đọc thêm cửa sổ lịch + lệnh cấm số liệu / thông cáo Fed, tin khác chỉ cờ; spread / độ trễ ở 4c–4d |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
@@ -34,8 +34,8 @@
 | 2-C04 | Analyst lỗi / quá hạn deadline | Retry giới hạn → dead-letter, nguồn coi là MISSING, không dùng output cũ quá hạn | `[~]` 2026-11-14: retry giới hạn → `DEAD`, quá deadline không dùng kết quả; phía dùng output (coi MISSING, TTL) ở GĐ4 Quality Gate |
 | 2-C05 | Restart giữa lúc chạy job | Tiếp tục hoặc chạy lại an toàn, không nhân đôi | `[x]` 2026-11-14: `RUNNING` chưa quá deadline → chờ; quá → `DEADLINE_EXCEEDED` rồi thử lại; job xong không chạy lại |
 | 2-C06 | Output hết hạn mà không tính lại được | MarketView bị invalidate → không có tín hiệu | `[~]` 2026-11-14: sự kiện + job invalidate + tính lại có test; chặn tín hiệu thật khi có MarketView / Fusion (GĐ4) |
-| 2-C07 | Sự kiện xảy ra khi thị trường đóng | Vẫn xử lý; cờ áp dụng khi mở cửa | `[ ]` |
-| 2-C08 | Hai công bố cùng phút | Một cửa sổ chặn gộp | `[ ]` |
+| 2-C07 | Sự kiện xảy ra khi thị trường đóng | Vẫn xử lý; cờ áp dụng khi mở cửa | `[x]` 2026-11-14 (4b): 15 phút đếm theo phút thị trường mở (`hold_end`) — thông cáo thứ Bảy chặn tới 15 phút sau khi mở cửa Chủ nhật; test + soát 307 mốc (DST, lễ) |
+| 2-C08 | Hai công bố cùng phút | Một cửa sổ chặn gộp | `[x]` 2026-11-14 (4b): `merge_windows` + API `entry_block_windows`; CPI + trợ cấp thất nghiệp 8:30 → một cửa sổ; FOMC + họp báo nối nhau → một cửa sổ |
 | 2-C09 | Làn nhanh vượt ngân sách độ trễ | Cảnh báo; Safety mặc định chặn tới khi xử lý xong | `[ ]` |
 
 **Gate GĐ2:** replay event log ghi lại từ GĐ1 cho kết quả giống hệt; không nhân đôi output; đo được độ trễ làn nhanh trên một lần công bố CPI/NFP đã ghi, nằm trong ngân sách.
@@ -53,3 +53,4 @@
 - **2026-11-14** — **Kiểm trên máy mục 1: đạt.** Nến vàng 01:45–02:00 giờ VN đóng → 8 giây sau (19:00:08 UTC) job TECHNICAL `SUCCEEDED` + REGIME `NO_HANDLER`; 6 cặp tiền → 6 MACRO `NO_HANDLER`; nến H1 không định tuyến (đúng). Hai MT5 cùng server → một nguồn giá vàng → một lần Technical. Thẻ Phân tích kỹ thuật trên web: "Tính tại nến đóng lúc 02:00:00 14/11/2026", còn hiệu lực tới 02:17. ORC-01 xác nhận trên máy.
 - **2026-11-14** — **DEC-20: ngưỡng làn nhanh** (người dùng chốt từng câu, xem bảng quyết định). Bước 4 chia 4a (lưu lệnh cấm + Safety đọc), 4b (số liệu lớn + tin bất ngờ), 4c (spread), 4d (vòng 2 giây, độ trễ, băng cảnh báo web).
 - **2026-11-14** — **Bước 4a: lệnh cấm có hạn + Safety (FAST-03 phần chặn).** `risk/blocks.py` + `storage/risk_blocks.py` (migration 0016, hai bảng chỉ-thêm: lệnh cấm + gỡ), `AccountRegistry.allows_new_orders` thêm điều kiện không còn lệnh cấm (đọc lỗi → chặn; công tắc Safety không đổi), API trạng thái tài khoản thêm `entry_blocks`, OpenAPI + type TS sinh lại. Test 16. Postgres: migration lên / xuống, `alembic check` sạch. Thiết kế `docs/thiet-ke/26-lam-nhanh.md`. Tiếp: 4b.
+- **2026-11-14** — **Bước 4b: số liệu HIGH + thông cáo Fed (FAST-01..03, 2-C07, 2-C08).** `risk/fast_lane.py`: Safety chặn mở lệnh mới trong cửa sổ lịch kinh tế (tính khi đọc, có trạng thái nguồn, đệm 5 giây) + 15 phút thị trường mở từ lúc nhận số HIGH; job `FAST_LANE` ghi lệnh cấm cho số liệu HIGH / không khớp lịch (coi HIGH), thông cáo tiền tệ Fed trên lịch FOMC (HIGH) hoặc ngoài lịch (`NEWS` 15 phút); phát biểu Fed, Bộ Tài chính, PPI / trợ cấp thất nghiệp, tin cũ > 36 giờ chỉ cờ; lỗi áp luật → chặn 15 phút rồi thử lại. API thêm `entry_block_windows` (cửa sổ gộp). Test 46; soát lại riêng (gộp cửa sổ ngẫu nhiên 400 lần, 307 mốc giờ mở cửa, chuỗi quét → điều phối → Safety mỗi 10 giây quanh FOMC 9/12 + CPI 10/12) sạch, cả trên Postgres 16; tính cửa sổ lịch ~35 ms. Lưu ý: tuần lễ (Tạ ơn 25–27/11) chặn cả ngày tới khi có số trợ cấp thất nghiệp (chính sách GĐ1 8f, nay áp thật). Thiết kế `docs/thiet-ke/26-lam-nhanh.md` mục 3. Tiếp: 4c.

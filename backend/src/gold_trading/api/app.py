@@ -263,16 +263,16 @@ def create_app(
     block_store = SqlBlockStore(engine_) if engine_ is not None else BlockStore()
     # GĐ2 4b: cửa sổ lịch kinh tế + 15 phút sau khi nhận số HIGH (tính khi đọc, point-in-time,
     # có trạng thái nguồn). Chỉ khi có DB (bảng lịch nằm trong DB); bộ nhớ: nối ở dưới nếu có.
-    calendar_blocks: CalendarBlocks | None = None
+    fast_lane: dict[str, CalendarBlocks | None] = {"calendar": None}
     if engine_ is not None:
-        calendar_blocks = CalendarBlocks(SqlExternalRecordStore(engine_),
-                                         SqlSourceCheckLog(engine_), market.calendar)
+        fast_lane["calendar"] = CalendarBlocks(SqlExternalRecordStore(engine_),
+                                               SqlSourceCheckLog(engine_), market.calendar)
 
     def account_entry_blocks(account_id: str, now):
         feed_ = account_feed(repo, account_id) if source is DataSource.MT5 else ""
         stored = block_store.active(now, feed_)
-        cal = calendar_blocks.active(now) if calendar_blocks is not None else []
-        return dedupe([*stored, *cal])
+        cal_ = fast_lane["calendar"]
+        return dedupe([*stored, *(cal_.active(now) if cal_ is not None else [])])
 
     registry = AccountRegistry(
         repo,
@@ -314,8 +314,8 @@ def create_app(
         # Đồng hồ máy chủ bị chặn → không nạp (giờ sai làm sai thời điểm "đã biết").
         external_runner = runner_from_env(getattr(repo, "engine", None), os.environ,
                                           blocked=clock.ingest_block_reason)
-    if calendar_blocks is None and getattr(external_runner, "store", None) is not None:
-        calendar_blocks = CalendarBlocks(external_runner.store,
+    if fast_lane["calendar"] is None and getattr(external_runner, "store", None) is not None:
+        fast_lane["calendar"] = CalendarBlocks(external_runner.store,
                                          getattr(external_runner, "check_log", None),
                                          market.calendar)
 
@@ -474,6 +474,7 @@ def create_app(
     app.state.runner = runner  # MT-05: để kiểm tra / chẩn đoán analyst theo từng nguồn
     app.state.orchestrator = orchestrator
     app.state.block_store = block_store
+    app.state.fast_lane = fast_lane       # GĐ2 4b: cửa sổ lịch cho Safety (test thay được)
 
     @app.get("/api/health")
     def health():

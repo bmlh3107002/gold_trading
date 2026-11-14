@@ -27,6 +27,7 @@ from gold_trading.common.time import utcnow
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.contracts.safety import SafetyTransition
 from gold_trading.modes.manager import LIVE_CHECKLIST, ModeChangeError
+from gold_trading.risk.fast_lane import merge_windows
 from gold_trading.safety.supervisor import SafetyTransitionError
 from gold_trading.storage.repository import (
     AuditEntry,
@@ -62,11 +63,20 @@ class EntryBlockOut(BaseModel):
     cause_ref: str
 
 
+class EntryBlockWindowOut(BaseModel):
+    """Cửa sổ chặn đã gộp (2-C08): các lệnh cấm chồng / nối nhau → một cửa sổ liền."""
+
+    start_at: datetime
+    end_at: datetime | None = Field(description="None: tới khi được gỡ (spread)")
+    reason_codes: list[str]
+
+
 class AccountStatus(AccountSummary):
     live_unlocked: bool
     live_checklist: list[str]
     allows_new_orders: bool
     entry_blocks: list[EntryBlockOut] = Field(default_factory=list)
+    entry_block_windows: list[EntryBlockWindowOut] = Field(default_factory=list)
     safety_history: list[SafetyTransition]
     market_view: MarketView | None
 
@@ -325,19 +335,25 @@ def accounts_router(
             live_unlocked=rt.modes.live_unlocked,
             live_checklist=list(LIVE_CHECKLIST),
             allows_new_orders=registry.allows_new_orders(acc_id),
-            entry_blocks=entry_blocks_out(acc_id),
+            **entry_blocks_out(acc_id),
             safety_history=list(rt.safety.history)[-200:],
             market_view=market_view(),
         )
 
-    def entry_blocks_out(acc_id: str) -> list[EntryBlockOut]:
+    def entry_blocks_out(acc_id: str) -> dict:
         try:
             blocks = registry.entry_blocks(acc_id)
         except Exception:
-            return []      # allows_new_orders đã False (đọc lỗi → chặn)
-        return [EntryBlockOut(kind=b.kind.value, reason_code=b.reason_code, scope=b.scope,
-                              start_at=b.start_at, end_at=b.end_at, cause_ref=b.cause_ref)
-                for b in blocks]
+            # allows_new_orders đã False (đọc lỗi → chặn)
+            return {"entry_blocks": [], "entry_block_windows": []}
+        return {
+            "entry_blocks": [EntryBlockOut(
+                kind=b.kind.value, reason_code=b.reason_code, scope=b.scope,
+                start_at=b.start_at, end_at=b.end_at, cause_ref=b.cause_ref) for b in blocks],
+            "entry_block_windows": [EntryBlockWindowOut(
+                start_at=w.start_at, end_at=w.end_at, reason_codes=list(w.reason_codes))
+                for w in merge_windows(blocks)],
+        }
 
     def account_name(account_id: str) -> str:
         acc = repo.account(account_id)
