@@ -252,10 +252,11 @@ class OrchestratorStore:
         since = _utc("since", since)
         with self._lock:
             jobs = [j for j in self._jobs.values() if j.created_at > since]
+            keys = {j.job_key for j in jobs}
             ev = {k: e for k, (e, _) in self._events.items()}
             att: dict[str, list[Attempt]] = {}
             for a in self._attempts:
-                if a.job_key in {j.job_key for j in jobs}:
+                if a.job_key in keys:
                     att.setdefault(a.job_key, []).append(a)
         out = []
         for j in jobs:
@@ -270,3 +271,18 @@ class OrchestratorStore:
             out = [r for r in out if r.last.state in want]
         out.sort(key=lambda r: (r.job.created_at, r.job.job_key), reverse=True)
         return out if limit is None else out[:limit]
+
+    def first_recorded_at(self) -> datetime | None:
+        """Lúc ghi sự kiện đầu tiên (= lần quét đầu tiên của bộ điều phối) — GĐ2 replay."""
+        with self._lock:
+            return min((r for _, r in self._events.values()), default=None)
+
+    def multi_success_jobs(self) -> list[str]:
+        """Job có hơn một lần ``SUCCEEDED`` (không bao giờ được có — kiểm "không nhân đôi")."""
+        with self._lock:
+            n: dict[str, int] = {}
+            for a in self._attempts:
+                if a.state is JobState.SUCCEEDED:
+                    n[a.job_key] = n.get(a.job_key, 0) + 1
+        return sorted(k for k, v in n.items() if v > 1)
+

@@ -251,3 +251,15 @@ class SqlOrchestratorStore:
                         _utc(m.deadline_at), m.error_code, m.output_ref),
                 m.event_type or "?", m.subject or "?", int(m.n or 0))
                 for m in conn.execute(q).mappings()]
+
+    def first_recorded_at(self) -> datetime | None:
+        with self.engine.connect() as conn:
+            v = conn.execute(select(func.min(_E.recorded_at))).scalar()
+        return _utc(v)
+
+    def multi_success_jobs(self) -> list[str]:
+        q = (select(_A.job_key).where(_A.state == JobState.SUCCEEDED.value)
+             .group_by(_A.job_key).having(func.count() > 1).order_by(_A.job_key))
+        with self.engine.connect() as conn:
+            return [r[0] for r in conn.execute(q)]
+

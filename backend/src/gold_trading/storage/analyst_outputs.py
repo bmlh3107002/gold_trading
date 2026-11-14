@@ -90,6 +90,15 @@ class InMemoryAnalystOutputStore:
                                          o.expires_at))
         return out
 
+    def computed_between(self, lo: datetime, hi: datetime) -> list[tuple]:
+        """(analyst_id, feed, symbol, tf, source, output_id, computed_at) có ``lo < computed_at
+        <= hi`` (GĐ2 replay)."""
+        with self._lock:
+            rows = list(self._rows)
+        return sorted(((r.output.analyst_id, f, s, t.value, src.value, r.output.output_id,
+                        r.computed_at) for (s, t, src, f, r) in rows
+                       if lo < r.computed_at <= hi), key=lambda x: (x[6], x[5]))
+
     def latest(self, analyst_id, *, symbol, tf, source, feed=""):
         rows = [
             r
@@ -163,6 +172,15 @@ class SqlAnalystOutputStore:
                     out.append(ExpiredOutput(m.analyst_id, m.symbol, m.timeframe, m.source,
                                              m.feed_id, m.output_id, _utc(m.expires_at)))
         return out
+
+    def computed_between(self, lo: datetime, hi: datetime) -> list[tuple]:
+        c = analyst_outputs.c
+        q = (select(c.analyst_id, c.feed_id, c.symbol, c.timeframe, c.source, c.output_id,
+                    c.computed_at).where(c.computed_at > lo, c.computed_at <= hi)
+             .order_by(c.computed_at, c.output_id))
+        with self.engine.connect() as conn:
+            return [(m.analyst_id, m.feed_id, m.symbol, m.timeframe, m.source, m.output_id,
+                     _utc(m.computed_at)) for m in conn.execute(q).all()]
 
     def latest(self, analyst_id, *, symbol, tf, source, feed=""):
         q = (

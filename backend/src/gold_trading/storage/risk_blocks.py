@@ -97,3 +97,10 @@ class SqlBlockStore:
                                            _B.kind == BlockKind.SPREAD.value))
         with self.engine.connect() as conn:
             return [_block(m) for m in conn.execute(q).mappings()]
+
+    def created_between(self, lo: datetime, hi: datetime) -> list[Block]:
+        q = (select(risk_blocks).where(_B.created_at > _req(lo), _B.created_at <= _req(hi))
+             .order_by(_B.created_at, _B.block_id))
+        with self.engine.connect() as conn:
+            return [_block(m) for m in conn.execute(q).mappings()]
+

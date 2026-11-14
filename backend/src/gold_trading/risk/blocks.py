@@ -145,3 +145,11 @@ class BlockStore:
             return [b for k, b in self._blocks.items() if b.kind is BlockKind.SPREAD
                     and b.created_at <= at and not (k in self._lifts
                                                     and self._lifts[k].lifted_at <= at)]
+
+    def created_between(self, lo: datetime, hi: datetime) -> list[Block]:
+        """Lệnh cấm ghi trong ``(lo, hi]`` (GĐ2 replay / kiểm tra)."""
+        lo, hi = _utc("lo", lo), _utc("hi", hi)
+        with self._lock:
+            return sorted((b for b in self._blocks.values() if lo < b.created_at <= hi),
+                          key=lambda b: (b.created_at, b.block_id))
+

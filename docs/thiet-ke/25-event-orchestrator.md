@@ -98,3 +98,16 @@
 - **Web:** trang "Pipeline" (`#pipeline`, menu bên trái): làn nhanh, dead-letter, đang chờ, đếm 24 giờ, gần đây; loại job / trạng thái tiếng Việt, mã lạ hiện nguyên mã. Tự cập nhật mỗi 10 giây.
 - **Kiểm chứng:** `tests/test_pipeline_status.py` 5 test; `frontend/src/pages/PipelinePage.test.tsx` 2 test. Soát lại riêng: bộ điều phối chạy ngẫu nhiên (400 nhịp, lỗi thử lại / lỗi không thử lại / bỏ cuộc) trên bộ nhớ, SQLite, Postgres 16 → 1.072 job, cả ba kho cho kết quả giống hệt và khớp tham chiếu đọc từng job. Postgres 12.000 job: ~230 ms / lần tải trang.
 
+## 9. Chạy lại nhật ký (replay) — Gate GĐ2 (2026-11-14)
+
+Lệnh (trong container backend, **chỉ đọc**, không ghi DB — chạy được khi backend đang chạy): `python -m gold_trading.orchestrator.replay` (`orchestrator/replay.py`). Thoát 0 = ĐẠT, 1 = KHÔNG ĐẠT.
+
+| Phần | Cách so |
+| --- | --- |
+| Sự kiện | Quét lại vào kho trong bộ nhớ từ lúc bộ điều phối ghi sự kiện đầu tiên (lần đầu nhìn lùi 2 ngày như thật), từng 5 phút tới hiện tại − 1 phút → so với nhật ký thật theo `event_id` + toàn bộ nội dung (loại, chủ thể, phiên bản, thời điểm xảy ra / biết, payload). Báo "chỉ có ở nhật ký thật" / "chỉ có khi chạy lại" / "khác nội dung" |
+| Làn nhanh | Chạy lại job `FAST_LANE` (cùng phiên bản) trên sự kiện đã quét lại → mọi job thật đã xong phải có cùng kết quả (`block:…` / `flag:…`); mọi lệnh cấm thật (trừ spread / độ trễ — không qua sự kiện) phải được tạo lại y hệt: loại, phạm vi, lý do, bắt đầu, hết hạn, nguyên nhân (`created_at` là lúc ghi nên không so). Lệnh cấm `FAST_LANE_ERROR` (lỗi lúc chạy thật) liệt kê riêng |
+| Phân tích kỹ thuật | Mỗi kết quả thật từ lúc bộ điều phối chạy: tính lại tại đúng `computed_at` → phải cùng `output_id` (gồm dấu vân tay dữ liệu vào). Kết quả của phiên bản Technical cũ: bỏ qua, có đếm |
+| Không nhân đôi | Không job nào có hơn một lần `SUCCEEDED`; khóa job / lệnh cấm / kết quả analyst duy nhất bằng ràng buộc DB |
+
+**Kiểm chứng:** `tests/test_orchestrator_replay.py` 7 test (bộ nhớ + SQLite): "chạy thật" giả lập 100 phút, nhịp bộ điều phối không đều 2–9 giây, backend tắt 40 phút giữa chừng, CPI + DOL + thông cáo Fed ngoài lịch + phát biểu → chạy lại ĐẠT với bước quét 1 / 5 / 15 phút; sửa lén nhật ký (sự kiện giả, lệnh cấm sai giờ, kết quả kỹ thuật sai, thiếu sự kiện, job thành công 2 lần) → phát hiện. Soát lại trên Postgres 16 qua đúng lệnh dòng lệnh: ĐẠT (288 sự kiện; 50 ngày nến: 3.297 sự kiện), số dòng mọi bảng trước / sau không đổi (không ghi DB).
+
