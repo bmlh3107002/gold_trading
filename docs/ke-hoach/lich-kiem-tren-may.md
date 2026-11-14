@@ -12,7 +12,7 @@
 
 ## Thứ Ba 17/11
 
-- [ ] **~07:00 — kết thúc 6a:** `docker compose start backend` → xem `logs\lordtrade.log` và `logs\taikhoan2.log` (`Get-Content … -Tail 40 -Encoding UTF8`) có "Nạp bù sau gián đoạn: N nến M15" → trang Thị trường không hở nến đêm qua. **Từ đây bắt đầu đếm ≥ 5 ngày giao dịch chạy liên tục** (Gate GĐ1) — không tắt backend lâu trong thời gian này.
+- [ ] **~07:00 — kết thúc 6a:** `docker compose start backend` → xem `logs\lordtrade.log` và `logs\taikhoan2.log` (`Get-Content … -Tail 40 -Encoding UTF8`) có "Nạp bù sau gián đoạn: N nến M15" → trang Thị trường không hở nến đêm qua. **Từ đây bắt đầu đếm ≥ 5 ngày giao dịch chạy liên tục** (Gate GĐ1) — để máy chạy, không ngủ. **DEC-21:** mất điện / mất mạng < 1 giờ mà hệ thống tự chạy lại + nạp bù đủ → vẫn tính; > 1 giờ trong giờ mở cửa hoặc phải can thiệp → ngày đó không tính (người phát triển kiểm từ dữ liệu, bạn không cần tự theo dõi). Sau mất điện: bật máy, đăng nhập Windows → Docker + Gateway tự chạy.
 
 ## Các ngày sau
 

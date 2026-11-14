@@ -187,7 +187,7 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 - [ ] **Doanh số bán lẻ (tạm hoãn 2026-11-13, Census chặn Việt Nam):** quyết định lại — lịch chép tay có phiên bản / số qua FRED (ngoại lệ DEC-01) / bỏ hẳn. Trong lúc hoãn **không có cửa sổ chặn quanh tin bán lẻ** → phải xử lý trước khi chạy SHADOW/LIVE
 - [ ] **ETF GLD/IAU (tạm hoãn 2026-11-13, điều khoản `BLOCKED`):** quyết định lại trước GĐ3 — xin phép bằng văn bản (GLD: `sprdgoldshares@gold.org`; IAU: BlackRock) / bỏ hẳn. Trong lúc hoãn, bộ Vị thế (POSN-01) chỉ dùng COT, ghi "thiếu dữ liệu ETF"
 - [ ] MT-12..MT-15 + case MT-C08, MT-C11, MT-C14 (phần dữ liệu) xong
-- [ ] Chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục**
+- [ ] Chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục** (DEC-21: gián đoạn < 1 giờ tự hồi phục + nạp bù đủ → vẫn tính; > 1 giờ trong giờ mở cửa / cần người can thiệp → ngày đó không tính)
 - [ ] Bắt được **ít nhất một lần công bố lớn** (CPI hoặc NFP): đúng giờ, đúng actual
 - [ ] Trang Nguồn dữ liệu hiển thị đủ
 - [ ] Bản sao lưu **tự động** có dữ liệu mới (không cần sao lưu thủ công)
