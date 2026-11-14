@@ -12,7 +12,7 @@
 - **GĐ1 — quyết định:** DEC-01..07, DEC-14 (chỉ nguồn miễn phí), DEC-18 (bỏ qua vấn đề pháp lý, vẫn không lách chặn kỹ thuật; FRED / GLD / IAU hỏi lại từng nguồn), DEC-19 (GĐ2 song song). Bảng ở file GĐ1.
 - **GĐ1 bước 1–10 + 8e BLS xong, đã kiểm trên máy** (mục kiểm 1–21 ở file kế hoạch GĐ1). Nguồn tự chạy: FOMC, BEA, DOL, BLS (lịch chép tay tới 12/2027), H.15, COT, tin Fed + Bộ Tài chính; chỉ số USD tự tính; trang "Nguồn dữ liệu"; dung lượng 1 năm ≈ 0,6 GB (giữ nguyên chính sách).
 - **Còn của GĐ1:** Census + ETF (hoãn, quyết ở Gate), **mục 6a tối thứ Hai 16/11** (~23:00 tắt backend → ~07:00 bật; đã hẹn nhắc 22:50), COT sau 22:30 VN 16/11 (nhắc 22:45), DOL 20:30 VN 19/11, giờ broker Lễ Tạ ơn 26–27/11, đo lại dung lượng sau 7 ngày, rồi Gate (≥ 5 ngày chạy liên tục, **NFP 04/12 20:30 VN** — nhắc 20:40).
-- Bài học: kiểm nguồn mới **từ máy người dùng** trước khi code; lệnh PowerShell không chứa `\"` hay `$`; đổi `docker-compose.yml` → người dùng tải lại file.
+- Bài học: kiểm nguồn mới từ máy người dùng trước khi code; PowerShell không `\"` / `$`; đổi compose → tải lại file.
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): người dùng giữ DEC-01 (2026-11-12); nhập tay forecast là việc để sau, không thuộc Gate GĐ1.
 - Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
@@ -52,4 +52,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-14): backend 1725 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 92 passed, build đạt.
+Kết quả lần cuối (2026-11-14): backend 1755 passed (2 skipped), ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 94 passed, build đạt.

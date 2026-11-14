@@ -78,7 +78,9 @@ Tìm đầu đợt giãn: lùi từng giây (tối đa 10 phút — đợt dài 
 
 **Lỗi tìm được khi soát lại (đã sửa trước khi đưa lên):** bản đầu lấy mốc tại giây mới nhất → chính các giây đang giãn nằm trong cửa sổ 60 phút kéo trung vị từ 20 lên 22, giây 65 (> 3 × 20) bị coi là bình thường → **bỏ sót một đợt giãn 11 giây**. Sửa: mốc tại giây bắt đầu đợt giãn. Có test tái hiện (`test_wide_seconds_do_not_raise_their_own_baseline`) + test so cách tính nhanh với tính lại cả giờ cho từng giây.
 
-**Kiểm chứng:** `tests/test_spread_lane.py` 23 test (bộ nhớ + SQLite). Soát lại: mô phỏng ngẫu nhiên từng giây (giãn / lưng chừng / yên, mất giây), so với cách tính độc lập.
+**Giới hạn:** sau một đợt giãn dài (vd. 20 phút), trung vị 60 phút có thể nhích lên (20 → 22) → ngưỡng 3 × cao hơn một chút trong giờ sau đó (đúng định nghĩa DEC-20 "trung vị 60 phút"). Giá trị 3 × / 1,5 × / 5 giây / 2 phút chưa hiệu chỉnh trên dữ liệu thật.
+
+**Kiểm chứng:** `tests/test_spread_lane.py` 23 test (bộ nhớ + SQLite). Soát lại: mô phỏng ngẫu nhiên từng giây (giãn / lưng chừng / yên, mất giây), 24 lần × 30 phút, vòng 2 giây, so với cách tính độc lập (mốc tại giây bắt đầu, tính lại cả giờ): không chặn sai, không gỡ sớm, không bỏ sót chuỗi giãn ≥ 7 giây, không bao giờ > 1 lệnh cấm mở / nguồn.
 
 ## 5. Vòng 2 giây + ngân sách độ trễ (4d — 2026-11-14)
 
