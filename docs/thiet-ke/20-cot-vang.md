@@ -35,3 +35,11 @@ Tải khi lần OK cuối > 6 giờ; lỗi → 30 phút. Giờ "đã biết" l�
 ## 6. Kiểm chứng
 
 Số đọc khớp đọc tay; soát lại: đọc độc lập bằng cách tách cột thô — khớp vị thế, OI, %; bảng lịch: mọi ngày dời có ngày lễ liên bang trong tuần, mọi ngày không dời là thứ Sáu, mọi thứ Ba 2026 có đúng một ngày công bố; chạy qua bộ chạy + Postgres: 1 bản ghi, `available_at` 06/11 20:30 UTC, tải lại không thêm. **Chưa:** tải trực tiếp từ backend trên máy người dùng (mục 17).
+
+## 7. Nạp bù lịch sử (2026-11-14, cho Positioning analyst — GĐ3 bước 5; người dùng yêu cầu)
+
+**Lý do:** Positioning cần ≥ 52 tuần; bộ nạp định kỳ chỉ ghi báo cáo mới nhất (cố ý từ chối báo cáo cũ hơn). Code: `ingestion/sources/cot_backfill.py`; lệnh `python -m gold_trading.ingestion.cli cot-bu [--dry-run] [--years 4] [--file …]`. Test `tests/test_cot_backfill.py`.
+
+- **Nguồn:** file lịch sử năm của CFTC `www.cftc.gov/files/dea/history/deacot<năm>.zip` (legacy, futures only → `annual.txt`, CSV có tiêu đề) — cùng báo cáo với `deacmxsf.htm`, nhà cung cấp `cftc` VERIFIED. Máy chủ đám mây bị 403 → **chưa xem được file thật khi viết code**; chạy trên máy người dùng.
+- **An toàn:** đọc cột theo **tên** (chuẩn hóa khoảng trắng / chữ hoa); thiếu cột → dừng và in tên cột thấy được; chỉ mã `088691` + tên GOLD; kiểm đẳng thức CFTC từng tuần (vị thế + thay đổi); ngày trùng trong file / hai file khác số → dừng. **Cổng đối chiếu:** phải có ≥ 1 tuần trùng báo cáo đã lưu từ trang (vd. 03/11/2026) và khớp 100 % OI + 9 vị thế — không thì **không ghi gì**. Chỉ thêm tuần chưa có (cờ `BACKFILL`, `report_source = CFTC_HISTORY_ANNUAL`), không sửa báo cáo đã lưu; "đã biết" = lúc nạp; ngoài lịch 2026 → `RELEASE_SCHEDULE_UNKNOWN`.
+- **Còn:** chạy `--dry-run` trên máy người dùng để xác nhận tên cột thật.

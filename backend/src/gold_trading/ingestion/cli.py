@@ -101,6 +101,14 @@ def main(argv: list[str] | None = None) -> int:
     bls.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     h15 = sub.add_parser("h15", help="Tải lãi suất H.15 của Fed một lần (ING-25/26)")
     h15.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    hb = sub.add_parser("h15-bu", help="Nạp bù lịch sử lãi suất H.15 một lần (Macro, GĐ3)")
+    hb.add_argument("--dry-run", action="store_true", help="Đọc DB + tải, so sánh, không ghi")
+    hb.add_argument("--days", type=int, default=400, help="Số ngày lịch sử (mặc định 400)")
+    cb = sub.add_parser("cot-bu", help="Nạp bù lịch sử COT vàng từ file năm CFTC (Positioning)")
+    cb.add_argument("--dry-run", action="store_true", help="Đọc DB + tải, đối chiếu, không ghi")
+    cb.add_argument("--years", type=int, default=4, help="Số năm gần nhất (mặc định 4)")
+    cb.add_argument("--file", type=Path, action="append",
+                    help="Dùng file .zip / annual.txt đã tải sẵn thay vì tải (lặp được)")
     cot = sub.add_parser("cot", help="Tải báo cáo COT vàng của CFTC một lần (ING-12)")
     cot.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     usd = sub.add_parser("usd", help="Chỉ số USD tự tính từ 6 cặp MT5 (ING-24, chỉ đọc)")
@@ -116,6 +124,10 @@ def main(argv: list[str] | None = None) -> int:
         return _bls(args.dry_run)
     if args.cmd == "h15":
         return _h15(args.dry_run)
+    if args.cmd == "h15-bu":
+        return _h15_backfill(args.dry_run, args.days)
+    if args.cmd == "cot-bu":
+        return _cot_backfill(args.dry_run, args.years, args.file or [])
     if args.cmd == "cot":
         return _cot(args.dry_run)
     if args.cmd == "usd":
@@ -482,6 +494,133 @@ def _h15(dry_run: bool, env=None, client_factory=None) -> int:
         print(f"Proxy kỳ vọng Fed: không đủ dữ liệu ({px.reason})")
     print("Nguồn: Federal Reserve Board H.15; lợi suất trái phiếu: U.S. Treasury.")
     return 0 if check.outcome.value == "OK" else 1
+
+
+class _ReadOnly:
+    """Bọc kho: đọc thật, ghi giả (chạy thử không đổi DB)."""
+
+    def __init__(self, store) -> None:
+        self.store = store
+
+    def as_of(self, *a, **k):
+        return self.store.as_of(*a, **k)
+
+    def append(self, *a, **k):
+        from gold_trading.ingestion.point_in_time import AppendOutcome, AppendResult
+        return AppendResult(AppendOutcome.INSERTED)
+
+
+def _h15_backfill(dry_run: bool, days: int, env=None, client_factory=None, now=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.sources import h15_backfill as HB
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+
+    env = os.environ if env is None else env
+    now = now or utcnow()
+    url = env.get("DATABASE_URL")
+    if not url:
+        print("Thiếu DATABASE_URL", file=sys.stderr)
+        return 2
+    store = SqlExternalRecordStore(SqlRepository.from_url(url).engine)
+    target = _ReadOnly(store) if dry_run else store
+    make = client_factory or (lambda: httpx.Client(
+        headers={"User-Agent": "gold-trading-personal/0.1"}))
+    since = HB.default_since(now, days)
+    try:
+        with make() as client:
+            obs = HB.parse_ddp(HB.http_text(client, HB.DDP_URL, "www.federalreserve.gov"))
+            for y in range(since.year, now.year + 1):
+                obs += HB.parse_treasury_real(HB.http_text(
+                    client, HB.TREASURY_URL.format(year=y), "home.treasury.gov"))
+    except (HB.BackfillFormatError, httpx.HTTPError) as e:
+        print(f"Không nạp bù được: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    c = HB.backfill(target, obs, now, since=since)
+    print(f"Nạp bù H.15 {'(CHẠY THỬ — không ghi)' if dry_run else ''} từ {since}: "
+          f"thêm {c.added}, trùng số đã có {c.same}, KHÁC số đã có {len(c.conflict)}, "
+          f"bị từ chối {len(c.rejected)}")
+    for series in ("UST_TIPS_10Y", "UST_CMT_10Y", "UST_CMT_2Y"):
+        got = sorted((o for o in obs if o.series == series and o.day >= since),
+                     key=lambda o: o.day)
+        if got:
+            tail = ", ".join(f"{o.day:%d/%m} {o.value}" for o in got[-3:])
+            print(f"  {series}: {len(got)} ngày ({got[0].day} → {got[-1].day}); cuối: {tail}")
+    for s_, d_, old, new in c.conflict[:10]:
+        print(f"  KHÁC: {s_} {d_} đã có {old}, nguồn bù {new} (giữ số đã có)")
+    print("Nguồn: Board of Governors of the Federal Reserve System (H.15, Data Download "
+          "Program); U.S. Department of the Treasury (Daily Treasury Par Real Yield Curve).")
+    return 0 if not c.conflict and not c.rejected else 1
+
+
+def _cot_backfill(dry_run: bool, years: int, files, env=None, client_factory=None,
+                  now=None) -> int:
+    import httpx
+
+    from gold_trading.ingestion.sources import cot_backfill as CB
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+
+    env = os.environ if env is None else env
+    now = now or utcnow()
+    url = env.get("DATABASE_URL")
+    if not url:
+        print("Thiếu DATABASE_URL", file=sys.stderr)
+        return 2
+    store = SqlExternalRecordStore(SqlRepository.from_url(url).engine)
+    reports = []
+    try:
+        if files:
+            for f in files:
+                raw = f.read_bytes()
+                text = CB.read_zip(raw) if f.suffix.lower() == ".zip" else raw.decode("utf-8-sig")
+                reports += CB.parse_annual(text)
+        else:
+            make = client_factory or (lambda: httpx.Client(
+                headers={"User-Agent": "gold-trading-personal/0.1"}))
+            with make() as client:
+                for y in range(now.year - years + 1, now.year + 1):
+                    r = client.get(CB.HISTORY_URL.format(year=y), timeout=120,
+                                   follow_redirects=True)
+                    if r.url.host != "www.cftc.gov" or r.status_code != 200:
+                        raise CB.CotBackfillError(f"tải năm {y}: HTTP {r.status_code} "
+                                                  f"({r.url.host})")
+                    reports += CB.parse_annual(CB.read_zip(r.content))
+    except (CB.CotBackfillError, OSError, UnicodeDecodeError, httpx.HTTPError) as e:
+        print(f"Không nạp bù được: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    seen = {}
+    for x in reports:
+        if x.as_of in seen and seen[x.as_of] != x:
+            print(f"Hai file cho số khác nhau cùng ngày {x.as_of} → dừng", file=sys.stderr)
+            return 1
+        seen[x.as_of] = x
+    reports = sorted(seen.values(), key=lambda x: x.as_of)
+    if not reports:
+        print("Không tìm thấy dòng GOLD 088691 nào trong file", file=sys.stderr)
+        return 1
+    n, bad = CB.cross_check(store, reports, now)
+    print(f"Đọc {len(reports)} tuần GOLD 088691 ({reports[0].as_of} → {reports[-1].as_of}).")
+    print(f"Đối chiếu với báo cáo đã lưu từ trang CFTC: {n} tuần trùng, {len(bad)} tuần lệch"
+          + (f" ({', '.join(bad[:5])})" if bad else ""))
+    for x in reports[-3:]:
+        net = x.positions["noncomm_long"] - x.positions["noncomm_short"]
+        print(f"  chốt {x.as_of}: OI {x.open_interest:,}, không thương mại long "
+              f"{x.positions['noncomm_long']:,} / short {x.positions['noncomm_short']:,} "
+              f"(ròng {net:+,})")
+    if n == 0 or bad:
+        print("DỪNG: cần ít nhất 1 tuần trùng và khớp 100 % với báo cáo đã lưu (để chắc đọc đúng "
+              "cột). Không ghi gì. Gửi toàn bộ nội dung này cho người phát triển.",
+              file=sys.stderr)
+        return 1
+    if dry_run:
+        print("CHẠY THỬ: đọc đúng — chưa ghi. Chạy lại không có --dry-run để ghi.")
+        return 0
+    c = CB.backfill(store, reports, now)
+    print(f"Đã ghi: thêm {c.added} tuần, trùng {c.same}, khác (giữ số đã có) {len(c.conflict)}, "
+          f"bị từ chối {len(c.rejected)}")
+    print("Nguồn: U.S. Commodity Futures Trading Commission (cftc.gov), Commitments of Traders "
+          "— historical compressed files.")
+    return 0 if not c.conflict and not c.rejected else 1
 
 
 def _cot(dry_run: bool, env=None, client_factory=None) -> int:

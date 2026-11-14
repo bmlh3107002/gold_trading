@@ -7,6 +7,10 @@
 
 - [ ] **~06:00–06:15 — thị trường mở cửa (GĐ2):** trang Tổng quan có thể hiện băng đỏ "Chưa đủ dữ liệu spread để đánh giá" khoảng 3 phút rồi **tự hết**. Trang Pipeline: hai làn "Đạt". Chụp màn hình nếu băng không tự hết sau 10 phút.
 - [ ] **Trong ngày, trước 22:00 — dựng lại để có công cụ replay (GĐ2):** `docker compose build --no-cache backend frontend` → `docker compose up -d` → chờ 1 phút → `docker compose exec backend python -m gold_trading.orchestrator.replay` → mong đợi 4 dòng "ĐẠT" + "KẾT LUẬN: ĐẠT" (gửi toàn bộ nội dung cho người phát triển nếu có "KHÔNG ĐẠT"). Phải làm **trước 6a** để không cắt quãng đếm 5 ngày. Lần dựng này cũng đưa lên **thẻ "Lịch sự kiện kinh tế" + "Trạng thái thị trường" + "Bối cảnh vĩ mô" + "Vị thế quỹ đầu cơ (COT)"** (GĐ3) ở trang Thị trường → xem `GD3-ke-hoach.md` mục kiểm trên máy 1–4 (chỉ nhìn, không thao tác thêm).
+- [ ] **Ngay sau khi dựng lại (trước 22:00) — nạp bù lịch sử lãi suất + COT (GĐ3):** từng lệnh một:
+  1. `docker compose exec backend python -m gold_trading.ingestion.cli h15-bu --dry-run` → mong đợi dòng "KHÁC số đã có 0" → chạy lại **không có** `--dry-run`.
+  2. `docker compose exec backend python -m gold_trading.ingestion.cli cot-bu --dry-run` → mong đợi "… tuần trùng, 0 tuần lệch" + "CHẠY THỬ: đọc đúng" → chạy lại **không có** `--dry-run`. Nếu có chữ **DỪNG** hoặc "thiếu cột" → **không chạy lại**, gửi toàn bộ nội dung cho người phát triển.
+  Sau 1–2 phút: thẻ "Bối cảnh vĩ mô" có mũi tên ↑/↓/→ cho lợi suất; thẻ COT có "Mức đông đúc" khác "Chưa đủ lịch sử".
 - [ ] **Sau 22:30 — COT (GĐ1, mục 17):** `docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run` → báo cáo **chốt 10/11**, số khớp trang `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD.
 - [ ] **~23:00 — mục 6a (GĐ1, mục 8):** kiểm Gateway đang chạy (`Get-Process python`) → `docker compose stop backend` → đi ngủ (**không** tắt Gateway, không tắt máy).
 

@@ -67,3 +67,12 @@ Code `backend/src/gold_trading/ingestion/macro_view.py` (`fed_expectation_proxy(
 - **Không đủ dữ liệu:** không có ngày chung (`NO_COMMON_DAY`) hoặc ngày chung cũ hơn 7 ngày so với `as_of` (`STALE`, cùng mức `data_ttl` của nguồn) → `INSUFFICIENT_DATA`, không trả số.
 - Tính khi đọc từ bản ghi point-in-time (không lưu) → cùng `as_of` cho cùng kết quả; Fed sửa số → proxy đổi từ lúc hệ thống biết bản sửa, quá khứ giữ nguyên.
 - **Kiểm chứng:** ngày 10/11/2026: 4.73 − 3.88 = +0.85 (+85 điểm cơ bản), tính tay độc lập từ CSV lợi suất của Bộ Tài chính Mỹ cũng ra 0.85.
+
+## 10. Nạp bù lịch sử (2026-11-14, cho Macro analyst — GĐ3 bước 4; người dùng yêu cầu)
+
+**Lý do:** trang phát hành chỉ hiện ~5 ngày; Macro cần ≥ 21 quan sát để đo độ bất thường → không nạp bù thì tới ~giữa 12/2026 mới có. Code: `ingestion/sources/h15_backfill.py`; lệnh `python -m gold_trading.ingestion.cli h15-bu [--dry-run] [--days 400]` (chạy tay một lần). Test `tests/test_h15_backfill.py`.
+
+- **Nguồn:** lợi suất 2 / 10 năm — gói CSV "Treasury Constant Maturities" của Data Download Program (Fed, `fed` VERIFIED), đúng mã chuỗi H.15 (`RIFLGFCY02_N.B`, `RIFLGFCY10_N.B`). DDP sắp gỡ (2027) — mục 9 / điều khoản đã ghi "không dùng DDP" cho **nguồn định kỳ**; ở đây chỉ dùng **một lần** để nạp bù. Lợi suất thực 10 năm — CSV "Daily Treasury Par Real Yield Curve Rates" của Bộ Tài chính (`treasury` VERIFIED, bước 10c), chính là gốc của dòng TIPS trên H.15.
+- **Đã kiểm trùng H.15:** 3 chuỗi × 4 ngày (05–10/11/2026) giống hệt chuỗi số trên trang H.15 đã lưu; chạy thật (mạng thật, Postgres): thêm 805 ngày (10/2025 → 11/2026), 12 ngày trùng số đã có, **0 khác**; chạy lại không thêm.
+- **An toàn:** chỉ thêm ngày chưa có (revision 0, cờ `BACKFILL`, `backfill_source`); ngày đã có khác số → báo, **không sửa**; "đã biết" = lúc nạp (replay quá khứ không thấy); file lạ (thiếu chuỗi / đổi đơn vị / ngày hỏng / số ngoài [-5, 25]) → từ chối cả file; "ND" (ngày nghỉ) bỏ qua, không thành 0. Trang H.15 tải sau đó: ngày trùng số → không thêm revision.
+- EFFR không nạp bù (proxy Fed chỉ cần cùng ngày).
