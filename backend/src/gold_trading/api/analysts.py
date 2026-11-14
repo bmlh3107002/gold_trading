@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from gold_trading.analysts import event, macro, regime, technical
+from gold_trading.analysts import event, macro, positioning, regime, technical
 from gold_trading.analysts.framework import GLOBAL_SCOPE, Scope
 from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
@@ -45,10 +45,10 @@ class EventLatest(BaseModel):
     )
 
 
-def event_of(store: AnalystOutputStore) -> EventLatest:
+def event_of(store: AnalystOutputStore, mod=event) -> EventLatest:
     now = utcnow()
-    got = store.latest_scoped(event.ANALYST_ID, GLOBAL_SCOPE, known_by=now)
-    if got is None or got.output.version != event.VERSION:
+    got = store.latest_scoped(mod.ANALYST_ID, GLOBAL_SCOPE, known_by=now)
+    if got is None or got.output.version != mod.VERSION:
         return EventLatest(output=None, computed_at=None, valid_now=False)
     return EventLatest(output=got.output, computed_at=got.computed_at,
                        valid_now=got.output.is_valid_at(now))
@@ -111,6 +111,11 @@ def analysts_router(market: MarketDataService, store: AnalystOutputStore) -> API
     @r.get("/event/latest", response_model=EventLatest)
     def event_latest(p: CurrentUser) -> EventLatest:
         return event_of(store)
+
+    @r.get("/positioning/latest", response_model=EventLatest)
+    def positioning_latest(p: CurrentUser) -> EventLatest:
+        """GĐ3 bước 5: COT vàng — dữ liệu chung, công bố hằng tuần, trễ 3 ngày trở lên."""
+        return event_of(store, positioning)
 
     return r
 

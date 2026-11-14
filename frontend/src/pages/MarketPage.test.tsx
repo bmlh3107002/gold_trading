@@ -166,7 +166,8 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(urls().some((u) => u.startsWith("/api/accounts/default/analysts/technical/latest"))).toBe(true);
     // Lịch sự kiện là dữ liệu chung (không phải giá) — endpoint chung duy nhất được phép.
     const shared = urls().filter((u) => u.startsWith("/api/market/") || u.startsWith("/api/analysts/"));
-    expect(shared.every((u) => u.startsWith("/api/analysts/event/latest"))).toBe(true);
+    const allowed = ["/api/analysts/event/latest", "/api/analysts/positioning/latest"];
+    expect(shared.every((u) => allowed.some((a) => u.startsWith(a)))).toBe(true);
   });
 
   it("GĐ3: thẻ Lịch sự kiện — đang trong cửa sổ, số actual '0' khác chưa công bố", async () => {
@@ -273,6 +274,45 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(screen.getByText(/chưa đủ lịch sử để đo độ bất thường/)).toBeInTheDocument();
     expect(screen.getByText(/Chưa có \(PAIR_MISSING\)/)).toBeInTheDocument();
     expect(screen.getByText(/Nghiêng về cắt lãi/)).toBeInTheDocument();
+  });
+
+  it("GĐ3: thẻ COT — luôn báo trễ, chưa đủ lịch sử thì không nói đông đúc", async () => {
+    routes({
+      "/api/analysts/positioning/latest": {
+        computed_at: "2026-11-13T12:00:05Z",
+        valid_now: true,
+        confidence_meaning: "DATA_QUALITY_ONLY",
+        observer_only: true,
+        output: {
+          output_id: "positioning:x",
+          analyst_id: "positioning",
+          as_of: "2026-11-13T12:00:00Z",
+          expires_at: "2026-11-13T18:00:00Z",
+          confidence: 0.5,
+          features: {
+            report_date: "2026-11-03",
+            data_lag_days: 9.3,
+            noncomm_net: 179548,
+            noncomm_net_change: -2000,
+            net_pct_oi: 44.98,
+            history_weeks: 1,
+            min_weeks_for_extremes: 52,
+            crowding: "INSUFFICIENT_DATA",
+          },
+          drivers: ["POSITIONING_INSUFFICIENT_DATA"],
+          risk_flags: [],
+          source_status: "HEALTHY",
+          quality_flags: ["COT_LAGGED", "COT_HISTORY_SHORT"],
+          version: "positioning-1.0.0",
+          correlation_id: "c",
+        },
+      },
+    });
+    render(<App />);
+    expect(await screen.findByText(/Báo cáo chốt ngày 2026-11-03 — trễ 9 ngày/)).toBeInTheDocument();
+    expect(screen.getByText("Chưa đủ lịch sử")).toBeInTheDocument();
+    expect(screen.getByText(/1 \/ 52 tuần/)).toBeInTheDocument();
+    expect(screen.queryByText(/Giả thuyết/)).not.toBeInTheDocument();
   });
 
   it("GĐ3: thẻ Lịch sự kiện — lịch thiếu thì báo không đạt, không nói 'không có sự kiện'", async () => {

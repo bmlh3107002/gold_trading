@@ -24,6 +24,7 @@ from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.event import EventAnalyst, event_handler
 from gold_trading.analysts.macro import MacroAnalyst, macro_handler
+from gold_trading.analysts.positioning import PositioningAnalyst, positioning_handler
 from gold_trading.analysts.regime import RegimeRunner, regime_handler
 from gold_trading.analysts.runner import TechnicalRunner
 from gold_trading.api.accounts import Guard, accounts_router
@@ -351,6 +352,7 @@ def create_app(
         macro_analyst = MacroAnalyst(repo=repo, candle_store=candle_store,
                                      record_store=record_store, out_store=analyst_store,
                                      market=market, active_feeds=active_feeds)
+        positioning_analyst = PositioningAnalyst(record_store, analyst_store)
         orchestrator = OrchestratorRunner(
             orch=orch_store, candle_store=candle_store, record_store=record_store,
             analyst_store=analyst_store,
@@ -362,11 +364,14 @@ def create_app(
                                                active_feeds),
                       # GĐ3 bước 4 (MAC-01, MAC-02): Macro theo nguồn giá vàng (USD theo broker)
                       "MACRO": macro_handler(macro_analyst),
+                      # GĐ3 bước 5 (POSN-01, POSN-02): COT vàng (toàn cục, tuần, trễ)
+                      "POSITIONING": positioning_handler(positioning_analyst),
                       # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
                       "FAST_LANE": fast_lane_handler(block_store, record_store,
                                                      market.calendar, monitor=fast_monitor)},
             blocked=clock.ingest_block_reason, monitor=fast_monitor,
-            periodic=(event_analyst.ensure_fresh, macro_analyst.ensure_fresh))
+            periodic=(event_analyst.ensure_fresh, macro_analyst.ensure_fresh,
+                      positioning_analyst.ensure_fresh))
         fast_lane["monitor"] = fast_monitor
 
     @asynccontextmanager

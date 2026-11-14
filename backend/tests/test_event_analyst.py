@@ -285,7 +285,7 @@ def outs(request, tmp_path):
 def test_router_recomputes_event_on_expiry():
     e = expired_event(ExpiredOutput("event", "*", "*", "GLOBAL", "", "id", CPI_AT))
     assert [r.job_type for r in routes_for(e)] == ["INVALIDATE_MARKETVIEW", "EVENT_CALENDAR"]
-    e = expired_event(ExpiredOutput("positioning", "*", "*", "GLOBAL", "", "id", CPI_AT))
+    e = expired_event(ExpiredOutput("news", "*", "*", "GLOBAL", "", "id", CPI_AT))
     assert [r.job_type for r in routes_for(e)] == ["INVALIDATE_MARKETVIEW"]
 
 

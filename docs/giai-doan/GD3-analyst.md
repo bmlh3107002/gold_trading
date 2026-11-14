@@ -16,7 +16,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ANA-01 | Khung chung: hết hạn, trạng thái nguồn, phiên bản, lưu append-only cho mọi analyst | `[x]` | 2026-11-14: `analysts/framework.py` + `append_scoped`/`latest_scoped` (`storage/analyst_outputs.py`); thiết kế `docs/thiet-ke/27-khung-analyst.md`. Technical giữ đường cũ (chưa chuyển sang khung — không đổi kết quả) |
-| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | + Macro (`/analysts/macro/latest`, `MacroCard.tsx`) · Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) + Regime (`GET /api/accounts/{id}/analysts/regime/latest`, `pages/market/RegimeCard.tsx`) |
+| ANA-02 | Thẻ giao diện cho từng analyst | `[~]` | + Positioning (`/api/analysts/positioning/latest`, `PositioningCard.tsx`) + Macro (`/analysts/macro/latest`, `MacroCard.tsx`) · Có cho Technical + Lịch sự kiện (2026-11-14: `GET /api/analysts/event/latest`, `pages/market/EventCard.tsx`) + Regime (`GET /api/accounts/{id}/analysts/regime/latest`, `pages/market/RegimeCard.tsx`) |
 | **Technical** | | | |
 | TEC-01 | EMA, RSI Wilder, ATR Wilder (đối chiếu thư viện chuẩn) | `[x]` | `analysts/indicators.py` |
 | TEC-02 | Cổng chất lượng R2–R6 + `CALENDAR_MISMATCH` | `[x]` | `market/quality.py` |
@@ -41,8 +41,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | MAC-01 | Đồng bộ DXY, lợi suất thực 10Y, kỳ vọng Fed theo thời điểm công bố | `[x]` | 2026-11-14: `analysts/macro.py` (thiết kế 30) — lợi suất thực 10 năm (bắt buộc), 10 / 2 năm, chỉ số USD tự tính theo broker (tùy chọn), proxy Fed; point-in-time, bản sửa biết sau không viết lại quá khứ |
 | MAC-02 | Thay đổi/độ bất thường, macro bias, cờ stress | `[x]` | 2026-11-14: Δ 1/5 kỳ, z theo độ lệch chuẩn của chính chuỗi, hướng |z5| ≥ 1, `macro_bias` (ngược chiều lý thuyết, chưa hiệu chỉnh), `MACRO_STRESS` |z1| ≥ 3, proxy trú ẩn; TTL 17 phút; < 21 quan sát H.15 → không tính z / bias |
 | **Positioning & sentiment** | | | |
-| POSN-01 | Z-score lịch sử COT, ETF, NHTW | `[ ]` | ← ING-12, ING-28, ING-29 |
-| POSN-02 | Crowding risk, giả thuyết contrarian ở cực trị | `[ ]` | COT trễ, không coi là thời gian thực |
+| POSN-01 | Z-score lịch sử COT, ETF, NHTW | `[~]` | 2026-11-14: COT xong (`analysts/positioning.py`, thiết kế 31) — z + thứ hạng `ròng / OI`, cần ≥ 52 tuần (hiện chỉ có từ 11/2026 → `INSUFFICIENT_DATA` tới khi nạp bù); ETF / NHTW chưa có nguồn (Gate GĐ1) |
+| POSN-02 | Crowding risk, giả thuyết contrarian ở cực trị | `[x]` | 2026-11-14: |z| ≥ 2 → `CROWDED_*`, `CROWDING_RISK`, giả thuyết ghi "chưa kiểm chứng"; `COT_LAGGED` + `data_lag_days` mọi kết quả |
 | **Regime** | | | |
 | REG-01 | Phân loại `TREND/RANGE/RISK_OFF/HIGH_VOL` bằng luật (biến động, độ dốc xu hướng…) | `[~]` | 2026-11-14: `analysts/regime.py` (thiết kế 29): `TREND/RANGE/HIGH_VOL` bằng ADX Wilder + biến động so 10 ngày, vùng mơ hồ → trần confidence 0,5; **`RISK_OFF` chưa đánh giá** (cần Macro — bước 4). Bản HMM/classifier ở GĐ7 |
 | REG-02 | Trọng số gợi ý cho Fusion, theo dõi chuyển regime | `[~]` | 2026-11-14: theo dõi chuyển regime xong (96 nến, tính lại được); trọng số: bảng **trung tính**, `calibrated: false` — chốt ở GĐ4/GĐ6 |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 5: Positioning / COT (POSN-01, POSN-02) + API + thẻ.** Thiết kế `31-positioning.md`. Toàn cục; point-in-time theo giờ công bố CFTC; `COT_LAGGED` + số ngày trễ luôn có; > 14 ngày → STALE; báo cáo hỏng bỏ qua (không thành 0); cực trị cần ≥ 52 tuần; |z| ≥ 2 → đông đúc + giả thuyết contrarian (ghi rõ chưa kiểm chứng); ETF / NHTW `NOT_AVAILABLE`. Job `POSITIONING` (`router-2026.11.14f`). 23 test; soát Postgres 12/12 báo cáo, pandas khớp z / thứ hạng. **Ghi nhận:** khi viết test, báo cáo mới nhất hỏng + báo cáo trước đó > 14 ngày → analyst STALE (đúng: không lấy số cũ như mới). **Vấn đề thực tế:** GĐ1 chỉ có COT từ 11/2026 → `crowding` = chưa đủ dữ liệu ~1 năm; đề xuất nạp bù file lịch sử CFTC (chờ người dùng). Test router bước 2 đổi ví dụ "không tính lại" sang `news`. Backend 1925, frontend 110.
 
 - **2026-11-14** — **Bước 4: Macro (MAC-01, MAC-02) + API + thẻ.** Thiết kế `30-macro-analyst.md`. `analysts/macro.py` theo nguồn giá vàng (USD theo broker — DEC-14): lợi suất thực 10 năm bắt buộc; USD tùy chọn (thiếu → vẫn chạy, cờ + trần 0,5); thay đổi theo đcb bằng Decimal; z = Δ / σ chuỗi; `macro_bias` ngược chiều lý thuyết; `MACRO_STRESS`; `FLIGHT_TO_SAFETY_PROXY` chỉ mô tả, **chưa** nối vào `RISK_OFF` của Regime (cần người dùng duyệt). Job `MACRO`: nến cặp tiền → nguồn vàng cùng server, số H.15 → mọi nguồn, hết hạn → tính lại (`router-2026.11.14e`), dự phòng mỗi nhịp. API `/api/accounts/{id}/analysts/macro/latest`, thẻ "Bối cảnh vĩ mô". 23 test (giá trị tham chiếu tay). **Soát riêng (Postgres 16):** orchestrator thật 96 nến → 97 kết quả không trùng, tính lại cùng id 97/97, pandas tính lại độc lập khớp 100 % (USD + 3 chuỗi lãi suất). **Vấn đề tìm được khi soát:** trang H.15 chỉ hiện ~5 ngày, máy người dùng nạp từ ~12/11 → yêu cầu 21 quan sát làm Macro bị **chặn tới giữa tháng 12** → sửa: chỉ chặn khi < 6 quan sát; 6–20 → có mức + thay đổi, không z / hướng / bias (`Z_HISTORY_SHORT`, trần 0,5). Đề xuất (chờ người dùng): nạp bù lịch sử H.15 từ Data Download Program của Fed (GĐ1). Test bước 2 dùng `macro` làm ví dụ "không tính lại" → đổi sang `positioning`. Backend 1902, frontend 107.
 

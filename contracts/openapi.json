@@ -195,6 +195,28 @@
         }
       }
     },
+    "/api/analysts/positioning/latest": {
+      "get": {
+        "tags": [
+          "analysts"
+        ],
+        "summary": "Positioning Latest",
+        "description": "GĐ3 bước 5: COT vàng — dữ liệu chung, công bố hằng tuần, trễ 3 ngày trở lên.",
+        "operationId": "positioning_latest_api_analysts_positioning_latest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventLatest"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/data-sources": {
       "get": {
         "tags": [

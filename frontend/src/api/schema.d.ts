@@ -123,6 +123,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analysts/positioning/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Positioning Latest
+         * @description GĐ3 bước 5: COT vàng — dữ liệu chung, công bố hằng tuần, trễ 3 ngày trở lên.
+         */
+        get: operations["positioning_latest_api_analysts_positioning_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/data-sources": {
         parameters: {
             query?: never;
@@ -2438,6 +2458,26 @@ export interface operations {
         };
     };
     event_latest_api_analysts_event_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventLatest"];
+                };
+            };
+        };
+    };
+    positioning_latest_api_analysts_positioning_latest_get: {
         parameters: {
             query?: never;
             header?: never;
