@@ -1,7 +1,15 @@
 # GĐ3 — 6 analyst độc lập (đặc tả 04), bản luật (ML để GĐ7)
 
+> **Bắt đầu 2026-11-14 song song GĐ1 + GĐ2 (DEC-22).** Kế hoạch + checklist: [`docs/ke-hoach/GD3-ke-hoach.md`](../ke-hoach/GD3-ke-hoach.md).
+>
 > Một phần của bản đồ việc theo giai đoạn (tách từ `CHECKLIST.md` 2026-11-06). Chỉ mục, nguyên tắc và bất biến: [`README.md`](README.md). Trạng thái chung: `PROGRESS.md`. Ghi chú kỹ thuật: `docs/ghi-chu-ky-thuat.md`.
 
+
+### Quyết định GĐ3
+
+| Mã | Câu hỏi | Người dùng chốt | TT |
+| --- | --- | --- | --- |
+| DEC-22 | Bắt đầu GĐ3 khi GĐ1 / GĐ2 chỉ còn kiểm trên máy / chờ ngày công bố | Người dùng 2026-11-14: **có, kế hoạch trước** — viết `GD3-ke-hoach.md`, làm analyst **Lịch sự kiện** đầu tiên. Ngoại lệ có chủ ý cho "đi sạch từng giai đoạn" (như DEC-19). **Không đóng GĐ3 trước GĐ1 rồi GĐ2**; việc kiểm trên máy GĐ1/GĐ2 được ưu tiên | `[x]` 2026-11-14 |
 
 Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, `confidence`, `features`, `drivers`, `riskFlags`, `sourceStatus`, `qualityFlags`, `version`. Mỗi analyst có thiết kế riêng ở `docs/thiet-ke/`. **Không có xác suất khi chưa hiệu chỉnh.**
 
@@ -53,3 +61,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | 3-C10 | (News) tin chứa lệnh "bỏ qua hướng dẫn…" | Không làm theo; gắn cờ injection | `[ ]` |
 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
+
+### Nhật ký GĐ3
+
+- **2026-11-14** — **DEC-22: bắt đầu GĐ3 song song.** Viết `docs/ke-hoach/GD3-ke-hoach.md` (8 bước: khung chung → Lịch sự kiện → Regime → Macro → Positioning → News (cần DEC-08) → Technical còn lại → Gate). Nguyên tắc: analyst chỉ quan sát, chặn lệnh vẫn do Safety / làn nhanh; analyst Lịch sự kiện dùng chung bảng lịch hợp nhất + `event_importance` với làn nhanh. Ghi nhận: phần lớn EVT-01/02 đã có từ GĐ1 (`ingestion/event_importance.py`, `economic_calendar.py`) — GĐ3 bọc thành output analyst, không viết lại chính sách.

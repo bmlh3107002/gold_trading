@@ -3,14 +3,15 @@
 > File này **ngắn** và được nạp tự động mỗi lượt (qua `CLAUDE.md`). Chỉ giữ trạng thái hiện tại. Chi tiết nằm theo giai đoạn ở `docs/giai-doan/` — mỗi phiên chỉ mở **file của giai đoạn đang làm**.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Ghi chú kỹ thuật (bảng thành phần, quy ước code): `docs/ghi-chu-ky-thuat.md` — chỉ đọc mục liên quan.
 
-**Cập nhật lần cuối:** 2026-11-13 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-14 · **Nhánh làm việc:** `develop`
 
 ## Trạng thái hiện tại
 
 - **Đang làm: GĐ2** (song song GĐ1 — DEC-19) → [`GD2-event-orchestrator.md`](docs/giai-doan/GD2-event-orchestrator.md), kế hoạch + prompt: [`GD2-ke-hoach.md`](docs/ke-hoach/GD2-ke-hoach.md). **Bước 1–5 xong 14/11** (orchestrator nhịp 2 giây, làn nhanh DEC-20: lịch / số HIGH / Fed ngoài lịch / spread / độ trễ → Safety chặn mở lệnh mới, băng web; trang "Pipeline"); kiểm trên máy 14/11 đạt phần thị trường đóng. **Bước 6 Gate:** công cụ replay xong (chưa chạy trên máy), còn đo độ trễ NFP 04/12.
 - **GĐ1:** code xong, Gate chưa đóng. Quyết định DEC-01..07, 14, 18, 19, 21 (đếm 5 ngày: gián đoạn < 1 giờ tự hồi phục vẫn tính) — bảng ở file GĐ1. Còn: Census + ETF (quyết ở Gate), 6a tối 16/11, COT 16/11, DOL 19/11, Lễ Tạ ơn, dung lượng sau 7 ngày, ≥ 5 ngày liên tục, NFP 04/12.
 - **Lịch việc trên máy + quyết định ở Gate:** [`lich-kiem-tren-may.md`](docs/ke-hoach/lich-kiem-tren-may.md). GĐ0 đóng 2026-11-06 (OPS-06 hoãn).
-- **Chờ người dùng:** (1) có bắt đầu **GĐ3 song song** không (đề xuất: kế hoạch + analyst Lịch sự kiện trước; GĐ3 không đóng trước GĐ1/GĐ2); (2) tài liệu "Quản lý vốn khi trade vàng" (docx, **không có trong repo** — cần gửi lại): đề xuất áp vào GĐ5 (ch.4–8, 10, phụ lục A–B → luật cứng Risk Engine + giá trị tham chiếu test), GĐ6 (ch.2, 12.4), GĐ8 (ch.12, 5.4), GĐ10 (12.5, 13); mục tiêu 4–5%/ngày (DEC-09) mâu thuẫn rủi ro 0,25–0,5%/lệnh — chưa duyệt ghi kế hoạch; người dùng sẽ gửi thêm tài liệu (ZIP ~43 MB, chia nhỏ).
+- **GĐ3 bắt đầu song song (DEC-22, 14/11):** kế hoạch [`GD3-ke-hoach.md`](docs/ke-hoach/GD3-ke-hoach.md); bước tiếp: **bước 1 — khung chung analyst**, rồi analyst Lịch sự kiện. GĐ3 không đóng trước GĐ1/GĐ2; kiểm trên máy GĐ1/GĐ2 ưu tiên.
+- **Quản lý vốn (DEC-09 nguyên tắc, 14/11):** ưu tiên rủi ro 0,25–0,5 %/lệnh + ngưỡng lỗ ngày/tuần là luật cứng; 4–5 %/ngày chỉ tham khảo, không dùng để nới rủi ro. **Chờ người dùng gửi lại** tài liệu "Quản lý vốn khi trade vàng" (docx, chưa có trong repo; ZIP ~43 MB chia nhỏ) → áp chi tiết ở GĐ5/6/8/10.
 - Bài học: kiểm nguồn mới từ máy người dùng trước khi code; PowerShell không `\"` / `$`; đổi compose → tải lại file.
 - Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
 - ING-18 (forecast): giữ DEC-01; nhập tay forecast để sau.

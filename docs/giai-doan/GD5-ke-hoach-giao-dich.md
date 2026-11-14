@@ -7,7 +7,7 @@
 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
-| DEC-09 | Người dùng trả lời: vốn; mục tiêu 4–5% theo ngày/tuần/tháng; lỗ tối đa mỗi lệnh; ngưỡng dừng ngày/tuần; giữ lệnh trong ngày hay qua đêm; broker, đòn bẩy, phí | `[!]` | |
+| DEC-09 | Người dùng trả lời: vốn; mục tiêu 4–5% theo ngày/tuần/tháng; lỗ tối đa mỗi lệnh; ngưỡng dừng ngày/tuần; giữ lệnh trong ngày hay qua đêm; broker, đòn bẩy, phí | `[~]` | **Nguyên tắc đã chốt 2026-11-14 (người dùng):** khi mục tiêu lợi nhuận mâu thuẫn rủi ro → **ưu tiên rủi ro mỗi lệnh**: luật cứng của Risk Engine là rủi ro **0,25–0,5 % vốn / lệnh** + ngưỡng lỗ ngày / tuần; mục tiêu 4–5 %/ngày **chỉ là con số tham khảo**, không bao giờ dùng để nới rủi ro, tăng lot hay ép hệ thống vào lệnh. Con số cụ thể (mức trong khoảng 0,25–0,5 %, ngưỡng dừng, giữ qua đêm…) và các chương áp dụng từ tài liệu "Quản lý vốn khi trade vàng" chốt khi người dùng gửi lại tài liệu (chưa có trong repo) — tại GĐ5 |
 | DB-07 | Bảng hồ sơ rủi ro có phiên bản | `[ ]` | |
 | RPF-01 | Hồ sơ rủi ro có phiên bản (append-only, audit) | `[!]` | ← DEC-09 |
 | RPF-02 | Đề xuất SL theo ATR, TP theo R:R, lot theo rủi ro, thời gian giữ lệnh ước tính | `[ ]` | Lot làm tròn **xuống**; < tối thiểu → **không khả thi** |
