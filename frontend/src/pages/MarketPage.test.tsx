@@ -243,6 +243,38 @@ describe("Trạng thái MT5 Gateway", () => {
     expect(screen.getByText(/RISK_OFF\) chưa đánh giá/)).toBeInTheDocument();
   });
 
+  it("GĐ3: thẻ Bối cảnh vĩ mô — bias một phần, USD chưa có, lợi suất chưa đủ lịch sử", async () => {
+    routes({
+      "/api/accounts/default/analysts/macro/latest": makeTechnical(
+        {},
+        {
+          analyst_id: "macro",
+          version: "macro-1.0.0",
+          confidence: 0.5,
+          features: {
+            macro_bias: "HEADWIND",
+            bias_complete: false,
+            rates: {
+              real_yield_10y: { value: "1.92", change_5d_bp: 9, z_5d: 1.4, direction: "UP" },
+              nominal_10y: { value: "4.15", change_5d_bp: 3, z_5d: null, direction: null },
+            },
+            usd_index: { status: "INSUFFICIENT_DATA", reason: "PAIR_MISSING" },
+            fed_proxy: { status: "OK", lean: "LEANS_CUT", spread_bp: -12 },
+            stress: [],
+            flight_to_safety_proxy: null,
+          },
+        },
+      ),
+    });
+    render(<App />);
+    expect(await screen.findByText("Gây cản")).toBeInTheDocument();
+    expect(screen.getByText("chỉ dựa trên một phần yếu tố")).toBeInTheDocument();
+    expect(screen.getByText(/1.92%/)).toBeInTheDocument();
+    expect(screen.getByText(/chưa đủ lịch sử để đo độ bất thường/)).toBeInTheDocument();
+    expect(screen.getByText(/Chưa có \(PAIR_MISSING\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Nghiêng về cắt lãi/)).toBeInTheDocument();
+  });
+
   it("GĐ3: thẻ Lịch sự kiện — lịch thiếu thì báo không đạt, không nói 'không có sự kiện'", async () => {
     routes({
       "/api/analysts/event/latest": {

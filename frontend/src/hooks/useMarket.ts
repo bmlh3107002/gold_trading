@@ -34,6 +34,11 @@ export function useRegime(accountId: string | null) {
   return usePolling(useCallback(() => (accountId ? api.regimeLatest(accountId) : Promise.resolve(null)), [accountId]), 30_000, 90_000);
 }
 
+/** Macro của nguồn giá tài khoản: 60 giây/lần. */
+export function useMacro(accountId: string | null) {
+  return usePolling(useCallback(() => (accountId ? api.macroLatest(accountId) : Promise.resolve(null)), [accountId]), 60_000, 180_000);
+}
+
 /** Analyst Lịch sự kiện: 30 giây/lần (chung cho mọi tài khoản). */
 export function useEventAnalyst() {
   return usePolling(useCallback(() => api.eventLatest(), []), 30_000, 90_000);

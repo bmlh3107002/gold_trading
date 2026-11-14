@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from gold_trading.analysts import event, regime, technical
+from gold_trading.analysts import event, macro, regime, technical
 from gold_trading.analysts.framework import GLOBAL_SCOPE, Scope
 from gold_trading.auth.web import CurrentUser, Principal
 from gold_trading.common.time import utcnow
@@ -77,14 +77,24 @@ def technical_of(market: MarketDataService, store: AnalystOutputStore) -> Analys
 
 def regime_of(market: MarketDataService, store: AnalystOutputStore) -> AnalystLatest:
     """GĐ3 bước 3: Regime trên nguồn giá của tài khoản (MT-05)."""
+    return feed_scoped_of(regime, market, store)
+
+
+def macro_of(market: MarketDataService, store: AnalystOutputStore) -> AnalystLatest:
+    """GĐ3 bước 4: Macro trên nguồn giá của tài khoản (chỉ số USD theo broker — DEC-14)."""
+    return feed_scoped_of(macro, market, store)
+
+
+def feed_scoped_of(mod, market: MarketDataService, store: AnalystOutputStore) -> AnalystLatest:
+    """Kết quả mới nhất (đúng phiên bản hiện hành) của analyst theo nguồn giá tài khoản."""
     now = utcnow()
     feed = market.feed
     if market.source is None or feed is None:
         return AnalystLatest(output=None, computed_at=None, valid_now=False, is_sample=False)
-    got = store.latest_scoped(regime.ANALYST_ID,
+    got = store.latest_scoped(mod.ANALYST_ID,
                               Scope.of_feed(market.symbol, market.timeframe, market.source, feed),
                               known_by=now)
-    if got is None or got.output.version != regime.VERSION:
+    if got is None or got.output.version != mod.VERSION:
         return AnalystLatest(output=None, computed_at=None, valid_now=False,
                              is_sample=market.is_sample)
     return AnalystLatest(output=got.output, computed_at=got.computed_at,
@@ -122,5 +132,10 @@ def account_analysts_router(
     def acc_regime_latest(account_id: str, p: CurrentUser) -> AnalystLatest:
         check(account_id, p, "analysts.regime")
         return regime_of(market_for(account_id), store)
+
+    @r.get("/macro/latest", response_model=AnalystLatest)
+    def acc_macro_latest(account_id: str, p: CurrentUser) -> AnalystLatest:
+        check(account_id, p, "analysts.macro")
+        return macro_of(market_for(account_id), store)
 
     return r

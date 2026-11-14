@@ -122,6 +122,8 @@ export const api = {
   technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
   /** GĐ3: Regime trên nguồn giá của chính tài khoản (MT-05). */
   regimeLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/regime/latest`),
+  /** GĐ3: Macro trên nguồn giá tài khoản (USD theo broker — DEC-14). */
+  macroLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/macro/latest`),
   /** GĐ3: analyst Lịch sự kiện (chung cho mọi tài khoản; chỉ mô tả, không chặn). */
   eventLatest: () => request<EventLatest>("/api/analysts/event/latest"),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),

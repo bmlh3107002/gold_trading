@@ -520,6 +520,48 @@
         }
       }
     },
+    "/api/accounts/{account_id}/analysts/macro/latest": {
+      "get": {
+        "tags": [
+          "analysts"
+        ],
+        "summary": "Acc Macro Latest",
+        "operationId": "acc_macro_latest_api_accounts__account_id__analysts_macro_latest_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalystLatest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/mt5/candles": {
       "post": {
         "tags": [
