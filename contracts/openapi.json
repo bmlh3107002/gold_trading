@@ -195,6 +195,27 @@
         }
       }
     },
+    "/api/pipeline": {
+      "get": {
+        "tags": [
+          "pipeline"
+        ],
+        "summary": "Pipeline",
+        "operationId": "pipeline_api_pipeline_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/accounts/{account_id}/market/summary": {
       "get": {
         "tags": [
@@ -3869,6 +3890,183 @@
         ],
         "title": "IngestReport"
       },
+      "JobCountOut": {
+        "properties": {
+          "job_type": {
+            "type": "string",
+            "title": "Job Type"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "DEAD",
+              "NO_HANDLER",
+              "SUPERSEDED"
+            ],
+            "title": "State"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_type",
+          "state",
+          "count"
+        ],
+        "title": "JobCountOut"
+      },
+      "JobOut": {
+        "properties": {
+          "job_type": {
+            "type": "string",
+            "title": "Job Type"
+          },
+          "analyzer_version": {
+            "type": "string",
+            "title": "Analyzer Version"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "DEAD",
+              "NO_HANDLER",
+              "SUPERSEDED"
+            ],
+            "title": "State"
+          },
+          "state_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "State At"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts",
+            "description": "Số lần đã chạy thật"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code",
+            "description": "Mã lỗi ngắn (tên loại lỗi), không có thông điệp"
+          },
+          "output_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_type",
+          "analyzer_version",
+          "event_type",
+          "subject",
+          "created_at",
+          "state",
+          "state_at",
+          "attempts",
+          "error_code",
+          "output_ref"
+        ],
+        "title": "JobOut"
+      },
+      "LaneOut": {
+        "properties": {
+          "lane": {
+            "type": "string",
+            "title": "Lane",
+            "description": "spread | events"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "last_ok_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok At"
+          },
+          "backlog_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backlog Since",
+            "description": "Sự kiện làn nhanh chờ sớm nhất"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "description": "Chạy xong trong ngân sách 10 giây và không tồn đọng quá hạn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lane",
+          "started_at",
+          "last_ok_at",
+          "backlog_since",
+          "ok"
+        ],
+        "title": "LaneOut"
+      },
       "LiveQuote": {
         "properties": {
           "state": {
@@ -4764,6 +4962,100 @@
           "sessions_revoked"
         ],
         "title": "PasswordReset"
+      },
+      "PipelineResponse": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "orchestrator_enabled": {
+            "type": "boolean",
+            "title": "Orchestrator Enabled",
+            "description": "False: GT_ORCHESTRATOR=0 hoặc không chạy analyst"
+          },
+          "window_hours": {
+            "type": "integer",
+            "title": "Window Hours"
+          },
+          "dead_window_days": {
+            "type": "integer",
+            "title": "Dead Window Days"
+          },
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/JobCountOut"
+            },
+            "type": "array",
+            "title": "Counts"
+          },
+          "open_jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "type": "array",
+            "title": "Open Jobs"
+          },
+          "stuck_jobs": {
+            "type": "integer",
+            "title": "Stuck Jobs",
+            "description": "Job chưa xong quá 2 phút"
+          },
+          "dead_letter": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "type": "array",
+            "title": "Dead Letter"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "type": "array",
+            "title": "Recent"
+          },
+          "lanes": {
+            "items": {
+              "$ref": "#/components/schemas/LaneOut"
+            },
+            "type": "array",
+            "title": "Lanes"
+          },
+          "budget_breaches": {
+            "type": "integer",
+            "title": "Budget Breaches",
+            "description": "Số lần ghi lệnh cấm chậm hơn 10 giây từ khi bật"
+          },
+          "last_latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "orchestrator_enabled",
+          "window_hours",
+          "dead_window_days",
+          "counts",
+          "open_jobs",
+          "stuck_jobs",
+          "dead_letter",
+          "recent",
+          "lanes",
+          "budget_breaches",
+          "last_latency_ms"
+        ],
+        "title": "PipelineResponse"
       },
       "QuarantineOut": {
         "properties": {

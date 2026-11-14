@@ -68,6 +68,20 @@ class FastLaneMonitor:
                 log.warning("Làn nhanh vượt ngân sách độ trễ: %d ms (> %d ms)", ms,
                             int(self.budget.total_seconds() * 1000))
 
+    def snapshot(self, now: datetime) -> list[dict]:
+        """Trạng thái từng làn (trang pipeline): bật lúc, chạy xong lần cuối, tồn đọng từ, đạt?"""
+        with self._lock:
+            lanes = sorted(set(self._started) | set(self._ok) | set(self._backlog))
+            out = []
+            for lane in lanes:
+                last = self._ok.get(lane)
+                oldest = self._backlog.get(lane)
+                ok = (lane in self._started and last is not None and now - last <= self.budget
+                      and (oldest is None or now - oldest <= self.budget))
+                out.append({"lane": lane, "started_at": self._started.get(lane),
+                            "last_ok_at": last, "backlog_since": oldest, "ok": ok})
+            return out
+
     def blocks(self, now: datetime) -> list[Block]:
         out = []
         with self._lock:

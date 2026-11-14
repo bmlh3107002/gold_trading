@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ListOrdered,
   ShieldAlert,
+  Workflow,
   X,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -22,6 +23,7 @@ const PAGES = [
   { key: "overview", icon: LayoutDashboard },
   { key: "market", icon: CandlestickChart },
   { key: "sources", icon: Database },
+  { key: "pipeline", icon: Workflow },
   { key: "account", icon: Users },
 ] as const;
 

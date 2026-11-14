@@ -34,6 +34,8 @@ export type Mt5LinkOut = components["schemas"]["Mt5LinkOut"];
 export type Mt5LinkConfirm = components["schemas"]["Mt5LinkConfirm"];
 export type DataSourcesResponse = components["schemas"]["DataSourcesResponse"];
 export type DataSource = components["schemas"]["DataSourceOut"];
+export type PipelineResponse = components["schemas"]["PipelineResponse"];
+export type PipelineJob = components["schemas"]["JobOut"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
@@ -115,6 +117,7 @@ export const api = {
   liveQuote: (id: string) => request<LiveQuote>(`${acc(id)}/market/quote`),
   /** DSH-09: trạng thái các nguồn dữ liệu ngoài (chung cho mọi người dùng). */
   dataSources: () => request<DataSourcesResponse>("/api/data-sources"),
+  pipeline: () => request<PipelineResponse>("/api/pipeline"),
   technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
   gatewayStatus: (id: string) => request<GatewayStatus>(`${acc(id)}/gateway/status`),
   gatewayTokenInfo: (id: string) => request<GatewayTokenInfo>(`${acc(id)}/gateway/token`),

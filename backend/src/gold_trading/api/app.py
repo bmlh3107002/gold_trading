@@ -28,6 +28,7 @@ from gold_trading.api.analysts import account_analysts_router, analysts_router
 from gold_trading.api.data_sources import data_sources_router
 from gold_trading.api.ingest import GatewayMonitors, ingest_router
 from gold_trading.api.market import account_market_router, account_quote_router, market_router
+from gold_trading.api.pipeline import pipeline_router
 from gold_trading.api.users import users_router
 from gold_trading.auth.config import AuthConfig
 from gold_trading.auth.kc_admin import KeycloakAdmin
@@ -438,6 +439,10 @@ def create_app(
     app.include_router(market_router(market))
     app.include_router(analysts_router(market, analyst_store))
     app.include_router(data_sources_router(lambda: external_runner or None))
+    # GĐ2 bước 5 (DSH-08): trạng thái pipeline / job / dead-letter + nhịp làn nhanh
+    app.include_router(pipeline_router(
+        lambda: getattr(getattr(app.state, "orchestrator", None), "orch", None),
+        lambda: fast_lane["monitor"]))
     account_guard = Guard(repo, registry)
     app.include_router(account_market_router(market_for, account_guard.check))
     app.include_router(account_quote_router(

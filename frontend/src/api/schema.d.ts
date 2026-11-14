@@ -123,6 +123,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pipeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pipeline */
+        get: operations["pipeline_api_pipeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/accounts/{account_id}/market/summary": {
         parameters: {
             query?: never;
@@ -1419,6 +1436,78 @@ export interface components {
             /** Link Status */
             link_status?: string | null;
         };
+        /** JobCountOut */
+        JobCountOut: {
+            /** Job Type */
+            job_type: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "DEAD" | "NO_HANDLER" | "SUPERSEDED";
+            /** Count */
+            count: number;
+        };
+        /** JobOut */
+        JobOut: {
+            /** Job Type */
+            job_type: string;
+            /** Analyzer Version */
+            analyzer_version: string;
+            /** Event Type */
+            event_type: string;
+            /** Subject */
+            subject: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "DEAD" | "NO_HANDLER" | "SUPERSEDED";
+            /**
+             * State At
+             * Format: date-time
+             */
+            state_at: string;
+            /**
+             * Attempts
+             * @description Số lần đã chạy thật
+             */
+            attempts: number;
+            /**
+             * Error Code
+             * @description Mã lỗi ngắn (tên loại lỗi), không có thông điệp
+             */
+            error_code: string | null;
+            /** Output Ref */
+            output_ref: string | null;
+        };
+        /** LaneOut */
+        LaneOut: {
+            /**
+             * Lane
+             * @description spread | events
+             */
+            lane: string;
+            /** Started At */
+            started_at: string | null;
+            /** Last Ok At */
+            last_ok_at: string | null;
+            /**
+             * Backlog Since
+             * @description Sự kiện làn nhanh chờ sớm nhất
+             */
+            backlog_since: string | null;
+            /**
+             * Ok
+             * @description Chạy xong trong ngân sách 10 giây và không tồn đọng quá hạn
+             */
+            ok: boolean;
+        };
         /**
          * LiveQuote
          * @description Giây gần nhất đã nhận của nguồn giá của tài khoản (point-in-time: available_at ≤ now).
@@ -1756,6 +1845,45 @@ export interface components {
             temporary_password: string;
             /** Sessions Revoked */
             sessions_revoked: number;
+        };
+        /** PipelineResponse */
+        PipelineResponse: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Orchestrator Enabled
+             * @description False: GT_ORCHESTRATOR=0 hoặc không chạy analyst
+             */
+            orchestrator_enabled: boolean;
+            /** Window Hours */
+            window_hours: number;
+            /** Dead Window Days */
+            dead_window_days: number;
+            /** Counts */
+            counts: components["schemas"]["JobCountOut"][];
+            /** Open Jobs */
+            open_jobs: components["schemas"]["JobOut"][];
+            /**
+             * Stuck Jobs
+             * @description Job chưa xong quá 2 phút
+             */
+            stuck_jobs: number;
+            /** Dead Letter */
+            dead_letter: components["schemas"]["JobOut"][];
+            /** Recent */
+            recent: components["schemas"]["JobOut"][];
+            /** Lanes */
+            lanes: components["schemas"]["LaneOut"][];
+            /**
+             * Budget Breaches
+             * @description Số lần ghi lệnh cấm chậm hơn 10 giây từ khi bật
+             */
+            budget_breaches: number;
+            /** Last Latency Ms */
+            last_latency_ms: number | null;
         };
         /** QuarantineOut */
         QuarantineOut: {
@@ -2248,6 +2376,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataSourcesResponse"];
+                };
+            };
+        };
+    };
+    pipeline_api_pipeline_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PipelineResponse"];
                 };
             };
         };

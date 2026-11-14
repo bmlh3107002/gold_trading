@@ -15,6 +15,7 @@ import { api, type Me } from "./api/client";
 import { ErrorState, LoadingState } from "./components/ui/StateView";
 import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
+import { PipelinePage } from "./pages/PipelinePage";
 import { SourcesPage } from "./pages/SourcesPage";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
@@ -100,6 +101,8 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <MarketPage theme={theme} summary={market} accountId={accounts.loading ? null : accountId} />
           ) : route === "sources" ? (
             <SourcesPage />
+          ) : route === "pipeline" ? (
+            <PipelinePage />
           ) : route === "admin" ? (
             <AdminPage me={me} multiUser={system.data?.multi_user_enabled ?? true} />
           ) : route === "account" ? (

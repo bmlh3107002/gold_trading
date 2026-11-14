@@ -12,7 +12,15 @@ from datetime import UTC, datetime
 from sqlalchemy import Engine, func, select
 from sqlalchemy.exc import IntegrityError
 
-from gold_trading.orchestrator.model import TERMINAL, Attempt, Event, EventType, Job, JobState
+from gold_trading.orchestrator.model import (
+    TERMINAL,
+    Attempt,
+    Event,
+    EventType,
+    Job,
+    JobRow,
+    JobState,
+)
 from gold_trading.storage.schema import (
     orchestrator_events,
     orchestrator_job_attempts,
@@ -216,3 +224,30 @@ class SqlOrchestratorStore:
     def latest(self, job_key: str) -> Attempt | None:
         rows = self.attempts(job_key)
         return rows[-1] if rows else None
+
+    def job_rows(self, since: datetime, *, states=None, limit: int | None = None
+                 ) -> list[JobRow]:
+        """Một truy vấn: job tạo sau ``since`` + lần thử mới nhất + loại / chủ thể sự kiện."""
+        agg = (select(_A.job_key, func.max(_A.seq).label("mx"),
+                      func.max(_A.attempt).label("n")).group_by(_A.job_key).subquery())
+        a = orchestrator_job_attempts.alias("a")
+        ev = orchestrator_events
+        q = (select(orchestrator_jobs, a.c.state, a.c.attempt, a.c.at, a.c.deadline_at,
+                    a.c.error_code, a.c.output_ref, agg.c.n, ev.c.event_type, ev.c.subject)
+             .join(agg, agg.c.job_key == _J.job_key)
+             .join(a, a.c.seq == agg.c.mx)
+             .outerjoin(ev, ev.c.event_id == _J.event_id)
+             .where(_J.created_at > _req("since", since))
+             .order_by(_J.created_at.desc(), _J.job_key.desc()))
+        if states is not None:
+            q = q.where(a.c.state.in_([JobState(x).value for x in states]))
+        if limit is not None:
+            q = q.limit(limit)
+        with self.engine.connect() as conn:
+            return [JobRow(
+                Job(m.job_key, m.event_id, m.job_type, m.analyzer_version, m.correlation_id,
+                    _utc(m.created_at)),
+                Attempt(m.job_key, JobState(m.state), m.attempt, _utc(m.at),
+                        _utc(m.deadline_at), m.error_code, m.output_ref),
+                m.event_type or "?", m.subject or "?", int(m.n or 0))
+                for m in conn.execute(q).mappings()]

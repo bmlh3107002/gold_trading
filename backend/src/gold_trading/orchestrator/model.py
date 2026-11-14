@@ -137,6 +137,17 @@ class Attempt:
             raise ValueError("output_ref quá dài")
 
 
+@dataclass(frozen=True)
+class JobRow:
+    """Một job + lần thử mới nhất + sự kiện gây ra (trang trạng thái pipeline, DSH-08)."""
+
+    job: Job
+    last: Attempt
+    event_type: str
+    subject: str
+    attempts: int          # số lần chạy thật (attempt lớn nhất)
+
+
 class OrchestratorStore:
     """Bản trong bộ nhớ. An toàn luồng."""
 
@@ -233,3 +244,29 @@ class OrchestratorStore:
     def latest(self, job_key: str) -> Attempt | None:
         rows = self.attempts(job_key)
         return rows[-1] if rows else None
+
+    def job_rows(self, since: datetime, *, states=None, limit: int | None = None
+                 ) -> list[JobRow]:
+        """Job tạo sau ``since`` + lần thử mới nhất (mới nhất trước); lọc theo trạng thái mới
+        nhất (``states``), tối đa ``limit`` dòng."""
+        since = _utc("since", since)
+        with self._lock:
+            jobs = [j for j in self._jobs.values() if j.created_at > since]
+            ev = {k: e for k, (e, _) in self._events.items()}
+            att: dict[str, list[Attempt]] = {}
+            for a in self._attempts:
+                if a.job_key in {j.job_key for j in jobs}:
+                    att.setdefault(a.job_key, []).append(a)
+        out = []
+        for j in jobs:
+            rows = sorted(att.get(j.job_key, []), key=lambda a: a.at)
+            if not rows:
+                continue
+            e = ev.get(j.event_id)
+            out.append(JobRow(j, rows[-1], e.event_type.value if e else "?",
+                              e.subject if e else "?", max(a.attempt for a in rows)))
+        if states is not None:
+            want = {JobState(x) for x in states}
+            out = [r for r in out if r.last.state in want]
+        out.sort(key=lambda r: (r.job.created_at, r.job.job_key), reverse=True)
+        return out if limit is None else out[:limit]
