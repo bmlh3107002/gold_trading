@@ -571,6 +571,17 @@ const vi = {
     version: "Phiên bản",
   },
   technical: {
+    volDay: "Biến động dự kiến 1 ngày",
+    volDayTip: "Độ lệch chuẩn lợi suất 1 ngày theo EWMA λ=0,94 (RiskMetrics) trên nến M15 — luật cố định, không phải mô hình đã kiểm định, không phải xác suất.",
+    mtf: "Khung lớn (H1 · H4 · D1)",
+    mtfTip: "Xu hướng từng khung lớn theo cùng luật với M15, chỉ dùng nến đã đóng. Khung thiếu / cũ / chưa đủ lịch sử hiện “—”.",
+    mtfAlignment: {
+      ALIGNED_UP: "Cùng chiều tăng",
+      ALIGNED_DOWN: "Cùng chiều giảm",
+      CONFLICT: "Ngược chiều M15",
+      MIXED: "Lẫn lộn",
+      NOT_EVALUATED: "Chưa đánh giá",
+    },
     title: "Phân tích kỹ thuật",
     desc: "Mô tả trạng thái giá hiện tại. Không phải tín hiệu mua/bán.",
     confidenceNote:

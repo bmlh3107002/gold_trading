@@ -16,6 +16,20 @@ describe("readTechnical", () => {
   });
 });
 
+describe("TEC-07 / TEC-09", () => {
+  it("đọc dự báo biến động + khung lớn, sai kiểu → null", () => {
+    const f = readTechnical({
+      vol_forecast: { sigma_day_pct: 0.91 },
+      mtf_alignment: "ALIGNED_UP",
+      mtf: { H1: { status: "OK", trend: "UP" }, H4: { status: "STALE" }, D1: { status: "OK", trend: "SIDEWAYS" } },
+    });
+    expect(f.volDayPct).toBe(0.91);
+    expect(f.mtfAlignment).toBe("ALIGNED_UP");
+    expect(f.mtf.map((m) => m.trend)).toEqual(["UP", null, null]);
+    expect(readTechnical({ mtf_alignment: "MAGIC" }).mtfAlignment).toBeNull();
+  });
+});
+
 describe("cờ của analyst", () => {
   it("lịch sai (CALENDAR_MISMATCH) là cờ chặn và có nhãn tiếng Việt", () => {
     expect(BLOCKING_FLAGS).toContain("CALENDAR_MISMATCH");

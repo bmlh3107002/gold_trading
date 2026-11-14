@@ -37,7 +37,10 @@
 - [x] (2026-11-14: DEC-08 Claude 20 USD/tháng, **mặc định miễn phí** (tắt + ngân sách 0); `analysts/news.py`, `news_llm.py`, migration 0017; 42 test bằng client giả; **chưa gọi Claude thật** — bật khi người dùng sẵn sàng trả tiền) Hỏi DEC-08 (nhà cung cấp LLM + ngân sách tháng) → thiết kế → lọc trùng, lọc trước bằng luật, LLM trích stance/impact có trích dẫn, giới hạn token / timeout, chống prompt injection (3-C10), lưu prompt + phiên bản mô hình; lỗi / hết ngân sách → `MISSING`
 
 ### Bước 7 — Technical còn lại (TEC-05, TEC-06, TEC-07, TEC-09)
-- [ ] TEC-05 theo dõi R3/R5 trên dữ liệu thật; TEC-07 `volForecast` bằng luật (ghi rõ không phải mô hình); TEC-09 đa khung H1/H4/D1; TEC-06 mẫu hình (chỉ sau khi đủ nến xác nhận)
+- [x] 7a — TEC-07 + TEC-09 (2026-11-14: `technical-1.4.0`; replay GĐ2 khớp 96/96)
+- [ ] 7b — TEC-06 mẫu hình nến
+- [ ] 7c — TEC-05 báo cáo ngưỡng R3/R5 trên dữ liệu thật
+- Ghi chú gốc: TEC-05 theo dõi R3/R5 trên dữ liệu thật; TEC-07 `volForecast` bằng luật (ghi rõ không phải mô hình); TEC-09 đa khung H1/H4/D1; TEC-06 mẫu hình (chỉ sau khi đủ nến xác nhận)
 
 ### Bước 8 — Gate GĐ3
 - [ ] 6 analyst có thiết kế + test case + thẻ giao diện; mọi case 3-C01..C10 có test

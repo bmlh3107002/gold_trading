@@ -24,8 +24,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | TEC-04 | Lưu, API, thẻ giao diện; confidence = chất lượng dữ liệu | `[x]` | |
 | TEC-05 | Theo dõi ngưỡng R3/R5 trên dữ liệu thật vài ngày | `[!]` | |
 | TEC-06 | Pattern giá/nến | `[ ]` | Không rò rỉ tương lai |
-| TEC-07 | `volForecast` bằng luật (ATR/EWMA), ghi rõ không phải mô hình | `[ ]` | |
-| TEC-09 | Bối cảnh đa khung (H1/H4/D1) | `[ ]` | ← ING-14 |
+| TEC-07 | `volForecast` bằng luật (ATR/EWMA), ghi rõ không phải mô hình | `[x]` | 2026-11-14: `technical-1.4.0` — EWMA λ=0,94, σ nến + σ ngày, ghi rõ luật không phải mô hình (thiết kế 03 §9) |
+| TEC-09 | Bối cảnh đa khung (H1/H4/D1) | `[x]` | 2026-11-14: `technical-1.4.0` — xu hướng H1/H4/D1 cùng luật M15, nến đóng trước `as_of`, cũ theo phút thị trường mở, `mtf_alignment` |
 | **Event & calendar** | | | |
 | EVT-01 | Phân loại FOMC/NFP/CPI…, mức quan trọng (luật cứng, không LLM) | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md` — dùng bảng có phiên bản GĐ1 (`event_importance`), không viết lại |
 | EVT-02 | Cửa sổ rủi ro trước/sau công bố → cờ `EVENT_WINDOW` (độ dài theo mức quan trọng, có phiên bản) | `[x]` | 2026-11-14 (bước 2): `analysts/event.py`, thiết kế `28-event-analyst.md`: cùng hàm `calendar_blocks` của làn nhanh → khớp Safety (test + soát); thêm `EVENT_SOON` (60 phút, chưa hiệu chỉnh) |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-14** — **Bước 7a: Technical 1.4.0 (TEC-07, TEC-09).** EWMA vol + bối cảnh H1/H4/D1 (thiết kế 03 §9); khung lớn nạp trong `TechnicalRunner` → replay GĐ2 dùng cùng đầu vào. 14 test. **Lỗi tìm được:** `datetime` trong đặc trưng làm Technical lỗi khi lưu — đã sửa trước khi lên máy. Soát Postgres: 0 nhìn trước, replay 96/96 khớp, σ khớp numpy/pandas. Thẻ Phân tích kỹ thuật thêm "Biến động dự kiến 1 ngày" + "Khung lớn". Backend 2016, frontend 115. Còn bước 7: TEC-06 (mẫu hình), TEC-05 (báo cáo ngưỡng R3/R5).
 
 - **2026-11-14** — **Bước 6: News (NEWS-01..04, 3-C10, DEC-08).** DEC-08: Claude, 20 USD/tháng; người dùng sau đó: **miễn phí trước** → mặc định tắt + ngân sách 0. Thiết kế 32. Luồng đọc tin riêng (không chặn nhịp 2 giây), sổ chỉ-thêm `news_llm_calls` (migration 0017), ngân sách trần cứng theo chi phí xấu nhất, structured outputs + fallback phía máy chủ, effort low, trích dẫn phải nguyên văn, injection → loại. Chế độ miễn phí: liệt kê tin liên quan theo luật, không đánh giá. Thẻ "Tin chính thức". 42 test (client giả — chưa gọi Claude thật). **Lỗi tìm được:** tính tiền khi phản hồi không ghi mô hình phục vụ → áp nhầm giá cao nhất; đã sửa. Soát Postgres ĐẠT. Backend 2002, frontend 114.
 

@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from gold_trading.analysts import technical
+from gold_trading.analysts.technical_ext import HIGHER, MTF_LIMIT
 from gold_trading.common.time import utcnow
 from gold_trading.market.service import INDICATOR_WARMUP, MarketDataService
 from gold_trading.storage.analyst_outputs import AnalystOutputStore
@@ -59,6 +60,9 @@ class TechnicalRunner:
         if market.source is None or feed is None:
             return False  # MT-05: chưa có nguồn giá (vd. chưa liên kết MT5) → không phân tích
         rows = market.candles(as_of=now, limit=technical.WINDOW + INDICATOR_WARMUP)
+        # TEC-09: H1/H4/D1 cùng nguồn, đã biết tại ``now`` (lọc nến đóng sau as_of ở analyst)
+        higher = {tf: market.store.query(market.symbol, tf, market.source, as_of=now, end=now,
+                                         limit=MTF_LIMIT, feed=feed) for tf in HIGHER}
         out = technical.analyze(
             rows,
             symbol=market.symbol,
@@ -67,6 +71,7 @@ class TechnicalRunner:
             expected_last_close=market.expected_last_close(now),
             correlation_id=f"bar-close:{rows[-1].close_time.isoformat()}" if rows else "none",
             calendar=market.calendar,
+            higher=higher,
         )
         if out is None:
             return False

@@ -13,6 +13,7 @@ from statistics import median
 from typing import Any
 
 from gold_trading.analysts.indicators import atr, ema, rsi
+from gold_trading.analysts.technical_ext import alignment, ewma_vol, mtf_context
 from gold_trading.common.enums import SourceStatus
 from gold_trading.contracts.analyst import AnalystOutput
 from gold_trading.contracts.candle import Candle, DataSource
@@ -20,7 +21,7 @@ from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
-VERSION = "technical-1.3.0"  # 1.3.0: lịch có ngày lễ (CAL-03..05), cờ thanh khoản thấp
+VERSION = "technical-1.4.0"  # 1.4.0: vol_forecast EWMA (TEC-07) + bối cảnh H1/H4/D1 (TEC-09)
 ANALYST_ID = "technical"
 WINDOW = 300
 MIN_BARS = 250
@@ -119,8 +120,10 @@ def analyze(
     expected_last_close: datetime,
     correlation_id: str,
     calendar: MarketCalendar = REFERENCE,
+    higher: dict | None = None,
 ) -> AnalystOutput | None:
-    """``rows``: nến point-in-time, đã gồm warm-up phía trước. None nếu không có nến nào."""
+    """``rows``: nến point-in-time, đã gồm warm-up phía trước. None nếu không có nến nào.
+    ``higher``: nến H1/H4/D1 cùng nguồn (point-in-time) cho TEC-09; None = không đánh giá."""
     if not rows:
         return None
     window = rows[-WINDOW:]
@@ -253,6 +256,10 @@ def analyze(
             return None
         return v | {"distance_atr": round(abs(close - v["price"]) / a, 2)}
 
+    mtf = mtf_context(higher, as_of, calendar)
+    align = alignment(trend, mtf)
+    input_info["higher_timeframes"] = {
+        k: [v.get("status"), v.get("last_close"), v.get("bars")] for k, v in mtf.items()}
     features = {
         "close": close,
         "atr14": round(a, 4),
@@ -273,8 +280,12 @@ def analyze(
         "nearest_support": lvl(sup),
         "nearest_resistance": lvl(res),
         "input": input_info,
+        # TEC-07 / TEC-09 (1.4.0)
+        "vol_forecast": ewma_vol([c.close for c in window]),
+        "mtf": mtf,
+        "mtf_alignment": align,
     }
-    drivers = [f"TREND_{trend}", f"STRUCTURE_{features['structure']}"]
+    drivers = [f"TREND_{trend}", f"STRUCTURE_{features['structure']}", f"MTF_{align}"]
     if rv >= 70:
         drivers.append("RSI_OVERBOUGHT")
     elif rv <= 30:

@@ -130,6 +130,15 @@ export function TechnicalCard({ data, loading, onRetry }: Props) {
               <Item label={t("technical.coverage")}>
                 <span className="num">{formatPercent(f.coverage)}</span>
               </Item>
+              <Item label={t("technical.volDay")} tip={t("technical.volDayTip")}>
+                <span className="num">{f.volDayPct != null ? `±${formatNumber(f.volDayPct, 2)}%` : "—"}</span>
+              </Item>
+              <Item label={t("technical.mtf")} tip={t("technical.mtfTip")}>
+                <span className="mono">
+                  {f.mtf.map((m) => `${m.tf} ${m.trend === "UP" ? "↑" : m.trend === "DOWN" ? "↓" : m.trend === "FLAT" ? "→" : "—"}`).join(" · ")}
+                </span>
+                {f.mtfAlignment && <div className="metric__hint">{t(`technical.mtfAlignment.${f.mtfAlignment}`)}</div>}
+              </Item>
               <Item label={t("technical.support")} tip={t("technical.levelTip")}>
                 {levelText(f.nearest_support)}
               </Item>

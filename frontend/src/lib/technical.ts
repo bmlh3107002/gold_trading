@@ -20,6 +20,9 @@ export interface TechnicalFeatures {
   nearest_support: Level | null;
   nearest_resistance: Level | null;
   coverage: number | null;
+  volDayPct: number | null;
+  mtfAlignment: "ALIGNED_UP" | "ALIGNED_DOWN" | "CONFLICT" | "MIXED" | "NOT_EVALUATED" | null;
+  mtf: { tf: string; trend: "UP" | "DOWN" | "FLAT" | null; status: string }[];
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -53,6 +56,16 @@ export function readTechnical(features: Record<string, unknown> | undefined): Te
     nearest_support: level(f.nearest_support),
     nearest_resistance: level(f.nearest_resistance),
     coverage: num(input.coverage),
+    volDayPct: num((f.vol_forecast as Record<string, unknown> | undefined)?.sigma_day_pct),
+    mtfAlignment: oneOf(f.mtf_alignment, ["ALIGNED_UP", "ALIGNED_DOWN", "CONFLICT", "MIXED", "NOT_EVALUATED"] as const),
+    mtf: ["H1", "H4", "D1"].map((tf) => {
+      const v = (f.mtf && typeof f.mtf === "object" ? (f.mtf as Record<string, unknown>)[tf] : null) as Record<string, unknown> | null;
+      return {
+        tf,
+        trend: v ? oneOf(v.trend, ["UP", "DOWN", "FLAT"] as const) : null,
+        status: v && typeof v.status === "string" ? v.status : "NOT_EVALUATED",
+      };
+    }),
   };
 }
 

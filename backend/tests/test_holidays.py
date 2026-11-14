@@ -278,7 +278,7 @@ def test_1b_c01_labor_day_early_close_not_missing():
     assert out.source_status.value == "HEALTHY"
     assert "LOW_COVERAGE" not in out.quality_flags
     assert "Labor Day 2026-09-07" in out.features["input"]["holidays_in_window"]
-    assert out.version == "technical-1.3.0"
+    assert out.version == technical.VERSION
     # Trước bước 2 (không có ngày lễ): cùng dữ liệu bị chặn oan
     old = analyze(rows, MQ_NO_HOLIDAY)
     assert "LOW_COVERAGE" in old.quality_flags
