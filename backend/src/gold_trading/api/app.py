@@ -51,6 +51,7 @@ from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.intelligence.fusion_runner import FusionRunner, invalidate_handler
 from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
+from gold_trading.market.quote_minutes import QuoteMinuteRunner
 from gold_trading.market.quotes import QuoteIngestor, QuoteStore
 from gold_trading.market.service import MarketDataService
 from gold_trading.modes.manager import LIVE_CHECKLIST
@@ -73,7 +74,12 @@ from gold_trading.storage.external_records import SqlExternalRecordStore
 from gold_trading.storage.market_views import InMemoryMarketViewStore, SqlMarketViewStore
 from gold_trading.storage.news_llm import InMemoryNewsLlmStore, SqlNewsLlmStore
 from gold_trading.storage.orchestrator import SqlOrchestratorStore
-from gold_trading.storage.quotes import InMemoryQuoteStore, SqlQuoteStore
+from gold_trading.storage.quotes import (
+    InMemoryQuoteMinuteStore,
+    InMemoryQuoteStore,
+    SqlQuoteMinuteStore,
+    SqlQuoteStore,
+)
 from gold_trading.storage.repository import (
     AuditEntry,
     InMemoryRepository,
@@ -247,6 +253,12 @@ def create_app(
     if quote_store is None:
         engine = getattr(repo, "engine", None)
         quote_store = SqlQuoteStore(engine) if engine is not None else InMemoryQuoteStore()
+    # ING-35 (KN-03): spread theo phút, giữ vĩnh viễn; giây chỉ bị xóa sau khi đã tổng hợp.
+    engine_q = getattr(repo, "engine", None)
+    quote_minutes = QuoteMinuteRunner(
+        quote_store,
+        SqlQuoteMinuteStore(engine_q) if engine_q is not None else InMemoryQuoteMinuteStore(),
+        retention=timedelta(days=quote_retention_days()))
     source = data_source_from_env() if data_source == "env" else data_source
     market = MarketDataService(
         candle_store,
@@ -448,7 +460,9 @@ def create_app(
             runner.start()
         if external_runner:
             external_runner.start()
+        quote_minutes.start()
         yield
+        quote_minutes.stop()
         if external_runner:
             external_runner.stop()
         if news_worker is not None:
@@ -546,7 +560,8 @@ def create_app(
             repo,
             ingest_guard=clock.ingest_block_reason,
             quotes=QuoteIngestor(quote_store, market.calendar,
-                                 retention=timedelta(days=quote_retention_days())),
+                                 retention=timedelta(days=quote_retention_days()),
+                                 purge_guard=quote_minutes.purge_guard),
         )
     )
     # Chống DNS rebinding: chỉ nhận Host của địa chỉ công khai, localhost và tên nội bộ.

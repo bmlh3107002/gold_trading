@@ -300,6 +300,43 @@ quote_seconds = Table(
 )
 Index("ix_quote_seconds_available", quote_seconds.c.feed_id, quote_seconds.c.available_at)
 
+# --- ING-35 (KN-03): thống kê spread theo phút, CHỈ THÊM, giữ vĩnh viễn (migration 0021) ---
+# Một dòng = một revision của một phút của một nguồn giá. Giây tới muộn → revision mới.
+# Thiết kế: docs/thiet-ke/23-giu-du-lieu.md mục 6.
+quote_minutes = Table(
+    "quote_minutes",
+    metadata,
+    Column("feed_id", String(64), nullable=False),
+    Column("t", DateTime(timezone=True), nullable=False),  # đầu phút, UTC
+    Column("revision", Integer, nullable=False),
+    Column("seconds", Integer, nullable=False),
+    Column("ticks", Integer, nullable=False),
+    Column("bid_open", Float, nullable=False),
+    Column("bid_close", Float, nullable=False),
+    Column("ask_close", Float, nullable=False),
+    Column("bid_low", Float, nullable=False),
+    Column("ask_high", Float, nullable=False),
+    Column("spread_min", Integer, nullable=False),     # point, spread cuối giây nhỏ nhất
+    Column("spread_median", Float, nullable=False),    # trung vị spread cuối giây
+    Column("spread_p95", Integer, nullable=False),     # p95 spread lớn nhất trong giây
+    Column("spread_max", Integer, nullable=False),
+    Column("seconds_wide", Integer, nullable=False),
+    Column("seconds_closed", Integer, nullable=False),
+    Column("version", String(32), nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False),
+    Column("available_at", DateTime(timezone=True), nullable=False),
+    PrimaryKeyConstraint("feed_id", "t", "revision"),
+    CheckConstraint("seconds BETWEEN 1 AND 60 AND ticks >= seconds AND revision >= 0 "
+                    "AND seconds_wide BETWEEN 0 AND seconds "
+                    "AND seconds_closed BETWEEN 0 AND seconds", name="ck_quote_minutes_counts"),
+    CheckConstraint("spread_min >= 0 AND spread_min <= spread_median "
+                    "AND spread_median <= spread_max AND spread_p95 <= spread_max",
+                    name="ck_quote_minutes_spread"),
+    CheckConstraint("bid_low > 0 AND bid_low <= bid_open AND bid_low <= bid_close "
+                    "AND ask_high >= ask_close", name="ck_quote_minutes_price"),
+)
+Index("ix_quote_minutes_available", quote_minutes.c.feed_id, quote_minutes.c.available_at)
+
 # --- Dữ liệu nguồn ngoài: lịch kinh tế, tin, vĩ mô, vị thế (DB-08, ING-13, migration 0012) ---
 # Chỉ thêm (trigger chặn UPDATE + DELETE). Mỗi dòng = một revision của một dữ kiện
 # (source, logical_key). known_at = max(ingested_at, available_at): đọc tại as_of chỉ thấy dòng có

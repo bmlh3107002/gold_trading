@@ -56,7 +56,7 @@ def test_report_skips_missing_table(tmp_path):
     with repo.engine.begin() as c:
         c.execute(text("drop table audit_log"))
     rows, _ = report(repo.engine, NOW)
-    assert "audit_log" not in {r.table for r in rows} and len(rows) == 7
+    assert "audit_log" not in {r.table for r in rows} and len(rows) == 8  # + quote_minutes (ING-35)
 
 
 def test_report_is_read_only(tmp_path):

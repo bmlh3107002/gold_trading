@@ -121,6 +121,7 @@ def main(argv: list[str] | None = None) -> int:
     kmv = sub.add_parser("kiem-mv", help="Kiểm MarketView: tái dựng + độ phủ (Gate GĐ4, chỉ đọc)")
     kmv.add_argument("--hours", type=int, default=24, help="Số giờ gần nhất (mặc định 24, ≤ 168)")
     sub.add_parser("dung-luong", help="Dung lượng từng bảng + ước tính 1 năm (ING-33, chỉ đọc)")
+    sub.add_parser("spread-phut", help="Spread theo phút đã giữ lâu dài (ING-35, chỉ đọc)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
     args = p.parse_args(argv)
@@ -142,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         return _usd(args.server)
     if args.cmd == "lich":
         return _lich(args.days)
+    if args.cmd == "spread-phut":
+        return _spread_phut()
     if args.cmd == "dung-luong":
         return _dung_luong()
     if args.cmd == "tin":
@@ -743,6 +746,28 @@ def _cot(dry_run: bool, env=None, client_factory=None) -> int:
     print("Nguồn: U.S. Commodity Futures Trading Commission (cftc.gov), báo cáo Commitments of "
           "Traders.")
     return 0 if check.outcome.value == "OK" else 1
+
+
+def _spread_phut(env=None, engine=None) -> int:
+    """ING-35: mỗi nguồn giá — số phút đã giữ, phút đầu / cuối (UTC). Chỉ đọc."""
+    from gold_trading.storage.quotes import SqlQuoteMinuteStore
+
+    env = os.environ if env is None else env
+    if engine is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+    rows = SqlQuoteMinuteStore(engine).summary()
+    if not rows:
+        print("Chưa có dòng spread theo phút nào (bộ tổng hợp chạy 5 phút / lần sau khi backend "
+              "khởi động; cần có giá theo giây từ Gateway).")
+        return 0
+    print(f"{'Nguồn giá':28}{'Số phút':>10}  {'Phút đầu (UTC)':17}  {'Phút cuối (UTC)':17}")
+    for feed, n, first, last in rows:
+        print(f"{feed:28}{n:>10,}  {first:%Y-%m-%d %H:%M}  {last:%Y-%m-%d %H:%M}")
+    return 0
 
 
 def _dung_luong(env=None, engine=None, now=None) -> int:

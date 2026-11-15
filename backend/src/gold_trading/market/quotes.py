@@ -19,7 +19,7 @@ cao nhất, spread cuối + lớn nhất, số tick). Backend kiểm lại TỪN
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from statistics import median
@@ -79,6 +79,7 @@ class QuoteStore(Protocol):
     def append(self, rows: list[QuoteSecond]) -> int: ...
     def latest(self, feed: str, as_of: datetime) -> QuoteSecond | None: ...
     def purge_before(self, cutoff: datetime) -> int: ...
+    def feeds_between(self, lo: datetime, hi: datetime) -> list[str]: ...
 
 
 class Calendar(Protocol):
@@ -134,9 +135,12 @@ class QuoteIngestor:
         *,
         retention: timedelta = timedelta(days=30),
         purge_every: timedelta = timedelta(hours=1),
+        purge_guard: Callable[[], datetime | None] | None = None,
     ) -> None:
         self.store, self.calendar = store, calendar
         self.retention, self.purge_every = retention, purge_every
+        # ING-35: chỉ xóa giây đã được tổng hợp theo phút (mốc của bộ tổng hợp; None = chưa xóa)
+        self.purge_guard = purge_guard
         self._next_purge: datetime | None = None
 
     def ingest(
@@ -208,5 +212,11 @@ class QuoteIngestor:
         if self._next_purge is not None and now < self._next_purge:
             return
         self._next_purge = now + self.purge_every
-        self.store.purge_before(now - self.retention)
+        cutoff = now - self.retention
+        if self.purge_guard is not None:
+            done = self.purge_guard()
+            if done is None:
+                return          # bộ tổng hợp theo phút chưa chạy xong lần nào → chưa xóa
+            cutoff = min(cutoff, done)
+        self.store.purge_before(cutoff)
 
