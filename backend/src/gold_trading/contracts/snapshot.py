@@ -53,8 +53,25 @@ class Snapshot(Contract):
 
 
 class QualityReport(Contract):
+    """Kết quả Data Quality Gate — lưu chỉ-thêm để audit (DQG-03). ``reasons``: lý do quyết định;
+    ``flags``: cờ truyền xuống MarketView (``SAMPLE_DATA``, đầu vào cực đoan ``<analyst>:<cờ>``)."""
+
+    report_id: str
     snapshot_id: str
+    evaluated_at: UtcDatetime
     verdict: QualityVerdict
     reasons: tuple[str, ...] = ()
-    confidence_multiplier: float = Field(default=1.0, ge=0.0, le=1.0)
+    confidence_multiplier: float = Field(ge=0.0, le=1.0)
+    flags: frozenset[str] = frozenset()
     policy_version: str
+
+    @model_validator(mode="after")
+    def _check(self) -> QualityReport:
+        m, v = self.confidence_multiplier, self.verdict
+        if v is QualityVerdict.REJECTED and (m != 0.0 or not self.reasons):
+            raise ValueError("REJECTED phải có lý do và hệ số 0")
+        if v is QualityVerdict.DEGRADED and (m <= 0.0 or not self.reasons):
+            raise ValueError("DEGRADED phải có lý do và hệ số > 0")
+        if v is QualityVerdict.ACCEPTED and (m != 1.0 or self.reasons):
+            raise ValueError("ACCEPTED không có lý do và hệ số phải là 1")
+        return self

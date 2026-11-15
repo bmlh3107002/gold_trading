@@ -548,3 +548,25 @@ market_snapshots = Table(
 )
 Index("ix_market_snapshots_scope", market_snapshots.c.source, market_snapshots.c.feed_id,
       market_snapshots.c.symbol, market_snapshots.c.timeframe, market_snapshots.c.available_at)
+
+
+# --- GĐ4 bước 3 (DQG-03): kết quả Data Quality Gate — chỉ thêm (migration 0019). Audit lý do +
+# phiên bản chính sách. Thiết kế: docs/thiet-ke/33-snapshot-fusion-marketview.md mục 4.
+quality_reports = Table(
+    "quality_reports",
+    metadata,
+    Column("report_id", String(80), primary_key=True),
+    Column("snapshot_id", String(256), ForeignKey("market_snapshots.snapshot_id"),
+           nullable=False),
+    Column("evaluated_at", DateTime(timezone=True), nullable=False),
+    Column("verdict", String(16), nullable=False),
+    Column("reasons", JsonType, nullable=False),
+    Column("confidence_multiplier", Float, nullable=False),
+    Column("flags", JsonType, nullable=False),
+    Column("policy_version", String(40), nullable=False),
+    CheckConstraint("verdict IN ('ACCEPTED', 'DEGRADED', 'REJECTED')",
+                    name="ck_quality_reports_verdict"),
+    CheckConstraint("confidence_multiplier >= 0 AND confidence_multiplier <= 1",
+                    name="ck_quality_reports_multiplier"),
+)
+Index("ix_quality_reports_snapshot", quality_reports.c.snapshot_id)

@@ -1,4 +1,5 @@
-"""Kho snapshot (GĐ4 bước 2 — SNP-02): chỉ thêm, idempotent theo ``snapshot_id``.
+"""Kho snapshot (GĐ4 bước 2 — SNP-02) + kết quả Quality Gate (bước 3 — DQG-03): chỉ thêm,
+idempotent theo id.
 
 Lưu ``SnapshotRecord`` (manifest + thời điểm + cờ), không lưu output analyst. Dựng lại snapshot đầy
 đủ bằng ``intelligence.snapshot_builder.rebuild``. Thiết kế 33 mục 3.
@@ -14,8 +15,10 @@ from sqlalchemy import Engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
+from gold_trading.common.enums import QualityVerdict
+from gold_trading.contracts.snapshot import QualityReport
 from gold_trading.intelligence.snapshot_builder import SnapshotRecord
-from gold_trading.storage.schema import market_snapshots
+from gold_trading.storage.schema import market_snapshots, quality_reports
 
 
 class SnapshotStore(Protocol):
@@ -76,6 +79,8 @@ class SqlSnapshotStore:
             try:
                 conn.execute(market_snapshots.insert().values(**row))
             except IntegrityError:
+                if self.get(record.snapshot_id) is None:
+                    raise           # vi phạm ràng buộc (CHECK / FK), không phải trùng id
                 return False
             return True
 
@@ -91,3 +96,81 @@ class SqlSnapshotStore:
             event_time=_utc(m.event_time), available_at=_utc(m.available_at),
             expires_at=_utc(m.expires_at), quality_flags=frozenset(m.quality_flags),
             input_manifest=dict(m.input_manifest), excluded_inputs=dict(m.excluded_inputs))
+
+
+class QualityReportStore(Protocol):
+    def append(self, report: QualityReport) -> bool: ...
+    def get(self, report_id: str) -> QualityReport | None: ...
+    def for_snapshot(self, snapshot_id: str) -> list[QualityReport]: ...
+
+
+class InMemoryQualityReportStore:
+    def __init__(self) -> None:
+        self._rows: dict[str, QualityReport] = {}
+        self._lock = threading.Lock()
+
+    def append(self, report: QualityReport) -> bool:
+        with self._lock:
+            if report.report_id in self._rows:
+                return False
+            self._rows[report.report_id] = report
+            return True
+
+    def get(self, report_id: str) -> QualityReport | None:
+        with self._lock:
+            return self._rows.get(report_id)
+
+    def for_snapshot(self, snapshot_id: str) -> list[QualityReport]:
+        with self._lock:
+            rows = [r for r in self._rows.values() if r.snapshot_id == snapshot_id]
+        return sorted(rows, key=lambda r: (r.evaluated_at, r.report_id))
+
+
+class SqlQualityReportStore:
+    def __init__(self, engine: Engine) -> None:
+        self.engine = engine
+
+    def append(self, report: QualityReport) -> bool:
+        row = dict(report_id=report.report_id, snapshot_id=report.snapshot_id,
+                   evaluated_at=report.evaluated_at, verdict=report.verdict.value,
+                   reasons=list(report.reasons),
+                   confidence_multiplier=report.confidence_multiplier,
+                   flags=sorted(report.flags), policy_version=report.policy_version)
+        with self.engine.begin() as conn:
+            if self.engine.dialect.name == "postgresql":
+                res = conn.execute(
+                    pg_insert(quality_reports).values(**row)
+                    .on_conflict_do_nothing(index_elements=["report_id"])
+                    .returning(quality_reports.c.report_id))
+                return res.first() is not None
+            if conn.execute(select(quality_reports.c.report_id).where(
+                    quality_reports.c.report_id == report.report_id)).first():
+                return False
+            try:
+                conn.execute(quality_reports.insert().values(**row))
+            except IntegrityError:
+                if self.get(report.report_id) is None:
+                    raise           # vi phạm ràng buộc (CHECK / FK), không phải trùng id
+                return False
+            return True
+
+    @staticmethod
+    def _of(m) -> QualityReport:
+        return QualityReport(report_id=m.report_id, snapshot_id=m.snapshot_id,
+                             evaluated_at=_utc(m.evaluated_at), verdict=QualityVerdict(m.verdict),
+                             reasons=tuple(m.reasons),
+                             confidence_multiplier=m.confidence_multiplier,
+                             flags=frozenset(m.flags), policy_version=m.policy_version)
+
+    def get(self, report_id: str) -> QualityReport | None:
+        c = quality_reports.c
+        with self.engine.connect() as conn:
+            m = conn.execute(select(quality_reports).where(c.report_id == report_id)).first()
+        return self._of(m) if m is not None else None
+
+    def for_snapshot(self, snapshot_id: str) -> list[QualityReport]:
+        c = quality_reports.c
+        q = (select(quality_reports).where(c.snapshot_id == snapshot_id)
+             .order_by(c.evaluated_at, c.report_id))
+        with self.engine.connect() as conn:
+            return [self._of(m) for m in conn.execute(q).all()]

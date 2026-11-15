@@ -35,14 +35,16 @@
 
 | Tình huống | Bắt buộc (Technical, Regime, Event) | Tùy chọn (Macro, Positioning, News) |
 | --- | --- | --- |
-| Vắng / hết hạn / analyst lỗi (dead-letter = vắng, 2-C04) | `REJECTED` `REQUIRED_MISSING:<a>` / `REQUIRED_EXPIRED:<a>` | cờ `OPTIONAL_MISSING:<a>`, hệ số × 0,9 (đề xuất, chốt bước 3) |
+| Vắng / hết hạn / analyst lỗi (dead-letter = vắng, 2-C04) | `REJECTED` `REQUIRED_MISSING:<a>` / `REQUIRED_EXPIRED:<a>` | cờ `OPTIONAL_MISSING:<a>` / `OPTIONAL_EXPIRED:<a>`, hệ số × 0,9 |
 | `source_status` ≠ `HEALTHY` | `REJECTED` `REQUIRED_<STATUS>:<a>` | cờ `OPTIONAL_<STATUS>:<a>`, × 0,9 |
-| Thiếu đặc trưng Fusion cần (schema, DQG-02) | `REJECTED` `REQUIRED_SCHEMA:<a>` | coi như vắng |
+| Thiếu đặc trưng Fusion cần (schema, DQG-02) | `REJECTED` `REQUIRED_SCHEMA:<a>` | `OPTIONAL_SCHEMA:<a>`, × 0,9 |
 | Technical và Regime **không cùng nến đóng** (`as_of` khác nhau — 4-C07) | `REJECTED` `TIMESTAMP_CONFLICT` (lần tính sau sẽ khớp) | — |
 | Output có `as_of > at` | lỗi lập trình → ném lỗi (job thử lại → dead-letter) | như bắt buộc |
-| Cờ đầu vào cực đoan của analyst (`SPIKE_IN_INPUT`, `EXTREME_INPUT`) | truyền vào `qualityFlags` (analyst đã tự hạ trần confidence) | như bắt buộc |
+| Cờ đầu vào cực đoan của analyst (`SPIKE_IN_INPUT`, `EXTREME_INPUT`) | chỉ truyền dạng `<analyst>:<cờ>` vào `flags` của báo cáo → `qualityFlags` (analyst đã tự đặt trần confidence 0,5 — không hạ chồng) | như bắt buộc |
 
-Lý do hệ số 0,9 (đề xuất): thiếu một nhóm tùy chọn là mất thông tin, nhưng News **mặc định tắt** nên nếu hạ mạnh thì mọi MarketView đều thấp một cách giả tạo; 3 nhóm cùng thiếu → 0,729. Kết quả Quality Gate (`verdict`, lý do, phiên bản chính sách, `snapshot_id`) lưu chỉ-thêm để audit (DQG-03).
+**Đã chốt (bước 3, 2026-11-15).** Lý do hệ số 0,9 (giá trị khởi đầu chưa hiệu chỉnh): thiếu một nhóm tùy chọn là mất thông tin, nhưng News **mặc định tắt** nên nếu hạ mạnh thì mọi MarketView đều thấp một cách giả tạo; 3 nhóm cùng thiếu → 0,729. Kết quả Quality Gate (`verdict`, lý do, hệ số, cờ, phiên bản chính sách, `snapshot_id`, `evaluated_at`) lưu chỉ-thêm bảng `quality_reports` (migration 0019, khóa ngoại tới `market_snapshots`) để audit (DQG-03); `report_id` băm theo snapshot + chính sách + kết quả (cùng kết quả lúc khác → cùng id, giữ lần đầu).
+
+Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi output thật trong bộ test): Technical `trend` ∈ {UP, DOWN, FLAT}, `mtf_alignment` ∈ {ALIGNED_UP, ALIGNED_DOWN, CONFLICT, MIXED, NOT_EVALUATED}, `vol_forecast` = `null` hoặc `{sigma_day_pct: số ≥ 0 | null}`; Regime `regime` ∈ {TREND, RANGE, RISK_OFF, HIGH_VOL}, `direction` ∈ {UP, DOWN, null}, `ambiguous` bool; Event `event_risk` ∈ {NONE, LOW, MEDIUM, HIGH}; Macro `macro_bias` ∈ {SUPPORTIVE, HEADWIND, MIXED, NEUTRAL, INSUFFICIENT_DATA}; Positioning `crowding` ∈ {CROWDED_LONG, CROWDED_SHORT, NORMAL, INSUFFICIENT_DATA}; News có khóa `tone_score` (số hoặc `null`). Analyst đổi đặc trưng → phải sửa schema + tăng phiên bản chính sách. Output tùy chọn "cũ nhưng còn hạn": TTL của chính output đã lo, không thêm luật tuổi.
 
 ## 5. Fusion — `fusion-rules-1.0.0` (bước 4, DEC-25/26)
 
