@@ -570,3 +570,42 @@ quality_reports = Table(
                     name="ck_quality_reports_multiplier"),
 )
 Index("ix_quality_reports_snapshot", quality_reports.c.snapshot_id)
+
+
+# --- GĐ4 bước 5a (MKV-02): MarketView + vô hiệu — chỉ thêm (migration 0020).
+# Phía dùng chỉ lấy MarketView MỚI NHẤT đã biết của đúng nguồn giá, còn hạn và chưa bị vô hiệu —
+# không lùi về bản cũ. Thiết kế: docs/thiet-ke/33-snapshot-fusion-marketview.md mục 7.
+market_views = Table(
+    "market_views",
+    metadata,
+    Column("market_view_id", String(256), primary_key=True),
+    Column("snapshot_id", String(256), ForeignKey("market_snapshots.snapshot_id"),
+           nullable=False),
+    Column("report_id", String(80), ForeignKey("quality_reports.report_id"), nullable=False),
+    Column("symbol", String(32), nullable=False),
+    Column("timeframe", String(8), nullable=False),
+    Column("source", String(16), nullable=False),
+    Column("feed_id", String(64), nullable=False),
+    Column("as_of", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("computed_at", DateTime(timezone=True), nullable=False),
+    Column("bias", String(8), nullable=False),
+    Column("confidence", Float, nullable=False),
+    Column("model_version", String(40), nullable=False),
+    Column("payload", JsonType, nullable=False),
+    CheckConstraint("expires_at > as_of", name="ck_market_views_expiry"),
+    CheckConstraint("bias IN ('LONG', 'SHORT', 'NEUTRAL')", name="ck_market_views_bias"),
+    CheckConstraint("confidence >= 0 AND confidence <= 1", name="ck_market_views_confidence"),
+)
+Index("ix_market_views_scope", market_views.c.source, market_views.c.feed_id,
+      market_views.c.symbol, market_views.c.timeframe, market_views.c.as_of)
+
+market_view_invalidations = Table(
+    "market_view_invalidations",
+    metadata,
+    Column("market_view_id", String(256), ForeignKey("market_views.market_view_id"),
+           primary_key=True),                       # vô hiệu một lần là đủ (idempotent)
+    Column("invalidated_at", DateTime(timezone=True), nullable=False),
+    Column("reason", String(64), nullable=False),
+    Column("ref", String(256), nullable=False, server_default=""),
+)

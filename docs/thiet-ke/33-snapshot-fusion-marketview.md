@@ -95,7 +95,8 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 
 ## 7. Khi nào sinh / hết hạn / vô hiệu (bước 5)
 
-- Job `FUSION` (debounce) sau khi Technical / Regime / Event / Macro / Positioning / News có kết quả mới; Quality Gate `REJECTED` → không sinh MarketView (lưu báo cáo).
+- Job `FUSION` (debounce) sau khi Technical / Regime / Event / Macro / Positioning / News có kết quả mới; Quality Gate `REJECTED` → không sinh MarketView (lưu báo cáo) **và vô hiệu MarketView hiện hành của nguồn giá đó** (lý do `QUALITY_REJECTED`) — nếu không, MarketView cũ tạo lúc nguồn còn khỏe vẫn dùng được tới hết hạn (tìm thấy khi thiết kế 5a).
+- Lưu (5a, migration 0020): `market_views` + `market_view_invalidations` chỉ-thêm, khóa ngoại tới snapshot + báo cáo Gate. `current(nguồn giá, at)` = MarketView mới nhất đã biết, còn hạn, chưa bị vô hiệu tới `at`; ngược lại không có — không lùi về bản cũ.
 - `OUTPUT_EXPIRED` của analyst bắt buộc mà chưa có kết quả mới → `INVALIDATE_MARKETVIEW` (ghi vô hiệu chỉ-thêm). Phía dùng chỉ lấy MarketView **còn hạn và chưa bị vô hiệu** của đúng nguồn giá; không có → không tín hiệu (2-C06).
 - Strategy kiểm `expires_at` lúc tạo intent; Risk kiểm lại lúc quyết (đã có — `MARKET_VIEW_EXPIRED`) (4-C05).
 
