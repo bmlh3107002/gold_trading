@@ -39,7 +39,7 @@
 ### Bước 7 — Technical còn lại (TEC-05, TEC-06, TEC-07, TEC-09)
 - [x] 7a — TEC-07 + TEC-09 (2026-11-14: `technical-1.4.0`; replay GĐ2 khớp 96/96)
 - [x] 7b — TEC-06 mẫu hình nến (2026-11-15: Technical 1.5.0; pandas khớp 1.811 nến; không nhìn trước)
-- [ ] 7c — TEC-05 báo cáo ngưỡng R3/R5 trên dữ liệu thật
+- [~] 7c — TEC-05 báo cáo ngưỡng R3/R5 trên dữ liệu thật (2026-11-15: lệnh `cli nguong` xong; **còn: chạy trên máy ~20/11** — mục kiểm trên máy 5)
 - Ghi chú gốc: TEC-05 theo dõi R3/R5 trên dữ liệu thật; TEC-07 `volForecast` bằng luật (ghi rõ không phải mô hình); TEC-09 đa khung H1/H4/D1; TEC-06 mẫu hình (chỉ sau khi đủ nến xác nhận)
 
 ### Bước 8 — Gate GĐ3
@@ -57,6 +57,8 @@
 3. **Bước 4 (Macro)** — cùng lần dựng lại thứ Hai 16/11: trang **Thị trường**, thẻ **"Bối cảnh vĩ mô"**: có "Lợi suất thực 10 năm" (số %, ví dụ 1,8x%) và "Kỳ vọng Fed (proxy)". Tới khoảng giữa tháng 12, ô "Tác động lên vàng" ghi **"Chưa đủ dữ liệu"** và lợi suất ghi "chưa đủ lịch sử để đo độ bất thường" — **đúng**, vì mới nạp lãi suất từ 12/11. "Chỉ số USD tự tính": nếu ghi "Chưa có (…)" → chụp màn hình gửi người phát triển (nghĩa là broker / Gateway chưa gửi đủ 6 cặp tiền).
 
 4. **Bước 5 (COT)** — cùng lần dựng lại thứ Hai 16/11: thẻ **"Vị thế quỹ đầu cơ (COT)"**: dòng vàng "Báo cáo chốt ngày … — trễ … ngày"; vị thế ròng khớp số trên `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD (long − short cột không thương mại); "Mức đông đúc: Chưa đủ lịch sử" — **đúng** (cần 52 tuần). Sau tối thứ Hai (COT chốt 10/11 công bố 16/11 do lễ) báo cáo mới hiện trong vòng vài phút sau khi hệ thống nạp.
+
+5. **Bước 7c (ngưỡng R3/R5)** — khoảng thứ Sáu 20/11 (cùng lúc đo dung lượng): `docker compose exec backend python -m gold_trading.ingestion.cli nguong --days 5` → gửi toàn bộ nội dung cho người phát triển. Chỉ đọc, không đổi gì.
 
 ## Prompt cho phiên mới
 Đọc CLAUDE.md, PROGRESS.md, rồi docs/ke-hoach/GD3-ke-hoach.md và chỉ các mục liên quan của docs/giai-doan/GD3-analyst.md. Làm bước tiếp theo chưa tick. GĐ3 làm song song GĐ1/GĐ2 (DEC-22) — việc kiểm trên máy của GĐ1/GĐ2 theo docs/ke-hoach/lich-kiem-tren-may.md được ưu tiên; GĐ3 không đóng trước GĐ1, GĐ2. Analyst chỉ quan sát, không tự chặn lệnh (chặn do Safety / làn nhanh DEC-20). Không forecast → surprise "không đủ dữ liệu" (DEC-01). Quy trình: thiết kế → code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick ở cả hai file, ghi nhật ký GĐ3, cập nhật PROGRESS.md ngắn gọn → chạy test → commit (nhắc mã việc) → push develop → kiểm CI. Người dùng không rành kỹ thuật: tiếng Việt đơn giản, mỗi lần hỏi một câu. Không bao giờ yêu cầu dán mật khẩu / token / khóa API vào chat.

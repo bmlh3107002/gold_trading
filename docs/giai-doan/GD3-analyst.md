@@ -22,7 +22,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | TEC-02 | Cổng chất lượng R2–R6 + `CALENDAR_MISMATCH` | `[x]` | `market/quality.py` |
 | TEC-03 | Xu hướng, cấu trúc, swing, vùng S/R (`technical-1.2.0`) | `[x]` | `docs/thiet-ke/03-technical-analyst.md` |
 | TEC-04 | Lưu, API, thẻ giao diện; confidence = chất lượng dữ liệu | `[x]` | |
-| TEC-05 | Theo dõi ngưỡng R3/R5 trên dữ liệu thật vài ngày | `[!]` | |
+| TEC-05 | Theo dõi ngưỡng R3/R5 trên dữ liệu thật vài ngày | `[~]` | 2026-11-15: lệnh chỉ đọc `cli nguong` (thiết kế 03 §11) — phân bố tỉ lệ, số lần chạm / ngày, R3 có trùng giờ công bố không; **còn: chạy trên máy người dùng ~20/11 rồi quyết ngưỡng** |
 | TEC-06 | Pattern giá/nến | `[x]` | 2026-11-15: `technical-1.5.0` — 6 mẫu nến + đỉnh/đáy đôi từ swing đã xác nhận; không nhìn trước (test + soát 152 thời điểm), pandas độc lập khớp 1.811 nến (thiết kế 03 §10) |
 | TEC-07 | `volForecast` bằng luật (ATR/EWMA), ghi rõ không phải mô hình | `[x]` | 2026-11-14: `technical-1.4.0` — EWMA λ=0,94, σ nến + σ ngày, ghi rõ luật không phải mô hình (thiết kế 03 §9) |
 | TEC-09 | Bối cảnh đa khung (H1/H4/D1) | `[x]` | 2026-11-14: `technical-1.4.0` — xu hướng H1/H4/D1 cùng luật M15, nến đóng trước `as_of`, cũ theo phút thị trường mở, `mtf_alignment` |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-15** — **Bước 7c: TEC-05 — lệnh báo cáo ngưỡng R3/R5 (`cli nguong`, chỉ đọc).** Tính đúng như cổng chất lượng, không nhìn trước; đối chiếu lịch công bố để phân biệt biến động thật / lỗi feed. 6 test; soát 848 nến khớp `assess_window` 100 %. Chờ chạy trên máy người dùng (~20/11, cùng lúc đo dung lượng). Backend 2032.
 
 - **2026-11-15** — **Bước 7b: TEC-06 mẫu hình (Technical 1.5.0).** `analysts/patterns.py`; 10 test; soát pandas 1.811/1.811, không nhìn trước 152/152. Mẫu dày trên dữ liệu mẫu → chỉ mô tả. Thẻ Phân tích kỹ thuật: "Mẫu hình nến gần nhất". Backend 2026, frontend 116.
 

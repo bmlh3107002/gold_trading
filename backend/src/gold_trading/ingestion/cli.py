@@ -101,6 +101,8 @@ def main(argv: list[str] | None = None) -> int:
     bls.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     h15 = sub.add_parser("h15", help="Tải lãi suất H.15 của Fed một lần (ING-25/26)")
     h15.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
+    ng = sub.add_parser("nguong", help="Báo cáo ngưỡng R3/R5 trên nến M15 thật (TEC-05, chỉ đọc)")
+    ng.add_argument("--days", type=int, default=10, help="Số ngày gần nhất (mặc định 10)")
     hb = sub.add_parser("h15-bu", help="Nạp bù lịch sử lãi suất H.15 một lần (Macro, GĐ3)")
     hb.add_argument("--dry-run", action="store_true", help="Đọc DB + tải, so sánh, không ghi")
     hb.add_argument("--days", type=int, default=400, help="Số ngày lịch sử (mặc định 400)")
@@ -124,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
         return _bls(args.dry_run)
     if args.cmd == "h15":
         return _h15(args.dry_run)
+    if args.cmd == "nguong":
+        return _nguong(args.days)
     if args.cmd == "h15-bu":
         return _h15_backfill(args.dry_run, args.days)
     if args.cmd == "cot-bu":
@@ -494,6 +498,53 @@ def _h15(dry_run: bool, env=None, client_factory=None) -> int:
         print(f"Proxy kỳ vọng Fed: không đủ dữ liệu ({px.reason})")
     print("Nguồn: Federal Reserve Board H.15; lợi suất trái phiếu: U.S. Treasury.")
     return 0 if check.outcome.value == "OK" else 1
+
+
+def _nguong(days: int, env=None, repo=None, candle_store=None, record_store=None,
+            now=None) -> int:
+    from sqlalchemy import select
+
+    from gold_trading.ingestion.economic_calendar import economic_calendar
+    from gold_trading.market.timeframes import Timeframe
+    from gold_trading.ops import quality_report as QR
+    from gold_trading.storage.external_records import SqlExternalRecordStore
+    from gold_trading.storage.schema import price_feeds
+
+    env = os.environ if env is None else env
+    if repo is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        repo = SqlRepository.from_url(url)
+        candle_store = SqlCandleStore(repo.engine)
+        record_store = SqlExternalRecordStore(repo.engine)
+    now = now or utcnow()
+    days = max(1, min(days, 60))
+    lim = days * 96 + QR.WINDOW
+    with repo.engine.connect() as conn:
+        feeds = sorted((f, srv, sym) for f, srv, sym in conn.execute(
+            select(price_feeds.c.feed_id, price_feeds.c.mt5_server, price_feeds.c.broker_symbol))
+            if "XAU" in sym.upper())
+    if not feeds:
+        print("Chưa có nguồn giá vàng MT5 nào.")
+        return 1
+    windows = None
+    if record_store is not None:
+        items = economic_calendar(record_store, now, start=now - timedelta(days=days + 4),
+                                  end=now)
+        windows = [(i.window_start, i.window_end) for i in items
+                   if i.window_start is not None and not i.all_day]
+    print(f"Ngưỡng hiện hành: R3 {QR.SPIKE_MULTIPLE:g}× trung vị biên độ, R5 "
+          f"{QR.WIDE_SPREAD_MULTIPLE:g}× trung vị spread (cửa sổ {QR.WINDOW} nến). Chỉ đọc.")
+    for f, srv, sym in feeds:
+        rows = candle_store.query("XAUUSD", Timeframe.M15, DataSource.MT5, as_of=now, end=now,
+                                  limit=lim, feed=f)
+        rows = [c for c in rows if c.close_time <= now]
+        rep = QR.analyze(rows, windows, since=now - timedelta(days=days))
+        print("\n".join(QR.render(rep, f"{srv} / {sym}")))
+    print("Gửi toàn bộ nội dung này cho người phát triển để quyết có đổi ngưỡng hay không.")
+    return 0
 
 
 class _ReadOnly:

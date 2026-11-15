@@ -128,3 +128,13 @@ Code: `analysts/patterns.py`. Test: `tests/test_patterns.py`. **Mô tả, không
 - **Đỉnh đôi / đáy đôi:** hai swing cùng loại gần nhất **đã xác nhận** (đủ 3 nến bên phải), cách ≥ 10 nến, chênh ≤ 0,25 ATR.
 - Đặc trưng `patterns` (`recent`, `last_bar`, `double_top`, `double_bottom`, `note`); driver `PATTERN_<tên>`.
 - **Kiểm chứng:** 10 test (nến dựng tay cho từng mẫu, nến nhỏ / cùng màu / ATR 0 không nhận, đỉnh đôi đúng / quá gần / quá chênh, không nhìn trước + 3-C06, nến spike không thành mẫu). **Soát riêng:** phát hiện lại độc lập bằng pandas (vector) trên 1.811 nến → lệch 0; 152 thời điểm: mẫu của nến t tính tại t = tính lại 7 nến sau → lệch 0 (lần chạy đầu báo lệch do kịch bản soát lệch một nến so với cửa sổ 8 nến — lỗi của kịch bản, đã sửa). **Ghi nhận:** trên dữ liệu mẫu, mẫu xuất hiện dày (nhấn chìm ~11 % số nến) → càng không được dùng như tín hiệu khi chưa backtest (GĐ6).
+
+## 11. Báo cáo ngưỡng R3 / R5 trên dữ liệu thật (GĐ3 bước 7c — TEC-05, 2026-11-15)
+
+Lệnh **chỉ đọc**: `python -m gold_trading.ingestion.cli nguong [--days 10]`. Code `ops/quality_report.py`, test `tests/test_quality_report.py`.
+
+- Mỗi nguồn giá vàng MT5: với từng nến M15 trong N ngày, tính **đúng như cổng chất lượng** trên cửa sổ 300 nến **kết thúc ở nến đó** (không nhìn trước): R3 biên độ / trung vị biên độ, R3 khoảng nhảy / trung vị biên độ, R5 spread / trung vị spread. Ra p50 / p90 / p99 / lớn nhất, số lần vượt ngưỡng (8× / 3×) và số lần / ngày.
+- Mỗi lần chạm R3 ghi **có trùng cửa sổ công bố số liệu không** (lịch kinh tế GĐ1, cửa sổ có giờ xác nhận): trùng → nhiều khả năng biến động thật (ngưỡng có thể quá chặt); không trùng → đối chiếu biểu đồ MT5 (có thể lỗi feed).
+- **Không tự đổi ngưỡng**: người dùng gửi kết quả, người phát triển đề xuất, người dùng duyệt → đổi ngưỡng = tăng phiên bản Technical.
+- **Kiểm chứng:** 6 test (nến lỗi + nến công bố + spread giãn dựng tay; đúng 3× không vượt; không nhìn trước; cửa sổ `since`; lệnh chỉ đọc). Soát: 848 nến có 12 nến lỗi chèn ngẫu nhiên → báo cáo đánh dấu R3 **khi và chỉ khi** `assess_window` của Technical coi là cực đoan (lệch 0), bắt đủ 12.
+- **Còn:** chạy trên máy người dùng sau ≥ 5 ngày dữ liệu MT5 liên tục (lịch kiểm: ~20/11).
