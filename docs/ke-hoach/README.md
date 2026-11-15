@@ -10,4 +10,5 @@ Mỗi giai đoạn một file `GD<n>-ke-hoach.md`: **thứ tự làm + checklist
 | GĐ1 — Dữ liệu vào | [`GD1-ke-hoach.md`](GD1-ke-hoach.md) |
 | GĐ2 — Event Orchestrator + Làn nhanh | [`GD2-ke-hoach.md`](GD2-ke-hoach.md) |
 | GĐ3 — 6 analyst bằng luật | [`GD3-ke-hoach.md`](GD3-ke-hoach.md) |
+| GĐ4 — Snapshot → Quality Gate → Fusion → MarketView | [`GD4-ke-hoach.md`](GD4-ke-hoach.md) |
 | Lịch kiểm trên máy GĐ1 + GĐ2 | [`lich-kiem-tren-may.md`](lich-kiem-tren-may.md) |
