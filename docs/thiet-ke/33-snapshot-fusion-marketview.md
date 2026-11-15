@@ -98,7 +98,8 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 - **Việc mỗi nhịp của orchestrator** (`FusionRunner.tick`, 5b) — chạy SAU mọi job analyst của nhịp (job `FUSION` trong bảng định tuyến sẽ chạy trước `REGIME` / `TECHNICAL` cùng sự kiện vì bộ điều phối sắp theo chữ cái); không đổi snapshot + báo cáo thì không ghi. Quality Gate `REJECTED` → không sinh MarketView (lưu báo cáo) **và vô hiệu MarketView hiện hành của nguồn giá đó** (lý do `QUALITY_REJECTED`) — nếu không, MarketView cũ tạo lúc nguồn còn khỏe vẫn dùng được tới hết hạn (tìm thấy khi thiết kế 5a).
 - Lưu (5a, migration 0020): `market_views` + `market_view_invalidations` chỉ-thêm, khóa ngoại tới snapshot + báo cáo Gate. `current(nguồn giá, at)` = MarketView mới nhất đã biết, còn hạn, chưa bị vô hiệu tới `at`; ngược lại không có — không lùi về bản cũ.
 - `OUTPUT_EXPIRED` → job `INVALIDATE_MARKETVIEW` (`fusion-job-1`): tính lại ngay cho nguồn bị ảnh hưởng (analyst toàn cục → mọi nguồn) → bắt buộc hết hạn thì Gate `REJECTED` → vô hiệu nếu MarketView còn hạn. Thường MarketView đã tự hết hạn cùng output bắt buộc (hạn = sớm nhất của chúng). Phía dùng chỉ lấy MarketView **còn hạn và chưa bị vô hiệu** của đúng nguồn giá; không có → không tín hiệu (2-C06).
-- Strategy kiểm `expires_at` lúc tạo intent; Risk kiểm lại lúc quyết (đã có — `MARKET_VIEW_EXPIRED`) (4-C05).
+- Strategy kiểm `expires_at` lúc tạo intent; Risk kiểm lại lúc quyết (`MARKET_VIEW_EXPIRED`) (4-C05). Bên gọi Risk phải lấy MarketView qua `current()` ngay lúc quyết (để thấy vô hiệu).
+- Risk (5c): `MarketContext.mode` bắt buộc; SHADOW / LIVE chặn MarketView có `SAMPLE_DATA` hoặc `UNVALIDATED_RULES` (DEC-25, 4-C06) — lý do `QUALITY_FLAGS_<chế độ>:<cờ>`.
 
 ## 8. Giới hạn đã biết
 

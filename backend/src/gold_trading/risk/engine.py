@@ -7,12 +7,13 @@ Các kiểm tra margin, correlation, exposure ròng... sẽ bổ sung sau.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from gold_trading.common.enums import RiskOutcome
+from gold_trading.common.enums import RiskOutcome, TradingMode
 from gold_trading.common.ids import new_id
-from gold_trading.contracts.market_view import MarketView
+from gold_trading.contracts.market_view import SAMPLE_DATA, UNVALIDATED_RULES, MarketView
 from gold_trading.contracts.risk import RiskDecision
 from gold_trading.contracts.trade_intent import TradeIntent
 from gold_trading.risk.ledger import RiskLedger
@@ -27,6 +28,13 @@ class RiskPolicy:
     max_spread: float = 0.5  # đơn vị giá
     decision_ttl: timedelta = timedelta(seconds=30)
     blocking_flags: frozenset[str] = frozenset({"NEWS_SHOCK", "EVENT_WINDOW"})
+    # GĐ4 bước 5c (DEC-25, 4-C06): cờ chất lượng MarketView chặn theo chế độ. Dữ liệu mẫu và luật
+    # chưa kiểm chứng (backtest GĐ6 + người dùng duyệt) KHÔNG được dẫn tới lệnh SHADOW / LIVE.
+    # Gỡ UNVALIDATED_RULES = quyết định mới của người dùng (ghi file giai đoạn + đổi version).
+    blocking_quality_flags: Mapping[TradingMode, frozenset[str]] = field(default_factory=lambda: {
+        TradingMode.SHADOW: frozenset({SAMPLE_DATA, UNVALIDATED_RULES}),
+        TradingMode.LIVE: frozenset({SAMPLE_DATA, UNVALIDATED_RULES}),
+    })
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,7 @@ class MarketContext:
     equity: float
     spread: float
     now: datetime
+    mode: TradingMode       # bắt buộc, không mặc định — không được ngầm coi là PAPER (GĐ4 5c)
 
 
 class RiskEngine:
@@ -71,6 +80,10 @@ class RiskEngine:
             reasons.append("MARKET_VIEW_EXPIRED")
         if blocked := sorted(view.risk_flags & p.blocking_flags):
             reasons.append("RISK_FLAGS:" + ",".join(blocked))
+        if not isinstance(ctx.mode, TradingMode):
+            reasons.append("MODE_UNKNOWN")
+        elif q := sorted(view.quality_flags & p.blocking_quality_flags.get(ctx.mode, frozenset())):
+            reasons.append(f"QUALITY_FLAGS_{ctx.mode.value}:" + ",".join(q))
         if ctx.spread > p.max_spread:
             reasons.append("SPREAD_TOO_WIDE")
         if ctx.equity <= 0:
