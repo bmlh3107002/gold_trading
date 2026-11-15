@@ -1758,6 +1758,21 @@ export interface components {
              */
             symbol: string;
             /**
+             * Timeframe
+             * @default M15
+             */
+            timeframe: string;
+            /**
+             * Source
+             * @description Nguồn giá (SAMPLE / CSV / MT5), chữ hoa — mỗi broker một chuỗi (MT-05)
+             */
+            source: string;
+            /**
+             * Feed Id
+             * @description Id nguồn giá; chuỗi rỗng khi nguồn không có id
+             */
+            feed_id: string;
+            /**
              * As Of
              * Format: date-time
              */
@@ -1767,16 +1782,29 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+            /** @description Nghiêng theo luật, chưa kiểm chứng (DEC-25) — không phải tín hiệu */
             bias: components["schemas"]["Bias"];
-            /** P Up */
-            p_up: number;
-            /** P Down */
-            p_down: number;
-            /** Confidence */
+            /**
+             * P Up
+             * @description Luôn null trong GĐ4: chưa có xác suất đã hiệu chỉnh (DEC-27)
+             */
+            p_up?: number | null;
+            /**
+             * P Down
+             * @description Luôn null trong GĐ4: chưa có xác suất đã hiệu chỉnh (DEC-27)
+             */
+            p_down?: number | null;
+            /**
+             * Confidence
+             * @description Chất lượng dữ liệu × mức đồng thuận — không phải xác suất đúng
+             */
             confidence: number;
             regime: components["schemas"]["Regime"];
-            /** Vol Forecast */
-            vol_forecast: number;
+            /**
+             * Vol Forecast
+             * @description σ một ngày giao dịch, % (EWMA TEC-07, luật cố định); null khi chưa đủ dữ liệu
+             */
+            vol_forecast?: number | null;
             /**
              * Drivers
              * @default []
@@ -1792,8 +1820,16 @@ export interface components {
              * @default []
              */
             quality_flags: string[];
-            /** Model Version */
+            /**
+             * Model Version
+             * @description Phiên bản Fusion
+             */
             model_version: string;
+            /**
+             * Quality Policy Version
+             * @description Phiên bản chính sách Quality Gate
+             */
+            quality_policy_version: string;
         };
         /** Me */
         Me: {

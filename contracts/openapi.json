@@ -4613,6 +4613,22 @@
             "title": "Symbol",
             "default": "XAUUSD"
           },
+          "timeframe": {
+            "type": "string",
+            "title": "Timeframe",
+            "default": "M15"
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Source",
+            "description": "Nguồn giá (SAMPLE / CSV / MT5), chữ hoa — mỗi broker một chuỗi (MT-05)"
+          },
+          "feed_id": {
+            "type": "string",
+            "title": "Feed Id",
+            "description": "Id nguồn giá; chuỗi rỗng khi nguồn không có id"
+          },
           "as_of": {
             "type": "string",
             "format": "date-time",
@@ -4624,33 +4640,59 @@
             "title": "Expires At"
           },
           "bias": {
-            "$ref": "#/components/schemas/Bias"
+            "$ref": "#/components/schemas/Bias",
+            "description": "Nghiêng theo luật, chưa kiểm chứng (DEC-25) — không phải tín hiệu"
           },
           "p_up": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "P Up"
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P Up",
+            "description": "Luôn null trong GĐ4: chưa có xác suất đã hiệu chỉnh (DEC-27)"
           },
           "p_down": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "P Down"
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P Down",
+            "description": "Luôn null trong GĐ4: chưa có xác suất đã hiệu chỉnh (DEC-27)"
           },
           "confidence": {
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Confidence"
+            "title": "Confidence",
+            "description": "Chất lượng dữ liệu × mức đồng thuận — không phải xác suất đúng"
           },
           "regime": {
             "$ref": "#/components/schemas/Regime"
           },
           "vol_forecast": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Vol Forecast"
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vol Forecast",
+            "description": "σ một ngày giao dịch, % (EWMA TEC-07, luật cố định); null khi chưa đủ dữ liệu"
           },
           "drivers": {
             "items": {
@@ -4680,7 +4722,13 @@
           },
           "model_version": {
             "type": "string",
-            "title": "Model Version"
+            "title": "Model Version",
+            "description": "Phiên bản Fusion"
+          },
+          "quality_policy_version": {
+            "type": "string",
+            "title": "Quality Policy Version",
+            "description": "Phiên bản chính sách Quality Gate"
           }
         },
         "additionalProperties": false,
@@ -4688,15 +4736,15 @@
         "required": [
           "market_view_id",
           "snapshot_id",
+          "source",
+          "feed_id",
           "as_of",
           "expires_at",
           "bias",
-          "p_up",
-          "p_down",
           "confidence",
           "regime",
-          "vol_forecast",
-          "model_version"
+          "model_version",
+          "quality_policy_version"
         ],
         "title": "MarketView"
       },

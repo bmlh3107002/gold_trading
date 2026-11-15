@@ -26,7 +26,16 @@ export function MarketViewCard({ view }: { view: MarketView | null | undefined }
     <Card
       title={t("marketView.title")}
       labelledBy="mv-title"
-      actions={view && <Badge tone={biasTone[view.bias]}>{biasLabel(t, view.bias)}</Badge>}
+      actions={
+        view && (
+          <>
+            <Badge tone={biasTone[view.bias]}>{biasLabel(t, view.bias)}</Badge>
+            {view.quality_flags?.includes("UNVALIDATED_RULES") && (
+              <Badge tone="gold">{t("marketView.unvalidated")}</Badge>
+            )}
+          </>
+        )
+      }
     >
       {!view ? (
         <EmptyState
@@ -36,11 +45,18 @@ export function MarketViewCard({ view }: { view: MarketView | null | undefined }
         />
       ) : (
         <div className="kv">
-          <Item label={t("marketView.pUp")} tip={t("marketView.pTip")}>
-            <span className="tone-profit">{formatPercent(view.p_up)}</span>
-          </Item>
-          <Item label={t("marketView.pDown")} tip={t("marketView.pTip")}>
-            <span className="tone-loss">{formatPercent(view.p_down)}</span>
+          <Item label={t("marketView.probability")} tip={t("marketView.pTip")}>
+            {view.p_up == null || view.p_down == null ? (
+              <span className="tone-neutral" data-testid="mv-prob-none">
+                {t("marketView.uncalibrated")}
+              </span>
+            ) : (
+              <>
+                <span className="tone-profit">{formatPercent(view.p_up)}</span>
+                {" / "}
+                <span className="tone-loss">{formatPercent(view.p_down)}</span>
+              </>
+            )}
           </Item>
           <Item label={t("marketView.confidence")} tip={t("marketView.confidenceTip")}>
             {formatPercent(view.confidence)}
@@ -49,7 +65,11 @@ export function MarketViewCard({ view }: { view: MarketView | null | undefined }
             {regimeLabel(t, view.regime)}
           </Item>
           <Item label={t("marketView.volForecast")} tip={t("marketView.volTip")}>
-            {formatNumber(view.vol_forecast)}
+            {view.vol_forecast == null ? (
+              <span className="tone-neutral">{t("marketView.noData")}</span>
+            ) : (
+              `${formatNumber(view.vol_forecast)} %`
+            )}
           </Item>
           <Item label={t("marketView.riskFlags")}>
             {view.risk_flags && view.risk_flags.length > 0 ? (

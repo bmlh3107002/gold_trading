@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from gold_trading.common.enums import Bias, Regime, Side, SourceStatus
 from gold_trading.contracts import AnalystOutput, MarketView, NormalizedRecord, TradeIntent
+from gold_trading.contracts.market_view import REQUIRED_QUALITY_FLAGS
 
 
 def record(rid: str, event_time: datetime, ingested_at: datetime, **kw) -> NormalizedRecord:
@@ -38,13 +39,15 @@ def market_view(as_of: datetime, **kw) -> MarketView:
         snapshot_id="s1",
         as_of=as_of,
         expires_at=as_of + timedelta(minutes=15),
+        source="MT5",
+        feed_id="f1",
         bias=Bias.LONG,
-        p_up=0.6,
-        p_down=0.3,
         confidence=0.7,
         regime=Regime.TREND,
-        vol_forecast=12.0,
+        vol_forecast=0.9,
+        quality_flags=REQUIRED_QUALITY_FLAGS,
         model_version="0",
+        quality_policy_version="0",
     )
     return MarketView(**(defaults | kw))
 
