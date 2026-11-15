@@ -13,6 +13,7 @@ from statistics import median
 from typing import Any
 
 from gold_trading.analysts.indicators import atr, ema, rsi
+from gold_trading.analysts.patterns import double_patterns, recent_patterns
 from gold_trading.analysts.technical_ext import alignment, ewma_vol, mtf_context
 from gold_trading.common.enums import SourceStatus
 from gold_trading.contracts.analyst import AnalystOutput
@@ -21,7 +22,7 @@ from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
-VERSION = "technical-1.4.0"  # 1.4.0: vol_forecast EWMA (TEC-07) + bối cảnh H1/H4/D1 (TEC-09)
+VERSION = "technical-1.5.0"  # 1.4.0: vol EWMA + H1/H4/D1 (TEC-07/09); 1.5.0: mẫu hình (TEC-06)
 ANALYST_ID = "technical"
 WINDOW = 300
 MIN_BARS = 250
@@ -256,6 +257,10 @@ def analyze(
             return None
         return v | {"distance_atr": round(abs(close - v["price"]) / a, 2)}
 
+    atr_w = atr_s[-len(window):]
+    recent = recent_patterns(window, atr_w, spike_bars)
+    last_names = recent[-1]["patterns"] if recent and recent[-1]["open_time"] == \
+        last.open_time.isoformat() else []
     mtf = mtf_context(higher, as_of, calendar)
     align = alignment(trend, mtf)
     input_info["higher_timeframes"] = {
@@ -284,8 +289,16 @@ def analyze(
         "vol_forecast": ewma_vol([c.close for c in window]),
         "mtf": mtf,
         "mtf_alignment": align,
+        # TEC-06 (1.5.0): mô tả, không phải tín hiệu
+        "patterns": {"recent": recent, "last_bar": last_names,
+                     **double_patterns(swings, a, {c.open_time: i for i, c in enumerate(window)}),
+                     "note": "mẫu hình theo luật sách vở, chưa hiệu chỉnh — không phải tín hiệu"},
     }
     drivers = [f"TREND_{trend}", f"STRUCTURE_{features['structure']}", f"MTF_{align}"]
+    drivers += [f"PATTERN_{n}" for n in last_names]
+    for key in ("double_top", "double_bottom"):
+        if features["patterns"][key]:
+            drivers.append(f"PATTERN_{key.upper()}")
     if rv >= 70:
         drivers.append("RSI_OVERBOUGHT")
     elif rv <= 30:

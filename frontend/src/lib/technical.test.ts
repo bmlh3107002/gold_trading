@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import dict from "../i18n/vi";
-import { BLOCKING_FLAGS, NOTICE_FLAGS, readTechnical } from "./technical";
+import { BLOCKING_FLAGS, NOTICE_FLAGS, PATTERNS, readTechnical } from "./technical";
 
 describe("readTechnical", () => {
   it("bỏ qua giá trị sai kiểu thay vì đoán", () => {
@@ -27,6 +27,16 @@ describe("TEC-07 / TEC-09", () => {
     expect(f.mtfAlignment).toBe("ALIGNED_UP");
     expect(f.mtf.map((m) => m.trend)).toEqual(["UP", null, null]);
     expect(readTechnical({ mtf_alignment: "MAGIC" }).mtfAlignment).toBeNull();
+  });
+});
+
+describe("TEC-06", () => {
+  it("chỉ nhận tên mẫu đã biết, mỗi tên có nhãn tiếng Việt", () => {
+    const f = readTechnical({ patterns: { last_bar: ["HAMMER", "MOON"], double_top: { first: "x" } } });
+    expect(f.lastPatterns).toEqual(["HAMMER"]);
+    expect(f.doubleTop).toBe(true);
+    expect(f.doubleBottom).toBe(false);
+    for (const p of PATTERNS) expect(dict.technical.patternName[p as keyof typeof dict.technical.patternName]).toBeTruthy();
   });
 });
 

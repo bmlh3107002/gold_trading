@@ -23,6 +23,9 @@ export interface TechnicalFeatures {
   volDayPct: number | null;
   mtfAlignment: "ALIGNED_UP" | "ALIGNED_DOWN" | "CONFLICT" | "MIXED" | "NOT_EVALUATED" | null;
   mtf: { tf: string; trend: "UP" | "DOWN" | "FLAT" | null; status: string }[];
+  lastPatterns: string[];
+  doubleTop: boolean;
+  doubleBottom: boolean;
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -39,6 +42,8 @@ function level(v: unknown): Level | null {
   if (price == null || low == null || high == null || touches == null) return null;
   return { price, low, high, touches, distance_atr: num(o.distance_atr) ?? undefined };
 }
+
+export const PATTERNS = ["BULLISH_ENGULFING", "BEARISH_ENGULFING", "HAMMER", "SHOOTING_STAR", "DOJI", "INSIDE_BAR"];
 
 export function readTechnical(features: Record<string, unknown> | undefined): TechnicalFeatures {
   const f = features ?? {};
@@ -58,6 +63,12 @@ export function readTechnical(features: Record<string, unknown> | undefined): Te
     coverage: num(input.coverage),
     volDayPct: num((f.vol_forecast as Record<string, unknown> | undefined)?.sigma_day_pct),
     mtfAlignment: oneOf(f.mtf_alignment, ["ALIGNED_UP", "ALIGNED_DOWN", "CONFLICT", "MIXED", "NOT_EVALUATED"] as const),
+    lastPatterns: (() => {
+      const p = f.patterns && typeof f.patterns === "object" ? (f.patterns as Record<string, unknown>) : {};
+      return Array.isArray(p.last_bar) ? p.last_bar.filter((x): x is string => typeof x === "string" && PATTERNS.includes(x)) : [];
+    })(),
+    doubleTop: !!(f.patterns && typeof f.patterns === "object" && (f.patterns as Record<string, unknown>).double_top),
+    doubleBottom: !!(f.patterns && typeof f.patterns === "object" && (f.patterns as Record<string, unknown>).double_bottom),
     mtf: ["H1", "H4", "D1"].map((tf) => {
       const v = (f.mtf && typeof f.mtf === "object" ? (f.mtf as Record<string, unknown>)[tf] : null) as Record<string, unknown> | null;
       return {

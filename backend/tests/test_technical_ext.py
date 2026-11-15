@@ -125,7 +125,7 @@ def test_runner_feeds_higher_timeframes_and_is_deterministic():
     assert r.run_feed(market.feed, NOW) is True
     o = out.latest("technical", symbol="XAUUSD", tf=Timeframe.M15, source=DataSource.CSV).output
     f = o.features
-    assert o.version == "technical-1.4.0" and f"MTF_{f['mtf_alignment']}" in o.drivers
+    assert o.version == technical.VERSION and f"MTF_{f['mtf_alignment']}" in o.drivers
     assert f["mtf"]["H1"]["status"] == "OK" and f["mtf"]["H1"]["trend"] == "UP"
     assert f["vol_forecast"]["sigma_bar_pct"] > 0
     assert f["input"]["higher_timeframes"]["H4"][0] == "OK"

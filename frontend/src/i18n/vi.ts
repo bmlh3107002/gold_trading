@@ -575,6 +575,18 @@ const vi = {
     volDayTip: "Độ lệch chuẩn lợi suất 1 ngày theo EWMA λ=0,94 (RiskMetrics) trên nến M15 — luật cố định, không phải mô hình đã kiểm định, không phải xác suất.",
     mtf: "Khung lớn (H1 · H4 · D1)",
     mtfTip: "Xu hướng từng khung lớn theo cùng luật với M15, chỉ dùng nến đã đóng. Khung thiếu / cũ / chưa đủ lịch sử hiện “—”.",
+    patterns: "Mẫu hình nến gần nhất",
+    patternsTip: "Theo luật sách vở, chỉ trên nến đã đóng; chưa hiệu chỉnh — mô tả, không phải tín hiệu mua/bán.",
+    patternName: {
+      BULLISH_ENGULFING: "Nhấn chìm tăng",
+      BEARISH_ENGULFING: "Nhấn chìm giảm",
+      HAMMER: "Búa",
+      SHOOTING_STAR: "Sao băng",
+      DOJI: "Doji",
+      INSIDE_BAR: "Inside bar",
+    },
+    doubleTop: "Đỉnh đôi",
+    doubleBottom: "Đáy đôi",
     mtfAlignment: {
       ALIGNED_UP: "Cùng chiều tăng",
       ALIGNED_DOWN: "Cùng chiều giảm",

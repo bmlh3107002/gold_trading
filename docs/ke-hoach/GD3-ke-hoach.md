@@ -38,7 +38,7 @@
 
 ### Bước 7 — Technical còn lại (TEC-05, TEC-06, TEC-07, TEC-09)
 - [x] 7a — TEC-07 + TEC-09 (2026-11-14: `technical-1.4.0`; replay GĐ2 khớp 96/96)
-- [ ] 7b — TEC-06 mẫu hình nến
+- [x] 7b — TEC-06 mẫu hình nến (2026-11-15: Technical 1.5.0; pandas khớp 1.811 nến; không nhìn trước)
 - [ ] 7c — TEC-05 báo cáo ngưỡng R3/R5 trên dữ liệu thật
 - Ghi chú gốc: TEC-05 theo dõi R3/R5 trên dữ liệu thật; TEC-07 `volForecast` bằng luật (ghi rõ không phải mô hình); TEC-09 đa khung H1/H4/D1; TEC-06 mẫu hình (chỉ sau khi đủ nến xác nhận)
 

@@ -139,6 +139,15 @@ export function TechnicalCard({ data, loading, onRetry }: Props) {
                 </span>
                 {f.mtfAlignment && <div className="metric__hint">{t(`technical.mtfAlignment.${f.mtfAlignment}`)}</div>}
               </Item>
+              <Item label={t("technical.patterns")} tip={t("technical.patternsTip")}>
+                {f.lastPatterns.length || f.doubleTop || f.doubleBottom
+                  ? [
+                      ...f.lastPatterns.map((p) => t(`technical.patternName.${p as "DOJI"}`)),
+                      ...(f.doubleTop ? [t("technical.doubleTop")] : []),
+                      ...(f.doubleBottom ? [t("technical.doubleBottom")] : []),
+                    ].join(" · ")
+                  : "—"}
+              </Item>
               <Item label={t("technical.support")} tip={t("technical.levelTip")}>
                 {levelText(f.nearest_support)}
               </Item>

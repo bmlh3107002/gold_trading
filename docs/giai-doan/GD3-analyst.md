@@ -23,7 +23,7 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 | TEC-03 | Xu hướng, cấu trúc, swing, vùng S/R (`technical-1.2.0`) | `[x]` | `docs/thiet-ke/03-technical-analyst.md` |
 | TEC-04 | Lưu, API, thẻ giao diện; confidence = chất lượng dữ liệu | `[x]` | |
 | TEC-05 | Theo dõi ngưỡng R3/R5 trên dữ liệu thật vài ngày | `[!]` | |
-| TEC-06 | Pattern giá/nến | `[ ]` | Không rò rỉ tương lai |
+| TEC-06 | Pattern giá/nến | `[x]` | 2026-11-15: `technical-1.5.0` — 6 mẫu nến + đỉnh/đáy đôi từ swing đã xác nhận; không nhìn trước (test + soát 152 thời điểm), pandas độc lập khớp 1.811 nến (thiết kế 03 §10) |
 | TEC-07 | `volForecast` bằng luật (ATR/EWMA), ghi rõ không phải mô hình | `[x]` | 2026-11-14: `technical-1.4.0` — EWMA λ=0,94, σ nến + σ ngày, ghi rõ luật không phải mô hình (thiết kế 03 §9) |
 | TEC-09 | Bối cảnh đa khung (H1/H4/D1) | `[x]` | 2026-11-14: `technical-1.4.0` — xu hướng H1/H4/D1 cùng luật M15, nến đóng trước `as_of`, cũ theo phút thị trường mở, `mtf_alignment` |
 | **Event & calendar** | | | |
@@ -63,6 +63,8 @@ Hợp đồng chung (`contracts/analyst.py`): `analystId`, `asOf`, `expiresAt`, 
 **Gate GĐ3:** đủ 6 analyst có thiết kế + test case + thẻ giao diện; chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input.
 
 ### Nhật ký GĐ3
+
+- **2026-11-15** — **Bước 7b: TEC-06 mẫu hình (Technical 1.5.0).** `analysts/patterns.py`; 10 test; soát pandas 1.811/1.811, không nhìn trước 152/152. Mẫu dày trên dữ liệu mẫu → chỉ mô tả. Thẻ Phân tích kỹ thuật: "Mẫu hình nến gần nhất". Backend 2026, frontend 116.
 
 - **2026-11-14** — **Bước 7a: Technical 1.4.0 (TEC-07, TEC-09).** EWMA vol + bối cảnh H1/H4/D1 (thiết kế 03 §9); khung lớn nạp trong `TechnicalRunner` → replay GĐ2 dùng cùng đầu vào. 14 test. **Lỗi tìm được:** `datetime` trong đặc trưng làm Technical lỗi khi lưu — đã sửa trước khi lên máy. Soát Postgres: 0 nhìn trước, replay 96/96 khớp, σ khớp numpy/pandas. Thẻ Phân tích kỹ thuật thêm "Biến động dự kiến 1 ngày" + "Khung lớn". Backend 2016, frontend 115. Còn bước 7: TEC-06 (mẫu hình), TEC-05 (báo cáo ngưỡng R3/R5).
 
