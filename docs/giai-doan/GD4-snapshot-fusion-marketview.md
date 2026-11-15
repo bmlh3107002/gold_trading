@@ -1,7 +1,15 @@
 # GĐ4 — Snapshot → Data Quality Gate → Fusion → MarketView (đặc tả 05)
 
+> **Bắt đầu 2026-11-15 song song GĐ1 + GĐ2 + GĐ3 (DEC-23).** Kế hoạch (sẽ viết ở phiên mới): `docs/ke-hoach/GD4-ke-hoach.md`. Prompt khởi động: `docs/prompts/GD4-bat-dau.md`.
+>
 > Một phần của bản đồ việc theo giai đoạn (tách từ `CHECKLIST.md` 2026-11-06). Chỉ mục, nguyên tắc và bất biến: [`README.md`](README.md). Trạng thái chung: `PROGRESS.md`. Ghi chú kỹ thuật: `docs/ghi-chu-ky-thuat.md`.
 
+
+### Quyết định GĐ4
+
+| Mã | Câu hỏi | Người dùng chốt | TT |
+| --- | --- | --- | --- |
+| DEC-23 | Bắt đầu GĐ4 khi GĐ1/GĐ2/GĐ3 chỉ còn kiểm trên máy / chờ ngày | Người dùng 2026-11-15: **có, làm kế hoạch trước, ở phiên chat mới**. Ngoại lệ có chủ ý cho "đi sạch từng giai đoạn" (như DEC-19, DEC-22). **Không đóng GĐ4 trước GĐ1 → GĐ2 → GĐ3**; việc kiểm trên máy của các giai đoạn trước được ưu tiên | `[x]` 2026-11-15 |
 
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
