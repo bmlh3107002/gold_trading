@@ -50,7 +50,15 @@ def _check_price_scope(price_scope: Scope) -> None:
 
 
 def _belongs(out: AnalystOutput, scope: Scope) -> bool:
-    return f":{scope.key}:" in out.output_id
+    """Kiểm phạm vi qua ``output_id`` — chỉ dùng khi KHÔNG có phạm vi từ kho (gọi trực tiếp).
+
+    Technical có trước khung chung: ``technical:<ver>:<SRC>:<SYM>:<TF>:...`` — không có feed trong
+    id nên chỉ kiểm được nguồn / mã / khung (soát 5b, 2026-11-15). Đường chính (``collect`` /
+    ``rebuild``) kiểm bằng cột phạm vi trong kho."""
+    if f":{scope.key}:" in out.output_id:
+        return True
+    legacy = f"technical:{out.version}:{scope.source}:{scope.symbol}:{scope.timeframe}:"
+    return out.analyst_id == "technical" and out.output_id.startswith(legacy)
 
 
 def snapshot_id(price_scope: Scope, manifest: Mapping[str, str],
@@ -66,8 +74,10 @@ def build_snapshot(
     at: datetime,
     *,
     required: frozenset[str] = REQUIRED,
+    scopes: Mapping[str, Scope] | None = None,
 ) -> Snapshot:
-    """``latest``: analyst → output **mới nhất đã biết tại ``at``** (đã lọc ``known_by``)."""
+    """``latest``: analyst → output **mới nhất đã biết tại ``at``** (đã lọc ``known_by``).
+    ``scopes``: phạm vi kho đã dùng để đọc từng output (cột trong kho) — có thì kiểm bằng nó."""
     _check_price_scope(price_scope)
     used: dict[str, AnalystOutput] = {}
     excluded: dict[str, str] = {}
@@ -75,7 +85,9 @@ def build_snapshot(
         out = latest[analyst_id]
         if out.analyst_id != analyst_id:
             raise ValueError(f"output {out.output_id!r} không phải của {analyst_id!r}")
-        if not _belongs(out, scope_for(analyst_id, price_scope)):
+        want = scope_for(analyst_id, price_scope)
+        ok = scopes[analyst_id] == want if scopes is not None else _belongs(out, want)
+        if not ok:
             raise ValueError(f"output {out.output_id!r} không thuộc phạm vi {price_scope.key!r}")
         if out.as_of > at:
             raise ValueError(f"nhìn trước tương lai: {out.output_id!r} có as_of > {at.isoformat()}")
@@ -108,20 +120,24 @@ def build_snapshot(
 
 
 def collect(out_store, price_scope: Scope, at: datetime,
-            analysts: Iterable[str] = ANALYSTS) -> dict[str, AnalystOutput]:
-    """Output mới nhất đã ghi trước ``at`` cho mỗi analyst (``latest_scoped(known_by=at)``)."""
+            analysts: Iterable[str] = ANALYSTS) -> tuple[dict[str, AnalystOutput],
+                                                          dict[str, Scope]]:
+    """Output mới nhất đã ghi trước ``at`` cho mỗi analyst (``latest_scoped(known_by=at)``) + phạm
+    vi kho đã đọc (lọc theo cột ``symbol / timeframe / source / feed_id``)."""
     _check_price_scope(price_scope)
     found: dict[str, AnalystOutput] = {}
+    scopes: dict[str, Scope] = {}
     for a in analysts:
         got = out_store.latest_scoped(a, scope_for(a, price_scope), known_by=at)
         if got is not None:
-            found[a] = got.output
-    return found
+            found[a], scopes[a] = got.output, got.scope
+    return found, scopes
 
 
 def snapshot_at(out_store, price_scope: Scope, at: datetime, *,
                 required: frozenset[str] = REQUIRED) -> Snapshot:
-    return build_snapshot(collect(out_store, price_scope, at), price_scope, at, required=required)
+    found, scopes = collect(out_store, price_scope, at)
+    return build_snapshot(found, price_scope, at, required=required, scopes=scopes)
 
 
 @dataclass(frozen=True)
@@ -160,14 +176,15 @@ def rebuild(record: SnapshotRecord, out_store, *,
             f"phiên bản bộ dựng khác: {record.builder_version} ≠ {BUILDER_VERSION}")
     scope = record.price_scope
     latest: dict[str, AnalystOutput] = {}
+    scopes: dict[str, Scope] = {}
     for a, oid in {**record.input_manifest, **record.excluded_inputs}.items():
         got = out_store.get_scoped(oid, scope_for(a, scope))
         if got is None:
             raise SnapshotRebuildError(f"không còn output {oid!r} của {a!r}")
         if got.computed_at > record.available_at:
             raise SnapshotRebuildError(f"output {oid!r} được ghi sau available_at")
-        latest[a] = got.output
-    snap = build_snapshot(latest, scope, record.available_at, required=required)
+        latest[a], scopes[a] = got.output, got.scope
+    snap = build_snapshot(latest, scope, record.available_at, required=required, scopes=scopes)
     if SnapshotRecord.of(snap) != record:
         raise SnapshotRebuildError(f"tái dựng lệch nội dung: {record.snapshot_id}")
     return snap

@@ -23,7 +23,7 @@
 
 ## 3. Snapshot (bước 2)
 
-- Mỗi analyst: output mới nhất `latest_scoped(scope, known_by=at)` còn hiệu lực tại `at`. Không có → vắng mặt (Quality Gate quyết).
+- Mỗi analyst: output mới nhất `latest_scoped(scope, known_by=at)` còn hiệu lực tại `at`. **Phạm vi kiểm bằng cột trong kho** (`symbol / timeframe / source / feed_id`), không qua `output_id`: Technical có id kiểu cũ không chứa feed (soát 5b). Không có → vắng mặt (Quality Gate quyết).
 - `available_at = at`; `event_time = max(as_of)` các output đã chọn; `expires_at = min(expires_at)` các output **bắt buộc** đã chọn.
 - `input_manifest = {analyst: output_id}` (+ phiên bản). Output analyst đã **chỉ-thêm** (trigger 0003) → tái dựng được từ manifest; mất một output → tái dựng **báo lỗi**, không đoán.
 - `snapshot_id` xác định: `snap:<scope.key>:<16 ký tự sha256(manifest)>` → cùng đầu vào cùng id (idempotent khi replay).
@@ -95,9 +95,9 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 
 ## 7. Khi nào sinh / hết hạn / vô hiệu (bước 5)
 
-- Job `FUSION` (debounce) sau khi Technical / Regime / Event / Macro / Positioning / News có kết quả mới; Quality Gate `REJECTED` → không sinh MarketView (lưu báo cáo) **và vô hiệu MarketView hiện hành của nguồn giá đó** (lý do `QUALITY_REJECTED`) — nếu không, MarketView cũ tạo lúc nguồn còn khỏe vẫn dùng được tới hết hạn (tìm thấy khi thiết kế 5a).
+- **Việc mỗi nhịp của orchestrator** (`FusionRunner.tick`, 5b) — chạy SAU mọi job analyst của nhịp (job `FUSION` trong bảng định tuyến sẽ chạy trước `REGIME` / `TECHNICAL` cùng sự kiện vì bộ điều phối sắp theo chữ cái); không đổi snapshot + báo cáo thì không ghi. Quality Gate `REJECTED` → không sinh MarketView (lưu báo cáo) **và vô hiệu MarketView hiện hành của nguồn giá đó** (lý do `QUALITY_REJECTED`) — nếu không, MarketView cũ tạo lúc nguồn còn khỏe vẫn dùng được tới hết hạn (tìm thấy khi thiết kế 5a).
 - Lưu (5a, migration 0020): `market_views` + `market_view_invalidations` chỉ-thêm, khóa ngoại tới snapshot + báo cáo Gate. `current(nguồn giá, at)` = MarketView mới nhất đã biết, còn hạn, chưa bị vô hiệu tới `at`; ngược lại không có — không lùi về bản cũ.
-- `OUTPUT_EXPIRED` của analyst bắt buộc mà chưa có kết quả mới → `INVALIDATE_MARKETVIEW` (ghi vô hiệu chỉ-thêm). Phía dùng chỉ lấy MarketView **còn hạn và chưa bị vô hiệu** của đúng nguồn giá; không có → không tín hiệu (2-C06).
+- `OUTPUT_EXPIRED` → job `INVALIDATE_MARKETVIEW` (`fusion-job-1`): tính lại ngay cho nguồn bị ảnh hưởng (analyst toàn cục → mọi nguồn) → bắt buộc hết hạn thì Gate `REJECTED` → vô hiệu nếu MarketView còn hạn. Thường MarketView đã tự hết hạn cùng output bắt buộc (hạn = sớm nhất của chúng). Phía dùng chỉ lấy MarketView **còn hạn và chưa bị vô hiệu** của đúng nguồn giá; không có → không tín hiệu (2-C06).
 - Strategy kiểm `expires_at` lúc tạo intent; Risk kiểm lại lúc quyết (đã có — `MARKET_VIEW_EXPIRED`) (4-C05).
 
 ## 8. Giới hạn đã biết

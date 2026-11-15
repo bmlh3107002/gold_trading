@@ -279,3 +279,44 @@ def test_migration_is_append_only():
            ).read_text(encoding="utf-8")
     assert "market_snapshots" in src and "forbid_mutation" in src
     assert "create_hypertable" not in src
+
+
+# ---------- Hồi quy soát 5b: Technical có mã cũ (không có feed trong id) ----------
+
+def legacy_technical(t, source="MT5", tag="t"):
+    oid = f"technical:technical-1.5.0:{source}:XAUUSD:M15:{t.isoformat()}:{tag:0<16}"
+    return AnalystOutput(output_id=oid, analyst_id="technical", as_of=t,
+                         expires_at=t + minutes(17), confidence=0.9,
+                         source_status=SourceStatus.HEALTHY, version="technical-1.5.0",
+                         correlation_id="c")
+
+
+def test_real_technical_legacy_id_is_accepted_via_store(stores, t0):
+    from gold_trading.contracts.candle import DataSource
+    from gold_trading.market.timeframes import Timeframe
+    outs, snaps = stores
+    for o in full_set(t0 - minutes(1)).values():
+        if o.analyst_id != "technical":
+            put(outs, o, FEED_A, t0 - minutes(1))
+    tech_a, tech_b = legacy_technical(t0 - minutes(1)), legacy_technical(t0 - minutes(1), tag="b")
+    outs.append(tech_a, symbol="XAUUSD", tf=Timeframe.M15, source=DataSource.MT5,
+                computed_at=t0 - minutes(1), feed="feed-a")       # đường lưu cũ của Technical
+    outs.append(tech_b, symbol="XAUUSD", tf=Timeframe.M15, source=DataSource.MT5,
+                computed_at=t0 - minutes(1), feed="feed-b")
+    s = snapshot_at(outs, FEED_A, t0)
+    assert s.input_manifest["technical"] == tech_a.output_id       # đúng feed theo cột kho
+    snaps.append(SnapshotRecord.of(s))
+    assert rebuild(snaps.get(s.snapshot_id), outs) == s
+
+
+def test_legacy_technical_id_direct_call_checks_source(t0):
+    ok = legacy_technical(t0)
+    assert "technical" in build_snapshot({"technical": ok}, FEED_A, t0).input_manifest
+    with pytest.raises(ValueError, match="phạm vi"):
+        build_snapshot({"technical": legacy_technical(t0, source="CSV")}, FEED_A, t0)
+
+
+def test_explicit_scopes_mismatch_rejected(t0):
+    o = out("technical", FEED_A, t0)
+    with pytest.raises(ValueError, match="phạm vi"):
+        build_snapshot({"technical": o}, FEED_A, t0, scopes={"technical": FEED_B})

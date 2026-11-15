@@ -49,6 +49,7 @@ from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.external_runner import ExternalSourceRunner, runner_from_env
 from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.sample_feed import SampleFeed
+from gold_trading.intelligence.fusion_runner import FusionRunner, invalidate_handler
 from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
 from gold_trading.market.quotes import QuoteIngestor, QuoteStore
 from gold_trading.market.service import MarketDataService
@@ -69,6 +70,7 @@ from gold_trading.storage.analyst_outputs import (
 )
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
 from gold_trading.storage.external_records import SqlExternalRecordStore
+from gold_trading.storage.market_views import InMemoryMarketViewStore, SqlMarketViewStore
 from gold_trading.storage.news_llm import InMemoryNewsLlmStore, SqlNewsLlmStore
 from gold_trading.storage.orchestrator import SqlOrchestratorStore
 from gold_trading.storage.quotes import InMemoryQuoteStore, SqlQuoteStore
@@ -79,6 +81,12 @@ from gold_trading.storage.repository import (
     SqlRepository,
 )
 from gold_trading.storage.risk_blocks import SqlBlockStore
+from gold_trading.storage.snapshots import (
+    InMemoryQualityReportStore,
+    InMemorySnapshotStore,
+    SqlQualityReportStore,
+    SqlSnapshotStore,
+)
 from gold_trading.storage.source_checks import SqlSourceCheckLog
 
 POLICY_VERSION = "policy-0.1.0"
@@ -341,6 +349,11 @@ def create_app(
 
     # GĐ2 bước 3 (ORC-01): Event Orchestrator thay vòng Technical 15 giây (GT_ORCHESTRATOR=0 →
     # quay về runner cũ). Sự kiện suy ra từ dữ liệu đã lưu; nhật ký sự kiện / job trong DB.
+    # GĐ4 bước 5: kho MarketView (đọc ở API bước 6). Không có orchestrator → kho rỗng → không có
+    # MarketView → không có tín hiệu (mặc định an toàn).
+    _mv_engine = getattr(repo, "engine", None)
+    market_views = (SqlMarketViewStore(_mv_engine) if _mv_engine is not None
+                    else InMemoryMarketViewStore())
     orchestrator: OrchestratorRunner | None = None
     news_worker: NewsLlmWorker | None = None
     if runner is not None and orchestrator_enabled(os.environ):
@@ -382,6 +395,15 @@ def create_app(
                                    llm_status=news_llm_status, model=news_model,
                                    budget=news_budget)
         news_worker.on_result = news_analyst.after_llm
+        # GĐ4 bước 5b: Snapshot → Quality Gate → Fusion → MarketView, mỗi nhịp SAU các job analyst
+        # (thiết kế 33 mục 7). Không có MarketView còn hạn → không có tín hiệu.
+        fusion_runner = FusionRunner(
+            market=market, out_store=analyst_store,
+            snapshot_store=SqlSnapshotStore(engine) if engine is not None
+            else InMemorySnapshotStore(),
+            report_store=SqlQualityReportStore(engine) if engine is not None
+            else InMemoryQualityReportStore(),
+            view_store=market_views, active_feeds=active_feeds)
         orchestrator = OrchestratorRunner(
             orch=orch_store, candle_store=candle_store, record_store=record_store,
             analyst_store=analyst_store,
@@ -399,10 +421,13 @@ def create_app(
                       "NEWS": news_handler(news_analyst),
                       # GĐ2 4b (FAST-01..03): số liệu vừa ra + thông cáo Fed → lệnh cấm có hạn
                       "FAST_LANE": fast_lane_handler(block_store, record_store,
-                                                     market.calendar, monitor=fast_monitor)},
+                                                     market.calendar, monitor=fast_monitor),
+                      # GĐ4 bước 5b (ORC-07): output hết hạn → tính lại / vô hiệu MarketView
+                      "INVALIDATE_MARKETVIEW": invalidate_handler(fusion_runner)},
             blocked=clock.ingest_block_reason, monitor=fast_monitor,
             periodic=(event_analyst.ensure_fresh, macro_analyst.ensure_fresh,
-                      positioning_analyst.ensure_fresh, news_analyst.ensure_fresh))
+                      positioning_analyst.ensure_fresh, news_analyst.ensure_fresh,
+                      fusion_runner.tick))
         fast_lane["monitor"] = fast_monitor
 
     @asynccontextmanager
