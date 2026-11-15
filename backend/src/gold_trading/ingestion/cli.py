@@ -118,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     tin = sub.add_parser("tin", help="Tải tin RSS chính thức một lần + in tin mới (ING-10/21)")
     tin.add_argument("--dry-run", action="store_true", help="Chỉ tải và in, không ghi DB")
     tin.add_argument("--hours", type=int, default=72, help="In tin mới trong N giờ (mặc định 72)")
+    kmv = sub.add_parser("kiem-mv", help="Kiểm MarketView: tái dựng + độ phủ (Gate GĐ4, chỉ đọc)")
+    kmv.add_argument("--hours", type=int, default=24, help="Số giờ gần nhất (mặc định 24, ≤ 168)")
     sub.add_parser("dung-luong", help="Dung lượng từng bảng + ước tính 1 năm (ING-33, chỉ đọc)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
     lich.add_argument("--days", type=int, default=14, help="Số ngày tới (mặc định 14)")
@@ -128,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         return _h15(args.dry_run)
     if args.cmd == "nguong":
         return _nguong(args.days)
+    if args.cmd == "kiem-mv":
+        return _kiem_mv(args.hours)
     if args.cmd == "h15-bu":
         return _h15_backfill(args.dry_run, args.days)
     if args.cmd == "cot-bu":
@@ -545,6 +549,32 @@ def _nguong(days: int, env=None, repo=None, candle_store=None, record_store=None
         print("\n".join(QR.render(rep, f"{srv} / {sym}")))
     print("Gửi toàn bộ nội dung này cho người phát triển để quyết có đổi ngưỡng hay không.")
     return 0
+
+
+def _kiem_mv(hours: int, env=None, engine=None, now=None, calendar=None) -> int:
+    """GĐ4 bước 7 (Gate): tái dựng mọi MarketView trong ``hours`` giờ + độ phủ. Chỉ đọc."""
+    from gold_trading.intelligence.audit import audit, render
+    from gold_trading.storage.analyst_outputs import SqlAnalystOutputStore
+    from gold_trading.storage.market_views import SqlMarketViewStore
+    from gold_trading.storage.snapshots import SqlQualityReportStore, SqlSnapshotStore
+
+    env = os.environ if env is None else env
+    if engine is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        engine = SqlRepository.from_url(url).engine
+    if calendar is None:
+        from gold_trading.api.app import calendar_from_env
+        calendar = calendar_from_env(DataSource.MT5)   # giờ báo giá của broker (như backend)
+    now = now or utcnow()
+    hours = max(1, min(hours, 168))
+    res = audit(SqlMarketViewStore(engine), SqlSnapshotStore(engine),
+                SqlQualityReportStore(engine), SqlAnalystOutputStore(engine),
+                since=now - timedelta(hours=hours), now=now, calendar=calendar)
+    print("\n".join(render(res)))
+    return 0 if res.ok else 1
 
 
 class _ReadOnly:

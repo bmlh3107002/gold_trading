@@ -68,6 +68,7 @@ class MarketViewStore(Protocol):
                    ) -> bool: ...
     def latest(self, scope: Scope, *, known_by: datetime) -> StoredView | None: ...
     def current(self, scope: Scope, at: datetime) -> MarketView | None: ...
+    def computed_between(self, lo: datetime, hi: datetime) -> list[StoredView]: ...
 
 
 class InMemoryMarketViewStore:
@@ -108,6 +109,18 @@ class InMemoryMarketViewStore:
 
     def current(self, scope, at):
         return usable(self.latest(scope, known_by=at), at)
+
+    def computed_between(self, lo, hi):
+        """MarketView có ``lo < computed_at <= hi`` + vô hiệu đã biết tới ``hi`` (kiểm Gate GĐ4)."""
+        with self._lock:
+            rows = [sv for sv in self._views.values() if lo < sv.computed_at <= hi]
+            inv = dict(self._inv)
+        out = []
+        for sv in rows:
+            i = inv.get(sv.view.market_view_id)
+            out.append(_visible(StoredView(sv.view, sv.report_id, sv.computed_at, *i), hi)
+                       if i else sv)
+        return sorted(out, key=lambda r: (r.computed_at, r.view.market_view_id))
 
 
 def _utc(v: datetime) -> datetime:
@@ -180,3 +193,18 @@ class SqlMarketViewStore:
 
     def current(self, scope, at):
         return usable(self.latest(scope, known_by=at), at)
+
+    def computed_between(self, lo, hi):
+        """MarketView có ``lo < computed_at <= hi`` + vô hiệu đã biết tới ``hi`` (kiểm Gate GĐ4)."""
+        c, i = market_views.c, market_view_invalidations.c
+        q = (select(c.payload, c.report_id, c.computed_at, i.invalidated_at, i.reason, i.ref)
+             .select_from(market_views.outerjoin(
+                 market_view_invalidations, i.market_view_id == c.market_view_id))
+             .where(c.computed_at > lo, c.computed_at <= hi)
+             .order_by(c.computed_at, c.market_view_id))
+        with self.engine.connect() as conn:
+            rows = conn.execute(q).all()
+        return [_visible(StoredView(MarketView.model_validate(m.payload), m.report_id,
+                                    _utc(m.computed_at),
+                                    _utc(m.invalidated_at) if m.invalidated_at else None,
+                                    m.reason, m.ref or ""), hi) for m in rows]

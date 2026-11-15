@@ -106,6 +106,10 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 - `GET /api/accounts/{id}/market-view/latest` (chủ tài khoản, nguồn giá của tài khoản): `market_view` (còn hiệu lực hoặc `null`), `state` (VALID / NONE / EXPIRED / INVALIDATED / NO_SOURCE), hạn / thời điểm của bản mới nhất, lý do vô hiệu, báo cáo Gate mới nhất (`verdict`, lý do), `is_sample`, `rules_validated = false`. `/status` của tài khoản trả cùng MarketView còn hiệu lực.
 - Thẻ "Nhận định thị trường": mất kết nối → không hiện bản cũ; quá `expires_at` theo đồng hồ trình duyệt → hết hạn; đổi tài khoản → làm mới; mã lý do dịch từ tập khóa đã biết, mã lạ hiện nguyên mã.
 
+## 7c. Kiểm Gate (bước 7) — `cli kiem-mv` (chỉ đọc)
+
+`intelligence/audit.py`: mỗi MarketView trong N giờ → `rebuild` snapshot → `evaluate` tại `evaluated_at` của báo cáo đã lưu (phải bằng) → `fuse` (phải bằng MarketView đã lưu, trừ `as_of` / `expires_at` kiểm theo luật hạn) → không output nào `as_of` sau MarketView. Độ phủ: từng phút giờ mở (lịch broker) có MarketView hiện hành hợp lệ không (cùng luật với `current`); khoảng trống ≥ 30 phút liệt kê. Lỗi → mã thoát 1.
+
 ## 8. Giới hạn đã biết
 
 - Mọi ngưỡng / hệ số (0,9; 0,5; `k ≥ 2`; trần 30 phút) chưa hiệu chỉnh — xem lại ở GĐ6 (backtest) / GĐ7.
