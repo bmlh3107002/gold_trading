@@ -45,3 +45,7 @@
 ## 7. Kiểm chứng
 
 42 test (bộ nhớ + SQLite): chế độ miễn phí, mặc định không tốn tiền (ngân sách 0 → không gọi dù có khóa), không khóa → tắt, hình dạng yêu cầu (bài trong thẻ, schema, fallback, effort, không tham số cấm), chỉ gọi tin liên quan + chi phí tính tay (1.500 × 4 + 300 × 20 → 0,012 USD), tổng hợp + NEWS_SHOCK, 3-C10 (tin "ignore all previous instructions" bị loại dù mô hình nói sạch), trích dẫn phải nguyên văn, từ chối / cắt cụt / không JSON / lỗi mạng, thử lại có giãn cách rồi bỏ, lỗi khóa dừng luồng, trần ngày / tháng, giá mô hình lạ, tin quá dài không gửi, point-in-time, tin > 48 giờ không đọc, sổ chỉ-thêm, router, bộ xử lý không gọi Claude, API. **Lỗi tìm được khi viết test:** phản hồi không ghi mô hình phục vụ → bị tính theo giá cao nhất (10 thay vì 4 USD/MTok) — đã sửa. **Soát Postgres:** migration lên / xuống / lên, 8 luồng ghi trùng → 1, trigger chặn sửa / xóa, ràng buộc chặn trạng thái lạ, 1.000 chi phí nhỏ cộng đúng tuyệt đối (Decimal), luồng đọc tin: không khóa / ngân sách 0 → 0 lần gọi.
+
+## 8. `news-1.1.0` (2026-11-15) — 3-C08
+
+Trong 24 giờ có tin **tác động vừa / cao** được đánh giá trái chiều nhau (có cả `BULLISH` lẫn `BEARISH`) → driver `NEWS_CONFLICT`, đặc trưng `conflict = true`, trần confidence 0,5. Tin trái chiều tác động thấp không tính. Test `test_c08_conflicting_news_lowers_confidence`.

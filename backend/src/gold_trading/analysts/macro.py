@@ -34,7 +34,7 @@ from gold_trading.market.timeframes import Timeframe
 log = logging.getLogger("gold_trading.analysts")
 
 ANALYST_ID = "macro"
-VERSION = "macro-1.0.0"
+VERSION = "macro-1.1.0"   # 1.1.0: 3-C04 đầu vào cực đoan → cờ chất lượng + trần confidence 0,5
 HANDLER_VERSION = "macro-job-1"
 
 H15 = "fed_h15"
@@ -229,6 +229,10 @@ def compute(*, repo, candle_store, record_store, scope: Scope, mt5_server: str |
     if stress:
         risk_flags.add("MACRO_STRESS")
         drivers += [f"STRESS:{s}" for s in stress]
+        # 3-C04: thay đổi cực đoan có thể là biến động thật HOẶC dữ liệu lỗi (USD tính từ giá
+        # broker) → vẫn báo stress, nhưng gắn cờ chất lượng + hạ trần confidence.
+        q_flags.update(f"EXTREME_INPUT:{s}" for s in stress)
+        confidence = min(confidence, DEGRADED_CONFIDENCE_CAP)
     if flight:
         risk_flags.add("FLIGHT_TO_SAFETY_PROXY")
     if usd.get("flags"):

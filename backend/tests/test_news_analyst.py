@@ -175,6 +175,38 @@ def test_analyst_aggregates_and_flags_shock(env):
     assert Decimal(f["budget"]["spent_month_usd"]) == Decimal("0.024")
 
 
+def test_c08_conflicting_news_lowers_confidence():
+    """3-C08: hai tin tác động vừa / cao trái chiều trong 24 giờ → NEWS_CONFLICT + trần 0,5;
+    tin trái chiều tác động thấp không tính."""
+    def env_with(results):
+        st, ls = PointInTimeStore(), InMemoryNewsLlmStore()
+        two = item(title="Treasury statement on the dollar",
+                   desc="The dollar strengthened as yields rose. Rates are higher.",
+                   guid="t2", link="https://home.treasury.gov/t2",
+                   pub="Thu, 12 Nov 2026 19:30:00 GMT")
+        N.sync_feed(st, "fed_press", N.parse_feed(rss(FOMC, two)), NOW - timedelta(minutes=30))
+        fomc_r, treasury_r = results
+
+        class ByContent(FakeClient):
+            def _create(self, **kw):
+                self.results = [treasury_r if "Treasury" in kw["messages"][0]["content"]
+                                else fomc_r]
+                return super()._create(**kw)
+
+        c = ByContent()
+        NA.NewsLlmWorker(record_store=st, llm_store=ls, client_factory=lambda: c,
+                         budget=L.Budget(Decimal(20)), now=lambda: NOW).run_once()
+        return NA.compute(st, ls, NOW + timedelta(minutes=1), llm_status=None)
+
+    bear = good(gold_impact="BEARISH", usd_impact="STRONGER", fed_stance="NOT_APPLICABLE",
+                impact="MEDIUM", novelty="ROUTINE",
+                evidence_quote="The dollar strengthened as yields rose.")
+    o = env_with([good(), bear])                     # (kết quả FOMC, kết quả Treasury)
+    assert o.features["conflict"] and "NEWS_CONFLICT" in o.drivers and o.confidence == 0.5
+    weak = env_with([good(), {**bear, "impact": "LOW"}])
+    assert not weak.features["conflict"] and weak.confidence == 1.0
+
+
 def test_c10_injection_never_used_even_if_model_says_clean(env):
     """Tin có câu 'ignore all previous instructions' → luật GĐ1 gắn cờ → kết quả không dùng."""
     c = FakeClient([good(), good(gold_impact="BULLISH", impact="HIGH",

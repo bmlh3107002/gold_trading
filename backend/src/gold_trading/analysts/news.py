@@ -31,7 +31,7 @@ from gold_trading.ingestion.news_tags import tag_record
 log = logging.getLogger("gold_trading.analysts")
 
 ANALYST_ID = "news"
-VERSION = "news-1.0.0"
+VERSION = "news-1.1.0"   # 1.1.0: 3-C08 tin trái chiều → NEWS_CONFLICT + trần 0,5
 HANDLER_VERSION = "news-job-1"
 RELEVANT = frozenset({"FED", "RATES", "INFLATION", "LABOR", "GOLD", "USD", "FISCAL",
                       "GEOPOLITICS"})
@@ -262,6 +262,12 @@ def compute(record_store, llm_store, as_of: datetime, *, llm_status: str | None,
     if shock:
         risk_flags.add("NEWS_SHOCK")
         drivers.append("NEWS_SHOCK")
+    # 3-C08: tin tác động vừa / cao đánh giá trái chiều nhau (cả hỗ trợ lẫn cản vàng) trong 24 giờ
+    strong = {i["gold_impact"] for i in items if i["impact"] in ("MEDIUM", "HIGH")}
+    conflict = {"BULLISH", "BEARISH"} <= strong
+    if conflict:
+        drivers.append("NEWS_CONFLICT")
+        confidence = min(confidence, DEGRADED_CAP)
     features = {
         "mode": "RULES_ONLY" if llm_status else "LLM",
         "items": items[:10],
@@ -270,6 +276,7 @@ def compute(record_store, llm_store, as_of: datetime, *, llm_status: str | None,
         "tone_score": tone if not llm_status else None,
         "tone_note": "tổng (+1 hỗ trợ / −1 cản vàng) × mức tác động 1–3 — không phải xác suất",
         "news_shock": bool(shock),
+        "conflict": conflict,
         "pending": pending, "unprocessed": unprocessed, "excluded": excluded,
         "model": model, "prompt_version": L.PROMPT_VERSION,
         "budget": budget.status(llm_store, as_of),

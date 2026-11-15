@@ -43,7 +43,7 @@
 - Ghi chú gốc: TEC-05 theo dõi R3/R5 trên dữ liệu thật; TEC-07 `volForecast` bằng luật (ghi rõ không phải mô hình); TEC-09 đa khung H1/H4/D1; TEC-06 mẫu hình (chỉ sau khi đủ nến xác nhận)
 
 ### Bước 8 — Gate GĐ3
-- [ ] 6 analyst có thiết kế + test case + thẻ giao diện; mọi case 3-C01..C10 có test
+- [x] 6 analyst có thiết kế + test case + thẻ giao diện; mọi case 3-C01..C10 có test (2026-11-15: bảng case ghi theo từng analyst + tên test; vá Macro 3-C04, News 3-C08)
 - [ ] Chạy song song trên dữ liệu thật ≥ 5 ngày giao dịch; mỗi output truy được về input
 - [ ] **Gate GĐ1 và GĐ2 đã đóng** (DEC-22)
 - [ ] Người dùng xác nhận

@@ -193,7 +193,7 @@ def test_full_output_supportive_when_real_yield_falls(env):
     assert f["macro_bias"] == "SUPPORTIVE" and "REAL_YIELD_10Y_DOWN" in o.drivers
     assert f["fed_proxy"]["status"] in ("OK", "INSUFFICIENT_DATA")
     assert o.expires_at == NOW + MA.TTL
-    assert o.output_id.startswith("macro:macro-1.0.0:MT5:")
+    assert o.output_id.startswith(f"macro:{MA.VERSION}:MT5:")
 
 
 def test_conflict_mixed_lowers_confidence(env):
@@ -212,6 +212,18 @@ def test_stress_flag_on_extreme_daily_move(env):
     load_all_rates(st, real_ch=alternating(39) + [40])
     o = run(env)
     assert "MACRO_STRESS" in o.risk_flags and "STRESS:real_yield_10y" in o.drivers
+
+
+def test_c04_extreme_input_flagged_and_confidence_capped(env):
+    """3-C04: thay đổi cực đoan (|z1| ≥ 3) — có thể thật, có thể dữ liệu lỗi → cờ + trần 0,5.
+    Cùng dữ liệu không cực đoan → confidence 1 (đủ USD)."""
+    repo, candles, st = env
+    load_usd(repo, candles, MA.USD_HISTORY_BARS + MA.WEEK_BARS + 1,
+             jpy=lambda i: 150.0 * (1.001 if i % 2 else 1.0))
+    load_all_rates(st, real_ch=alternating(39) + [40])
+    o = run(env)
+    assert "EXTREME_INPUT:real_yield_10y" in o.quality_flags and o.confidence == 0.5
+    assert o.source_status is SourceStatus.HEALTHY            # vẫn báo, không chặn
 
 
 def test_real_yield_missing_blocks(env):

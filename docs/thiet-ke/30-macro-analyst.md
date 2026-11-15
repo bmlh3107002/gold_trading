@@ -42,3 +42,7 @@ Job `MACRO` (định tuyến GĐ2: nến M15 cặp tiền — debounce, số vĩ
 ## 5. Kiểm chứng
 
 23 test: giá trị tham chiếu tay (thay đổi ±2 đcb xen kẽ → σ = 2, z1 = 1, z5 = 0,4472; USDJPY ×/÷1,001 xen kẽ → thay đổi 0, z 0, khớp `usd_index`), bảng luật bias, USD tăng mạnh → `UP`, thiếu USD / không server / lịch sử USD ngắn, bias hỗ trợ, mâu thuẫn, stress, thiếu / cũ / thiếu lịch sử lợi suất thực, tuần đầu chỉ có mức (không z), bản sửa biết sau không viết lại quá khứ, router, chọn nguồn vàng theo server + bỏ qua trùng + dự phòng. **Soát riêng (Postgres 16):** orchestrator thật, 6 cặp ngẫu nhiên 2.600 nến + 80 ngày H.15, nạp từng nến 1 ngày → 97 kết quả không trùng, tính lại tại đúng thời điểm cùng `output_id` 97/97; **tính lại độc lập bằng pandas** (chỉ số USD, Δ, z; 3 chuỗi lãi suất Δ, z) → lệch 0.
+
+## 6. `macro-1.1.0` (2026-11-15) — 3-C04
+
+Thay đổi cực đoan (`|z_1d| ≥ 3` ở lợi suất thực / danh nghĩa 10 năm / USD) vẫn bật `MACRO_STRESS` như cũ, **thêm** cờ chất lượng `EXTREME_INPUT:<chuỗi>` và trần confidence 0,5: cực đoan có thể là biến động thật **hoặc** dữ liệu lỗi (chỉ số USD tính từ giá broker). Không chặn. Test `test_c04_extreme_input_flagged_and_confidence_capped`.
