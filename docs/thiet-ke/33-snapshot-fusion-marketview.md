@@ -68,13 +68,13 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 | Positioning | `crowding = CROWDED_LONG` | `CROWDED_SHORT` | `NORMAL`, chưa đủ lịch sử, vắng |
 | News | `tone_score < 0` | `tone_score > 0` | `0`, `null` (chế độ luật), vắng |
 
-`k` = số nhóm ngược chiều. `k = 0` → hệ số 1,0; `k = 1` → hệ số **0,5** + driver `OPPOSED_BY:<nhóm>` (cùng mức trần 0,5 các analyst đang dùng cho mâu thuẫn); `k ≥ 2` → **`NEUTRAL`** + driver `ANALYSTS_DISAGREE` (4-C03). Nhóm **cùng chiều không bao giờ làm tăng** confidence hay tạo hướng.
+`k` = số nhóm ngược chiều. `k = 0` → hệ số 1,0; `k = 1` → hệ số **0,5** + driver `OPPOSED_BY:<nhóm>` (cùng mức trần 0,5 các analyst đang dùng cho mâu thuẫn); `k ≥ 2` → **`NEUTRAL`** + driver `ANALYSTS_DISAGREE` (4-C03), hệ số vẫn 0,5 (chốt khi code, bước 4). Nhóm tùy chọn bị Quality Gate gắn vấn đề (`OPTIONAL_*`) không được tính phản đối. Nhóm **cùng chiều không bao giờ làm tăng** confidence hay tạo hướng.
 
 **C. Confidence.** `min(confidence Technical, Regime, Event) × hệ số Quality Gate × hệ số bước B`, làm tròn 4 chữ số. Không phải xác suất.
 
 **D. Các trường khác.**
 - `regime` = `regime` của Regime; `vol_forecast` = `vol_forecast.sigma_day_pct` của Technical (σ một ngày, %, EWMA TEC-07 — luật cố định) hoặc `null` khi Technical chưa đủ lợi suất.
-- `riskFlags` = hợp `risk_flags` của mọi output đã dùng (`EVENT_WINDOW`, `EVENT_SOON`, `NEWS_SHOCK`, `MACRO_STRESS`, `CROWDING_RISK`, `RISK_OFF_REGIME`, `HIGH_VOLATILITY_REGIME`, …) (4-C04). **Lệnh cấm của làn nhanh không chép vào MarketView**: Risk đọc trực tiếp Safety / `allows_new_orders` lúc quyết, tươi hơn bản chép (FAST-03 đi thẳng Safety).
+- `riskFlags` = hợp `risk_flags` của mọi output trong snapshot (kể cả tùy chọn không khỏe — thêm cờ = thận trọng hơn) (`EVENT_WINDOW`, `EVENT_SOON`, `NEWS_SHOCK`, `MACRO_STRESS`, `CROWDING_RISK`, `RISK_OFF_REGIME`, `HIGH_VOLATILITY_REGIME`, …) (4-C04). **Lệnh cấm của làn nhanh không chép vào MarketView**: Risk đọc trực tiếp Safety / `allows_new_orders` lúc quyết, tươi hơn bản chép (FAST-03 đi thẳng Safety).
 - `qualityFlags` ⊇ {`UNVALIDATED_RULES`, `UNCALIBRATED`} + `SAMPLE_DATA` (nếu có) + lý do Quality Gate + cờ cực đoan đầu vào.
 - `drivers`: theo thứ tự A → B, mỗi driver truy được về analyst.
 
@@ -82,7 +82,7 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 
 | Trường | Ghi chú |
 | --- | --- |
-| `market_view_id` | xác định: `mv:<fusion version>:<scope.key>:<16 ký tự sha256(manifest + phiên bản chính sách)>` — cùng đầu vào cùng id, ghi lại bị bỏ qua (giữ `as_of` lần đầu) |
+| `market_view_id` | xác định: `mv:<fusion version>:<scope.key>:<16 ký tự sha256(fusion version + snapshot_id + report_id)>` — cùng đầu vào + cùng kết quả Gate → cùng id, ghi lại bị bỏ qua (giữ `as_of` lần đầu). Băm `report_id` (chốt bước 4): cùng snapshot nhưng nguồn tùy chọn vừa hết hạn → báo cáo khác → MarketView khác id |
 | `snapshot_id`, `symbol`, `timeframe`, `source`, `feed_id` | nguồn giá (bắt buộc — không mặc định để tránh nhầm nguồn) |
 | `as_of` = `at` lúc Fusion chạy; `expires_at` = `expires_at` của snapshot, trần cứng `as_of + 30 phút` | hợp đồng kiểm `expires_at > as_of` |
 | `bias` | `LONG` / `SHORT` / `NEUTRAL` — "nghiêng theo luật, chưa kiểm chứng" |
