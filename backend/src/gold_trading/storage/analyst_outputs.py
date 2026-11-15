@@ -77,6 +77,7 @@ class AnalystOutputStore(Protocol):
                       ) -> bool: ...
     def latest_scoped(self, analyst_id: str, scope: Scope, *, known_by: datetime | None = None
                       ) -> ScopedOutput | None: ...
+    def get_scoped(self, output_id: str, scope: Scope) -> ScopedOutput | None: ...
 
 
 class InMemoryAnalystOutputStore:
@@ -143,6 +144,15 @@ class InMemoryAnalystOutputStore:
         r = self._latest(analyst_id, (scope.symbol, scope.timeframe, scope.source, scope.feed),
                          known_by)
         return ScopedOutput(r.output, r.computed_at, scope) if r else None
+
+    def get_scoped(self, output_id, scope):
+        """Đúng một output theo id trong phạm vi (GĐ4: tái dựng snapshot từ manifest)."""
+        key = (scope.symbol, scope.timeframe, scope.source, scope.feed)
+        with self._lock:
+            for (s, t, src, f, r) in self._rows:
+                if (s, t, src, f) == key and r.output.output_id == output_id:
+                    return ScopedOutput(r.output, r.computed_at, scope)
+        return None
 
 
 def _utc(v: datetime) -> datetime:
@@ -257,6 +267,19 @@ class SqlAnalystOutputStore:
         if known_by is not None:
             q = q.where(c.computed_at <= known_by)
         q = q.order_by(c.as_of.desc(), c.computed_at.desc(), c.seq.desc()).limit(1)
+        with self.engine.connect() as conn:
+            row = conn.execute(q).first()
+        if row is None:
+            return None
+        return ScopedOutput(AnalystOutput.model_validate(row.payload), _utc(row.computed_at),
+                            scope)
+
+    def get_scoped(self, output_id, scope):
+        """Đúng một output theo id trong phạm vi (GĐ4: tái dựng snapshot từ manifest)."""
+        c = analyst_outputs.c
+        q = select(c.payload, c.computed_at).where(
+            c.feed_id == scope.feed, c.output_id == output_id, c.symbol == scope.symbol,
+            c.timeframe == scope.timeframe, c.source == scope.source)
         with self.engine.connect() as conn:
             row = conn.execute(q).first()
         if row is None:

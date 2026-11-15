@@ -28,7 +28,8 @@
 - `input_manifest = {analyst: output_id}` (+ phiên bản). Output analyst đã **chỉ-thêm** (trigger 0003) → tái dựng được từ manifest; mất một output → tái dựng **báo lỗi**, không đoán.
 - `snapshot_id` xác định: `snap:<scope.key>:<16 ký tự sha256(manifest)>` → cùng đầu vào cùng id (idempotent khi replay).
 - Bất kỳ đầu vào nào từ `SAMPLE` → cờ `SAMPLE_DATA` (4-C06).
-- Lưu bảng `market_snapshots` chỉ-thêm (bước 2); không chép lại `features` của analyst (đã có ở `analyst_outputs`).
+- Lưu bảng `market_snapshots` chỉ-thêm (migration 0018); không chép lại `features` của analyst (đã có ở `analyst_outputs`). Phiên bản analyst nằm sẵn trong `output_id` (thiết kế 27 mục 3).
+- **Đã làm (bước 2, `snapshot-1.0.0`):** output mới nhất đã biết mà **hết hạn** → không lùi về bản cũ hơn (bản cũ hết hạn sớm hơn), ghi vào `excluded_inputs` + cờ `EXPIRED_EXCLUDED:<analyst>` để Quality Gate phân biệt "hết hạn" với "vắng". `snapshot_id` băm cả `excluded_inputs` → hai tình huống khác nhau không chung id. Cùng đầu vào ở hai thời điểm → **cùng id**; kho giữ bản đầu (`available_at` lần đầu; `expires_at` cũng là của lần đầu khi không có đầu vào bắt buộc — trường hợp này vốn bị `REJECTED`). Output sai phạm vi / sai analyst / `as_of > at` → ném lỗi.
 
 ## 4. Quality Gate — `quality-policy-1` (bước 3)
 

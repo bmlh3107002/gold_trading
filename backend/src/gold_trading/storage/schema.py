@@ -523,3 +523,28 @@ news_llm_calls = Table(
 )
 Index("ix_news_llm_calls_created", news_llm_calls.c.created_at)
 Index("ix_news_llm_calls_story", news_llm_calls.c.story_key)
+
+
+# --- GĐ4 bước 2 (SNP-01, SNP-02): snapshot theo nguồn giá — chỉ thêm (migration 0018).
+# Chỉ lưu manifest (analyst -> output_id), không chép features (đã có ở analyst_outputs, chỉ thêm)
+# → tái dựng được. Thiết kế: docs/thiet-ke/33-snapshot-fusion-marketview.md mục 3.
+market_snapshots = Table(
+    "market_snapshots",
+    metadata,
+    Column("snapshot_id", String(256), primary_key=True),
+    Column("builder_version", String(32), nullable=False),
+    Column("symbol", String(32), nullable=False),
+    Column("timeframe", String(8), nullable=False),
+    Column("source", String(16), nullable=False),
+    Column("feed_id", String(64), nullable=False),
+    Column("event_time", DateTime(timezone=True), nullable=False),
+    Column("available_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("quality_flags", JsonType, nullable=False),
+    Column("input_manifest", JsonType, nullable=False),
+    Column("excluded_inputs", JsonType, nullable=False),
+    CheckConstraint("expires_at >= available_at", name="ck_market_snapshots_expiry"),
+    CheckConstraint("event_time <= available_at", name="ck_market_snapshots_event_time"),
+)
+Index("ix_market_snapshots_scope", market_snapshots.c.source, market_snapshots.c.feed_id,
+      market_snapshots.c.symbol, market_snapshots.c.timeframe, market_snapshots.c.available_at)
