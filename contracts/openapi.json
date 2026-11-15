@@ -606,6 +606,48 @@
         }
       }
     },
+    "/api/accounts/{account_id}/market-view/latest": {
+      "get": {
+        "tags": [
+          "market-view"
+        ],
+        "summary": "Latest",
+        "operationId": "latest_api_accounts__account_id__market_view_latest_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketViewLatest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/ingest/mt5/candles": {
       "post": {
         "tags": [
@@ -3569,6 +3611,37 @@
         "title": "FxCandleBatch",
         "description": "5d (chuẩn bị ING-24): nến M15 ĐÃ ĐÓNG của một cặp tiền trong chỉ số USD."
       },
+      "GateSummary": {
+        "properties": {
+          "verdict": {
+            "$ref": "#/components/schemas/QualityVerdict"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evaluated At"
+          },
+          "policy_version": {
+            "type": "string",
+            "title": "Policy Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict",
+          "reasons",
+          "evaluated_at",
+          "policy_version"
+        ],
+        "title": "GateSummary"
+      },
       "GatewayCredential": {
         "properties": {
           "account_id": {
@@ -4748,6 +4821,108 @@
         ],
         "title": "MarketView"
       },
+      "MarketViewLatest": {
+        "properties": {
+          "market_view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MarketView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MarketView còn hiệu lực lúc trả lời; null → không có tín hiệu"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "VALID",
+              "NONE",
+              "EXPIRED",
+              "INVALIDATED",
+              "NO_SOURCE"
+            ],
+            "title": "State",
+            "description": "VALID / NONE (chưa có) / EXPIRED / INVALIDATED / NO_SOURCE"
+          },
+          "last_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last As Of"
+          },
+          "last_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Expires At"
+          },
+          "invalidated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidated At"
+          },
+          "invalidation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invalidation Reason"
+          },
+          "gate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GateSummary"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Kết quả Quality Gate mới nhất của nguồn giá (vì sao có / không)"
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample"
+          },
+          "rules_validated": {
+            "type": "boolean",
+            "title": "Rules Validated",
+            "description": "GĐ4: luôn false — luật chưa kiểm chứng bằng backtest (DEC-25)",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "market_view",
+          "state",
+          "is_sample"
+        ],
+        "title": "MarketViewLatest"
+      },
       "Me": {
         "properties": {
           "sub": {
@@ -5304,6 +5479,15 @@
           "last_latency_ms"
         ],
         "title": "PipelineResponse"
+      },
+      "QualityVerdict": {
+        "type": "string",
+        "enum": [
+          "ACCEPTED",
+          "DEGRADED",
+          "REJECTED"
+        ],
+        "title": "QualityVerdict"
       },
       "QuarantineOut": {
         "properties": {

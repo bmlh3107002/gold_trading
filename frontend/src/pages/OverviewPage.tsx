@@ -77,7 +77,13 @@ export function OverviewPage({ sys, accountId }: { sys: Sys; accountId: string |
       {(status || loading) && <MetricCards status={status} />}
 
       {status && accountId && (
-        <OverviewBody status={status} accountId={accountId} connection={connection} mutate={mutate} />
+        <OverviewBody
+          key={accountId}
+          status={status}
+          accountId={accountId}
+          connection={connection}
+          mutate={mutate}
+        />
       )}
     </div>
   );
@@ -96,6 +102,8 @@ function OverviewBody({
 }) {
   const fetchLive = useCallback(() => api.liveRequests(accountId), [accountId]);
   const live = usePolling(fetchLive, 5000, 20_000);
+  const fetchView = useCallback(() => api.marketViewLatest(accountId), [accountId]);
+  const mv = usePolling(fetchView, 15_000, 60_000);
   const asError = (e: unknown) => (e instanceof ApiError ? e : new ApiError("server", null));
   return (
     <>
@@ -116,7 +124,7 @@ function OverviewBody({
             }
           }}
         />
-        <MarketViewCard view={status.market_view} />
+        <MarketViewCard latest={mv.data} stale={mv.stale} />
       </div>
       <SafetyHistory items={status.safety_history} />
     </>

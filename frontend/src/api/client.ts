@@ -10,6 +10,7 @@ export type SafetyCommand = components["schemas"]["SafetyCommand"];
 export type ModeCommand = components["schemas"]["ModeCommand"];
 export type TradingMode = components["schemas"]["TradingMode"];
 export type MarketView = components["schemas"]["MarketView"];
+export type MarketViewLatest = components["schemas"]["MarketViewLatest"];
 export type SafetyTransition = components["schemas"]["SafetyTransition"];
 export type MarketSummary = components["schemas"]["MarketSummary"];
 export type CandlesResponse = components["schemas"]["CandlesResponse"];
@@ -122,6 +123,8 @@ export const api = {
   technicalLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/technical/latest`),
   /** GĐ3: Regime trên nguồn giá của chính tài khoản (MT-05). */
   regimeLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/regime/latest`),
+  /** GĐ4 bước 6: MarketView còn hiệu lực trên nguồn giá của tài khoản + lý do nếu không có. */
+  marketViewLatest: (id: string) => request<MarketViewLatest>(`${acc(id)}/market-view/latest`),
   /** GĐ3: Macro trên nguồn giá tài khoản (USD theo broker — DEC-14). */
   macroLatest: (id: string) => request<AnalystLatest>(`${acc(id)}/analysts/macro/latest`),
   /** GĐ3: Positioning COT vàng (chung cho mọi tài khoản; báo cáo tuần, trễ). */

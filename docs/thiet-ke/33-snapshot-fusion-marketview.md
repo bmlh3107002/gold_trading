@@ -101,6 +101,11 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 - Strategy kiểm `expires_at` lúc tạo intent; Risk kiểm lại lúc quyết (`MARKET_VIEW_EXPIRED`) (4-C05). Bên gọi Risk phải lấy MarketView qua `current()` ngay lúc quyết (để thấy vô hiệu).
 - Risk (5c): `MarketContext.mode` bắt buộc; SHADOW / LIVE chặn MarketView có `SAMPLE_DATA` hoặc `UNVALIDATED_RULES` (DEC-25, 4-C06) — lý do `QUALITY_FLAGS_<chế độ>:<cờ>`.
 
+## 7b. API + giao diện (bước 6)
+
+- `GET /api/accounts/{id}/market-view/latest` (chủ tài khoản, nguồn giá của tài khoản): `market_view` (còn hiệu lực hoặc `null`), `state` (VALID / NONE / EXPIRED / INVALIDATED / NO_SOURCE), hạn / thời điểm của bản mới nhất, lý do vô hiệu, báo cáo Gate mới nhất (`verdict`, lý do), `is_sample`, `rules_validated = false`. `/status` của tài khoản trả cùng MarketView còn hiệu lực.
+- Thẻ "Nhận định thị trường": mất kết nối → không hiện bản cũ; quá `expires_at` theo đồng hồ trình duyệt → hết hạn; đổi tài khoản → làm mới; mã lý do dịch từ tập khóa đã biết, mã lạ hiện nguyên mã.
+
 ## 8. Giới hạn đã biết
 
 - Mọi ngưỡng / hệ số (0,9; 0,5; `k ≥ 2`; trần 30 phút) chưa hiệu chỉnh — xem lại ở GĐ6 (backtest) / GĐ7.

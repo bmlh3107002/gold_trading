@@ -35,6 +35,7 @@ from gold_trading.api.analysts import account_analysts_router, analysts_router
 from gold_trading.api.data_sources import data_sources_router
 from gold_trading.api.ingest import GatewayMonitors, ingest_router
 from gold_trading.api.market import account_market_router, account_quote_router, market_router
+from gold_trading.api.market_view import account_market_view_router, market_view_of
 from gold_trading.api.pipeline import pipeline_router
 from gold_trading.api.users import users_router
 from gold_trading.auth.config import AuthConfig
@@ -44,7 +45,6 @@ from gold_trading.auth.web import AuthService
 from gold_trading.common.enums import TradingMode
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.candle import DataSource
-from gold_trading.contracts.market_view import MarketView
 from gold_trading.ingestion.candles import CandleIngestor
 from gold_trading.ingestion.external_runner import ExternalSourceRunner, runner_from_env
 from gold_trading.ingestion.point_in_time import PointInTimeStore
@@ -354,6 +354,10 @@ def create_app(
     _mv_engine = getattr(repo, "engine", None)
     market_views = (SqlMarketViewStore(_mv_engine) if _mv_engine is not None
                     else InMemoryMarketViewStore())
+    snapshot_store = (SqlSnapshotStore(_mv_engine) if _mv_engine is not None
+                      else InMemorySnapshotStore())
+    report_store = (SqlQualityReportStore(_mv_engine) if _mv_engine is not None
+                    else InMemoryQualityReportStore())
     orchestrator: OrchestratorRunner | None = None
     news_worker: NewsLlmWorker | None = None
     if runner is not None and orchestrator_enabled(os.environ):
@@ -399,10 +403,7 @@ def create_app(
         # (thiết kế 33 mục 7). Không có MarketView còn hạn → không có tín hiệu.
         fusion_runner = FusionRunner(
             market=market, out_store=analyst_store,
-            snapshot_store=SqlSnapshotStore(engine) if engine is not None
-            else InMemorySnapshotStore(),
-            report_store=SqlQualityReportStore(engine) if engine is not None
-            else InMemoryQualityReportStore(),
+            snapshot_store=snapshot_store, report_store=report_store,
             view_store=market_views, active_feeds=active_feeds)
         orchestrator = OrchestratorRunner(
             orch=orch_store, candle_store=candle_store, record_store=record_store,
@@ -462,8 +463,6 @@ def create_app(
             feed.stop()
         clock.stop()
         registry.stop()
-
-    market_view: MarketView | None = None  # TODO: lấy từ Market Intelligence
 
     def audit(
         actor: str,
@@ -533,6 +532,9 @@ def create_app(
         quote_store, market.calendar, account_guard.check,
     ))
     app.include_router(account_analysts_router(market_for, analyst_store, account_guard.check))
+    # GĐ4 bước 6 (MKV-03): MarketView còn hiệu lực trên nguồn giá của tài khoản (+ lý do nếu không)
+    app.include_router(account_market_view_router(market_for, market_views, report_store,
+                                                  account_guard.check))
     token = os.environ.get("GT_INGEST_TOKEN") if ingest_token == "env" else ingest_token
     monitors = GatewayMonitors()
     app.include_router(
@@ -558,7 +560,9 @@ def create_app(
         accounts_router(
             repo,
             registry,
-            market_view=lambda: market_view,
+            # GĐ4 bước 6: MarketView còn hiệu lực của nguồn giá tài khoản (không có → null)
+            market_view=lambda acc_id: market_view_of(market_for(acc_id), market_views,
+                                                      report_store).market_view,
             monitors=monitors,
             legacy_token_configured=bool(token and len(token) >= 24),
         )
@@ -576,6 +580,8 @@ def create_app(
     app.state.registry = registry
     app.state.runner = runner  # MT-05: để kiểm tra / chẩn đoán analyst theo từng nguồn
     app.state.orchestrator = orchestrator
+    app.state.market_views = market_views     # GĐ4 bước 6: chẩn đoán / test
+    app.state.quality_reports = report_store
     app.state.block_store = block_store
     app.state.fast_lane = fast_lane       # GĐ2 4b–4d: cửa sổ lịch + nhịp làn nhanh cho Safety
     app.state.spread_loop = spread_loop

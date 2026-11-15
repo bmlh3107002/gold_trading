@@ -102,6 +102,7 @@ class QualityReportStore(Protocol):
     def append(self, report: QualityReport) -> bool: ...
     def get(self, report_id: str) -> QualityReport | None: ...
     def for_snapshot(self, snapshot_id: str) -> list[QualityReport]: ...
+    def latest_for_scope(self, scope_key: str, known_by: datetime) -> QualityReport | None: ...
 
 
 class InMemoryQualityReportStore:
@@ -124,6 +125,14 @@ class InMemoryQualityReportStore:
         with self._lock:
             rows = [r for r in self._rows.values() if r.snapshot_id == snapshot_id]
         return sorted(rows, key=lambda r: (r.evaluated_at, r.report_id))
+
+    def latest_for_scope(self, scope_key: str, known_by: datetime) -> QualityReport | None:
+        """Báo cáo mới nhất (``evaluated_at ≤ known_by``) của nguồn giá ``scope_key`` (GĐ4 b6)."""
+        prefix = f"snap:{scope_key}:"
+        with self._lock:
+            rows = [r for r in self._rows.values()
+                    if r.snapshot_id.startswith(prefix) and r.evaluated_at <= known_by]
+        return max(rows, key=lambda r: (r.evaluated_at, r.report_id)) if rows else None
 
 
 class SqlQualityReportStore:
@@ -174,3 +183,17 @@ class SqlQualityReportStore:
              .order_by(c.evaluated_at, c.report_id))
         with self.engine.connect() as conn:
             return [self._of(m) for m in conn.execute(q).all()]
+
+    def latest_for_scope(self, scope_key: str, known_by: datetime) -> QualityReport | None:
+        """Báo cáo mới nhất (``evaluated_at ≤ known_by``) của nguồn giá ``scope_key`` (GĐ4 b6) —
+        lọc theo cột phạm vi của snapshot (không dựa vào chuỗi id)."""
+        src, feed, sym, tf = scope_key.split(":", 3)
+        c, sn = quality_reports.c, market_snapshots.c
+        q = (select(quality_reports)
+             .join(market_snapshots, sn.snapshot_id == c.snapshot_id)
+             .where(sn.source == src, sn.feed_id == feed, sn.symbol == sym, sn.timeframe == tf,
+                    c.evaluated_at <= known_by)
+             .order_by(c.evaluated_at.desc(), c.report_id.desc()).limit(1))
+        with self.engine.connect() as conn:
+            m = conn.execute(q).first()
+        return self._of(m) if m is not None else None

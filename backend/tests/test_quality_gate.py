@@ -264,3 +264,17 @@ def test_migration_is_append_only():
     src = (Path(__file__).parents[1] / "migrations" / "versions" / "0019_quality_reports.py"
            ).read_text(encoding="utf-8")
     assert "quality_reports" in src and "forbid_mutation" in src
+
+
+def test_latest_report_for_scope(stores, t0):                     # GĐ4 bước 6 (API)
+    snaps, reports = stores
+    s1, r1 = gate(t0)
+    snaps.append(SnapshotRecord.of(s1))
+    reports.append(r1)
+    r2 = evaluate(s1, POLICY_V1, s1.expires_at)                    # REJECTED, muộn hơn
+    reports.append(r2)
+    key = FEED.key
+    assert reports.latest_for_scope(key, t0) == r1
+    assert reports.latest_for_scope(key, s1.expires_at) == r2
+    assert reports.latest_for_scope(key, t0 - minutes(1)) is None   # chưa đánh giá
+    assert reports.latest_for_scope("MT5:khac:XAUUSD:M15", s1.expires_at) is None

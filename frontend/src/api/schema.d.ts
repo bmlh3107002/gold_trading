@@ -316,6 +316,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/market-view/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest */
+        get: operations["latest_api_accounts__account_id__market_view_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/ingest/mt5/candles": {
         parameters: {
             query?: never;
@@ -1392,6 +1409,19 @@ export interface components {
              */
             mt5_account_type: "DEMO" | "CONTEST" | "REAL" | "UNKNOWN";
         };
+        /** GateSummary */
+        GateSummary: {
+            verdict: components["schemas"]["QualityVerdict"];
+            /** Reasons */
+            reasons: string[];
+            /**
+             * Evaluated At
+             * Format: date-time
+             */
+            evaluated_at: string;
+            /** Policy Version */
+            policy_version: string;
+        };
         /**
          * GatewayCredential
          * @description Token gốc: CHỈ HIỆN MỘT LẦN. Dán vào gateway.env (GT_INGEST_TOKEN) của Gateway USER.
@@ -1831,6 +1861,35 @@ export interface components {
              */
             quality_policy_version: string;
         };
+        /** MarketViewLatest */
+        MarketViewLatest: {
+            /** @description MarketView còn hiệu lực lúc trả lời; null → không có tín hiệu */
+            market_view: components["schemas"]["MarketView"] | null;
+            /**
+             * State
+             * @description VALID / NONE (chưa có) / EXPIRED / INVALIDATED / NO_SOURCE
+             * @enum {string}
+             */
+            state: "VALID" | "NONE" | "EXPIRED" | "INVALIDATED" | "NO_SOURCE";
+            /** Last As Of */
+            last_as_of?: string | null;
+            /** Last Expires At */
+            last_expires_at?: string | null;
+            /** Invalidated At */
+            invalidated_at?: string | null;
+            /** Invalidation Reason */
+            invalidation_reason?: string | null;
+            /** @description Kết quả Quality Gate mới nhất của nguồn giá (vì sao có / không) */
+            gate?: components["schemas"]["GateSummary"] | null;
+            /** Is Sample */
+            is_sample: boolean;
+            /**
+             * Rules Validated
+             * @description GĐ4: luôn false — luật chưa kiểm chứng bằng backtest (DEC-25)
+             * @default false
+             */
+            rules_validated: boolean;
+        };
         /** Me */
         Me: {
             /** Sub */
@@ -2038,6 +2097,11 @@ export interface components {
             /** Last Latency Ms */
             last_latency_ms: number | null;
         };
+        /**
+         * QualityVerdict
+         * @enum {string}
+         */
+        QualityVerdict: "ACCEPTED" | "DEGRADED" | "REJECTED";
         /** QuarantineOut */
         QuarantineOut: {
             /**
@@ -2821,6 +2885,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalystLatest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_api_accounts__account_id__market_view_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketViewLatest"];
                 };
             };
             /** @description Validation Error */

@@ -312,7 +312,7 @@ def accounts_router(
     repo: Repository,
     registry: AccountRegistry,
     *,
-    market_view: Callable[[], MarketView | None],
+    market_view: Callable[[str], MarketView | None],
     monitors: GatewayMonitors,
     legacy_token_configured: bool,
 ) -> APIRouter:
@@ -337,7 +337,7 @@ def accounts_router(
             allows_new_orders=registry.allows_new_orders(acc_id),
             **entry_blocks_out(acc_id),
             safety_history=list(rt.safety.history)[-200:],
-            market_view=market_view(),
+            market_view=market_view(acc_id),
         )
 
     def entry_blocks_out(acc_id: str) -> dict:
