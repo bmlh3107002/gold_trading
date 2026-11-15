@@ -40,6 +40,8 @@
 | RSK-07 | Đọc `EVENT_WINDOW`, `WIDE_SPREAD`, `HIGH_VOLATILITY` từ MarketView thật | `[ ]` | |
 | RSK-08 | Stops level / freeze level của broker: SL quá gần → từ chối | `[ ]` | ← GW-09 |
 | RSK-09 | Ước tính swap qua đêm (thứ Tư ×3) và commission vào rủi ro | `[ ]` | |
+| RSK-10 | **Risk tự đọc cổng thật lúc quyết** (KN-01, BẮT BUỘC trước khi nối Strategy): hỏi `AccountRegistry.allows_new_orders(tài khoản)` (Safety + khóa người dùng + **lệnh cấm làn nhanh DEC-20**) và `MarketViewStore.current(nguồn, now)` (thấy MarketView bị vô hiệu); bỏ tham số `SafetySupervisor` / MarketView do bên gọi đưa | `[ ]` | Đánh giá 15/11 F-02: `risk/engine.py:73` hỏi `SafetySupervisor.allows_new_orders()` — chỉ xét ACTIVE, không thấy lệnh cấm (chỉ có ở `accounts/runtime.py:153`). Ghi chú RSK-01 `[x]` chưa bao gồm DEC-20. Test: lệnh cấm còn hạn + Safety ACTIVE → `REJECTED`; MarketView bị vô hiệu sau khi tạo intent → `REJECTED` |
+| RSK-11 | **Khối lượng + rủi ro theo thông số thật** (KN-02, BẮT BUỘC): giá trị tick / cỡ hợp đồng / tiền tài khoản từ broker (GW-09), không hằng số `contract_size=100`; rủi ro mỗi lệnh = khoảng SL **+ spread + trượt giá ước tính + phí**; ngưỡng spread theo phân bố của chính broker thay cho `max_spread=0,5` cố định | `[ ]` | Đánh giá 15/11: `risk/engine.py:28,42,100` — rủi ro hiện chỉ tính khoảng SL → đánh giá thấp rủi ro thật. Test tính tay: tài khoản USD / khác tiền / broker 1 lot ≠ 100 oz. ← GW-09, RSK-03, RSK-09 |
 
 ### 5D — Risk Ledger (bản paper)
 
@@ -67,5 +69,12 @@
 | 5-C11 | Intent hoặc MarketView hết hạn | Từ chối | `[x]` |
 | 5-C12 | Hai intent đồng thời tiêu cùng ngân sách | Tổng không vượt hạn mức | `[x]` |
 | 5-C13 | Equity đổi giữa lúc tính và lúc duyệt | Tính lại dưới khóa | `[~]` |
+| 5-C14 | Lệnh cấm làn nhanh còn hạn (tin, spread giãn) trong khi Safety ACTIVE | Risk từ chối (RSK-10) | `[ ]` |
+| 5-C15 | MarketView bị vô hiệu sau khi tạo intent, trước lúc duyệt | Risk từ chối (RSK-10) | `[ ]` |
+| 5-C16 | Spread / phí làm lỗ thật khi chạm SL vượt mức rủi ro được duyệt | Giảm khối lượng hoặc từ chối (RSK-11) | `[ ]` |
 
 **Gate GĐ5:** người dùng duyệt hồ sơ rủi ro (DEC-09) và văn bản chiến lược (STR-06); mọi case có test; báo cáo khả thi trên dữ liệu thật.
+
+### Nhật ký GĐ5
+
+- **2026-11-15** — Thêm **RSK-10** (KN-01) + **RSK-11** (KN-02) và case 5-C14..C16 từ đánh giá độc lập `docs/danh-gia/danh-gia-GD0-GD4.md` (người dùng duyệt). Chỉ ghi việc, chưa code — làm khi tới GĐ5, **trước** khi nối Strategy → Risk.

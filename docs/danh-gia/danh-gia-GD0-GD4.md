@@ -254,12 +254,12 @@ Nguyên tắc đã chốt: rủi ro **0,25–0,5 %/lệnh** + ngưỡng lỗ ng�
 
 ## 10. Trạng thái thực hiện khuyến nghị (Pha 2)
 
-Chưa làm khuyến nghị nào. Người dùng chọn từng cái; khuyến nghị thuộc GĐ5+ chỉ được ghi thành mục việc trong file giai đoạn tương ứng khi được đồng ý.
+Người dùng chọn từng cái; khuyến nghị thuộc GĐ5+ chỉ được ghi thành mục việc trong file giai đoạn tương ứng khi được đồng ý.
 
 | Mã | Mức | GĐ | Trạng thái |
 | --- | --- | --- | --- |
-| KN-01 | BẮT BUỘC | GĐ5 | chờ duyệt |
-| KN-02 | BẮT BUỘC | GĐ5 | chờ duyệt |
+| KN-01 | BẮT BUỘC | GĐ5 | đã ghi thành **RSK-10** trong `GD5-ke-hoach-giao-dich.md` (15/11), chưa code |
+| KN-02 | BẮT BUỘC | GĐ5 | đã ghi thành **RSK-11** trong `GD5-ke-hoach-giao-dich.md` (15/11), chưa code |
 | KN-03 | NÊN (ngay) | GĐ1 | chờ bạn quyết (ING-33) |
 | KN-04 | NÊN (ngay) | GĐ1 | chờ bạn quyết (broker đích) |
 | KN-05 | NÊN (ngay) | GĐ1 | chờ duyệt |
