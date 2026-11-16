@@ -104,3 +104,5 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 - **2026-11-16** — Bước 3: **H2 — R:R tối thiểu = 1 : 1,5, tính sau chi phí** (người dùng chốt; khuyến nghị là 1 : 2). Risk sẽ từ chối intent có (lời khi chạm TP − spread − phí) / (rủi ro thật khi chạm SL gồm spread + đệm + phí) < 1,5. Hòa vốn cần thắng ≈ 40 % số lệnh — biên an toàn mỏng hơn nếu chi phí thật cao hơn ước tính; đo lại ở GĐ6 (backtest) / GĐ9 (deal thật). Áp ở bước 4.
 
 - **2026-11-16** — Bước 3: **H3 — trần tổng rủi ro mở (heat) = 0,5 % equity** (người dùng chốt, theo khuyến nghị). Gồm rủi ro thật của lệnh đang mở + reservation chưa dùng; mọi lệnh vàng cùng chiều là một vị thế (QLV 7.5). Với H1 = 0,25 % → tối đa 2 lệnh cùng lúc. Sẽ thay `RiskPolicy.max_total_reserved` khi có hồ sơ rủi ro.
+
+- **2026-11-16** — Bước 3: **H4 phần 1 — lỗ tối đa một ngày = 0,75 % equity** (người dùng chốt, theo khuyến nghị; ≈ 3 lệnh thua 0,25 %). Lỗ ngày = PnL đã đóng + lỗ đang chạy của lệnh mở; chạm ngưỡng → chặn lệnh mới tới mốc reset kế tiếp + đề nghị Safety `PAUSED` (Risk không tự mở lại). Áp ở bước 4 (RSK-05, 5-C05). Mốc reset + múi giờ hỏi sau.
