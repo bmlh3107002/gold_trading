@@ -278,4 +278,5 @@ Người dùng chọn từng cái; khuyến nghị thuộc GĐ5+ chỉ được 
 | KN-18 | NÊN | Vận hành | chờ bạn quyết |
 | KN-19 | NÊN | Vận hành | chờ duyệt |
 | KN-21 | CÓ THỂ | GĐ0 | **xong** (16/11, nhánh riêng — chờ sau Gate GĐ1 + GĐ2); nhật ký GĐ0 |
-| KN-20, 22..26 | CÓ THỂ | xem 5.F | chờ duyệt |
+| KN-20 | CÓ THỂ | GĐ2 | **xong** (16/11, nhánh riêng — migration 0022; chờ sau Gate GĐ1 + GĐ2); nhật ký GĐ2 |
+| KN-22..26 | CÓ THỂ | xem 5.F | chờ duyệt |

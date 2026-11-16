@@ -446,6 +446,8 @@ Index(
     analyst_outputs.c.feed_id,
     analyst_outputs.c.as_of,
 )
+# KN-20 (F-06, migration 0022): bộ quét hết hạn lọc theo khoảng ``expires_at`` mỗi nhịp.
+Index("ix_analyst_outputs_expires_at", analyst_outputs.c.expires_at)
 
 
 # --- Event Orchestrator (GĐ2 bước 1, migration 0014) — chỉ thêm ---
