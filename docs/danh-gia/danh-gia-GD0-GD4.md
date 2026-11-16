@@ -262,7 +262,7 @@ Người dùng chọn từng cái; khuyến nghị thuộc GĐ5+ chỉ được 
 | KN-02 | BẮT BUỘC | GĐ5 | đã ghi thành **RSK-11** trong `GD5-ke-hoach-giao-dich.md` (15/11), chưa code |
 | KN-03 | NÊN (ngay) | GĐ1 | người dùng duyệt 15/11 → **ING-35** code xong, chờ kiểm trên máy |
 | KN-04 | NÊN (ngay) | GĐ1 | tiêu chí chọn sàn đã ghi ở GĐ5 (16/11); chờ người dùng chọn sàn (kiểm demo sau 24/11) |
-| KN-05 | NÊN (ngay) | GĐ1 | chờ duyệt |
+| KN-05 | NÊN (ngay) | GĐ1 | **xong** (16/11, nhánh riêng — migration 0023; chờ sau Gate GĐ1 + GĐ2); thiết kế 34, nhật ký GĐ1 |
 | KN-06 | CÓ THỂ | GĐ1 | chờ bạn quyết (DEC-01) |
 | KN-07 | NÊN | GĐ6 | chờ duyệt |
 | KN-08 | NÊN | GĐ5 | chờ duyệt |

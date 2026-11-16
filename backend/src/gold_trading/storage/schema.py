@@ -648,3 +648,61 @@ market_view_invalidations = Table(
     Column("reason", String(64), nullable=False),
     Column("ref", String(256), nullable=False, server_default=""),
 )
+
+
+# KN-05 (GW-09, migration 0023): lịch sử thông số broker + tài khoản — chỉ thêm (trigger chặn
+# UPDATE / DELETE trên Postgres). Ghi khi thông số đổi; số liệu tài khoản: dòng đầu mỗi giờ UTC.
+broker_spec_history = Table(
+    "broker_spec_history",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("account_id", String(64), nullable=False),
+    Column("mt5_login", BigInteger, nullable=False),
+    Column("mt5_server", String(256), nullable=False),
+    Column("broker_symbol", String(64), nullable=False),
+    Column("observed_at", DateTime(timezone=True), nullable=False),
+    Column("spec_hash", String(64), nullable=False),
+    Column("gateway_version", String(32), nullable=False),
+    Column("digits", Integer, nullable=False),
+    Column("point", Float, nullable=False),
+    Column("contract_size", Float, nullable=False),
+    Column("volume_min", Float, nullable=False),
+    Column("volume_max", Float, nullable=False),
+    Column("volume_step", Float, nullable=False),
+    Column("currency_profit", String(16)),
+    Column("stops_level", Integer),
+    Column("freeze_level", Integer),
+    Column("swap_mode", Integer),
+    Column("swap_long", Float),
+    Column("swap_short", Float),
+    Column("swap_rollover3days", Integer),
+    Column("leverage", Integer),
+    Column("account_currency", String(16)),
+    CheckConstraint("point > 0 AND contract_size > 0 AND volume_min > 0 AND volume_step > 0 "
+                    "AND volume_max >= volume_min AND digits >= 0",
+                    name="ck_broker_spec_history_values"),
+    CheckConstraint("leverage IS NULL OR leverage > 0", name="ck_broker_spec_history_leverage"),
+)
+Index("ix_broker_spec_history_lookup", broker_spec_history.c.account_id,
+      broker_spec_history.c.broker_symbol, broker_spec_history.c.observed_at)
+
+account_equity_hourly = Table(
+    "account_equity_hourly",
+    metadata,
+    Column("account_id", String(64), nullable=False),
+    Column("mt5_login", BigInteger, nullable=False),
+    Column("mt5_server", String(256), nullable=False),
+    Column("hour", DateTime(timezone=True), nullable=False),
+    Column("observed_at", DateTime(timezone=True), nullable=False),
+    Column("currency", String(16)),
+    Column("balance", Float),
+    Column("equity", Float),
+    Column("margin", Float),
+    Column("margin_free", Float),
+    Column("margin_level", Float),
+    Column("leverage", Integer),
+    PrimaryKeyConstraint("account_id", "mt5_login", "mt5_server", "hour"),
+    CheckConstraint("observed_at >= hour", name="ck_account_equity_hourly_time"),
+    CheckConstraint("(margin IS NULL OR margin >= 0) AND (leverage IS NULL OR leverage > 0)",
+                    name="ck_account_equity_hourly_values"),
+)

@@ -38,6 +38,12 @@ from gold_trading.market.feeds import USD_INDEX_PAIRS, feed_id_for
 from gold_trading.market.quotes import QuoteIn, QuoteIngestor
 from gold_trading.market.service import MarketDataService
 from gold_trading.market.timeframes import Timeframe
+from gold_trading.storage.broker_history import (
+    EQUITY_FIELDS,
+    SPEC_FIELDS,
+    BrokerHistoryStore,
+    SpecKey,
+)
 from gold_trading.storage.candles import InMemoryCandleStore
 from gold_trading.storage.repository import PriceFeed, Repository
 from gold_trading.storage.schema import DEFAULT_ACCOUNT_ID
@@ -437,6 +443,7 @@ def ingest_router(
     repo: Repository,
     ingest_guard: Callable[[], str | None] | None = None,
     quotes: QuoteIngestor | None = None,
+    broker_history: BrokerHistoryStore | None = None,
 ) -> APIRouter:
     """``ingest_guard()`` trả lý do nếu phải ngừng nhận nến (ví dụ đồng hồ lệch, OPS-12)."""
     r = APIRouter(tags=["ingest"])
@@ -700,9 +707,35 @@ def ingest_router(
         except SQLAlchemyError as e:
             # Không tạo được liên kết chờ = không liên kết (an toàn). Nhịp tim vẫn ghi nhận.
             log.error("Không ghi được liên kết MT5 chờ xác nhận: %s", type(e).__name__)
+        if broker_history is not None:
+            record_broker_history(broker_history, account_id, hb, now)
         return monitor.status(now)
 
     return r
+
+
+def record_broker_history(store: BrokerHistoryStore, account_id: str, hb: Heartbeat,
+                          now: datetime) -> None:
+    """KN-05: lưu thông số broker (khi đổi) + số liệu tài khoản (đầu mỗi giờ). Chỉ khi có danh
+    tính MT5 do terminal báo. Lỗi ghi không làm hỏng nhịp tim (chỉ mất một điểm lịch sử)."""
+    ident = hb.identity
+    if ident is None:
+        return
+    acc = hb.account
+    try:
+        if hb.symbol is not None:
+            spec = {k: getattr(hb.symbol, k) for k in SPEC_FIELDS
+                    if k not in ("leverage", "account_currency")}
+            spec["leverage"] = acc.leverage if acc is not None else None
+            spec["account_currency"] = acc.currency if acc is not None else None
+            store.record_spec(SpecKey(account_id, ident.login, ident.server,
+                                      hb.symbol.broker_symbol),
+                              spec, observed_at=now, gateway_version=hb.gateway_version)
+        if acc is not None:
+            store.record_equity(account_id, ident.login, ident.server,
+                                {k: getattr(acc, k) for k in EQUITY_FIELDS}, observed_at=now)
+    except (SQLAlchemyError, ValueError) as e:
+        log.error("Không ghi được lịch sử thông số broker: %s", type(e).__name__)
 
 
 class _DryRunStore(InMemoryCandleStore):

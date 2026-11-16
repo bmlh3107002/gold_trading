@@ -69,6 +69,7 @@ from gold_trading.storage.analyst_outputs import (
     InMemoryAnalystOutputStore,
     SqlAnalystOutputStore,
 )
+from gold_trading.storage.broker_history import InMemoryBrokerHistoryStore, SqlBrokerHistoryStore
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
 from gold_trading.storage.external_records import SqlExternalRecordStore
 from gold_trading.storage.market_views import InMemoryMarketViewStore, SqlMarketViewStore
@@ -363,6 +364,9 @@ def create_app(
     # quay về runner cũ). Sự kiện suy ra từ dữ liệu đã lưu; nhật ký sự kiện / job trong DB.
     # GĐ4 bước 5: kho MarketView (đọc ở API bước 6). Không có orchestrator → kho rỗng → không có
     # MarketView → không có tín hiệu (mặc định an toàn).
+    # KN-05: lịch sử thông số broker + số liệu tài khoản (ghi từ nhịp tim Gateway).
+    broker_history = (SqlBrokerHistoryStore(repo.engine) if getattr(repo, "engine", None)
+                      is not None else InMemoryBrokerHistoryStore())
     _mv_engine = getattr(repo, "engine", None)
     market_views = (SqlMarketViewStore(_mv_engine) if _mv_engine is not None
                     else InMemoryMarketViewStore())
@@ -562,6 +566,7 @@ def create_app(
             quotes=QuoteIngestor(quote_store, market.calendar,
                                  retention=timedelta(days=quote_retention_days()),
                                  purge_guard=quote_minutes.purge_guard),
+            broker_history=broker_history,
         )
     )
     # Chống DNS rebinding: chỉ nhận Host của địa chỉ công khai, localhost và tên nội bộ.
@@ -600,6 +605,7 @@ def create_app(
     app.state.block_store = block_store
     app.state.fast_lane = fast_lane       # GĐ2 4b–4d: cửa sổ lịch + nhịp làn nhanh cho Safety
     app.state.spread_loop = spread_loop
+    app.state.broker_history = broker_history   # KN-05: chẩn đoán / test / GĐ5
 
     @app.get("/api/health")
     def health():
