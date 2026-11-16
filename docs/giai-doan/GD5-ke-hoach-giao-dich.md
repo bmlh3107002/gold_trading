@@ -73,8 +73,21 @@
 | 5-C15 | MarketView bị vô hiệu sau khi tạo intent, trước lúc duyệt | Risk từ chối (RSK-10) | `[ ]` |
 | 5-C16 | Spread / phí làm lỗ thật khi chạm SL vượt mức rủi ro được duyệt | Giảm khối lượng hoặc từ chối (RSK-11) | `[ ]` |
 
+### Tiêu chí chọn sàn giao dịch thật (phần "broker" của DEC-09 — KN-04, người dùng đồng ý ghi 2026-11-16)
+
+Người dùng **chưa chọn sàn**. Danh sách để xem khi chọn (không gợi ý tên sàn; không có sàn "đúng" chung). Thứ tự = mức quan trọng.
+
+1. **An toàn tiền:** giấy phép của cơ quan quản lý nghiêm (vd. FCA, ASIC, CySEC) — tra số giấy phép trên trang của chính cơ quan đó; tiền khách giữ riêng (segregated funds); chống âm tài khoản (negative balance protection); nạp / rút từ Việt Nam (cách, phí, thời gian) — rút thử khoản nhỏ trước.
+2. **Lot nhỏ nhất so với luật 0,25–0,5 %/lệnh:** lot nhỏ nhất, bước lot, cỡ hợp đồng XAUUSD (oz / lot). Với 1 lot = 100 oz, SL ~19,5 USD ở 0,01 lot (ví dụ RPF-03, chưa đo thật) → cần vốn ≈ 3.900–7.800 USD; vốn nhỏ hơn → xem tài khoản **cent / micro**. Số thật tính lại ở RPF-03 bằng ATR thật (5-C01: không đủ → từ chối, không làm tròn lên).
+3. **Chi phí:** spread vàng lúc thường **và lúc ra tin**; phí hoa hồng / lot (so ECN + phí với Standard không phí bằng tổng chi phí); swap (thứ Tư ×3, có swap-free không); kiểu khớp (market execution hay requote) và trượt giá.
+4. **Kỹ thuật cho hệ thống:** có MT5 và cho phép chạy tự động (EA / Python); **demo cùng điều kiện với tài khoản thật**; độ dài lịch sử M15 trên MT5 (cần vài năm cho backtest — KN-04); stops / freeze level; đòn bẩy, mức margin call / stop out; múi giờ server + giờ giao dịch vàng, ngày lễ (khai `GT_BROKER_SESSIONS`, `GT_BROKER_SERVER_TZ`); điều cấm (giao dịch quanh tin, hedging, FIFO).
+5. **Cách kiểm trước khi chọn (không tốn tiền), sau 24/11:** mở demo 2–3 sàn ứng viên → Gateway chạy song song (MT-15, mỗi sàn một nguồn giá — DEC-14) → sau 1–2 tuần so bằng số liệu: spread theo phút (ING-35, gồm cửa sổ tin), độ đủ dữ liệu, lịch sử có sẵn, độ ổn định kết nối.
+
+Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09, nạp lịch sử dài từ sàn đó (KN-04, ING-05 / `GT_HISTORY_BARS`).
+
 **Gate GĐ5:** người dùng duyệt hồ sơ rủi ro (DEC-09) và văn bản chiến lược (STR-06); mọi case có test; báo cáo khả thi trên dữ liệu thật.
 
 ### Nhật ký GĐ5
 
 - **2026-11-15** — Thêm **RSK-10** (KN-01) + **RSK-11** (KN-02) và case 5-C14..C16 từ đánh giá độc lập `docs/danh-gia/danh-gia-GD0-GD4.md` (người dùng duyệt). Chỉ ghi việc, chưa code — làm khi tới GĐ5, **trước** khi nối Strategy → Risk.
+- **2026-11-16** — Thêm mục "Tiêu chí chọn sàn giao dịch thật" (phần broker của DEC-09, KN-04). Người dùng chưa chọn sàn; kiểm demo 2–3 sàn ứng viên sau 24/11. Chỉ tài liệu.
