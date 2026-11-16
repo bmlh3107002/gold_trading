@@ -93,3 +93,4 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 
 - **2026-11-15** — Thêm **RSK-10** (KN-01) + **RSK-11** (KN-02) và case 5-C14..C16 từ đánh giá độc lập `docs/danh-gia/danh-gia-GD0-GD4.md` (người dùng duyệt). Chỉ ghi việc, chưa code — làm khi tới GĐ5, **trước** khi nối Strategy → Risk.
 - **2026-11-16** — Thêm mục "Tiêu chí chọn sàn giao dịch thật" (phần broker của DEC-09, KN-04). Người dùng chưa chọn sàn; kiểm demo 2–3 sàn ứng viên sau 24/11. Chỉ tài liệu.
+- **2026-11-16** — Bản nháp kế hoạch [`docs/ke-hoach/GD5-ke-hoach.md`](../ke-hoach/GD5-ke-hoach.md) (DEC-28): RSK-10 → RSK-11 đầu tiên, số rủi ro chờ KN-12, KN-07/KN-08 cuối GĐ5; 7 câu hỏi Q1–Q7 hỏi lần lượt. Chưa code — chờ người dùng duyệt.
