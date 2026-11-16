@@ -67,7 +67,7 @@
 
 ## Việc tiếp theo của GĐ0
 
-**GĐ0: code xong, chờ người dùng làm các bước trên máy Windows để đạt Gate** (mỗi lần một bước, theo `deploy/README.md`): (1) cập nhật compose + `.env` bí mật + `docker compose up -d --build`; (2) bật Tailscale Serve, đặt `GT_PUBLIC_URL`, đăng nhập Keycloak lần đầu; (3) đăng nhập trên máy tính và điện thoại qua `https://….ts.net`; (4) tạo token Gateway trên Dashboard, cập nhật `gateway.env`, chạy lại Gateway, xác nhận dữ liệu về; (5) diễn tập tắt Keycloak → `gt-break-glass halt` → bật lại; (6) diễn tập khôi phục cả hai DB. Sau khi người dùng xác nhận đóng GĐ0 → GĐ1 (cần chốt DEC-01..07). Lộ trình cũ để tham khảo: ① dữ liệu giá ✅ → ② biểu đồ ✅ → ③ Technical analyst ✅ → MT5 Gateway chỉ đọc ✅ (đã chạy với MT5 demo thật) → **③b Hồ sơ rủi ro + Kế hoạch giao dịch** → Event & calendar analyst → ④ MarketView đầu tiên → ⑤ Strategy → ⑥ Backtest → ⑦ MT5 thật (để sau).
+**GĐ0 đã đóng 2026-11-06** (người dùng xác nhận; OPS-06 CD vẫn hoãn). Không còn việc mở. Bổ sung sau khi đóng: KN-21 (2026-11-16, nhật ký dưới).
 
 ## Nhật ký
 
