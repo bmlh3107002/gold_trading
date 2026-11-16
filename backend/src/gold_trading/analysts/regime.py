@@ -35,7 +35,7 @@ from gold_trading.market.timeframes import Timeframe
 
 ANALYST_ID = "regime"
 VERSION = "regime-1.2.0"   # 1.1.0: RISK_OFF từ proxy trú ẩn của Macro
-# 1.2.0 (KN-15): trạng thái đánh giá (trạng thái nguồn + cờ chất lượng) vào id → kết quả STALE lưu được
+# 1.2.0 (KN-15): trạng thái đánh giá vào id → kết quả STALE lưu được
 HANDLER_VERSION = "regime-job-1"
 
 PERIOD = 14
