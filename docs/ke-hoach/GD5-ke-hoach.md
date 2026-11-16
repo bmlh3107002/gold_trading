@@ -4,7 +4,7 @@
 >
 > **Trạng thái: BẢN NHÁP — CHỜ NGƯỜI DÙNG DUYỆT. Chưa code.**
 >
-> **Làm song song (DEC-28, người dùng 2026-11-16).** **Không đóng GĐ5 trước GĐ1 → GĐ2 → GĐ3 → GĐ4.** Việc kiểm trên máy GĐ1/GĐ2 theo [`lich-kiem-tren-may.md`](lich-kiem-tren-may.md) được ưu tiên (phiên nào có việc kiểm trên máy thì làm việc đó trước). **Không có lệnh thật nào:** GĐ5 chỉ tạo ý định (`TradeIntent`) + quyết định Risk + sổ cái **paper**; không gọi Gateway để gửi lệnh (gửi lệnh từ GĐ8/GĐ9). **Không tự đặt số rủi ro** — mọi con số rủi ro / ngưỡng lỗ lấy từ tài liệu quản lý vốn của người dùng (KN-12, DEC-09: 0,25–0,5 %/lệnh + ngưỡng lỗ ngày/tuần là luật cứng); chưa có số → Risk **từ chối mọi intent** (mặc định an toàn).
+> **Làm song song (DEC-28, người dùng 2026-11-16).** **Không đóng GĐ5 trước GĐ1 → GĐ2 → GĐ3 → GĐ4.** Việc kiểm trên máy GĐ1/GĐ2 theo [`lich-kiem-tren-may.md`](lich-kiem-tren-may.md) được ưu tiên (phiên nào có việc kiểm trên máy thì làm việc đó trước). **Không có lệnh thật nào:** GĐ5 chỉ tạo ý định (`TradeIntent`) + quyết định Risk + sổ cái **paper**; không gọi Gateway để gửi lệnh (gửi lệnh từ GĐ8/GĐ9). **Không tự đặt số rủi ro** — mọi con số rủi ro / ngưỡng lỗ lấy từ tài liệu quản lý vốn của người dùng (KN-12, DEC-09: 0,25–0,5 %/lệnh + ngưỡng lỗ ngày/tuần là luật cứng); chưa có số → Risk **từ chối mọi intent** (mặc định an toàn). **16/11: người dùng đã gửi tài liệu "Quản lý vốn khi giao dịch vàng (XAU/USD)" v1.0** (16 chương + 7 phụ lục) — áp dụng ở mục "Áp dụng tài liệu Quản lý vốn" bên dưới. Tài liệu tự ghi mọi con số là **ví dụ minh họa** → số của hồ sơ rủi ro vẫn do người dùng chọn (hỏi từng câu), không chép số ví dụ.
 
 ## Nhánh code
 
@@ -45,16 +45,16 @@
 - [ ] Soát riêng: `create_app` thật (SQLite) + orchestrator + làn nhanh thật: tạo lệnh cấm qua đường thật (sự kiện HIGH / spread giãn) → Risk từ chối; vô hiệu MarketView qua Fusion thật → Risk từ chối. Đột biến: đổi Risk về hỏi `SafetySupervisor` → test 5-C14 phải đỏ.
 
 ### Bước 2 — RSK-11 (KN-02, BẮT BUỘC): khối lượng + rủi ro theo thông số thật; 5-C01, 5-C02, 5-C16 (+ RSK-08, CORE-05 phần Risk)
-- [ ] **2a — Thông số broker tại lúc quyết:** đọc `spec_at(tài khoản, mã broker, now)` (KN-05). Không có dòng / thiếu trường cần (cỡ hợp đồng, point, lot min/max/bước, tiền lợi nhuận, tiền tài khoản) → `REJECTED` `BROKER_SPEC_MISSING`. Thông số quá cũ so với nhịp tim (Gateway mất kết nối) → `REJECTED`. **Bỏ** `SymbolSpec` hằng số (`contract_size=100`). Cách quy đổi tiền khi tiền lợi nhuận ≠ tiền tài khoản: theo **câu hỏi Q2**.
+- [ ] **2a — Thông số broker tại lúc quyết:** đọc `spec_at(tài khoản, mã broker, now)` (KN-05). Không có dòng / thiếu trường cần (cỡ hợp đồng, point, lot min/max/bước, tiền lợi nhuận, tiền tài khoản) → `REJECTED` `BROKER_SPEC_MISSING`. Thông số quá cũ so với nhịp tim (Gateway mất kết nối) → `REJECTED`. **Bỏ** `SymbolSpec` hằng số (`contract_size=100`). **Q2 chốt 16/11:** chỉ tài khoản USD + tiền lợi nhuận USD (giá trị 1 USD giá / lot = cỡ hợp đồng thật); khác (USC, EUR…) hoặc trường tiền `NULL` → `REJECTED` `CURRENCY_UNSUPPORTED`. Giá trị tick từ Gateway làm khi người dùng chọn sàn thật (ghi việc mới vào file giai đoạn lúc đó).
 - [ ] **2b — Equity thật:** equity lấy từ nhịp tim Gateway mới nhất của tài khoản (không do bên gọi đưa); quá cũ / không có → `REJECTED` `EQUITY_STALE`. Tuổi tối đa: giá trị khởi đầu chưa hiệu chỉnh, ghi thiết kế 35.
-- [ ] **2c — Chi phí vào rủi ro:** rủi ro / lot = (khoảng SL + spread hiện tại + trượt giá ước tính) × giá trị một đơn vị giá / lot **+ phí khứ hồi / lot**. Phí: theo **câu hỏi Q3**. Trượt giá ước tính: theo **câu hỏi Q4**. Khối lượng = rủi ro cho phép / rủi ro mỗi lot, làm tròn **xuống** theo bước lot; < lot tối thiểu → `REJECTED` `BELOW_MIN_VOLUME` + số tiền / vốn còn thiếu (5-C01); > lot tối đa → cắt về tối đa. Tính bằng `Decimal`.
+- [ ] **2c — Chi phí vào rủi ro** (đúng công thức tài liệu QLV mục 5.2 + 3.5: *khoảng SL thực = |vào − SL| + spread + buffer trượt giá*; *lot = tiền rủi ro / (khoảng SL thực × cỡ hợp đồng)*, làm tròn xuống; phí hoa hồng / oz cộng thêm; test lại đúng hai ví dụ tính tay của mục 5.2 — 0,20 lot và 0,17 lot / 98,6 USD — và tình huống 11.2 — 0,02 lot / 37,6 USD): rủi ro / lot = (khoảng SL + spread hiện tại + trượt giá ước tính) × giá trị một đơn vị giá / lot **+ phí khứ hồi / lot**. Phí: theo **câu hỏi Q3**. Trượt giá ước tính: theo **câu hỏi Q4**. Khối lượng = rủi ro cho phép / rủi ro mỗi lot, làm tròn **xuống** theo bước lot; < lot tối thiểu → `REJECTED` `BELOW_MIN_VOLUME` + số tiền / vốn còn thiếu (5-C01); > lot tối đa → cắt về tối đa. Tính bằng `Decimal`.
 - [ ] **2d — Ngưỡng spread theo phân bố của chính sàn** thay `max_spread=0,5`: theo **câu hỏi Q5** (dùng spread theo phút KN-03 của đúng nguồn giá, đọc point-in-time; không đủ dữ liệu → `REJECTED` `SPREAD_BASELINE_MISSING`, không đoán).
 - [ ] **2e — RSK-08 (stops / freeze level, 5-C02):** SL gần hơn `max(stops_level × point, spread hiện tại)` → `REJECTED` `SL_TOO_CLOSE`; SL quá xa (rủi ro 1 lot tối thiểu đã vượt mức) → rơi vào 5-C01.
 - [ ] Test **tính tay** (bảng trong thiết kế 35): tài khoản USD + 1 lot = 100 oz; broker 1 lot ≠ 100 oz (vd. 10 oz, 1 oz); tài khoản khác tiền (theo Q2); spread + trượt + phí làm lot nhỏ đi đúng số (5-C16); lot làm tròn xuống, không bao giờ lên; thiếu thông số / equity cũ / thiếu nền spread → từ chối; `stops_level` `NULL` (Gateway không đọc được) → coi như chưa biết → từ chối (không coi là 0).
 - [ ] Soát riêng: viết lại công thức độc lập (bảng tra / phân số chính xác) so trên hàng nghìn tổ hợp ngẫu nhiên → lệch 0; bất biến "rủi ro thật (gồm chi phí) ≤ mức được duyệt" trên mọi tổ hợp; Postgres + TimescaleDB qua CI.
 
 ### Bước 3 — Hồ sơ rủi ro có phiên bản (DB-07, RPF-01; DEC-09 / KN-12) — CẤU TRÚC, CHƯA CÓ SỐ
-- [ ] Bảng `risk_profiles` chỉ-thêm (migration sau 0023), mỗi tài khoản một chuỗi phiên bản; ai tạo, lúc nào, lý do; trigger chặn sửa / xóa. Trường theo 9 câu hỏi KN-12 (rủi ro / lệnh, ngưỡng lỗ ngày / tuần + mốc reset + múi giờ, chuỗi thua, drawdown dừng hẳn, số lệnh mở / tổng rủi ro mở, qua đêm / cuối tuần / qua tin, tăng rủi ro khi lãi, nạp / rút).
+- [ ] Bảng `risk_profiles` chỉ-thêm (migration sau 0023), mỗi tài khoản một chuỗi phiên bản; ai tạo, lúc nào, lý do; trigger chặn sửa / xóa. Trường theo **mẫu kế hoạch cá nhân của tài liệu QLV (mục 10.1, 18 mục)** gộp với 9 câu hỏi KN-12 — xem bảng "Áp dụng tài liệu Quản lý vốn" (rủi ro / lệnh, ngưỡng lỗ ngày / tuần + mốc reset + múi giờ, chuỗi thua, drawdown dừng hẳn, số lệnh mở / tổng rủi ro mở, qua đêm / cuối tuần / qua tin, tăng rủi ro khi lãi, nạp / rút).
 - [ ] Kiểm hợp lệ cứng: rủi ro / lệnh **trong [0,25 %; 0,5 %]** (DEC-09) — ngoài khoảng → không lưu được. Mục tiêu 4–5 %/ngày nếu có chỉ lưu làm ghi chú, **không** đi vào phép tính nào.
 - [ ] `RiskPolicy` **bỏ số mặc định** (`0,005`, `0,02`): Risk đọc hồ sơ hiện hành của tài khoản; **chưa có hồ sơ → `REJECTED` `NO_RISK_PROFILE`**. Hồ sơ đổi giữa lúc tính và lúc duyệt → tính lại dưới khóa (5-C13).
 - [ ] Ai được tạo hồ sơ: theo **câu hỏi Q6**.
@@ -62,11 +62,13 @@
 
 ### Bước 4 — Hạn mức theo thời gian + danh mục (RSK-05, RSK-04, RSK-06; 5-C05, 5-C06, 5-C12, 5-C13)
 - [ ] RSK-05: lỗ ngày / tuần (mốc reset + múi giờ theo hồ sơ, test đổi giờ DST), drawdown từ đỉnh, chuỗi thua — tính từ equity thật (lịch sử equity theo giờ KN-05 + nhịp tim) **và** PnL paper của sổ cái. Chạm ngưỡng → chặn lệnh mới tới kỳ sau + đề nghị Safety `PAUSED` (Safety có quyền cao nhất; Risk không tự mở lại). Số ngưỡng: từ hồ sơ (bước 3).
-- [ ] RSK-04: exposure ròng / gộp theo mã, số lệnh mở tối đa, tổng rủi ro mở (gồm reservation đang mở) — theo hồ sơ.
+- [ ] Thêm theo tài liệu QLV: giới hạn lỗ **tháng** (mục 7.2), **số lệnh tối đa / ngày** (7.2), **bậc thang giảm rủi ro theo drawdown** (7.3 — bậc cao nhất không vượt mức rủi ro / lệnh trong hồ sơ, tức ≤ 0,5 % theo DEC-09; quay lại bậc cũ theo luật viết sẵn), **không tăng rủi ro sau chuỗi thắng** (7.4, mục 8 KN-12). Thay đổi hồ sơ: **giảm rủi ro có hiệu lực ngay, tăng rủi ro phải qua điều kiện** (10.3) — chi tiết theo Q6.
+- [ ] RSK-04: exposure ròng / gộp theo mã, số lệnh mở tối đa, **trần tổng rủi ro mở ("heat", 7.1)** gồm reservation đang mở; **mọi lệnh vàng cùng chiều tính là một vị thế** (7.5, tình huống 11.5). **Chặn bình quân giá lỗ / martingale** (chương 8): không thêm lệnh cùng chiều khi lệnh đang mở còn lỗ — chi tiết theo câu hỏi. **Kiểm tra gap** (7.6): tổng lot mở × cỡ hợp đồng × khoảng gap kịch bản ≤ mức chịu được trong hồ sơ.
 - [ ] RSK-06: `REDUCED` có lý do cụ thể (hạn mức nào cắt), TTL quyết định, gắn phiên bản chính sách **và** phiên bản hồ sơ rủi ro.
 - [ ] Test: chạm ngưỡng ngày → chặn tới mốc reset kế tiếp (gồm ngày đổi DST); chuỗi thua; hai intent đồng thời (8 luồng) không vượt tổng; equity đổi giữa chừng.
 
 ### Bước 5 — Margin + chi phí qua đêm (RSK-03, RSK-09; 5-C07, 5-C08, 5-C09)
+- [ ] **Trần đòn bẩy thực tế** (tài liệu QLV 4.2: giá trị danh nghĩa mọi vị thế / equity ≤ trần trong hồ sơ — số do người dùng chọn), độc lập với đòn bẩy sàn cho.
 - [ ] RSK-03: margin cần ≈ khối lượng × cỡ hợp đồng × giá / đòn bẩy (đòn bẩy + margin trống từ thông số / nhịp tim thật); không đủ → giảm khối lượng hoặc `REJECTED` (5-C09); đòn bẩy bị broker đổi → dùng giá trị tại lúc quyết (KN-05).
 - [ ] RSK-09: swap theo `swap_mode` thật (chỉ hỗ trợ các kiểu đã kiểm; kiểu lạ → không cho giữ qua đêm), thứ Tư (hoặc ngày `swap_rollover3days`) ×3; cộng vào rủi ro khi chính sách cho giữ qua đêm.
 - [ ] 5-C07 qua cuối tuần: theo hồ sơ (cấm, hoặc cho kèm rủi ro gap — cách tính gap là giá trị khởi đầu chưa hiệu chỉnh, chỉ đặt khi người dùng chọn "cho").
@@ -106,13 +108,41 @@
 | Mã | Câu hỏi | Cần cho | Trả lời |
 | --- | --- | --- | --- |
 | Q1 | Nguồn lịch hỏng mà chưa có bản ghi mới → nhận định cũ còn dùng được tới 15 phút (ghi chú KN-14). Risk có tự kiểm sức khỏe nguồn lịch lúc quyết không? | Bước 1 | **Chốt 16/11: Risk tự kiểm.** Lúc duyệt, Risk tự xem sức khỏe nguồn lịch (lần nạp gần nhất lỗi / quá hạn) → lỗi thì `REJECTED` ngay, không chờ nhận định hết hạn 15 phút. Chấp nhận có thể từ chối nhầm vài lần khi trang lịch chập chờn |
-| Q2 | Tiền lợi nhuận của mã vàng khác tiền tài khoản (vd. tài khoản cent, tài khoản EUR): quy đổi thế nào? | Bước 2a | chờ |
-| Q3 | Phí hoa hồng / lot (MT5 không báo trong thông số mã): lấy từ đâu? | Bước 2c | chờ |
+| Q2 | Tiền lợi nhuận của mã vàng khác tiền tài khoản (vd. tài khoản cent, tài khoản EUR): quy đổi thế nào? | Bước 2a | **Chốt 16/11: USD trước, giá trị tick sau.** GĐ5 chỉ tính khi tài khoản USD **và** tiền lợi nhuận của mã = USD; khác → `REJECTED` `CURRENCY_UNSUPPORTED`. Khi người dùng chọn sàn thật: thêm `trade_tick_value` / `trade_tick_size` từ Gateway (cập nhật Gateway trên máy) để hỗ trợ tài khoản cent / tiền khác |
+| Q3 | Phí hoa hồng / lot (MT5 không báo trong thông số mã): lấy từ đâu? | Bước 2c | chờ (hỏi 16/11, chưa trả lời; tài liệu QLV 3.5 xác nhận phải cộng phí vào rủi ro) |
 | Q4 | Trượt giá ước tính khi chưa có lệnh thật để đo | Bước 2c | chờ |
 | Q5 | Ngưỡng "spread quá rộng" của Risk theo phân bố spread của chính sàn | Bước 2d | chờ |
 | Q6 | Ai được tạo / đổi hồ sơ rủi ro (USER chủ tài khoản, ADMIN, hay USER tạo + ADMIN duyệt) | Bước 3 | chờ |
 | Q7 | Văn bản chiến lược v1: người phát triển soạn nháp từ luật GĐ4 để người dùng duyệt, hay người dùng có chiến lược riêng gửi vào | Bước 7 | chờ |
 | KN-12 | 9 câu về quản lý vốn (đánh giá độc lập mục 5.D) — **lấy từ tài liệu người dùng gửi**, không hỏi đoán | Bước 3–5 | chờ tài liệu |
+
+## Áp dụng tài liệu Quản lý vốn (người dùng gửi 2026-11-16)
+
+Tài liệu "Quản lý vốn khi giao dịch vàng (XAU/USD)" v1.0 là tài liệu giáo dục; **mọi con số trong đó là ví dụ** (tài liệu tự ghi). Hệ thống dùng **khung + công thức** của tài liệu; **con số** do người dùng chọn — hỏi lần lượt (H1, H2…) khi tới bước 3, mỗi câu kèm vùng tài liệu nêu + khuyến nghị thận trọng, luôn nằm trong DEC-09. Chưa chọn → Risk từ chối (`NO_RISK_PROFILE`).
+
+| Mục mẫu 10.1 | Hệ thống dùng thế nào | Bước | Số |
+| --- | --- | --- | --- |
+| 1. Vốn rủi ro | Ghi chú hồ sơ; vốn thật đọc từ equity MT5. Báo cáo khả thi (RPF-03) so vốn với lot nhỏ nhất | 3, 8 | người dùng |
+| 2. Mục tiêu giai đoạn | Chỉ ghi chú; **không** vào phép tính (DEC-09: 4–5 %/ngày chỉ tham khảo) | 3 | — |
+| 3. Công cụ + khung + phiên | XAUUSD; khung / phiên thuộc văn bản chiến lược | 7 | STR-06 |
+| 4. Rủi ro / lệnh | Luật cứng, chỉ nhận **0,25–0,5 %** (DEC-09; tài liệu bảng 5.1: "mới bắt đầu, chưa có thống kê" = 0,25–0,5 %) | 2–3 | **H1** |
+| 5. Tính lot | Công thức 5.2 + 3.5, làm tròn xuống | 2 | đã có công thức |
+| 6. Chuẩn SL | SL theo cấu trúc / ATR — văn bản chiến lược; Risk chặn SL quá gần (stops level) | 2e, 7 | STR-06 |
+| 7. RR tối thiểu | Risk từ chối intent có TP / SL dưới mức tối thiểu (intent không có TP → theo chiến lược) | 4 | H2 |
+| 8. Trần heat (tổng rủi ro mở) | RSK-04, mọi lệnh vàng cùng chiều = một vị thế | 4 | H3 |
+| 9. Giới hạn lỗ ngày / tuần / tháng + chuỗi thua | RSK-05, mốc reset + múi giờ | 4 | H4 |
+| 10. Số lệnh tối đa / ngày | RSK-05 | 4 | H5 |
+| 11. Bậc thang drawdown + dừng hẳn | RSK-05; dừng hẳn → Safety `PAUSED`, chỉ người mở lại | 4 | H6 |
+| 12. Quy tắc tin tức | Đã có làn nhanh DEC-20 (chặn quanh tin) + Risk Q1; thêm: có giữ lệnh qua tin không | 4–5 | H7 |
+| 13. Cuối tuần | 5-C07: cấm / cho kèm kiểm tra gap (7.6) | 5 | H8 |
+| 14. Trần đòn bẩy thực tế | Bước 5 | 5 | H9 |
+| 15. Chu kỳ rà soát / đổi tham số | Hồ sơ có phiên bản; giảm rủi ro ngay, tăng phải qua điều kiện (10.3) | 3 | Q6 |
+| 16. Rút / nạp | Rủi ro tính theo equity lúc quyết; nạp / rút lớn → ghi sự kiện, đỉnh drawdown điều chỉnh theo luật viết sẵn (13.3–13.4: không nạp để gỡ) | 4 | H10 |
+| 17. Ngắt "tilt" | Hệ thống tự động không có cảm xúc; thay bằng: người dùng **không** được nới hạn mức giữa phiên (chỉ ADMIN, có audit) | 3 | — |
+| 18. Điều kiện dừng toàn bộ | Gộp vào mục 11 (drawdown dừng hẳn) | 4 | H6 |
+| Chương 8 (bình quân giá lỗ, martingale) | Đề xuất **cấm cứng** thêm lệnh cùng chiều khi lệnh đang mở còn lỗ | 4 | H11 |
+
+Không áp dụng: chương 9 (tâm lý — hệ thống tự động), 13.6 (quỹ / prop firm), 13.7 (thuế). Chương 12 (nhật ký, đo lường) → sổ cái + audit ở bước 6–7, chỉ số hiệu suất ở GĐ10. Phụ lục C (Monte Carlo) → tham khảo cho báo cáo khả thi / GĐ6. Phụ lục E (checklist trước lệnh, mục 5.5 "7 bước") → đối chiếu với thứ tự kiểm của Risk trong thiết kế 35.
 
 Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấu trúc trước khi có số (KN-12), Risk từ chối mọi intent tới khi có hồ sơ.
 
@@ -123,7 +153,7 @@ Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấ
 
 ## Nhật ký kế hoạch
 
-- **2026-11-16** — Viết bản nháp kế hoạch (chưa code). RSK-10, RSK-11 đặt đầu tiên (bước 1–2) theo DEC-28; ghi chú KN-14 (15 phút) đưa vào bước 1 (Q1); số rủi ro chờ KN-12; KN-07, KN-08 cuối GĐ5 (bước 9). Phát hiện khi đọc code: thông số broker KN-05 **không có giá trị tick và phí hoa hồng** → Q2, Q3; `RiskPolicy` đang có số rủi ro đặt sẵn trong code (0,5 % / 2 %) → bước 3 bỏ số mặc định.
+- **2026-11-16** — Viết bản nháp kế hoạch (chưa code). RSK-10, RSK-11 đặt đầu tiên (bước 1–2) theo DEC-28; ghi chú KN-14 (15 phút) đưa vào bước 1 (Q1); số rủi ro chờ KN-12; KN-07, KN-08 cuối GĐ5 (bước 9). Phát hiện khi đọc code: thông số broker KN-05 **không có giá trị tick và phí hoa hồng** → Q2, Q3; `RiskPolicy` đang có số rủi ro đặt sẵn trong code (0,5 % / 2 %) → bước 3 bỏ số mặc định. Chốt Q1 (Risk tự kiểm nguồn lịch), Q2 (USD trước, giá trị tick sau). Người dùng gửi tài liệu Quản lý vốn → thêm mục "Áp dụng tài liệu Quản lý vốn" (mẫu 18 mục → hồ sơ rủi ro, H1–H11 hỏi khi tới bước 3), bổ sung bước 4 (lỗ tháng, số lệnh / ngày, bậc thang drawdown, heat, cấm bình quân giá lỗ, kiểm tra gap) và bước 5 (trần đòn bẩy thực tế). Q3 đã hỏi, chưa có trả lời.
 
 ## Prompt cho phiên mới
 Đọc CLAUDE.md, PROGRESS.md, rồi docs/ke-hoach/GD5-ke-hoach.md và chỉ các mục liên quan của docs/giai-doan/GD5-ke-hoach-giao-dich.md. GĐ5 làm song song (DEC-28): không đóng trước GĐ1 → GĐ4; kiểm trên máy GĐ1/GĐ2 (docs/ke-hoach/lich-kiem-tren-may.md) ưu tiên; không có lệnh thật nào; không tự đặt số rủi ro (chờ KN-12). Code trên nhánh GĐ5 tách từ claude/affectionate-einstein-8ypy59, chưa lên develop. Làm theo thứ tự bước, RSK-10 → RSK-11 trước. Quy trình: thiết kế → code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick ở cả hai file, ghi nhật ký → chạy test + ruff, kiểm mã thoát thật → commit (nhắc mã việc) → push nhánh GĐ5 → kiểm CI. Người dùng không rành kỹ thuật: tiếng Việt đơn giản, mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị. Không bao giờ yêu cầu dán mật khẩu / token / khóa API vào chat.
