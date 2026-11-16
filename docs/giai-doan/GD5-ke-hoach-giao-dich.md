@@ -110,3 +110,5 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 - **2026-11-16** — Bước 3: **H4 phần 2 — lỗ tối đa một tuần = 1,5 % equity** (người dùng chốt, theo khuyến nghị; = 2 ngày chạm ngưỡng ngày). Chạm → chặn lệnh mới tới mốc reset tuần + đề nghị Safety `PAUSED`.
 
 - **2026-11-16** — Bước 3: **H4 phần 3 — lỗ tối đa một tháng = 3 % equity** (người dùng chốt, theo khuyến nghị; QLV 7.2). Chạm → chặn lệnh mới tới mốc reset tháng + đề nghị Safety `PAUSED`.
+
+- **2026-11-16** — Bước 3: **H4 phần 4a — chuỗi thua 5 lệnh liên tiếp** (tính qua nhiều ngày; người dùng chốt, theo khuyến nghị) → đề nghị Safety `PAUSED`, chỉ người mở lại (5-C06). Không giảm rủi ro được vì 0,25 % là sàn DEC-09. Ước tính lý thuyết (chưa đo): thắng 40 % → chuỗi 5 thua ≈ 1 lần / 40–60 lệnh.
