@@ -8,12 +8,13 @@ lịch hỏng). Số rủi ro: **chỉ để test**.
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 
 from gold_trading.common.enums import RiskOutcome, SafetyState
 from gold_trading.ingestion.source_status import CheckOutcome, SourceCheck
 from gold_trading.market.hours import REFERENCE
 from gold_trading.risk import fast_lane as FL
-from gold_trading.risk.engine import RiskEngine, RiskPolicy, SizingInputs
+from gold_trading.risk.engine import RiskEngine, RiskPolicy
 from gold_trading.risk.ledger import RiskLedger
 from tests.factories import intent
 
@@ -22,7 +23,7 @@ from .test_event_analyst import calendar_record, revise
 from .test_fast_lane import ev_of, news
 
 # CHỈ ĐỂ TEST — không phải số khuyến nghị
-TEST_POLICY = dict(max_risk_per_trade=0.005, max_total_reserved=0.02, max_spread=0.5)
+TEST_POLICY = dict(max_risk_per_trade=Decimal("0.005"), max_total_reserved=Decimal("0.02"))
 CAL_SOURCES = ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule")
 
 
@@ -47,10 +48,13 @@ def _intent(p, now):
 def test_real_gates_approve_then_real_fast_lane_block_rejects(pipeline):  # noqa: F811  5-C14
     now = T + 3 * S10
     eng, clock = _setup(pipeline, now)
-    d = eng.evaluate(_intent(pipeline, now), "default", SizingInputs(10_000.0, 0.2))
+    d = eng.evaluate(_intent(pipeline, now), "default")
     # Lúc T lịch thật đang có cửa sổ tin MEDIUM → cổng thật đã chặn (cả lệnh cấm lẫn cờ MV).
     assert d.outcome is RiskOutcome.REJECTED
-    assert set(d.reason_codes) == {"ENTRY_BLOCKED:CALENDAR_MEDIUM", "RISK_FLAGS:EVENT_WINDOW"}
+    assert {"ENTRY_BLOCKED:CALENDAR_MEDIUM", "RISK_FLAGS:EVENT_WINDOW"} <= set(d.reason_codes)
+    assert "ENTRY_BLOCKED:FED_UNSCHEDULED_POLICY" not in d.reason_codes
+    # Nguồn SAMPLE không có broker → không bao giờ tính được khối lượng (RSK-11)
+    assert {"NO_PRICE_FEED", "EQUITY_STALE", "BROKER_SPEC_MISSING"} <= set(d.reason_codes)
 
     # Thông cáo Fed ngoài lịch → bộ xử lý làn nhanh thật ghi lệnh cấm 15 phút vào kho thật.
     seen = now + timedelta(seconds=2)
@@ -59,7 +63,7 @@ def test_real_gates_approve_then_real_fast_lane_block_rejects(pipeline):  # noqa
     h.run(ev_of(news("n:e2e", now, seen)), seen)
     clock["now"] = seen + timedelta(seconds=1)
     assert pipeline.app.state.registry.get("default").safety.state is SafetyState.ACTIVE
-    d = eng.evaluate(_intent(pipeline, clock["now"]), "default", SizingInputs(10_000.0, 0.2))
+    d = eng.evaluate(_intent(pipeline, clock["now"]), "default")
     assert d.outcome is RiskOutcome.REJECTED
     assert "ENTRY_BLOCKED:FED_UNSCHEDULED_POLICY" in d.reason_codes
 
@@ -77,7 +81,7 @@ def test_real_fusion_invalidation_rejects(pipeline):  # noqa: F811             5
         pipeline.orch.tick(c + k * S10)
     clock["now"] = c + 2 * S10
     i = i.model_copy(update={"expiry": clock["now"] + timedelta(minutes=1)})
-    d = eng.evaluate(i, "default", SizingInputs(10_000.0, 0.2))
+    d = eng.evaluate(i, "default")
     assert d.outcome is RiskOutcome.REJECTED
     assert "NO_MARKET_VIEW" in d.reason_codes
     assert "CALENDAR_SOURCE_UNHEALTHY:fed_fomc" in d.reason_codes      # Q1: tự kiểm, độc lập
@@ -88,7 +92,7 @@ def test_real_calendar_health_without_recent_check_rejects(pipeline):  # noqa: F
     eng, clock = _setup(pipeline, now)
     pipeline.log.record(SourceCheck("dol_claims_schedule", now - timedelta(seconds=10),
                                     CheckOutcome.ERROR, error_code="HTTP_500"))
-    d = eng.evaluate(_intent(pipeline, now), "default", SizingInputs(10_000.0, 0.2))
+    d = eng.evaluate(_intent(pipeline, now), "default")
     assert d.outcome is RiskOutcome.REJECTED
     assert "CALENDAR_SOURCE_UNHEALTHY:dol_claims_schedule" in d.reason_codes
     assert "NO_MARKET_VIEW" not in d.reason_codes       # MarketView vẫn còn hạn

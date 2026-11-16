@@ -11,7 +11,7 @@
 - **GĐ1:** code xong; còn kiểm trên máy (DOL 19/11, dung lượng 20/11, Lễ Tạ ơn, NFP 04/12) + quyết ở Gate (Census, ETF, sao lưu).
 - **GĐ2:** code xong (DEC-19); Gate: replay lại sau NFP (lần 16/11 mục Technical chưa so thật vì toàn phiên bản cũ) + độ trễ < 10 giây.
 - **GĐ3 / GĐ4:** code xong (DEC-22, DEC-23); `nguong` ~20/11, `kiem-mv` 18/11 + 24/11; đóng sau GĐ1 → GĐ2 (→ GĐ3 → GĐ4).
-- **Đánh giá độc lập GĐ0–GĐ4** ([file](docs/danh-gia/danh-gia-GD0-GD4.md)), Pha 2: KN-01/02/04 ghi vào GĐ5; KN-16 hoãn. **Code ở nhánh chờ `claude/affectionate-einstein-8ypy59`** (CI đủ 4 job xanh): KN-03 (0021 — lên `develop` sau `kiem-mv` 24/11), KN-13, 14, 15 (`technical-1.6.0`, `regime-1.2.0`), 20 (0022), 21, 05 (0023) — lên `develop` **sau Gate GĐ1 + GĐ2** (người dùng chọn 16/11). KN-26 (CSP) cũng xong ở nhánh chờ. **GĐ5 song song (DEC-28, 16/11):** viết kế hoạch ở chat mới, người dùng duyệt rồi mới code; không đóng trước GĐ1→GĐ4; chưa có lệnh thật.
+- **Đánh giá độc lập GĐ0–GĐ4** ([file](docs/danh-gia/danh-gia-GD0-GD4.md)), Pha 2: KN-01/02/04 ghi vào GĐ5; KN-16 hoãn. **Code ở nhánh chờ `claude/affectionate-einstein-8ypy59`** (CI đủ 4 job xanh): KN-03 (0021 — lên `develop` sau `kiem-mv` 24/11), KN-13, 14, 15 (`technical-1.6.0`, `regime-1.2.0`), 20 (0022), 21, 05 (0023) — lên `develop` **sau Gate GĐ1 + GĐ2** (người dùng chọn 16/11). KN-26 (CSP) cũng xong ở nhánh chờ. **GĐ5 song song (DEC-28):** kế hoạch duyệt 16/11 (Q1–Q7); **bước 0–2 code xong 16/11** ở nhánh `claude/fervent-hypatia-n3uyfn` (tách từ nhánh chờ): thiết kế 35, RSK-10, RSK-11 (+ migration 0024 phí / lot). Chưa lên `develop`; tiếp: bước 3 (hồ sơ rủi ro, hỏi H1–H11). Chưa có lệnh thật.
 - **Quản lý vốn (DEC-09):** rủi ro 0,25–0,5 %/lệnh + ngưỡng lỗ ngày/tuần là luật cứng; tài liệu "Quản lý vốn khi giao dịch vàng" **đã nhận 16/11** (số trong đó chỉ là ví dụ) → khung đưa vào kế hoạch GĐ5; số hồ sơ rủi ro người dùng chọn từng câu (H1–H11) ở bước 3.
 - Bài học: kiểm nguồn mới từ máy người dùng trước khi code; PowerShell không `\"` / `$`; đổi compose → tải lại file; **sau mỗi push kiểm CI** (migration 0009); chuỗi lệnh commit phải dừng khi ruff lỗi.
 - Bản đồ giai đoạn + bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
@@ -51,4 +51,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối: `develop` (15/11) backend 2261 passed, frontend 123; **nhánh chờ (16/11) backend 2330 passed (2 skipped), frontend 137**; ruff sạch, build đạt; mt5_gateway 206 passed (0.10.3).
+Kết quả lần cuối: `develop` (15/11) backend 2261 passed, frontend 123; nhánh chờ (16/11) backend 2330 passed (2 skipped), frontend 140; **nhánh GĐ5 (16/11) backend 2439 passed (2 skipped)**; ruff sạch, build đạt; mt5_gateway 206 passed (0.10.3).

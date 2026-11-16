@@ -18,6 +18,7 @@ from sqlalchemy import (
     Index,
     Integer,
     MetaData,
+    Numeric,
     PrimaryKeyConstraint,
     String,
     Table,
@@ -706,3 +707,22 @@ account_equity_hourly = Table(
     CheckConstraint("(margin IS NULL OR margin >= 0) AND (leverage IS NULL OR leverage > 0)",
                     name="ck_account_equity_hourly_values"),
 )
+
+
+# GĐ5 RSK-11 / Q3 (migration 0024): phí hoa hồng khứ hồi / lot do người dùng nhập theo trang của sàn
+# (MT5 không báo phí trong thông số mã) — chỉ thêm, mỗi tài khoản một chuỗi phiên bản. Chưa nhập →
+# Risk từ chối COMMISSION_UNKNOWN; 0 chỉ khi người dùng nhập 0. Thiết kế 35 mục 7.
+account_commissions = Table(
+    "account_commissions",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("account_id", String(64), nullable=False),
+    Column("commission_per_lot", Numeric(18, 6), nullable=False),
+    Column("currency", String(16), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", String(128), nullable=False),
+    Column("reason", String(256), nullable=False),
+    CheckConstraint("commission_per_lot >= 0", name="ck_account_commissions_value"),
+)
+Index("ix_account_commissions_lookup", account_commissions.c.account_id,
+      account_commissions.c.created_at)

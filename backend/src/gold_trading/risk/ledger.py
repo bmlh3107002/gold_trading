@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 
 from gold_trading.common.ids import new_id
@@ -22,7 +23,7 @@ class LedgerEvent:
     type: LedgerEventType
     reservation_id: str
     symbol: str
-    amount: float
+    amount: Decimal
     at: datetime
     reason: str
 
@@ -37,13 +38,16 @@ class RiskLedger:
     def events(self) -> tuple[LedgerEvent, ...]:
         return tuple(self._events)
 
-    def reserved_total(self, symbol: str | None = None) -> float:
+    def reserved_total(self, symbol: str | None = None) -> Decimal:
         with self.lock:
             return sum(
-                e.amount for e in self._open.values() if symbol is None or e.symbol == symbol
+                (e.amount for e in self._open.values() if symbol is None or e.symbol == symbol),
+                Decimal(0),
             )
 
-    def reserve(self, symbol: str, amount: float, reason: str) -> str:
+    def reserve(self, symbol: str, amount: Decimal, reason: str) -> str:
+        if not isinstance(amount, Decimal) or not amount.is_finite() or amount <= 0:
+            raise ValueError("số tiền giữ chỗ phải là Decimal > 0 (CORE-05)")
         with self.lock:
             rid = new_id("res")
             ev = LedgerEvent(

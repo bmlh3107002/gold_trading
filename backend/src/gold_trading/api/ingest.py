@@ -714,6 +714,19 @@ def ingest_router(
     return r
 
 
+def heartbeat_spec(hb: Heartbeat) -> dict[str, Any]:
+    """Thông số broker trong nhịp tim theo đúng các trường KN-05 (đòn bẩy + tiền tài khoản lấy từ
+    số liệu tài khoản). Dùng chung cho ghi lịch sử và Risk so "thông số DB = nhịp tim hiện tại"."""
+    if hb.symbol is None:
+        raise ValueError("nhịp tim không có thông số mã")
+    acc = hb.account
+    spec = {k: getattr(hb.symbol, k) for k in SPEC_FIELDS
+            if k not in ("leverage", "account_currency")}
+    spec["leverage"] = acc.leverage if acc is not None else None
+    spec["account_currency"] = acc.currency if acc is not None else None
+    return spec
+
+
 def record_broker_history(store: BrokerHistoryStore, account_id: str, hb: Heartbeat,
                           now: datetime) -> None:
     """KN-05: lưu thông số broker (khi đổi) + số liệu tài khoản (đầu mỗi giờ). Chỉ khi có danh
@@ -724,10 +737,7 @@ def record_broker_history(store: BrokerHistoryStore, account_id: str, hb: Heartb
     acc = hb.account
     try:
         if hb.symbol is not None:
-            spec = {k: getattr(hb.symbol, k) for k in SPEC_FIELDS
-                    if k not in ("leverage", "account_currency")}
-            spec["leverage"] = acc.leverage if acc is not None else None
-            spec["account_currency"] = acc.currency if acc is not None else None
+            spec = heartbeat_spec(hb)
             store.record_spec(SpecKey(account_id, ident.login, ident.server,
                                       hb.symbol.broker_symbol),
                               spec, observed_at=now, gateway_version=hb.gateway_version)

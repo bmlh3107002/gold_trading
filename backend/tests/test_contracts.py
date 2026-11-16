@@ -123,7 +123,8 @@ def _decision(t0, **kw):
     from gold_trading.common.enums import RiskOutcome
     from gold_trading.contracts.risk import RiskDecision
 
-    base = dict(risk_decision_id="rd1", intent_id="i1", outcome=RiskOutcome.REJECTED,
+    base = dict(risk_decision_id="rd1", intent_id="i1", account_id="a1",
+                outcome=RiskOutcome.REJECTED,
                 reason_codes=("X",), decided_at=t0, expires_at=t0 + minutes(1), policy_version="p")
     base.update(kw)
     return RiskDecision(**base)

@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from gold_trading import __version__
-from gold_trading.accounts.mt5_link import account_feed
+from gold_trading.accounts.mt5_link import account_feed, held_link
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts import news_llm
 from gold_trading.analysts.event import EventAnalyst, event_handler
@@ -65,7 +65,7 @@ from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
 from gold_trading.risk.blocks import BlockStore
 from gold_trading.risk.fast_lane import CalendarBlocks, dedupe, fast_lane_handler
 from gold_trading.risk.fast_lane_loop import FastLaneMonitor, SpreadLoop
-from gold_trading.risk.gates import RiskGates, calendar_health_gate
+from gold_trading.risk.gates import RiskGates, broker_gate, calendar_health_gate
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -73,6 +73,7 @@ from gold_trading.storage.analyst_outputs import (
 )
 from gold_trading.storage.broker_history import InMemoryBrokerHistoryStore, SqlBrokerHistoryStore
 from gold_trading.storage.candles import CandleStore, InMemoryCandleStore, SqlCandleStore
+from gold_trading.storage.commissions import InMemoryCommissionStore, SqlCommissionStore
 from gold_trading.storage.external_records import SqlExternalRecordStore
 from gold_trading.storage.market_views import InMemoryMarketViewStore, SqlMarketViewStore
 from gold_trading.storage.news_llm import InMemoryNewsLlmStore, SqlNewsLlmStore
@@ -627,8 +628,23 @@ def create_app(
     app.state.fast_lane = fast_lane       # GĐ2 4b–4d: cửa sổ lịch + nhịp làn nhanh cho Safety
     app.state.spread_loop = spread_loop
     app.state.broker_history = broker_history   # KN-05: chẩn đoán / test / GĐ5
-    app.state.risk_gates = RiskGates(market_views=market_views,   # GĐ5 RSK-10
-                                     **risk_gates_base)
+    # GĐ5 RSK-11 (Q3): phí hoa hồng / lot do người dùng nhập (chưa nhập → Risk từ chối).
+    commissions = (SqlCommissionStore(repo.engine) if getattr(repo, "engine", None) is not None
+                   else InMemoryCommissionStore())
+
+    def locked_symbol(account_id: str) -> str | None:
+        held = held_link(repo, account_id) if source is DataSource.MT5 else None
+        return held.broker_symbol if held is not None else None
+
+    app.state.commissions = commissions
+    app.state.risk_gates = RiskGates(   # GĐ5 RSK-10 / RSK-11 — chưa nối luồng nào (bước 7)
+        market_views=market_views,
+        broker=broker_gate(monitors, broker_history, locked_symbol),
+        latest_quote=quote_store.latest,
+        spread_minutes=lambda feed, lo, hi, as_of: quote_minutes.minutes.query(
+            feed, lo, hi, as_of=as_of),
+        commission=commissions.at,
+        **risk_gates_base)
 
     @app.get("/api/health")
     def health():
