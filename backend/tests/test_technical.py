@@ -288,3 +288,33 @@ def test_spike_bar_does_not_create_swing_or_level():
     assert all(s["open_time"] != c.open_time.isoformat() for s in out.features["swings"])
     assert all(lv["low"] > c.low - 100.0 for lv in out.features["levels"])
     assert base.features["levels"]  # dữ liệu sạch vẫn có vùng S/R
+
+
+# ---- KN-15 (F-01): kết quả STALE có id riêng → kho lưu được -------------------------------
+
+def test_stale_output_has_own_id_and_is_stored():
+    from gold_trading.storage.analyst_outputs import InMemoryAnalystOutputStore
+
+    rows = sample_rows(days=10)
+    ok = run(rows)
+    stale = run(rows, expected=rows[-1].close_time + TF.delta * 3)   # feed ngừng, cùng nến cuối
+    assert ok.source_status == "HEALTHY" and stale.source_status == "STALE"
+    assert ok.as_of == stale.as_of and ok.output_id != stale.output_id
+    assert run(rows).output_id == ok.output_id                      # cùng trạng thái → cùng id
+    assert run(rows, expected=rows[-1].close_time + TF.delta * 5).output_id == stale.output_id
+    st = InMemoryAnalystOutputStore()
+    kw = dict(symbol="XAUUSD", tf=TF, source=DataSource.CSV, computed_at=rows[-1].close_time)
+    assert st.append(ok, **kw) is True
+    assert st.append(stale, **kw) is True                             # trước KN-15: False (bị bỏ)
+    assert st.append(stale, **kw) is False                            # vẫn idempotent
+
+
+def test_frozen_feed_output_id_differs_from_healthy():
+    rows = sample_rows(days=10)
+    last = rows[-1]
+    frozen = rows[:-4] + [
+        mk(rows[-4 + i].open_time, last.open, last.high, last.low, last.close) for i in range(4)
+    ]
+    a, b = run(frozen), run(frozen)
+    assert a.source_status == "STALE" and a.output_id == b.output_id
+    assert a.output_id.startswith(f"technical:{technical.VERSION}:CSV:XAUUSD:M15:")

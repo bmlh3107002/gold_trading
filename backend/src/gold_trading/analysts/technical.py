@@ -22,7 +22,8 @@ from gold_trading.market.hours import REFERENCE, MarketCalendar
 from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
-VERSION = "technical-1.5.0"  # 1.4.0: vol EWMA + H1/H4/D1 (TEC-07/09); 1.5.0: mẫu hình (TEC-06)
+VERSION = "technical-1.6.0"  # 1.4.0: vol EWMA + H1/H4/D1 (TEC-07/09); 1.5.0: mẫu hình (TEC-06)
+# 1.6.0 (KN-15): trạng thái đánh giá (source_status + cờ chất lượng) vào id → kết quả STALE lưu được
 ANALYST_ID = "technical"
 WINDOW = 300
 MIN_BARS = 250
@@ -189,8 +190,14 @@ def analyze(
         ),
         "spikes": [t.isoformat() for t in q.spikes],
     }
+    # KN-15 (F-01): cùng cửa sổ nến nhưng trạng thái khác (vd. feed ngừng → STALE) phải ra id khác,
+    # nếu không kho coi là trùng và bỏ — mất dấu vết STALE. Trạng thái lúc này đã chốt: cờ chặn đã
+    # nằm trong ``quality_flags``; HEALTHY→INVALID ở dưới suy ra được từ chính các cờ đó.
+    state = json.dumps({"status": status.value, "flags": sorted(quality_flags)},
+                       separators=(",", ":"))
+    id_hash = hashlib.sha256((input_info["input_hash"] + "|" + state).encode()).hexdigest()
     base = dict(
-        output_id=f"{ANALYST_ID}:{VERSION}:{source.value}:{symbol}:{timeframe.value}:{as_of.isoformat()}:{input_info['input_hash'][:16]}",
+        output_id=f"{ANALYST_ID}:{VERSION}:{source.value}:{symbol}:{timeframe.value}:{as_of.isoformat()}:{id_hash[:16]}",
         analyst_id=ANALYST_ID,
         as_of=as_of,
         expires_at=as_of + timeframe.delta + EXPIRY_GRACE,

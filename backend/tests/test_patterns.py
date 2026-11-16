@@ -69,7 +69,7 @@ def test_technical_output_has_patterns_and_no_lookahead():
     cut = [r for r in rows if r.close_time <= NOW]
     a = run(cut)
     b = run(rows[:len(cut)])                                         # cùng dữ liệu tới NOW
-    assert a == b and a.version == technical.VERSION == "technical-1.5.0"
+    assert a == b and a.version == technical.VERSION == "technical-1.6.0"
     p = a.features["patterns"]
     assert set(p) >= {"recent", "last_bar", "double_top", "double_bottom", "note"}
     assert "không phải tín hiệu" in p["note"]

@@ -154,3 +154,17 @@ def test_mt5_feed_scope_end_to_end(monkeypatch):
     # Nguồn khác (feed khác) không thấy MarketView này.
     other = feed_id_for("Other-Demo", "XAUUSD")
     assert app.state.market_views.current(Scope("XAUUSD", "M15", "MT5", other), T + 3 * S10) is None
+
+
+def test_feed_stops_stale_outputs_stored_and_no_view(pipeline):
+    """KN-15 (F-01): nguồn giá ngừng (không có nến mới) → Technical / Regime tính lại ra STALE và
+    **được lưu** (trước đây trùng id với bản HEALTHY nên bị bỏ) → không có MarketView."""
+    before = {a: o.output_id for a, o in latest_outputs(pipeline.outs).items()}
+    later = T + timedelta(minutes=40)          # thiếu ≥ 2 nến M15 đã phải đóng
+    for k in range(4):
+        pipeline.orch.tick(later + k * S10)
+    outs = latest_outputs(pipeline.outs)
+    for a in ("technical", "regime"):
+        assert outs[a].source_status is SourceStatus.STALE, (a, outs[a].source_status)
+        assert outs[a].output_id != before[a]
+    assert pipeline.views.current(SCOPE, later + 3 * S10) is None

@@ -191,7 +191,7 @@ def test_spike_flag_caps_confidence():
 def test_sample_flag():
     o = run(series("range", source=DataSource.SAMPLE), source=DataSource.SAMPLE, feed="")
     assert "SAMPLE_DATA" in o.quality_flags
-    assert o.output_id.startswith("regime:regime-1.1.0:SAMPLE::XAUUSD:M15:")
+    assert o.output_id.startswith("regime:regime-1.2.0:SAMPLE::XAUUSD:M15:")
 
 
 # ---------------------------------------------------------- 3-C06 / 3-C07 / không nhìn trước
@@ -351,3 +351,21 @@ def test_runner_uses_macro_known_before_bar_close_same_feed_only(outs):
     got = outs.latest_scoped("regime", scope).output
     assert got.features["regime"] == "RISK_OFF"
     assert runner.run_feed(feed, t + timedelta(minutes=4)) is False   # idempotent
+
+
+# ------------------------------------------------------------------ KN-15 (F-01)
+def test_stale_output_has_own_id_and_is_stored():
+    from gold_trading.storage.analyst_outputs import InMemoryAnalystOutputStore
+
+    rows = series("trend_up")
+    ok = run(rows)
+    stale = run(rows, expected=rows[-1].close_time + TF.delta * 3)
+    assert ok.source_status is SourceStatus.HEALTHY and stale.source_status is SourceStatus.STALE
+    assert ok.as_of == stale.as_of and ok.output_id != stale.output_id
+    assert run(rows).output_id == ok.output_id
+    assert run(rows, expected=rows[-1].close_time + TF.delta * 9).output_id == stale.output_id
+    st = InMemoryAnalystOutputStore()
+    scope = Scope("XAUUSD", TF.value, "CSV", "f1")
+    assert st.append_scoped(ok, scope, computed_at=rows[-1].close_time) is True
+    assert st.append_scoped(stale, scope, computed_at=rows[-1].close_time) is True
+    assert st.append_scoped(stale, scope, computed_at=rows[-1].close_time) is False

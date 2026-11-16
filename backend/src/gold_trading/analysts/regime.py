@@ -34,7 +34,8 @@ from gold_trading.market.quality import assess_window
 from gold_trading.market.timeframes import Timeframe
 
 ANALYST_ID = "regime"
-VERSION = "regime-1.1.0"   # 1.1.0: RISK_OFF từ proxy trú ẩn của Macro
+VERSION = "regime-1.2.0"   # 1.1.0: RISK_OFF từ proxy trú ẩn của Macro
+# 1.2.0 (KN-15): trạng thái đánh giá (trạng thái nguồn + cờ chất lượng) vào id → kết quả STALE lưu được
 HANDLER_VERSION = "regime-job-1"
 
 PERIOD = 14
@@ -137,7 +138,9 @@ def analyze(
     risk_off, risk_off_reason = risk_off_from(macro, as_of)
     digest = {"scope": scope.key, "macro": macro.output_id if macro is not None else None,
               "bars": [[c.open_time, c.open, c.high, c.low, c.close,
-                                            c.revision] for c in window]}
+                                            c.revision] for c in window],
+              # KN-15 (F-01): feed ngừng (cùng nến cuối) → STALE phải có id khác HEALTHY trước đó.
+              "state": {"status": a.status.value, "flags": sorted(q_flags | a.quality_flags)}}
     base = dict(analyst_id=ANALYST_ID, version=VERSION, scope=scope, as_of=as_of,
                 expires_at=as_of + timeframe.delta + EXPIRY_GRACE,
                 correlation_id=correlation_id, assessment=a, digest_of=digest,

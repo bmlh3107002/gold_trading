@@ -138,3 +138,7 @@ Lệnh **chỉ đọc**: `python -m gold_trading.ingestion.cli nguong [--days 10
 - **Không tự đổi ngưỡng**: người dùng gửi kết quả, người phát triển đề xuất, người dùng duyệt → đổi ngưỡng = tăng phiên bản Technical.
 - **Kiểm chứng:** 6 test (nến lỗi + nến công bố + spread giãn dựng tay; đúng 3× không vượt; không nhìn trước; cửa sổ `since`; lệnh chỉ đọc). Soát: 848 nến có 12 nến lỗi chèn ngẫu nhiên → báo cáo đánh dấu R3 **khi và chỉ khi** `assess_window` của Technical coi là cực đoan (lệch 0), bắt đủ 12.
 - **Còn:** chạy trên máy người dùng sau ≥ 5 ngày dữ liệu MT5 liên tục (lịch kiểm: ~20/11).
+
+## `technical-1.6.0` (KN-15, 2026-11-16) — kết quả STALE lưu được
+
+`output_id` băm thêm **trạng thái đánh giá** (`source_status` + tập cờ chất lượng, gồm cờ chặn; đoạn cuối id = sha256(input_hash | trạng thái)[:16]). Trước đây cùng cửa sổ nến (feed ngừng → cùng nến cuối) cho cùng id với bản HEALTHY trước đó → kho coi là trùng và bỏ bản STALE (phát hiện F-01 của đánh giá độc lập): mất dấu vết cho kiểm toán / GĐ7, thẻ báo "hết hạn" thay vì "dữ liệu cũ". Không đổi công thức hay ngưỡng nào. Cùng trạng thái → cùng id (vẫn idempotent). Giới hạn: STALE rồi khỏe lại **với đúng cửa sổ cũ** → id trùng bản HEALTHY đầu → không lưu lại → bản mới nhất vẫn là STALE tới nến kế tiếp (hướng an toàn: không có MarketView tối đa ~15 phút).

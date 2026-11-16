@@ -272,7 +272,7 @@ Người dùng chọn từng cái; khuyến nghị thuộc GĐ5+ chỉ được 
 | KN-12 | BẮT BUỘC (Gate GĐ5) | GĐ5 | chờ tài liệu của bạn |
 | KN-13 | NÊN | GĐ4 | **xong** (16/11) — Cao / Trung bình / Thấp + "Nghiêng tăng / giảm"; nhật ký GĐ4 (MKV-03) |
 | KN-14 | NÊN | GĐ4 | **xong** (16/11, nhánh riêng — chờ sau Gate GĐ1 + GĐ2); nhật ký GĐ4 |
-| KN-15 | NÊN | GĐ3 | chờ duyệt |
+| KN-15 | NÊN | GĐ3 | **xong** (16/11, nhánh riêng — chờ sau Gate GĐ1 + GĐ2); `technical-1.6.0`, `regime-1.2.0`; nhật ký GĐ3 |
 | KN-16 | NÊN | Vận hành | **hoãn** — người dùng chọn chưa làm (16/11); hỏi lại trước khi chạy thật |
 | KN-17 | NÊN | GĐ8 (sớm?) | chờ bạn quyết |
 | KN-18 | NÊN | Vận hành | chờ bạn quyết |
