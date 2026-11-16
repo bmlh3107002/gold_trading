@@ -3,6 +3,8 @@
 > Tạo 2026-11-14. Gộp từ `GD1-ke-hoach.md` + `GD2-ke-hoach.md` (chi tiết từng mục ở đó). Xong mục nào ghi kết quả vào file kế hoạch của giai đoạn đó rồi gạch ở đây.
 > Lưu ý chung: mở web bằng **địa chỉ Tailscale** (`https://…ts.net`), không dùng `localhost` (đăng nhập sẽ báo "liên kết lạ"). Lệnh `findstr` không đọc chữ có dấu → tìm bằng chữ không dấu.
 
+> **Nhắc việc trên điện thoại:** [`lich-kiem-tren-may.ics`](lich-kiem-tren-may.ics) — 9 việc từ 16/11 tới NFP 04/12, mỗi việc có chuông trước + đúng giờ, ghi sẵn lệnh (người dùng chọn 16/11). Đổi lịch ở đây thì tạo lại file.
+
 ## Thứ Hai 16/11
 
 - [ ] **~06:00–06:15 — thị trường mở cửa (GĐ2):** trang Tổng quan có thể hiện băng đỏ "Chưa đủ dữ liệu spread để đánh giá" khoảng 3 phút rồi **tự hết**. Trang Pipeline: hai làn "Đạt". Chụp màn hình nếu băng không tự hết sau 10 phút.

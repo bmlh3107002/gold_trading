@@ -1,0 +1,194 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//gold-trading//lich-kiem//VI
+CALSCALE:GREGORIAN
+X-WR-CALNAME:Gold – kiểm trên máy
+BEGIN:VEVENT
+UID:gold-kiem-0-1116@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261116T153000Z
+DTEND:20261116T154500Z
+SUMMARY:Gold: Kiểm COT tuần mới
+DESCRIPTION:Gõ trong PowerShell (thư mục C:\\gold-trading):\ndocker c
+ ompose exec backend python -m gold_trading.ingestion.cli cot --dry-run\n
+ Mong đợi: báo cáo chốt 10/11.\nDán toàn bộ kết quả cho Cl
+ aude.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Kiểm COT tuần mới
+TRIGGER:-PT5M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Kiểm COT tuần mới
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-1-1116@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261116T160000Z
+DTEND:20261116T161500Z
+SUMMARY:Gold: 6a — tắt backend qua đêm
+DESCRIPTION:1) Get-Process python  → phải có ít nhất 1 dòng (Gat
+ eway đang chạy)\n2) docker compose stop backend\nKHÔNG tắt Gateway
+ \, KHÔNG tắt máy. Đi ngủ.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: 6a — tắt backend qua đêm
+TRIGGER:-PT5M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: 6a — tắt backend qua đêm
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-2-1117@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261116T233000Z
+DTEND:20261116T234500Z
+SUMMARY:Gold: Bật lại backend — bắt đầu đếm 5 ngày
+DESCRIPTION:1) docker compose start backend\n2) Chờ 5 phút rồi:\nGet
+ -Content logs\\lordtrade.log -Tail 40 -Encoding UTF8\nGet-Content logs\\
+ taikhoan2.log -Tail 40 -Encoding UTF8\nDán cho Claude (tìm dòng 'Nạ
+ p bù sau gián đoạn').\nTừ giờ để máy chạy liên tục\, k
+ hông cho ngủ.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Bật lại backend — bắt đầu đếm 5 ngày
+TRIGGER:-PT15M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Bật lại backend — bắt đầu đếm 5 ngày
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-3-1118@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261118T010000Z
+DTEND:20261118T011500Z
+SUMMARY:Gold: kiem-mv 24 giờ (chỉ đọc)
+DESCRIPTION:docker compose exec backend python -m gold_trading.ingestion.
+ cli kiem-mv --hours 24\nDán toàn bộ kết quả cho Claude. Khoảng
+  trống đêm 16→17/11 là đúng.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: kiem-mv 24 giờ (chỉ đọc)
+TRIGGER:-PT15M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: kiem-mv 24 giờ (chỉ đọc)
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-4-1119@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261119T132000Z
+DTEND:20261119T135000Z
+SUMMARY:Gold: Ra số DOL — xem băng đỏ
+DESCRIPTION:20:25–20:40 trang Tổng quan phải có băng đỏ 'Cửa
+  sổ công bố số liệu'\; thẻ Lịch sự kiện (trang Thị tr
+ ường) báo 'Đang trong cửa sổ'. Chụp màn hình.\nSau 20:30:\n
+ docker compose exec backend python -m gold_trading.ingestion.cli lich --
+ days 14\nDán kết quả cho Claude.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Ra số DOL — xem băng đỏ
+TRIGGER:-PT10M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Ra số DOL — xem băng đỏ
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-5-1120@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261120T020000Z
+DTEND:20261120T021500Z
+SUMMARY:Gold: Đo dung lượng + ngưỡng (chỉ đọc)
+DESCRIPTION:1) docker compose exec backend python -m gold_trading.ingesti
+ on.cli dung-luong\n2) docker compose exec backend python -m gold_trading
+ .ingestion.cli nguong --days 5\nDán cả hai kết quả cho Claude.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Đo dung lượng + ngưỡng (chỉ đọc)
+TRIGGER:-PT15M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Đo dung lượng + ngưỡng (chỉ đọc)
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-6-1124@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261124T010000Z
+DTEND:20261124T011500Z
+SUMMARY:Gold: kiem-mv 7 ngày — Gate GĐ4 (chỉ đọc)
+DESCRIPTION:docker compose exec backend python -m gold_trading.ingestion.
+ cli kiem-mv --hours 168\nDán toàn bộ kết quả cho Claude. Sau đ
+ ó Claude đưa KN-03 lên và hướng dẫn dựng lại.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: kiem-mv 7 ngày — Gate GĐ4 (chỉ đọc)
+TRIGGER:-PT15M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: kiem-mv 7 ngày — Gate GĐ4 (chỉ đọc)
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-7-1125@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261125T130000Z
+DTEND:20261125T131500Z
+SUMMARY:Gold: Lễ Tạ ơn — chỉ nhìn
+DESCRIPTION:Trang Tổng quan có băng đỏ chặn cả ngày (có th
+ ể tới thứ Sáu) là ĐÚNG.\n26–27/11: để ý trong MT5 giờ 
+ giá ngừng chạy / chạy lại\; chụp màn hình gửi Claude.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Lễ Tạ ơn — chỉ nhìn
+TRIGGER:-PT15M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: Lễ Tạ ơn — chỉ nhìn
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:gold-kiem-8-1204@gold-trading
+DTSTAMP:20261116T042631Z
+DTSTART:20261204T131000Z
+DTEND:20261204T135500Z
+SUMMARY:Gold: NFP — Gate GĐ1 + GĐ2
+DESCRIPTION:20:15–20:45 trang Tổng quan có băng đỏ. Chụp màn 
+ hình.\nSau 20:35:\n1) docker compose exec backend python -m gold_tradin
+ g.ingestion.cli lich --days 14  (dòng NFP có số)\n2) Trang Pipeline:
+  ghi 'độ trễ gần nhất' (phải < 10 giây)\n3) Sau 21:00: docke
+ r compose exec backend python -m gold_trading.orchestrator.replay\nDán 
+ tất cả cho Claude.
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: NFP — Gate GĐ1 + GĐ2
+TRIGGER:-PT15M
+END:VALARM
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Gold: NFP — Gate GĐ1 + GĐ2
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
