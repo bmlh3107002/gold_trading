@@ -650,6 +650,7 @@ def create_app(
             feed, lo, hi, as_of=as_of),
         commission=commissions.at,
         risk_profile=risk_profiles.at,
+        market_calendar=market.calendar,
         **risk_gates_base)
 
     @app.get("/api/health")

@@ -27,6 +27,7 @@ from gold_trading.common.time import utcnow
 from gold_trading.contracts.market_view import SAMPLE_DATA, UNVALIDATED_RULES, MarketView
 from gold_trading.contracts.risk import RiskDecision
 from gold_trading.contracts.trade_intent import TradeIntent
+from gold_trading.market.hours import MarketSession
 from gold_trading.market.quote_minutes import p_nearest_rank
 from gold_trading.market.quotes import CALENDAR_CLOSED
 from gold_trading.risk.book import remaining_risk, unrealized
@@ -296,6 +297,10 @@ class RiskEngine:
                 m.details["profile_reread"] = f"{prof.version}->{prof2.version}"  # type: ignore
             pv = prof2.values
             m.details["risk_profile_version"] = str(prof2.version)
+            ok, wk = self._read("market_calendar", reasons,
+                                lambda: self._weekend_check(now, pv, m.details))
+            if not ok or wk:
+                return self._reject(intent, account_id, now, reasons or [wk], m.details)
             # 4c: hạn mức theo thời gian + danh mục (đọc sổ lệnh dưới khóa).
             ok, book = self._read("trade_book", reasons, lambda: self._book_checks(
                 intent, account_id, now, pv, m))
@@ -421,6 +426,24 @@ class RiskEngine:
                      + self.ledger.reserved_total())
         d["open_risk"] = str(open_risk)
         return out, pause, open_risk, positions
+
+    # ------------------------------------------------------------------ 5c: cuối tuần / lễ dài
+
+    def _weekend_check(self, now: datetime, pv, details: dict[str, str]) -> str | None:
+        """H8: thị trường đóng cửa cuối tuần / lễ (``WEEKEND`` / ``HOLIDAY``) trong
+        ``weekend_close_before_min`` phút tới → không vào lệnh mới. Nghỉ hằng ngày không chặn.
+        Bảng ngày lễ không phủ → không biết → chặn."""
+        cal = self.gates.market_calendar
+        window = timedelta(minutes=pv.weekend_close_before_min)
+        if cal is None or not cal.covers(now) or not cal.covers(now + window):  # type: ignore
+            return "MARKET_CALENDAR_UNKNOWN"
+        long_closed = (MarketSession.WEEKEND, MarketSession.HOLIDAY)
+        for k in range(0, pv.weekend_close_before_min + 1):
+            t = now + timedelta(minutes=k)
+            if cal.session_at(t) in long_closed:  # type: ignore[attr-defined]
+                details["market_closes_at_or_before"] = t.isoformat()
+                return "WEEKEND_CLOSE_WINDOW"
+        return None
 
     # ------------------------------------------------------------------ 5b: swap
 

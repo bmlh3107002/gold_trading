@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -23,6 +23,7 @@ from gold_trading.common.enums import (
     TradingMode,
 )
 from gold_trading.ingestion.source_status import SourceHealth
+from gold_trading.market.hours import REFERENCE
 from gold_trading.market.quote_minutes import QuoteMinute
 from gold_trading.market.quotes import QuoteSecond
 from gold_trading.risk.blocks import ALL, Block, BlockKind, BlockStore
@@ -127,7 +128,7 @@ class World:
                 r for r in self.minutes if lo <= r.t < hi and r.available_at <= as_of],
             commission=lambda acc, at: self.commission,
             risk_profile=lambda acc, at: self.profiles.at(acc, at),
-            trade_book=self.book)
+            trade_book=self.book, market_calendar=REFERENCE)
         self.profiles = InMemoryRiskProfileStore()
         self.profiles.append(ACC, TEST_PROFILE, created_by="sub-u", reason="test",
                              at=t0 - timedelta(days=1))
@@ -1149,3 +1150,55 @@ def test_swap_field_null_rejects(t0, field):
     w = World(t0)
     w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), **{field: None}))
     assert f"BROKER_SPEC_MISSING:{field}" in w.evaluate().reason_codes
+
+
+
+# ================================================================ bước 5c — cuối tuần / lễ (H8)
+
+def _at(y, mo, d, h, mi):
+    return datetime(y, mo, d, h, mi, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("now,blocked", [
+    (_at(2026, 1, 9, 21, 29), False),   # thứ Sáu 16:29 NY: còn 31 phút
+    (_at(2026, 1, 9, 21, 30), True),    # 16:30 NY: đúng 30 phút trước đóng cửa tuần
+    (_at(2026, 1, 9, 21, 59), True),
+    (_at(2026, 1, 8, 21, 45), False),   # thứ Năm 16:45 NY: chỉ là nghỉ hằng ngày → không chặn
+    (_at(2026, 7, 10, 20, 35), True),   # mùa hè (EDT): thứ Sáu 16:35 NY = 20:35 UTC
+    (_at(2026, 7, 10, 20, 29), False),
+])
+def test_weekend_close_window(now, blocked):                             # 5-C07
+    w = World(now)
+    d = w.evaluate()
+    assert ("WEEKEND_CLOSE_WINDOW" in d.reason_codes) is blocked, d.reason_codes
+
+
+def test_holiday_early_close_blocks():
+    # Lễ MLK 19/01/2026 (đóng sớm): 30 phút trước giờ đóng → chặn
+    w = World(_at(2026, 1, 19, 12, 0))
+    ok = w.evaluate()
+    assert "WEEKEND_CLOSE_WINDOW" not in ok.reason_codes
+    for k in range(0, 600, 5):                  # tìm phút đầu tiên bị chặn trong ngày
+        w = World(_at(2026, 1, 19, 12, 0) + timedelta(minutes=k))
+        if "WEEKEND_CLOSE_WINDOW" in w.evaluate().reason_codes:
+            break
+    else:
+        raise AssertionError("ngày lễ đóng sớm không bị chặn")
+    t = _at(2026, 1, 19, 12, 0) + timedelta(minutes=k)
+    assert REFERENCE.session_at(t + timedelta(minutes=30)).value in ("HOLIDAY", "WEEKEND")
+
+
+def test_calendar_missing_or_not_covering_rejects(t0):
+    w = World(t0)
+    object.__setattr__(w.gates, "market_calendar", None)
+    assert "MARKET_CALENDAR_UNKNOWN" in w.evaluate().reason_codes
+    w2 = World(_at(2028, 3, 1, 14, 0))            # bảng ngày lễ chỉ phủ 2024–2027
+    assert "MARKET_CALENDAR_UNKNOWN" in w2.evaluate().reason_codes
+
+
+def test_weekend_window_from_profile(t0):
+    w = World(_at(2026, 1, 9, 20, 30))             # 15:30 NY thứ Sáu: còn 90 phút
+    assert "WEEKEND_CLOSE_WINDOW" not in w.evaluate().reason_codes
+    w.profiles.append(ACC, replace(TEST_PROFILE, weekend_close_before_min=120),
+                      created_by="sub-u", reason="t", at=w.now - timedelta(minutes=1))
+    assert "WEEKEND_CLOSE_WINDOW" in w.evaluate().reason_codes

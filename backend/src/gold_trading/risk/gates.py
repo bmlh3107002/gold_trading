@@ -74,6 +74,8 @@ class RiskGates:
     risk_profile: Callable[[str, datetime], RiskProfile | None]
     # Bước 4c: sổ lệnh (lệnh đóng / đang mở). None = chưa có (sổ cái paper ở bước 6) → từ chối.
     trade_book: TradeBook | None = None
+    # Bước 5c: lịch thị trường (tuần + ngày lễ + giờ đặc biệt broker). None → không biết → chặn.
+    market_calendar: object | None = None
 
 
 # Nguồn lịch Risk đòi phải khỏe (Q1). Cùng danh sách với lịch kinh tế hợp nhất.
