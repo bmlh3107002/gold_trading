@@ -546,7 +546,8 @@ def test_below_min_volume_reports_shortfall(t0):                           # 5-C
 
 def test_far_stop_falls_into_below_min_volume(t0):                         # 5-C02 (quá xa)
     w = World(t0)
-    d = w.evaluate(intent(t0 - minutes(0.5), stop_loss=1900.0))
+    # TP đủ xa để R:R đạt (lời 1500 USD/oz) → còn lại đúng một lý do: không đủ lot tối thiểu
+    d = w.evaluate(intent(t0 - minutes(0.5), stop_loss=1900.0, take_profit=3900.0))
     assert d.reason_codes == ("BELOW_MIN_VOLUME",)
 
 
@@ -743,3 +744,56 @@ def test_profile_read_error_under_lock_rejects(t0):
     assert d.outcome is RiskOutcome.REJECTED
     assert "GATE_READ_ERROR:risk_profile" in d.reason_codes
     assert w.engine.ledger.reserved_total() == 0
+
+
+# ================================================================ bước 4b — R:R sau chi phí (H2)
+
+@pytest.mark.parametrize("tp,ok", [
+    (2420.0, True),      # (20 − 0,2) × 100 = 1980 / 1050 = 1,886
+    (2415.95, True),     # (15,95 − 0,2) × 100 = 1575 / 1050 = 1,5 đúng ngưỡng → được
+    (2415.94, False),    # 1574 / 1050 = 1,499
+    (2410.5, False),
+])
+def test_min_reward_risk_after_costs(t0, tp, ok):
+    w = World(t0)
+    d = w.evaluate(intent(t0 - minutes(0.5), take_profit=tp))
+    if ok:
+        assert d.outcome is not RiskOutcome.REJECTED, d.reason_codes
+    else:
+        assert d.reason_codes == ("REWARD_RISK_TOO_LOW",)
+        assert w.engine.ledger.reserved_total() == 0
+
+
+def test_commission_reduces_reward_and_raises_risk(t0):
+    # Có phí 7 $/lot: lời = 1980 − 7 = 1973; R1 = 1057 → 1,866 (vẫn đạt); TP 2416: (15,8 × 100 − 7)
+    # = 1573 / 1057 = 1,488 → không đạt (không phí thì 1580 / 1050 = 1,505 đạt)
+    w = World(t0)
+    w.commission = Commission(ACC, Decimal("7"), "USD", t0 - timedelta(hours=1), "sub-u", "t")
+    assert w.evaluate(intent(t0 - minutes(0.5), take_profit=2420.0)).outcome \
+        is not RiskOutcome.REJECTED
+    d = w.evaluate(intent(t0 - minutes(0.5), take_profit=2416.0))
+    assert d.reason_codes == ("REWARD_RISK_TOO_LOW",)
+    assert d.details["reward_risk"] == "1.4882"
+
+
+def test_sell_reward_risk(t0):
+    w = World(t0)
+    i = intent(t0 - minutes(0.5), side="SELL", entry_reference=2400.0, stop_loss=2410.0,
+               take_profit=2384.0)       # (16 − 0,2) × 100 = 1580 / 1050 = 1,505
+    assert w.evaluate(i).outcome is not RiskOutcome.REJECTED
+    i2 = i.model_copy(update={"take_profit": 2384.5})
+    assert w.evaluate(i2).reason_codes == ("REWARD_RISK_TOO_LOW",)
+
+
+def test_no_take_profit_rejected(t0):
+    w = World(t0)
+    d = w.evaluate(intent(t0 - minutes(0.5), take_profit=None))
+    assert d.outcome is RiskOutcome.REJECTED and "NO_TAKE_PROFIT" in d.reason_codes
+
+
+def test_min_reward_risk_from_profile(t0):
+    w = World(t0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, min_reward_risk=Decimal(2)), created_by="sub-u",
+                      reason="t", at=t0 - timedelta(minutes=1))
+    d = w.evaluate()                        # 1,886 < 2
+    assert d.reason_codes == ("REWARD_RISK_TOO_LOW",) and d.details["min_reward_risk"] == "2"

@@ -249,6 +249,8 @@ class RiskEngine:
                 reasons.append("SL_TOO_CLOSE")
                 m.details["min_stop_distance"] = str(min_stop)
         m.details.pop("_stops", None)
+        if intent.take_profit is None:                    # 4b: không có TP → không tính được R:R
+            reasons.append("NO_TAKE_PROFIT")
         if reasons:
             return self._reject(intent, account_id, now, reasons, m.details)
 
@@ -278,6 +280,16 @@ class RiskEngine:
                 "stop_distance": str(stop), "spread": str(spread), "slippage": str(slippage),
                 "effective_distance": str(res.effective_distance),
                 "risk_per_lot": str(res.risk_per_lot), "risk_money_allowed": str(money)}
+            # 4b (H2): R:R sau chi phí = (|TP − vào| − spread) × cỡ HĐ − phí, chia rủi ro / lot.
+            assert intent.take_profit is not None
+            reward = ((abs(dec(intent.take_profit) - dec(intent.entry_reference)) - spread)
+                      * m.spec.contract_size - m.commission)
+            rr = reward / res.risk_per_lot
+            details["reward_per_lot"] = str(reward)
+            details["reward_risk"] = str(rr.quantize(Decimal("0.0001")))
+            details["min_reward_risk"] = str(pv.min_reward_risk)
+            if rr < pv.min_reward_risk:
+                return self._reject(intent, account_id, now, ["REWARD_RISK_TOO_LOW"], details)
             if res.volume <= 0:                                           # 5-C01
                 details["shortfall"] = str(res.shortfall)
                 if frac > 0:
