@@ -1,12 +1,12 @@
 // KN-26: Content-Security-Policy trong nginx.conf phải khớp script nội tuyến của index.html.
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import html from "../index.html?raw";
+import nginx from "../nginx.conf?raw";
 
-const root = resolve(__dirname, "..");
-const nginx = readFileSync(resolve(root, "nginx.conf"), "utf8");
-const html = readFileSync(resolve(root, "index.html"), "utf8");
+async function sha256b64(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+}
 
 function csp(): Record<string, string[]> {
   const m = nginx.match(/add_header Content-Security-Policy "([^"]+)" always;/);
@@ -20,12 +20,12 @@ function csp(): Record<string, string[]> {
 }
 
 describe("KN-26 Content-Security-Policy", () => {
-  it("mọi script nội tuyến của index.html có băm sha256 trong script-src", () => {
+  it("mọi script nội tuyến của index.html có băm sha256 trong script-src", async () => {
     const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
     expect(inline.length).toBeGreaterThan(0);
     const allowed = csp()["script-src"];
     for (const code of inline) {
-      const h = `'sha256-${createHash("sha256").update(code, "utf8").digest("base64")}'`;
+      const h = `'sha256-${await sha256b64(code)}'`;
       expect(allowed, "sửa script nội tuyến → cập nhật băm trong nginx.conf").toContain(h);
     }
   });
