@@ -43,7 +43,10 @@ QUOTE_MAX_AGE = timedelta(seconds=10)      # = ngân sách độ trễ làn nhan
 BASELINE_WINDOW = timedelta(days=30)       # Q4 / Q5
 BASELINE_MIN_MINUTES = 6900                # ≈ 5 ngày giao dịch × 23 giờ × 60 phút
 SUPPORTED_CURRENCY = "USD"                 # Q2
+# 5b (RSK-09): kiểu swap MT5 đã biết cách tính — 0 không swap, 1 theo point, 4 tiền gửi (USD).
+SUPPORTED_SWAP_MODES = (0, 1, 4)
 REQUIRED_SPEC = ("contract_size", "point", "volume_min", "volume_max", "volume_step", "leverage",
+                 "swap_mode", "swap_long", "swap_short", "swap_rollover3days",
                  "currency_profit", "account_currency", "stops_level", "freeze_level")
 
 
@@ -73,6 +76,7 @@ class _Market:
     ask: Decimal | None = None
     leverage: Decimal | None = None
     margin_free: Decimal | None = None
+    swap: dict | None = None
     spec: SizingSpec | None = None
     point: Decimal | None = None
     spread_points: int | None = None
@@ -183,6 +187,10 @@ class RiskEngine:
                             dec(s["volume_step"]))
         m.point = dec(s["point"])
         m.leverage = dec(s["leverage"])
+        if int(s["swap_mode"]) not in SUPPORTED_SWAP_MODES:                # 5b (RSK-09)
+            reasons.append("SWAP_MODE_UNSUPPORTED")
+        m.swap = {k: s[k] for k in ("swap_mode", "swap_long", "swap_short",
+                                     "swap_rollover3days")}
         if b.margin_free is None:
             reasons.append("MARGIN_UNKNOWN")
         else:
@@ -301,7 +309,9 @@ class RiskEngine:
             frac = min(requested, pv.risk_per_trade)
             headroom = pv.max_open_risk * m.equity - open_risk
             money = min(frac * m.equity, headroom)
-            res = size(money, stop, spread, slippage, m.commission, m.spec)
+            swap = self._swap_per_lot(intent, now, pv, m)                 # 5b: một đêm
+            costs = m.commission + swap
+            res = size(money, stop, spread, slippage, costs, m.spec)
             details = m.details | {
                 "stop_distance": str(stop), "spread": str(spread), "slippage": str(slippage),
                 "effective_distance": str(res.effective_distance),
@@ -309,7 +319,7 @@ class RiskEngine:
             # 4b (H2): R:R sau chi phí = (|TP − vào| − spread) × cỡ HĐ − phí, chia rủi ro / lot.
             assert intent.take_profit is not None
             reward = ((abs(dec(intent.take_profit) - dec(intent.entry_reference)) - spread)
-                      * m.spec.contract_size - m.commission)
+                      * m.spec.contract_size - costs)
             rr = reward / res.risk_per_lot
             details["reward_per_lot"] = str(reward)
             details["reward_risk"] = str(rr.quantize(Decimal("0.0001")))
@@ -411,6 +421,31 @@ class RiskEngine:
                      + self.ledger.reserved_total())
         d["open_risk"] = str(open_risk)
         return out, pause, open_risk, positions
+
+    # ------------------------------------------------------------------ 5b: swap
+
+    @staticmethod
+    def _swap_per_lot(intent: TradeIntent, now: datetime, pv, m: _Market) -> Decimal:
+        """Chi phí swap một đêm / lot (tiền TK) nếu lệnh còn mở qua lần chốt ngày kế tiếp (mốc
+        ngày của hồ sơ). ×3 nếu đêm đó là ``swap_rollover3days`` (MT5: 0 = CN … 6 = T7). Swap dương
+        (được nhận) → 0. Thiết kế 35 mục 11."""
+        assert m.swap is not None and m.spec is not None and m.point is not None
+        sw = m.swap
+        mode = int(sw["swap_mode"])
+        raw = dec(sw["swap_long"] if intent.side is Side.BUY else sw["swap_short"])
+        if mode == 0 or raw >= 0:
+            cost = Decimal(0)
+        elif mode == 1:
+            cost = -raw * m.point * m.spec.contract_size
+        else:                                   # 4: tiền gửi (USD) / lot
+            cost = -raw
+        per = Periods.of(pv.day_reset_tz, pv.day_reset_time)
+        roll = per.next_day_start(now)
+        mt5_day = (roll.astimezone(per.tz).weekday() + 1) % 7    # Python T2 = 0 → MT5 T2 = 1
+        nights = 3 if mt5_day == int(sw["swap_rollover3days"]) else 1
+        cost *= nights
+        m.details |= {"swap_per_lot": str(cost), "swap_nights": str(nights)}
+        return cost
 
     # ------------------------------------------------------------------ 5a: đòn bẩy + ký quỹ
 

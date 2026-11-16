@@ -56,7 +56,7 @@ LOGIN, SERVER, SYM = 123, "Broker-Demo", "XAUUSD"
 # Thông số broker GIẢ (chỉ để test): 1 lot = 100 oz, point 0,01, stops 20 / freeze 10 point.
 SPEC = dict(digits=2, point=0.01, contract_size=100.0, volume_min=0.01, volume_max=50.0,
             volume_step=0.01, currency_profit="USD", stops_level=20, freeze_level=10,
-            swap_mode=1, swap_long=-1.5, swap_short=0.4, swap_rollover3days=3, leverage=100,
+            swap_mode=1, swap_long=0.0, swap_short=0.4, swap_rollover3days=3, leverage=100,
             account_currency="USD")
 
 
@@ -1091,3 +1091,61 @@ def test_broker_leverage_change_used_at_decision(t0):
                        spec=spec_row(t0 - timedelta(hours=1), leverage=1))
     d = w.evaluate()
     assert d.reason_codes == ("REDUCED_BY_MARGIN",) and d.volume == Decimal("0.02")
+
+
+
+# ================================================================ bước 5b — swap (RSK-09, 5-C08)
+
+@pytest.mark.parametrize("mode,long_,days,expected_r1,expected_swap", [
+    # T0 thứ Hai → chốt ngày kế tiếp là thứ Hai 17:00 NY (MT5 = 1) → một đêm
+    (1, -15.0, 3, "1065", "15"),          # 15 point × 0,01 × 100 oz = 15 $/lot
+    (4, -15.0, 3, "1065", "15"),          # 15 $/lot theo tiền gửi
+    (1, -15.0, 1, "1095", "45"),          # đêm thứ Hai là đêm ×3 → 45 $
+    (1, 20.0, 1, "1050", "0"),            # swap dương: không tính là lời
+    (0, -15.0, 1, "1050", "0"),           # sàn không tính swap
+])
+def test_swap_added_to_risk(t0, mode, long_, days, expected_r1, expected_swap):
+    w = World(t0)
+    w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), swap_mode=mode,
+                                         swap_long=long_, swap_rollover3days=days))
+    d = w.evaluate()
+    assert Decimal(d.details["risk_per_lot"]) == Decimal(expected_r1)
+    assert Decimal(d.details["swap_per_lot"]) == Decimal(expected_swap)
+
+
+def test_swap_reduces_reward_too(t0):
+    # TP 2416: lời (15,8 × 100) − 15 = 1565; R1 = 1065 → 1,469 < 1,5 (không swap: 1,505 đạt)
+    w = World(t0)
+    w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), swap_long=-15.0))
+    d = w.evaluate(intent(t0 - minutes(0.5), take_profit=2416.0))
+    assert d.reason_codes == ("REWARD_RISK_TOO_LOW",) and d.details["reward_risk"] == "1.4695"
+
+
+def test_wednesday_triple_swap(t0):
+    w = World(t0 + timedelta(days=2))          # thứ Tư 07/01 14:00 UTC → chốt thứ Tư 17:00 NY
+    w.broker = reading(w.now, spec=spec_row(w.now - timedelta(days=1), swap_long=-15.0))
+    d = w.evaluate()
+    assert d.details["swap_nights"] == "3" and Decimal(d.details["swap_per_lot"]) == 45
+
+
+def test_sell_uses_swap_short(t0):
+    w = World(t0)
+    w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), swap_short=-10.0))
+    i = intent(t0 - minutes(0.5), side="SELL", entry_reference=2400.0, stop_loss=2410.0,
+               take_profit=2380.0)
+    d = w.evaluate(i)
+    assert Decimal(d.details["swap_per_lot"]) == 10
+
+
+@pytest.mark.parametrize("mode", [2, 3, 5, 7])
+def test_unknown_swap_mode_rejects(t0, mode):
+    w = World(t0)
+    w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), swap_mode=mode))
+    assert "SWAP_MODE_UNSUPPORTED" in w.evaluate().reason_codes
+
+
+@pytest.mark.parametrize("field", ["swap_mode", "swap_long", "swap_short", "swap_rollover3days"])
+def test_swap_field_null_rejects(t0, field):
+    w = World(t0)
+    w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), **{field: None}))
+    assert f"BROKER_SPEC_MISSING:{field}" in w.evaluate().reason_codes
