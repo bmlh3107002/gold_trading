@@ -3,21 +3,18 @@
 > File này **ngắn** và được nạp tự động mỗi lượt (qua `CLAUDE.md`). Chỉ giữ trạng thái hiện tại. Chi tiết nằm theo giai đoạn ở `docs/giai-doan/` — mỗi phiên chỉ mở **file của giai đoạn đang làm**.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Ghi chú kỹ thuật (bảng thành phần, quy ước code): `docs/ghi-chu-ky-thuat.md` — chỉ đọc mục liên quan.
 
-**Cập nhật lần cuối:** 2026-11-15 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-16 · **Nhánh làm việc:** `develop`
 
 ## Trạng thái hiện tại
 
-- **GĐ2** (song song GĐ1 — DEC-19): [`GD2-ke-hoach.md`](docs/ke-hoach/GD2-ke-hoach.md). Bước 1–5 xong; Gate: replay (chưa chạy trên máy), đo độ trễ NFP 04/12.
-- **GĐ1:** code xong, Gate chưa đóng. Quyết định DEC-01..07, 14, 18, 19, 21 (đếm 5 ngày: gián đoạn < 1 giờ tự hồi phục vẫn tính) — bảng ở file GĐ1. Còn: Census + ETF (quyết ở Gate), 6a tối 16/11, COT 16/11, DOL 19/11, Lễ Tạ ơn, dung lượng sau 7 ngày, ≥ 5 ngày liên tục, NFP 04/12.
-- **Lịch việc trên máy + quyết định ở Gate:** [`lich-kiem-tren-may.md`](docs/ke-hoach/lich-kiem-tren-may.md). GĐ0 đóng 2026-11-06 (OPS-06 hoãn).
-- **GĐ3 song song (DEC-22):** [`GD3-ke-hoach.md`](docs/ke-hoach/GD3-ke-hoach.md). **Xong code** (6/6 analyst + API + thẻ; Technical 1.5.0, Regime 1.1.0 có RISK_OFF, macro-1.1.0, news-1.1.0; mọi case có test). News mặc định **miễn phí** (bật: `GT_NEWS_LLM=1`, `GT_NEWS_BUDGET_USD=20`, `ANTHROPIC_API_KEY`). Trên máy: dựng lại + `h15-bu` + `cot-bu` 16/11, `nguong` ~20/11. Gate: ≥ 5 ngày chạy song song, sau Gate GĐ1/GĐ2.
-- **GĐ4 song song (DEC-23):** [`GD4-ke-hoach.md`](docs/ke-hoach/GD4-ke-hoach.md). **Code xong (bước 1–7)** (thiết kế 33; MarketView; Snapshot 0018; Quality Gate 0019; Fusion `fusion-rules-1.0.0`; kho MarketView 0020; Fusion chạy mỗi nhịp orchestrator). DEC-24..27 ở file GĐ4. Risk chặn SHADOW/LIVE theo cờ; API + thẻ "Nhận định thị trường" (bước 6). Lệnh kiểm Gate `cli kiem-mv` (chỉ đọc). Còn: kiểm trên máy (thẻ đi cùng dựng lại 16/11; `kiem-mv` 18/11 + 24/11 — ở `lich-kiem-tren-may.md`) + Gate. Không đóng trước GĐ1→GĐ3.
-- **Quản lý vốn (DEC-09 nguyên tắc, 14/11):** ưu tiên rủi ro 0,25–0,5 %/lệnh + ngưỡng lỗ ngày/tuần là luật cứng; 4–5 %/ngày chỉ tham khảo, không dùng để nới rủi ro. **Chờ người dùng gửi lại** tài liệu "Quản lý vốn khi trade vàng" (docx, chưa có trong repo; ZIP ~43 MB chia nhỏ) → áp chi tiết ở GĐ5/6/8/10.
-- **Đánh giá độc lập GĐ0–GĐ4 (15/11, Pha 1, chỉ tài liệu):** [`docs/danh-gia/danh-gia-GD0-GD4.md`](docs/danh-gia/danh-gia-GD0-GD4.md) — 10 phát hiện (F-02 cao, tiềm ẩn: Risk chưa thấy lệnh cấm làn nhanh), 26 khuyến nghị, Pha 2 đang làm: KN-01/02/04 ghi GĐ5, KN-03 chờ 24/11, KN-13 xong, KN-16 hoãn.
-- Bài học: kiểm nguồn mới từ máy người dùng trước khi code; PowerShell không `\"` / `$`; đổi compose → tải lại file.
-- Sau mỗi push phải kiểm CI (bài học migration 0009, 2026-11-12).
-- ING-18 (forecast): giữ DEC-01; nhập tay forecast để sau.
-- Bản đồ toàn bộ giai đoạn, nguyên tắc "đi sạch từng giai đoạn", bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
+- **Đang làm: kiểm trên máy để đóng Gate GĐ1 → GĐ2** theo [`lich-kiem-tren-may.md`](docs/ke-hoach/lich-kiem-tren-may.md) (+ file nhắc `.ics`). 16/11: dựng lại, replay ĐẠT, `h15-bu` + `cot-bu` đạt, thẻ GĐ3/GĐ4 đúng. Tối 16/11: COT + 6a; **đếm ≥ 5 ngày chạy liên tục từ 17/11** (DEC-21). Gate sớm nhất sau NFP 04/12.
+- **GĐ1:** code xong; còn kiểm trên máy (DOL 19/11, dung lượng 20/11, Lễ Tạ ơn, NFP 04/12) + quyết ở Gate (Census, ETF, sao lưu).
+- **GĐ2:** code xong (DEC-19); Gate: replay lại sau NFP (lần 16/11 mục Technical chưa so thật vì toàn phiên bản cũ) + độ trễ < 10 giây.
+- **GĐ3 / GĐ4:** code xong (DEC-22, DEC-23); `nguong` ~20/11, `kiem-mv` 18/11 + 24/11; đóng sau GĐ1 → GĐ2 (→ GĐ3 → GĐ4).
+- **Đánh giá độc lập GĐ0–GĐ4** ([file](docs/danh-gia/danh-gia-GD0-GD4.md)), Pha 2: KN-01/02/04 ghi vào GĐ5; KN-16 hoãn. **Code ở nhánh chờ `claude/affectionate-einstein-8ypy59`** (CI đủ 4 job xanh): KN-03 (0021 — lên `develop` sau `kiem-mv` 24/11), KN-13, 14, 15 (`technical-1.6.0`, `regime-1.2.0`), 20 (0022), 21, 05 (0023) — lên `develop` **sau Gate GĐ1 + GĐ2** (người dùng chọn 16/11). Tiếp: KN-26, rồi mở GĐ5 song song (cần DEC mới).
+- **Quản lý vốn (DEC-09):** rủi ro 0,25–0,5 %/lệnh + ngưỡng lỗ ngày/tuần là luật cứng; chờ người dùng gửi lại tài liệu "Quản lý vốn khi trade vàng" → áp ở GĐ5/6/8/10.
+- Bài học: kiểm nguồn mới từ máy người dùng trước khi code; PowerShell không `\"` / `$`; đổi compose → tải lại file; **sau mỗi push kiểm CI** (migration 0009); chuỗi lệnh commit phải dừng khi ruff lỗi.
+- Bản đồ giai đoạn + bất biến: [`docs/giai-doan/README.md`](docs/giai-doan/README.md).
 
 ## Quyết định đã chốt
 
@@ -54,4 +51,4 @@ cd frontend && npm install && npm run check && npm run build
 
 Cả hệ thống bằng Docker: `ops/scripts/ci_stack.sh` (chạy trong CI).
 
-Kết quả lần cuối (2026-11-16, nhánh chờ — KN-03/13/14/15/21): backend xem dưới, ruff sạch; mt5_gateway 206 passed (0.10.3); frontend 137 passed, build đạt.
+Kết quả lần cuối: `develop` (15/11) backend 2261 passed, frontend 123; **nhánh chờ (16/11) backend 2330 passed (2 skipped), frontend 137**; ruff sạch, build đạt; mt5_gateway 206 passed (0.10.3).

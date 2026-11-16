@@ -111,7 +111,8 @@ services:
       GT_OIDC_CLIENT_SECRET: ${GT_OIDC_CLIENT_SECRET:?Thiếu GT_OIDC_CLIENT_SECRET trong .env}
       GT_SESSION_MAX_HOURS: ${GT_SESSION_MAX_HOURS:-8}
       GT_SESSION_IDLE_MINUTES: ${GT_SESSION_IDLE_MINUTES:-30}
-      # Chưa nhận người dùng thứ hai cho tới khi có ý kiến pháp lý (DEC-12)
+      # DEC-12 (đã chốt): dùng nội bộ, nhiều người — bật bằng GT_MULTI_USER_ENABLED=1 trong .env.
+      # Mặc định 0 (an toàn) khi .env chưa đặt.
       GT_MULTI_USER_ENABLED: ${GT_MULTI_USER_ENABLED:-0}
       # Khóa API miễn phí của nguồn ngoài (ING-31, DEC-07): CHỈ đặt trong .env, không gửi cho
       # ai, không commit. Để trống = nguồn đó báo "thiếu khóa" và không được gọi.
