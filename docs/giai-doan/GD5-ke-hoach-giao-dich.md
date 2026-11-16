@@ -102,3 +102,5 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 - **2026-11-16** — Bước 3 (hồ sơ rủi ro): **H1 — rủi ro / lệnh = 0,25 %** (người dùng chốt, theo khuyến nghị; DEC-09 cho phép 0,25–0,5 %). Là rủi ro thật khi chạm SL **gồm** spread + đệm trượt giá + phí (công thức RSK-11). Số này sẽ là giá trị đầu tiên của hồ sơ rủi ro (bảng `risk_profiles`, chưa code); chưa có hồ sơ → Risk vẫn từ chối mọi intent.
 
 - **2026-11-16** — Bước 3: **H2 — R:R tối thiểu = 1 : 1,5, tính sau chi phí** (người dùng chốt; khuyến nghị là 1 : 2). Risk sẽ từ chối intent có (lời khi chạm TP − spread − phí) / (rủi ro thật khi chạm SL gồm spread + đệm + phí) < 1,5. Hòa vốn cần thắng ≈ 40 % số lệnh — biên an toàn mỏng hơn nếu chi phí thật cao hơn ước tính; đo lại ở GĐ6 (backtest) / GĐ9 (deal thật). Áp ở bước 4.
+
+- **2026-11-16** — Bước 3: **H3 — trần tổng rủi ro mở (heat) = 0,5 % equity** (người dùng chốt, theo khuyến nghị). Gồm rủi ro thật của lệnh đang mở + reservation chưa dùng; mọi lệnh vàng cùng chiều là một vị thế (QLV 7.5). Với H1 = 0,25 % → tối đa 2 lệnh cùng lúc. Sẽ thay `RiskPolicy.max_total_reserved` khi có hồ sơ rủi ro.
