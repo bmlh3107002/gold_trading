@@ -44,7 +44,8 @@ def _intent(p, now):
     view = p.views.current(SCOPE, now)
     assert view is not None
     return intent(now - timedelta(seconds=5), market_view_id=view.market_view_id,
-                  entry_reference=2400.0, stop_loss=2390.0)
+                  entry_reference=2400.0, stop_loss=2390.0,
+                  idempotency_key=f"k-{now.isoformat()}")  # mỗi lần là yêu cầu mới
 
 
 def test_real_gates_approve_then_real_fast_lane_block_rejects(pipeline):  # noqa: F811  5-C14

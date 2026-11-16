@@ -32,7 +32,7 @@ from gold_trading.market.quote_minutes import p_nearest_rank
 from gold_trading.market.quotes import CALENDAR_CLOSED
 from gold_trading.risk.book import remaining_risk, unrealized
 from gold_trading.risk.gates import BrokerReading, RiskGates
-from gold_trading.risk.ledger import RiskLedger
+from gold_trading.risk.ledger import PaperLedger, StoredDecision, intent_hash
 from gold_trading.risk.periods import Periods
 from gold_trading.risk.sizing import SizingSpec, dec, floor_to_step, size
 
@@ -90,7 +90,7 @@ class RiskEngine:
     def __init__(
         self,
         policy: RiskPolicy,
-        ledger: RiskLedger,
+        ledger: PaperLedger,
         gates: RiskGates,
         *,
         clock: Callable[[], datetime] = utcnow,
@@ -249,6 +249,30 @@ class RiskEngine:
     def evaluate(self, intent: TradeIntent, account_id: str) -> RiskDecision:
         now = self.clock()
         reasons: list[str] = []
+        # LED-05: cùng (tài khoản, idempotency_key) → trả lại đúng quyết định đã lưu (một luồng).
+        ok, prior = self._read("ledger", reasons, lambda: self.ledger.decision_for(
+            account_id, intent.idempotency_key))
+        if not ok:
+            return self._reject(intent, account_id, now, reasons, {}, store=False)
+        if prior is not None:
+            return self._replay(prior, intent, account_id, now)  # type: ignore[arg-type]
+        try:
+            return self._evaluate(intent, account_id, now, reasons)
+        except Exception:
+            # Sổ cái lỗi giữa giao dịch → giao dịch đã hủy (không giữ chỗ, không quyết định).
+            log.exception("Risk: sổ cái lỗi khi quyết intent %s → từ chối", intent.intent_id)
+            return self._reject(intent, account_id, now, ["GATE_READ_ERROR:ledger"], {},
+                                store=False)
+
+    def _replay(self, prior: StoredDecision, intent: TradeIntent, account_id: str,
+                now: datetime) -> RiskDecision:
+        if prior.intent_hash == intent_hash(intent):
+            return prior.decision
+        return self._reject(intent, account_id, now, ["IDEMPOTENCY_KEY_REUSED"],
+                            {"prior_decision": prior.decision.risk_decision_id}, store=False)
+
+    def _evaluate(self, intent: TradeIntent, account_id: str, now: datetime,
+                  reasons: list[str]) -> RiskDecision:
         m = _Market()
         feed = self._gate_checks(intent, account_id, now, reasons)
         ok, b = self._read("broker", reasons, lambda: self.gates.broker(account_id, now))
@@ -286,7 +310,11 @@ class RiskEngine:
         spread = m.spread_points * m.point
         slippage = m.baseline_points * m.point
         requested = dec(intent.risk_budget_requested)
-        with self.ledger.lock:            # hai intent đồng thời không cùng vượt hạn mức
+        # Một giao dịch + khóa tài khoản: đọc sổ → tính → giữ chỗ + lưu quyết định cùng commit.
+        with self.ledger.locked(account_id):   # hai intent đồng thời không cùng vượt hạn mức
+            prior = self.ledger.decision_for(account_id, intent.idempotency_key)
+            if prior is not None:                    # luồng khác cùng khóa vừa quyết xong
+                return self._replay(prior, intent, account_id, now)
             # 5-C13: đọc lại hồ sơ dưới khóa — đổi giữa lúc kiểm và lúc tính → dùng bản mới.
             ok, prof2 = self._read("risk_profile", reasons,
                                    lambda: self.gates.risk_profile(account_id, now))
@@ -349,24 +377,30 @@ class RiskEngine:
                                           ("REDUCED_BY_MAX_VOLUME", res.capped_at_max)) if hit)
             cuts += limit_cuts
             reduced = bool(cuts)
-            rid = self.ledger.reserve(intent.symbol, res.risk_amount,
-                                      f"intent:{intent.intent_id}", at=now)
-
-        return RiskDecision(
-            risk_decision_id=new_id("rd"),
-            intent_id=intent.intent_id,
-            account_id=account_id,
-            outcome=RiskOutcome.REDUCED if reduced else RiskOutcome.APPROVED,
-            volume=res.volume,
-            risk_amount=res.risk_amount,
-            reservation_id=rid,
-            reason_codes=cuts,
-            details=details,
-            decided_at=now,
-            expires_at=now + p.decision_ttl,
-            policy_version=p.version,
-            risk_profile_version=prof2.version,
-        )
+            rd_id = new_id("rd")
+            rid = self.ledger.reserve(
+                account_id, intent.symbol, res.risk_amount, f"intent:{intent.intent_id}",
+                at=now, data={"risk_decision_id": rd_id, "intent_id": intent.intent_id,
+                              "expires_at": (now + p.decision_ttl).isoformat()})
+            decision = RiskDecision(
+                risk_decision_id=rd_id,
+                intent_id=intent.intent_id,
+                account_id=account_id,
+                outcome=RiskOutcome.REDUCED if reduced else RiskOutcome.APPROVED,
+                volume=res.volume,
+                risk_amount=res.risk_amount,
+                reservation_id=rid,
+                reason_codes=cuts,
+                details=details,
+                decided_at=now,
+                expires_at=now + p.decision_ttl,
+                policy_version=p.version,
+                risk_profile_version=prof2.version,
+            )
+            stored = self.ledger.record_decision(decision, intent)
+            if stored.decision.risk_decision_id != rd_id:       # không thể (đã kiểm dưới khóa)
+                raise RuntimeError("quyết định trùng khóa dưới khóa sổ cái")
+            return decision
 
     # ------------------------------------------------------------------ 4c: sổ lệnh
 
@@ -410,7 +444,7 @@ class RiskEngine:
         if streak >= pv.max_consecutive_losses:
             out.append("LOSS_STREAK_LIMIT")
             pause = pause or "LOSS_STREAK_LIMIT"
-        trades = book.opened_count(account_id, day, now) + self.ledger.open_since(day)
+        trades = book.opened_count(account_id, day, now) + self.ledger.open_since(account_id, day)
         d["trades_today"] = str(trades)
         if trades >= pv.max_trades_per_day:
             out.append("DAILY_TRADE_LIMIT")
@@ -423,7 +457,7 @@ class RiskEngine:
                     and any(unrealized(p, m.bid, m.ask, cs) <= 0 for p in same))):
             out.append("NO_AVERAGING_DOWN")
         open_risk = (sum((remaining_risk(p, slip, cs) for p in positions), Decimal(0))
-                     + self.ledger.reserved_total())
+                     + self.ledger.reserved_total(account_id))
         d["open_risk"] = str(open_risk)
         return out, pause, open_risk, positions
 
@@ -466,8 +500,12 @@ class RiskEngine:
         roll = per.next_day_start(now)
         mt5_day = (roll.astimezone(per.tz).weekday() + 1) % 7    # Python T2 = 0 → MT5 T2 = 1
         nights = 3 if mt5_day == int(sw["swap_rollover3days"]) else 1
+        m.details |= {"swap_per_lot": str(cost * nights), "swap_nights": str(nights),
+                      # 6b: sổ cái paper tính swap lúc đóng theo số đêm thật đã qua
+                      "swap_night_cost": str(cost),
+                      "swap_rollover3days": str(int(sw["swap_rollover3days"])),
+                      "day_reset_tz": pv.day_reset_tz, "day_reset_time": pv.day_reset_time}
         cost *= nights
-        m.details |= {"swap_per_lot": str(cost), "swap_nights": str(nights)}
         return cost
 
     # ------------------------------------------------------------------ 5a: đòn bẩy + ký quỹ
@@ -508,8 +546,8 @@ class RiskEngine:
             details["safety_pause_error"] = code
 
     def _reject(self, intent: TradeIntent, account_id: str, now: datetime, reasons: list[str],
-                details: dict[str, str]) -> RiskDecision:
-        return RiskDecision(
+                details: dict[str, str], *, store: bool = True) -> RiskDecision:
+        d = RiskDecision(
             risk_decision_id=new_id("rd"),
             intent_id=intent.intent_id,
             account_id=account_id,
@@ -520,3 +558,13 @@ class RiskEngine:
             expires_at=now + self.policy.decision_ttl,
             policy_version=self.policy.version,
         )
+        if not store:
+            return d
+        try:                       # lưu để audit + idempotency; lỗi lưu vẫn từ chối (an toàn)
+            stored = self.ledger.record_decision(d, intent)
+        except Exception:
+            log.exception("Risk: không lưu được quyết định từ chối %s", d.risk_decision_id)
+            return d
+        if stored.decision.risk_decision_id != d.risk_decision_id:
+            return self._replay(stored, intent, account_id, now)
+        return d

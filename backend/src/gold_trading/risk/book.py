@@ -1,8 +1,8 @@
 """Cổng **sổ lệnh** cho hạn mức theo thời gian + danh mục (GĐ5 bước 4c — RSK-04, RSK-05).
 
 Risk chỉ ĐỌC sổ lệnh: lệnh đã đóng (PnL ròng đã gồm phí) và lệnh đang mở (giá vào, SL, lot,
-chiều). Sổ lệnh thật = sổ cái paper (bước 6, LED-02/04) — tới lúc đó Risk từ chối
-``TRADE_BOOK_UNAVAILABLE``. ``InMemoryTradeBook`` dùng cho test / tham chiếu.
+chiều). Sổ lệnh thật = sổ cái paper (``risk/ledger.py``, bước 6b — sự kiện ``OPEN`` / ``CLOSE``).
+``InMemoryTradeBook`` dùng cho test / tham chiếu.
 Thiết kế: docs/thiet-ke/35-risk-engine.md mục 10.
 """
 
@@ -77,6 +77,20 @@ class InMemoryTradeBook:
         with self._lock:
             n = sum(since <= t.opened_at <= until for t in self.closed.get(account_id, []))
             return n + sum(since <= p.opened_at <= until for p in self.open.get(account_id, []))
+
+
+def position_of(e, stop_loss: Decimal) -> OpenPosition:
+    """Sự kiện ``OPEN`` của sổ cái → ``OpenPosition``."""
+    d = e.data
+    return OpenPosition(e.ref_id, Side(d["side"]), Decimal(d["volume"]),
+                        Decimal(d["entry_price"]), stop_loss, e.at,
+                        Decimal(d["commission_per_lot"]))
+
+
+def closed_of(e) -> ClosedTrade:
+    """Sự kiện ``CLOSE`` của sổ cái → ``ClosedTrade`` (PnL ròng = ``amount``)."""
+    return ClosedTrade(e.ref_id, Side(e.data["side"]), datetime.fromisoformat(e.data["opened_at"]),
+                       e.at, e.amount)
 
 
 def unrealized(p: OpenPosition, bid: Decimal, ask: Decimal, contract_size: Decimal) -> Decimal:

@@ -761,3 +761,52 @@ risk_profiles = Table(
                     name="ck_risk_profiles_dec09"),
     CheckConstraint("version >= 1", name="ck_risk_profiles_version"),
 )
+
+
+# GĐ5 bước 6a (DB-06, LED-02, LED-05; migration 0026): sổ cái paper — chỉ thêm (trigger chặn
+# UPDATE / DELETE trên Postgres). Thiết kế 35 mục 12.
+# Quyết định Risk (cả từ chối) + intent gốc; một quyết định cho mỗi (tài khoản, idempotency_key).
+risk_decisions = Table(
+    "risk_decisions",
+    metadata,
+    Column("risk_decision_id", String(64), primary_key=True),
+    Column("account_id", String(64), nullable=False),
+    Column("idempotency_key", String(256), nullable=False),
+    Column("intent_id", String(128), nullable=False),
+    Column("intent_hash", String(64), nullable=False),
+    Column("outcome", String(16), nullable=False),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+    Column("decision", JsonType, nullable=False),
+    Column("intent", JsonType, nullable=False),
+    UniqueConstraint("account_id", "idempotency_key", name="uq_risk_decisions_idempotency"),
+)
+Index("ix_risk_decisions_account_time", risk_decisions.c.account_id,
+      risk_decisions.c.decided_at)
+
+# Mọi thay đổi trạng thái paper của tài khoản là một sự kiện. (account_id, account_seq) duy nhất =
+# lớp bảo vệ thứ hai khi hai người ghi cùng lúc; once_key duy nhất = giữ chỗ kết thúc một lần
+# (END:<giữ chỗ>), vị thế đóng một lần (CLOSE:<vị thế>), bắt đầu một lần (START:<tài khoản>).
+paper_ledger_events = Table(
+    "paper_ledger_events",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("event_id", String(64), nullable=False, unique=True),
+    Column("account_id", String(64), nullable=False),
+    Column("account_seq", Integer, nullable=False),
+    Column("type", String(32), nullable=False),
+    Column("ref_id", String(64), nullable=False),
+    Column("once_key", String(160), unique=True),
+    Column("amount", Numeric(20, 8), nullable=False),
+    Column("at", DateTime(timezone=True), nullable=False),
+    Column("actor", String(128), nullable=False),
+    Column("reason", String(256), nullable=False),
+    Column("links", String(64)),
+    Column("data", JsonType, nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("account_id", "account_seq", name="uq_paper_ledger_account_seq"),
+    CheckConstraint("account_seq >= 1", name="ck_paper_ledger_account_seq"),
+)
+Index("ix_paper_ledger_account_type", paper_ledger_events.c.account_id,
+      paper_ledger_events.c.type, paper_ledger_events.c.at)
+Index("ix_paper_ledger_ref", paper_ledger_events.c.ref_id)

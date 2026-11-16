@@ -187,3 +187,83 @@ Chia **5a** (đòn bẩy thực tế + ký quỹ), **5b** (swap), **5c** (chặn
 **5b — swap qua đêm** (RSK-09, 5-C08): lệnh có thể còn mở qua **lần chốt ngày kế tiếp** (17:00 NY, mốc ngày của hồ sơ) → cộng chi phí swap **một đêm** (nhân 3 nếu đêm đó là `swap_rollover3days`, đánh số MT5: 0 = Chủ nhật … 3 = thứ Tư) vào **rủi ro / lot** và trừ khỏi **lời / lot** (R:R). Swap dương (được nhận) → 0, không tính là lời. Kiểu swap hỗ trợ: `0` (không swap), `1` (theo point: `−swap × point × cỡ HĐ` / lot), `4` (tiền gửi = USD / lot); kiểu khác → `SWAP_MODE_UNSUPPORTED` (không biết chi phí → không vào lệnh). "Một đêm" là giá trị khởi đầu chưa hiệu chỉnh; chiến lược v1 (STR-06) có time-stop → xét lại. Cuối tuần không có swap vì H8 đóng hết trước thứ Sáu.
 
 **5c — cuối tuần / lễ dài (H8, 5-C07):** nếu trong `weekend_close_before_min` phút tới (30) thị trường chuyển sang `WEEKEND` hoặc `HOLIDAY` (lịch thị trường + bảng ngày lễ + giờ đặc biệt broker) → `WEEKEND_CLOSE_WINDOW`. Bảng ngày lễ không phủ năm đó → `MARKET_CALENDAR_UNKNOWN` (mặc định an toàn). Nghỉ hằng ngày 17–18 NY không chặn. **Đóng lệnh đang mở trước cuối tuần (H8) và quy tắc giữ lệnh qua tin (H7) là quản lý lệnh đang mở → bước 6** (sổ cái paper); bước 5 chỉ chặn vào lệnh mới.
+
+## 12. Bước 6 — sổ cái paper bền vững (DB-06, LED-02, LED-04, LED-05, CORE-05; H6, H7, H8, H10)
+
+> Viết 16/11 trước khi code. **Không có lệnh thật**: "khớp" chỉ là giả lập trong sổ cái paper; không có đường nào tới Gateway gửi lệnh. Sổ cái chưa nối luồng thật nào (Strategy → Risk → sổ cái ở bước 7).
+
+Chia nhỏ, làm + kiểm từng phần:
+
+| Phần | Nội dung | Mã việc |
+| --- | --- | --- |
+| **6a** | Sổ cái chỉ-thêm trong DB (migration **0026**) + bản bộ nhớ cùng giao diện; giữ chỗ **theo tài khoản**; khóa theo tài khoản ở DB; quyết định Risk lưu bền + `idempotency_key` (trùng → một luồng); khôi phục sau crash | DB-06, LED-02, LED-05 (phần giữ chỗ), CORE-05 |
+| **6b** | "Khớp" paper (giá ask / bid thật + đệm trượt giá) → vị thế; đóng khi chạm SL / TP theo giây giá **đã biết**; PnL ròng `Decimal` (phí, swap); sổ cái hiện thực `TradeBook` → Risk hết `TRADE_BOOK_UNAVAILABLE` | LED-04 |
+| **6c** | Equity paper + đỉnh: H6 dừng hẳn khi sụt từ đỉnh; H10 nạp / rút tách khỏi lãi lỗ, điều chỉnh đỉnh | RSK-05 (phần hoãn) |
+| **6d** | Quản lý lệnh đang mở (`PaperMonitor.tick`): H8 đóng hết trước cuối tuần / lễ; H7 qua tin HIGH; nhả giữ chỗ hết hạn | 5-C07, LED-05 |
+
+### 12.1 Lỗi tìm được khi đọc mã (sửa ở 6a)
+
+`RiskLedger.reserved_total()` và `open_since()` cộng giữ chỗ của **mọi tài khoản** (sổ không có `account_id`) → nhiều người dùng (DEC-12) tiêu chung một trần heat / số lệnh ngày của nhau. Hướng sai là hướng chặn (an toàn) nhưng sai số. Từ 6a mọi giữ chỗ gắn tài khoản; khóa cũng theo tài khoản.
+
+### 12.2 Bảng (migration 0026, chỉ thêm — trigger `forbid_mutation` chặn UPDATE / DELETE)
+
+**`risk_decisions`** — mỗi quyết định Risk (cả từ chối) + intent gốc:
+
+| Cột | Ý nghĩa |
+| --- | --- |
+| `risk_decision_id` (khóa) | |
+| `account_id`, `idempotency_key` | **duy nhất cặp** → cùng khóa chỉ có một quyết định |
+| `intent_id`, `intent_hash` | sha256 nội dung intent (JSON chuẩn hóa) — cùng khóa mà khác nội dung → từ chối `IDEMPOTENCY_KEY_REUSED` (không lưu) |
+| `outcome`, `decided_at`, `expires_at` | |
+| `decision`, `intent` | JSON đầy đủ (để audit + trả lại y hệt khi gọi lại) |
+
+**`paper_ledger_events`** — mọi thay đổi trạng thái paper của tài khoản là một sự kiện:
+
+| Cột | Ý nghĩa |
+| --- | --- |
+| `seq` (khóa, tự tăng), `event_id` (duy nhất) | |
+| `account_id`, `account_seq` | **duy nhất cặp** — số thứ tự trong tài khoản; hai người ghi cùng lúc lọt khóa vẫn bị DB chặn (lớp bảo vệ thứ hai) |
+| `type` | `START`, `RESERVE`, `RELEASE`, `OPEN`, `MODIFY_SL`, `CLOSE`, `CASH_IN`, `CASH_OUT`, `PEAK`, `DRAWDOWN_RESET` |
+| `ref_id` | mã giữ chỗ (`RESERVE`, `RELEASE`) hoặc mã vị thế (`OPEN`, `MODIFY_SL`, `CLOSE`) |
+| `once_key` (duy nhất, có thể rỗng) | `END:<giữ chỗ>` cho `RELEASE` và `OPEN` (một giữ chỗ chỉ kết thúc **một lần**: hoặc nhả hoặc khớp); `CLOSE:<vị thế>` (đóng một lần); `START:<tài khoản>` |
+| `amount` `NUMERIC(20,8)` | tiền giữ chỗ / PnL ròng / số nạp, rút / vốn đầu |
+| `at` | lúc sự kiện có hiệu lực (đồng hồ hệ thống, UTC) |
+| `actor`, `reason`, `links` | ai, vì sao, sự kiện gốc (sự kiện bù trừ trỏ về bản gốc) |
+| `data` JSON | số chi tiết, lưu dạng **chuỗi** để giữ đúng `Decimal` (lot, giá vào, SL, TP, phí, swap, giá đóng…) |
+
+Lệnh paper khớp ngay (lệnh thị trường) nên "lệnh" = quyết định + sự kiện `OPEN`; "deal" = `OPEN` / `CLOSE`; "vị thế" = suy ra từ sự kiện (mở = có `OPEN`, chưa có `CLOSE`; SL hiện tại = `MODIFY_SL` mới nhất). Không có bảng trạng thái sửa được.
+
+### 12.3 Khóa + idempotency (5-C12, LED-05)
+
+- `ledger.locked(tài khoản)`: Postgres = giao dịch + `pg_advisory_xact_lock(băm("ledger:" + tài khoản))`; SQLite / bộ nhớ = khóa luồng theo tài khoản. Mọi ghi làm đổi ngân sách (giữ chỗ, khớp, đóng, nhả, nạp / rút) đều đi qua khóa này; pha B của Risk (đọc sổ → tính → giữ chỗ) nằm trọn trong một giao dịch, commit cùng lúc **quyết định + `RESERVE`** (không có trạng thái "đã giữ chỗ mà chưa có quyết định" hay ngược lại).
+- Risk khi nhận intent: đọc quyết định đã lưu theo `(tài khoản, idempotency_key)` → có thì **trả lại đúng quyết định đó** (không tính lại, không giữ chỗ lần hai); khác nội dung → `IDEMPOTENCY_KEY_REUSED`. Kiểm lại một lần nữa **dưới khóa** ngay trước khi giữ chỗ (hai luồng cùng khóa → luồng sau thấy quyết định của luồng trước). Từ chối ở pha A lưu ngoài khóa; trùng khóa ở DB → trả bản đã lưu. Đọc sổ lỗi → `GATE_READ_ERROR:ledger` (không lưu).
+- Crash giữa chừng: trước commit → không có gì (giao dịch hủy); sau commit trước khi trả → gọi lại cùng khóa nhận lại quyết định + giữ chỗ cũ, rồi khớp bình thường (khớp idempotent nhờ `END:<giữ chỗ>`). Quyết định quá hạn (`expires_at`, 30 giây) → không khớp được; `tick` nhả giữ chỗ bằng sự kiện bù trừ `RELEASE` (`RESERVATION_EXPIRED`, trỏ về `RESERVE`).
+- Giữ chỗ hết hạn mà chưa được nhả **vẫn tính** vào heat / số lệnh ngày (chặn nhiều hơn = an toàn) cho tới khi có `RELEASE`.
+
+### 12.4 Khớp paper + đóng lệnh (6b, LED-04) — giá trị khởi đầu chưa hiệu chỉnh
+
+- Khớp: quyết định APPROVED / REDUCED còn hạn, giữ chỗ còn mở, giây giá mới nhất ≤ 10 giây, không `CALENDAR_CLOSED`. Giá vào BUY = **ask + đệm trượt giá**, SELL = **bid − đệm** (đệm = số Risk đã dùng, `details.slippage`). SL / TP = của intent.
+- **Kiểm lại rủi ro thật lúc khớp:** `(|giá vào − SL|) × cỡ HĐ × lot + (phí + swap một đêm) × lot` phải ≤ số tiền đã giữ chỗ; lớn hơn (giá chạy từ lúc Risk tính) → không khớp (`PRICE_MOVED`), nhả giữ chỗ. Không bao giờ khớp với rủi ro lớn hơn mức đã duyệt.
+- Đóng (chỉ giây giá có `available_at ≤ now`): BUY chạm SL khi `bid_low ≤ SL` → giá đóng = `min(SL, bid)` (khoảng trống giá → xấu hơn SL); chạm TP khi `bid ≥ TP` → đóng đúng TP (không tính trượt giá có lợi). SELL đối xứng với `ask_high` / `ask`. Cùng một giây chạm cả hai → coi là **SL** (an toàn). Giây đến muộn vẫn được xét (quét lùi 60 giây mỗi lần).
+- PnL ròng = chiều × (giá đóng − giá vào) × cỡ HĐ × lot − phí × lot − swap; swap = số đêm đã qua mốc ngày của hồ sơ (×3 đêm `swap_rollover3days`) × chi phí swap / lot theo thông số lúc mở; swap dương → 0 (không tính là lời). Thông số dùng = thông số lúc khớp (lưu trong `OPEN`).
+- Mất giá (không có giây giá mới) → không đóng được, `tick` báo `FEED_STALE` (không bịa giá).
+
+### 12.5 Equity paper + H6 + H10 (6c)
+
+- Sổ cái phải được **bắt đầu** bằng sự kiện `START` (vốn đầu paper = equity MT5 lúc bắt đầu, ai bắt đầu, lý do). Chưa bắt đầu → Risk từ chối `PAPER_LEDGER_NOT_STARTED` (mặc định an toàn; nút bắt đầu ở trang Rủi ro — bước 8).
+- Equity paper = vốn đầu + nạp − rút + Σ PnL ròng đã đóng + PnL đang chạy. **Equity Risk dùng để tính lot và hạn mức = min(equity MT5 trong nhịp tim, equity paper)** — không bao giờ lớn hơn tiền thật trên tài khoản, cũng không lớn hơn tiền paper (paper lỗ thì lot nhỏ lại).
+- Đỉnh: phát lại sự kiện theo thứ tự — `START` đặt đỉnh = vốn; sau mỗi `CLOSE` đỉnh = max(đỉnh, equity đã chốt); `PEAK` (do `tick` ghi khi equity gồm lãi đang chạy vượt đỉnh đã lưu) nâng đỉnh; **nạp `d` → đỉnh + d; rút `w` → đỉnh × (1 − w / equity trước rút)** (H10); `DRAWDOWN_RESET` (người xác nhận rõ, có lý do) → đỉnh = equity lúc đó.
+- H6: sụt = (đỉnh − equity paper hiện tại) / đỉnh ≥ `max_drawdown_halt` → từ chối `DRAWDOWN_HALT` + đề nghị Safety PAUSED. Người mở lại Safety mà **không** ghi `DRAWDOWN_RESET` → lệnh sau lại bị chặn + PAUSED lần nữa ("mở lại cần xác nhận rõ, không chỉ bấm resume").
+- H10: lỗ ngày / tuần / tháng + chuỗi thua chỉ tính PnL giao dịch (nạp / rút không vào). Nạp không đổi Safety (không tự mở lại khi đang dừng). Rút lớn hơn equity paper → từ chối ghi.
+
+### 12.6 Quản lý lệnh đang mở (6d) — `PaperMonitor.tick(tài khoản, now)`
+
+Theo thứ tự, mỗi bước đóng = sự kiện `CLOSE` có lý do:
+
+1. SL / TP (12.4).
+2. **H8:** thị trường chuyển `WEEKEND` / `HOLIDAY` trong `weekend_close_before_min` phút tới (cùng phép kiểm 5c) → đóng **mọi** lệnh (`WEEKEND_CLOSE`) ở giá đóng hiện tại (bid − đệm cho BUY, ask + đệm cho SELL). Lịch không phủ → đóng hết (an toàn).
+3. **H7:** có lệnh cấm tin HIGH đang hiệu lực cho nguồn giá (`CALENDAR_HIGH`, `RELEASE_HIGH_RECEIVED`, hoặc loại `NEWS`) → `CLOSE_ALL`: đóng hết; `KEEP_SAFE_ONLY`: chỉ giữ lệnh **đã an toàn** (SL hiện tại đã qua hòa vốn sau chi phí: rủi ro còn lại = 0), đóng phần còn lại (`NEWS_CLOSE`).
+4. Nhả giữ chỗ hết hạn (12.3).
+5. Ghi `PEAK` nếu equity paper gồm lãi đang chạy vượt đỉnh đã lưu (6c).
+
+Đóng ở bước 2–3 cần giá: giây giá mới nhất ≤ 10 giây; không có → `FEED_STALE` (không bịa giá; lệnh vẫn mở, báo lên). Hồ sơ không có → dùng chính sách an toàn nhất (`CLOSE_ALL` qua tin; đóng trước 30 phút cuối tuần). `tick` chưa chạy theo nhịp nào (nối ở bước 7 cùng Strategy).

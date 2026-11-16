@@ -75,7 +75,7 @@
 - [x] Test tính tay margin / swap với số broker giả có nhãn; `swap_mode` lạ → chặn qua đêm.
 
 ### Bước 6 — Sổ cái paper bền vững (DB-06, LED-02, LED-04, LED-05; CORE-05)
-- [ ] Migration bảng reservation / ý định / quyết định / lệnh paper / vị thế paper (chỉ-thêm, sự kiện bù trừ có lý do + người làm + liên kết bản gốc). `RiskLedger` bản SQL + bản bộ nhớ, cùng giao diện; khóa ở DB (giao dịch + khóa hàng) để hai tiến trình không cùng vượt hạn mức.
+- [x] (6a, 16/11) Migration bảng reservation / ý định / quyết định / lệnh paper / vị thế paper (chỉ-thêm, sự kiện bù trừ có lý do + người làm + liên kết bản gốc). `RiskLedger` bản SQL + bản bộ nhớ, cùng giao diện; khóa ở DB (giao dịch + khóa hàng) để hai tiến trình không cùng vượt hạn mức.
 - [ ] LED-04: "khớp" paper giả lập (giá ask/bid thật của nguồn giá lúc đó + trượt giá ước tính) → exposure + PnL `Decimal`; đóng lệnh khi chạm SL/TP theo giá thật (chỉ nến / giây đã có — không nhìn trước).
 - [ ] LED-05: khởi động lại giữa reserve và "gửi" → khôi phục từ DB qua `idempotency_key`; reservation hết hạn mà không có lệnh → nhả (sự kiện bù trừ).
 - [ ] Test: crash giả lập ở từng điểm; trùng `idempotency_key` → một luồng; 8 luồng tranh ngân sách trên Postgres; Postgres + TimescaleDB qua CI.
@@ -176,6 +176,7 @@ Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấ
 - **2026-11-16** — Bước 4 chia 4a (mốc kỳ) / 4b (R:R sau chi phí) / 4c (sổ lệnh: lỗ kỳ, chuỗi thua, lệnh / ngày, heat gồm lệnh mở, nhồi lệnh). **H6 + H10 hoãn sang bước 6** (cần đường equity sổ cái). 4a xong.
 - **2026-11-16** — **Bước 4 xong (trừ phần hoãn)**: 4b R:R sau chi phí; 4c cổng sổ lệnh `TradeBook` + lỗ ngày / tuần / tháng (gồm lỗ đang chạy), chuỗi thua (đếm từ lần mở lại gần nhất), lệnh / ngày (gồm giữ chỗ), heat gồm lệnh mở, nhồi lệnh theo hồ sơ, đề nghị Safety PAUSED; REDUCED nói rõ hạn mức cắt. **Còn mở (`[~]`)**: H6 dừng hẳn theo drawdown + H10 nạp / rút → bước 6 (cần đường equity sổ cái). Kiểm tra gap (7.6) không cần vì H8 = đóng hết trước cuối tuần. Sổ lệnh thật chưa có → Risk từ chối `TRADE_BOOK_UNAVAILABLE` tới bước 6. Tiếp: bước 5 (margin, swap, đòn bẩy thực tế H9, đóng trước cuối tuần H8, qua tin H7).
 - **2026-11-16** — **Bước 5 xong (phần vào lệnh mới):** 5a đòn bẩy thực tế ≤ 3 lần + ký quỹ (gồm lệnh paper), 5b swap một đêm (×3) vào rủi ro + R:R, 5c chặn vào lệnh 30 phút trước đóng cửa cuối tuần / lễ (H8). **Còn sang bước 6 (`[~]`):** đóng lệnh đang mở trước cuối tuần (H8) + giữ / đóng lệnh qua tin (H7) — là quản lý lệnh đang mở của sổ cái paper. Tiếp: bước 6 (sổ cái paper bền vững) — gồm cả H6, H10 đã hoãn. **Người dùng tạm dừng GĐ5 ở đây (16/11) để chuyển sang kiểm trên máy GĐ1/GĐ2 ở phiên chat mới.**
+- **2026-11-16** — **Bước 6 bắt đầu** (thiết kế 35 mục 12; chia 6a sổ cái bền + idempotency, 6b khớp paper + `TradeBook`, 6c equity paper + H6 + H10, 6d H8 / H7 / nhả giữ chỗ hết hạn). **6a xong** (migration 0026; sửa lỗi giữ chỗ cộng chung mọi tài khoản). Chi tiết: nhật ký GĐ5.
 
 ## Prompt cho phiên mới
 

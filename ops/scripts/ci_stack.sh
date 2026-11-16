@@ -65,6 +65,9 @@ done
 [ "${ok:-0}" -gt 0 ] || { echo "LỖI: bộ nạp lịch kinh tế không ghi được" >&2; $DC logs --tail 80 backend >&2; exit 1; }
 Q "select source, outcome, coalesce(error_code,''), inserted from external_source_checks order by seq"
 
+echo "== 2c. Sổ cái paper trên TimescaleDB thật (GĐ5 6a: 8 luồng, cùng khóa, crash, chỉ thêm)"
+$DC exec -T backend python - < ops/scripts/ledger_race_check.py
+
 echo "== 3. Sao lưu → phá → khôi phục"
 # Nến mẫu (SAMPLE) tự sinh mỗi 15 phút: chỉ đếm nến nạp TRƯỚC lúc sao lưu, nếu không lần chạy
 # trùng mốc 15 phút sẽ hỏng ngẫu nhiên (CI run 76, 2026-11-12: 5873 → 5874 qua mốc 16:15).

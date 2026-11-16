@@ -92,7 +92,7 @@ def minutes_rows(t: datetime, n=7000, p95=30, *, closed=0) -> list[QuoteMinute]:
 class World:
     """Cổng thật: ``AccountRegistry`` (Safety + khóa + lệnh cấm), kho MarketView thật."""
 
-    def __init__(self, t0: datetime) -> None:
+    def __init__(self, t0: datetime, ledger=None) -> None:
         self.now = t0
         self.repo = InMemoryRepository()
         self.repo.ensure_default_account()
@@ -132,11 +132,17 @@ class World:
         self.profiles = InMemoryRiskProfileStore()
         self.profiles.append(ACC, TEST_PROFILE, created_by="sub-u", reason="test",
                              at=t0 - timedelta(days=1))
-        self.engine = RiskEngine(RiskPolicy(version="r0"), RiskLedger(),
+        self.engine = RiskEngine(RiskPolicy(version="r0"), ledger or RiskLedger(),
                                  self.gates, clock=lambda: self.now)
 
-    def evaluate(self, i=None):
-        return self.engine.evaluate(i or intent(self.now - minutes(0.5)), ACC)
+    def evaluate(self, i=None, *, keep_key: bool = False):
+        """Mỗi lần gọi là một yêu cầu mới (khóa idempotency riêng) — trừ khi ``keep_key``; test
+        idempotency (LED-05) ở ``test_paper_ledger.py``."""
+        i = i or intent(self.now - minutes(0.5))
+        if not keep_key and i.idempotency_key == "k1":
+            self._n = getattr(self, "_n", 0) + 1
+            i = i.model_copy(update={"idempotency_key": f"k1-{self._n}"})
+        return self.engine.evaluate(i, ACC)
 
 
 def spread_block(t: datetime, *, end: datetime | None = None, scope: str = FEED) -> Block:
