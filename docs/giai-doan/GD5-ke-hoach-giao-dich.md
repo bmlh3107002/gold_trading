@@ -114,3 +114,5 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 - **2026-11-16** — Bước 3: **H4 phần 4a — chuỗi thua 5 lệnh liên tiếp** (tính qua nhiều ngày; người dùng chốt, theo khuyến nghị) → đề nghị Safety `PAUSED`, chỉ người mở lại (5-C06). Không giảm rủi ro được vì 0,25 % là sàn DEC-09. Ước tính lý thuyết (chưa đo): thắng 40 % → chuỗi 5 thua ≈ 1 lần / 40–60 lệnh.
 
 - **2026-11-16** — Bước 3: **H4 phần 4b — mốc reset ngày = 17:00 `America/New_York`** (người dùng chốt, theo khuyến nghị; tự theo DST — 5:00 giờ VN mùa đông, 4:00 mùa hè). Ngày giao dịch = [17:00 NY hôm trước; 17:00 NY hôm nay); tuần bắt đầu lúc mở cửa tối Chủ nhật NY; tháng theo ngày giao dịch đầu tháng. Test bắt buộc ở bước 4: ngày đổi DST (Mỹ đổi khác châu Âu), cuối tuần, ngày lễ. **H4 xong:** ngày 0,75 % · tuần 1,5 % · tháng 3 % · chuỗi 5 lệnh thua · mốc 17:00 NY.
+
+- **2026-11-16** — Bước 3: **H5 — tối đa 4 lệnh mới / ngày giao dịch** (người dùng chốt, theo khuyến nghị; QLV 7.2). Đủ → Risk từ chối lệnh mới tới mốc 17:00 NY kế tiếp (mã dự kiến `DAILY_TRADE_LIMIT`), **không** chuyển Safety. Áp ở bước 4.
