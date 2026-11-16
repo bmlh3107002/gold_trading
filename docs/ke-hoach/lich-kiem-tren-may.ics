@@ -69,8 +69,8 @@ END:VEVENT
 BEGIN:VEVENT
 UID:gold-kiem-3-1118@gold-trading
 DTSTAMP:20261116T042631Z
-DTSTART:20261118T010000Z
-DTEND:20261118T011500Z
+DTSTART:20261118T014500Z
+DTEND:20261118T020000Z
 SUMMARY:Gold: kiem-mv 24 giờ (chỉ đọc)
 DESCRIPTION:docker compose exec backend python -m gold_trading.ingestion.
  cli kiem-mv --hours 24\nDán toàn bộ kết quả cho Claude. Khoảng
@@ -131,8 +131,8 @@ END:VEVENT
 BEGIN:VEVENT
 UID:gold-kiem-6-1124@gold-trading
 DTSTAMP:20261116T042631Z
-DTSTART:20261124T010000Z
-DTEND:20261124T011500Z
+DTSTART:20261124T014500Z
+DTEND:20261124T020000Z
 SUMMARY:Gold: kiem-mv 7 ngày — Gate GĐ4 (chỉ đọc)
 DESCRIPTION:docker compose exec backend python -m gold_trading.ingestion.
  cli kiem-mv --hours 168\nDán toàn bộ kết quả cho Claude. Sau đ
