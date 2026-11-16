@@ -56,3 +56,16 @@ Sao lưu tự động giữ 14 bản → thư mục sao lưu có thể vài GB s
 Nến CSV / MT5: idempotent đã có test riêng (`test_candles.py`, `test_ingest_api.py`).
 
 **Soát lại** (Postgres 16 thật): 10 việc → 215 revision; chạy lại 5 giờ sau không thêm; ảnh chụp Postgres = bộ nhớ.
+
+## 6. Spread theo phút, giữ vĩnh viễn (ING-35, KN-03 — người dùng duyệt 2026-11-15)
+
+**Lý do đổi quyết định 2026-11-13:** đánh giá độc lập (`docs/danh-gia/danh-gia-GD0-GD4.md`, F-04) — backtest GĐ6 cần spread **thật** theo giờ và quanh giờ ra tin; giá theo giây xóa sau 30 ngày nên mất vĩnh viễn. Người dùng chọn giữ thống kê theo phút; **giá theo giây vẫn xóa sau `GT_QUOTE_RETENTION_DAYS`** như cũ.
+
+- Bảng `quote_minutes` (migration 0021, bảng thường, chỉ-thêm, trigger chặn UPDATE + DELETE). Một dòng = một revision của một phút của một nguồn giá. Phiên bản công thức `quote-minutes-1`.
+- Cột: số giây, số tick, bid đầu / cuối, ask cuối, bid thấp nhất, ask cao nhất, spread cuối giây **nhỏ nhất / trung vị**, spread lớn nhất trong giây **p95 (hạng gần nhất, không nội suy) / lớn nhất**, số giây có cờ `WIDE_SPREAD` / `CALENDAR_CLOSED` (phía dùng tự lọc giờ đóng cửa). Đơn vị spread: point. Spread lớn nhất của một giây = max(spread lớn nhất khai, spread cuối giây) — không bao giờ báo thấp hơn thực tế (Gateway làm tròn lệch ≤ 1 point).
+- Chỉ tổng hợp phút đã kết thúc ≥ 10 phút. Phút không có giây → **không có dòng** (không phải spread 0).
+- Giây tới muộn → **revision mới**, `available_at` = lúc ghi (đọc point-in-time: `query(..., as_of)`). Bản tính lại có **ít giây hơn** bản đã lưu (giây đã bị xóa theo hạn giữ) → không ghi.
+- Bộ chạy nền (`market/quote_minutes.py`, 5 phút / lần): lần đầu sau khởi động nạp bù toàn bộ giây còn giữ (trừ 2 giờ cũ nhất có thể đang bị xóa dở), sau đó xét lại 2 giờ gần nhất. **Xóa giây chờ bộ tổng hợp:** mốc xóa = min(now − hạn giữ, mốc bộ tổng hợp đã xong); chưa chạy xong lần nào → chưa xóa.
+- Dung lượng: ~1.380 dòng / ngày / nguồn giá (23 giờ × 60), vài MB / năm. Lệnh chỉ đọc: `cli spread-phut` (số phút, phút đầu / cuối mỗi nguồn); có trong `cli dung-luong`.
+- Kiểm chứng: `tests/test_quote_minutes.py` (tính tay, p95, làm tròn, phút trống, giây tới muộn → revision point-in-time, giây đã xóa không ghi đè, tách nguồn, nạp bù, chốt chặn xóa, CHECK, CLI); Postgres 16: migration lên / xuống, `alembic check` sạch, trigger chặn sửa / xóa, chạy lại không ghi trùng.
+

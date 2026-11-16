@@ -18,6 +18,7 @@ from sqlalchemy import DateTime, Engine, bindparam, text
 TABLES: dict[str, str] = {
     "candles": "ingested_at",
     "quote_seconds": "ingested_at",
+    "quote_minutes": "computed_at",
     "candle_quarantine": "received_at",
     "analyst_outputs": "computed_at",
     "external_records": "ingested_at",
