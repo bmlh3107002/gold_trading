@@ -13,12 +13,12 @@
   1. `docker compose exec backend python -m gold_trading.ingestion.cli h15-bu --dry-run` → mong đợi dòng "KHÁC số đã có 0" → chạy lại **không có** `--dry-run`.
   2. `docker compose exec backend python -m gold_trading.ingestion.cli cot-bu --dry-run` → mong đợi "… tuần trùng, 0 tuần lệch" + "CHẠY THỬ: đọc đúng" → chạy lại **không có** `--dry-run`. Nếu có chữ **DỪNG** hoặc "thiếu cột" → **không chạy lại**, gửi toàn bộ nội dung cho người phát triển.
   Sau 1–2 phút: thẻ "Bối cảnh vĩ mô" có mũi tên ↑/↓/→ cho lợi suất; thẻ COT có "Mức đông đúc" khác "Chưa đủ lịch sử".
-- [ ] **Sau 22:30 — COT (GĐ1, mục 17):** `docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run` → báo cáo **chốt 10/11**, số khớp trang `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD.
+- [ ] ~~Sau 22:30 — COT~~ → **dời sang sáng 17/11** (16/11: lịch ghi nhầm giờ — CFTC đăng 15:30 New York thứ Hai = **03:30 giờ VN thứ Ba 17/11**, không phải 22:30; lúc 22:30 báo cáo chốt 10/11 chưa có, còn đêm nay backend tắt cho 6a).
 - [ ] **~23:00 — mục 6a (GĐ1, mục 8):** kiểm Gateway đang chạy (`Get-Process python`) → `docker compose stop backend` → đi ngủ (**không** tắt Gateway, không tắt máy).
 
 ## Thứ Ba 17/11
 
-- [ ] **~07:00 — kết thúc 6a:** `docker compose start backend` → xem `logs\lordtrade.log` và `logs\taikhoan2.log` (`Get-Content … -Tail 40 -Encoding UTF8`) có "Nạp bù sau gián đoạn: N nến M15" → trang Thị trường không hở nến đêm qua. **Từ đây bắt đầu đếm ≥ 5 ngày giao dịch chạy liên tục** (Gate GĐ1) — để máy chạy, không ngủ. **DEC-21:** mất điện / mất mạng < 1 giờ mà hệ thống tự chạy lại + nạp bù đủ → vẫn tính; > 1 giờ trong giờ mở cửa hoặc phải can thiệp → ngày đó không tính (người phát triển kiểm từ dữ liệu, bạn không cần tự theo dõi). Sau mất điện: bật máy, đăng nhập Windows → Docker + Gateway tự chạy.
+- [ ] **~07:00 — kết thúc 6a:** `docker compose start backend` → xem `logs\lordtrade.log` và `logs\taikhoan2.log` (`Get-Content … -Tail 40 -Encoding UTF8`) có "Nạp bù sau gián đoạn: N nến M15" → trang Thị trường không hở nến đêm qua. Ngay sau đó — **COT (GĐ1, mục 17):** `docker compose exec backend python -m gold_trading.ingestion.cli cot --dry-run` → báo cáo **chốt 10/11**, số khớp trang `cftc.gov/dea/futures/deacmxsf.htm` khối GOLD. **Từ đây bắt đầu đếm ≥ 5 ngày giao dịch chạy liên tục** (Gate GĐ1) — để máy chạy, không ngủ. **DEC-21:** mất điện / mất mạng < 1 giờ mà hệ thống tự chạy lại + nạp bù đủ → vẫn tính; > 1 giờ trong giờ mở cửa hoặc phải can thiệp → ngày đó không tính (người phát triển kiểm từ dữ liệu, bạn không cần tự theo dõi). Sau mất điện: bật máy, đăng nhập Windows → Docker + Gateway tự chạy.
 
 ## Các ngày sau
 
