@@ -115,3 +115,89 @@ def test_contracts_are_immutable(t0):
     mv = market_view(t0)
     with pytest.raises(ValidationError):
         mv.confidence = 0.1
+
+
+# --- KN-21 (F-10): model_copy của MỌI hợp đồng luôn kiểm tra lại -----------------------------
+
+def _decision(t0, **kw):
+    from gold_trading.common.enums import RiskOutcome
+    from gold_trading.contracts.risk import RiskDecision
+
+    base = dict(risk_decision_id="rd1", intent_id="i1", outcome=RiskOutcome.REJECTED,
+                reason_codes=("X",), decided_at=t0, expires_at=t0 + minutes(1), policy_version="p")
+    base.update(kw)
+    return RiskDecision(**base)
+
+
+@pytest.mark.parametrize("update", [
+    {"stop_loss": 2410.0},                    # BUY: SL trên giá vào → sai chiều
+    {"side": Side.SELL},                      # đổi chiều mà giữ SL cũ → sai chiều
+    {"take_profit": 2300.0},                  # BUY: TP dưới giá vào
+    {"expiry": None},                         # bỏ hạn
+    {"risk_budget_requested": 0.0},           # rủi ro 0
+    {"risk_budget_requested": -0.01},
+    {"entry_reference": float("nan")},
+    {"unknown_field": 1},                     # trường lạ
+])
+def test_trade_intent_model_copy_revalidates(t0, update):
+    i = intent(t0)
+    with pytest.raises(ValidationError):
+        i.model_copy(update=update)
+    with pytest.raises(ValidationError):
+        i.model_copy(update=update, deep=True)
+
+
+def test_risk_decision_model_copy_cannot_approve_without_reservation(t0):
+    from gold_trading.common.enums import RiskOutcome
+
+    d = _decision(t0)
+    with pytest.raises(ValidationError):
+        d.model_copy(update={"outcome": RiskOutcome.APPROVED})
+    with pytest.raises(ValidationError):
+        d.model_copy(update={"volume": 1.0})        # REJECTED mà có khối lượng
+    with pytest.raises(ValidationError):
+        d.model_copy(update={"expires_at": t0})     # hạn không sau lúc quyết
+
+
+def test_model_copy_valid_update_keeps_type_and_original(t0):
+    i = intent(t0)
+    j = i.model_copy(update={"stop_loss": 2380.0, "take_profit": None})
+    assert type(j) is type(i)
+    assert j.stop_loss == 2380.0 and j.take_profit is None
+    assert i.stop_loss != 2380.0                     # bản gốc không đổi
+    assert i.model_copy() == i                       # sao chép không cập nhật = bằng nhau
+    assert i.model_copy() is not i
+
+
+def test_every_contract_uses_validating_model_copy():
+    """Không hợp đồng nào được ghi đè ``model_copy`` bằng bản không kiểm tra."""
+    import importlib
+    import pkgutil
+
+    import gold_trading.contracts as pkg
+    from gold_trading.contracts.base import Contract
+
+    for m in pkgutil.iter_modules(pkg.__path__):
+        importlib.import_module(f"{pkg.__name__}.{m.name}")
+
+    def subclasses(c):
+        for s in c.__subclasses__():
+            yield s
+            yield from subclasses(s)
+
+    found = list(subclasses(Contract))
+    assert len(found) >= 8
+    for cls in found:
+        assert cls.model_copy is Contract.model_copy, cls.__name__
+
+
+def test_source_never_uses_model_construct():
+    """``model_construct`` bỏ qua mọi kiểm tra — mã nguồn không được dùng (KN-21)."""
+    from pathlib import Path
+
+    import gold_trading
+
+    root = Path(gold_trading.__file__).parent
+    hits = [str(p.relative_to(root)) for p in root.rglob("*.py")
+            if "model_construct(" in p.read_text()]
+    assert hits == []

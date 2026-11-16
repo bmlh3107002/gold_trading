@@ -8,8 +8,6 @@ chỉnh nên ``p_up`` / ``p_down`` luôn ``None``, và mọi MarketView bắt bu
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import Field, model_validator
 
 from gold_trading.common.enums import Bias, Regime
@@ -73,13 +71,6 @@ class MarketView(Contract):
         if self.source == "SAMPLE" and SAMPLE_DATA not in self.quality_flags:
             raise ValueError("nguồn SAMPLE phải mang cờ SAMPLE_DATA")
         return self
-
-    def model_copy(self, *, update: dict[str, Any] | None = None, deep: bool = False) -> MarketView:
-        """``model_copy`` mặc định của Pydantic không kiểm tra lại → lén gắn xác suất được.
-        Ở đây luôn dựng lại qua kiểm tra hợp đồng (soát bước 1b, 2026-11-15)."""
-        data = self.model_dump()
-        data.update(update or {})
-        return type(self).model_validate(data)
 
     def is_valid_at(self, at: UtcDatetime) -> bool:
         return self.as_of <= at < self.expires_at
