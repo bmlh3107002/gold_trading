@@ -126,10 +126,10 @@ def test_mt5_feed_scope_end_to_end(monkeypatch):
     """Nguồn MT5 có tên nguồn giá (feed) — đúng trường hợp lỗi bước 5b: output Technical thật
     phải được nhận đúng phạm vi nguồn giá, nếu không sẽ không bao giờ có MarketView."""
     from gold_trading.api import app as app_mod
-    from gold_trading.market.timeframes import Timeframe
-    from gold_trading.ingestion.sources import sample
     from gold_trading.ingestion.candles import CandleIngestor
+    from gold_trading.ingestion.sources import sample
     from gold_trading.market.feeds import feed_id_for
+    from gold_trading.market.timeframes import Timeframe
 
     feed = feed_id_for("Broker-Demo", "XAUUSD")
     monkeypatch.setattr(app_mod, "account_feed", lambda repo, account_id: feed)
