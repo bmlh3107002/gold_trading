@@ -70,7 +70,7 @@ Schema (đúng giá trị analyst đang xuất — đối chiếu bằng mọi o
 
 `k` = số nhóm ngược chiều. `k = 0` → hệ số 1,0; `k = 1` → hệ số **0,5** + driver `OPPOSED_BY:<nhóm>` (cùng mức trần 0,5 các analyst đang dùng cho mâu thuẫn); `k ≥ 2` → **`NEUTRAL`** + driver `ANALYSTS_DISAGREE` (4-C03), hệ số vẫn 0,5 (chốt khi code, bước 4). Nhóm tùy chọn bị Quality Gate gắn vấn đề (`OPTIONAL_*`) không được tính phản đối. Nhóm **cùng chiều không bao giờ làm tăng** confidence hay tạo hướng.
 
-**C. Confidence.** `min(confidence Technical, Regime, Event) × hệ số Quality Gate × hệ số bước B`, làm tròn 4 chữ số. Không phải xác suất.
+**C. Confidence.** `min(confidence Technical, Regime, Event) × hệ số Quality Gate × hệ số bước B`, làm tròn 4 chữ số. Không phải xác suất. Giao diện (KN-13, 16/11) không hiện dạng %: "Chất lượng dữ liệu & đồng thuận" Cao (≥ 0,6) / Trung bình (≥ 0,3) / Thấp; chỉ hiển thị, không dùng cho quyết định.
 
 **D. Các trường khác.**
 - `regime` = `regime` của Regime; `vol_forecast` = `vol_forecast.sigma_day_pct` của Technical (σ một ngày, %, EWMA TEC-07 — luật cố định) hoặc `null` khi Technical chưa đủ lợi suất.

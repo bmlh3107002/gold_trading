@@ -7,7 +7,7 @@ import { InfoTip } from "../../components/ui/InfoTip";
 import { EmptyState } from "../../components/ui/StateView";
 import { formatDateTime, formatNumber, formatPercent } from "../../lib/format";
 import { biasLabel, biasTone, regimeLabel } from "../../lib/labels";
-import { mvCode } from "../../lib/marketViewLabels";
+import { confidenceLevel, mvCode } from "../../lib/marketViewLabels";
 
 function Item({ label, tip, children }: { label: string; tip?: string; children: React.ReactNode }) {
   return (
@@ -47,6 +47,7 @@ export function MarketViewCard({
   } else if (!view) {
     kind = latest && latest.state !== "VALID" ? latest.state : "NONE";
   }
+  const level = view ? confidenceLevel(view.confidence) : null;
   const flags = view?.quality_flags ?? [];
   const notes = flags.filter(
     (f) => f !== "UNVALIDATED_RULES" && f !== "UNCALIBRATED" && f !== "SAMPLE_DATA",
@@ -115,8 +116,21 @@ export function MarketViewCard({
                 </>
               )}
             </Item>
-            <Item label={t("marketView.confidence")} tip={t("marketView.confidenceTip")}>
-              {formatPercent(view.confidence)}
+            <Item
+              label={t("marketView.confidence")}
+              tip={
+                level
+                  ? t("marketView.confidenceTip", { raw: formatNumber(view.confidence) })
+                  : t("marketView.confidenceTipNone")
+              }
+            >
+              {level ? (
+                <span data-testid="mv-confidence">{t(`marketView.confidenceLevel.${level}`)}</span>
+              ) : (
+                <span className="tone-neutral" data-testid="mv-confidence">
+                  {t("marketView.noData")}
+                </span>
+              )}
             </Item>
             <Item label={t("marketView.regime")} tip={t("marketView.regimeTip")}>
               {regimeLabel(t, view.regime)}

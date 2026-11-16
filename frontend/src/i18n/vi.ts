@@ -890,8 +890,11 @@ const vi = {
     pTip: "Chỉ hiện số khi đã hiệu chỉnh (calibration) trên dữ liệu thật. Hiện chưa hiệu chỉnh nên để trống — không đoán.",
     uncalibrated: "Chưa có — chưa hiệu chỉnh",
     noData: "Chưa đủ dữ liệu",
-    confidence: "Độ tin cậy",
-    confidenceTip: "Chất lượng dữ liệu đầu vào và mức đồng thuận giữa các analyst. Không phải xác suất đúng.",
+    confidence: "Chất lượng dữ liệu & đồng thuận",
+    confidenceTip:
+      "Đo dữ liệu đầu vào có đủ và các nhóm phân tích có cùng chiều không (số gốc {{raw}} trên thang 0–1; Cao từ 0,6, Trung bình từ 0,3). Không phải khả năng thắng, chưa kiểm chứng.",
+    confidenceTipNone: "Không đọc được giá trị — không đoán.",
+    confidenceLevel: { HIGH: "Cao", MEDIUM: "Trung bình", LOW: "Thấp" },
     regime: "Regime",
     regimeTip: "Trạng thái thị trường: xu hướng, đi ngang, risk-off hoặc biến động cao.",
     volForecast: "Biến động dự báo",
@@ -948,7 +951,7 @@ const vi = {
   enum: {
     safety: { ACTIVE: "Hoạt động", PAUSED: "Tạm dừng", HALTED: "Dừng khẩn cấp" },
     mode: { BACKTEST: "Backtest", PAPER: "Paper", SHADOW: "Shadow", LIVE: "Live" },
-    bias: { LONG: "LONG", SHORT: "SHORT", NEUTRAL: "Trung lập" },
+    bias: { LONG: "Nghiêng tăng", SHORT: "Nghiêng giảm", NEUTRAL: "Trung lập" },
     regime: { TREND: "Xu hướng", RANGE: "Đi ngang", RISK_OFF: "Risk-off", HIGH_VOL: "Biến động cao" },
     position: { OPEN: "Đang mở", CLOSED: "Đã đóng", PARTIALLY_CLOSED: "Đóng một phần" },
     source: { dashboard: "Dashboard", startup: "Khởi động lại", unknown: "Khác" },
