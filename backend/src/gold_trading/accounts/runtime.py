@@ -150,20 +150,39 @@ class AccountRegistry:
             return []
         return list(self._entry_blocks(account_id, now or utcnow()))
 
+    def entry_denials(self, account_id: str, now: datetime | None = None) -> list[str]:
+        """Mọi lý do chặn lệnh mới của tài khoản tại ``now`` (rỗng = được mở lệnh mới).
+
+        Gồm: tài khoản không tồn tại, Safety khác ACTIVE, chủ tài khoản bị khóa (DEC-16), lệnh cấm
+        có hạn của làn nhanh (DEC-20). **Đọc lỗi → ném lỗi** (người gọi chặn) — Risk (RSK-10) dùng
+        hàm này để ghi lý do cụ thể."""
+        now = now or utcnow()
+        rt = self.get(account_id)
+        if rt is None:
+            return ["ACCOUNT_UNKNOWN"]
+        self.sync(account_id)
+        out: list[str] = []
+        if not rt.safety.allows_new_orders():
+            out.append(f"SAFETY_{rt.safety.state}")
+        if account_locked(self.repo, account_id):
+            out.append("ACCOUNT_LOCKED")
+        out.extend(sorted({f"ENTRY_BLOCKED:{b.reason_code}"
+                           for b in self.entry_blocks(account_id, now)}))
+        return out
+
+    def mode(self, account_id: str) -> TradingMode | None:
+        """Chế độ hiện tại của tài khoản (None = không có tài khoản)."""
+        rt = self.get(account_id)
+        return rt.modes.mode if rt is not None else None
+
     def allows_new_orders(self, account_id: str) -> bool:
         """Chỉ True khi đọc được DB, Safety đang ACTIVE, chủ tài khoản không bị khóa (DEC-16) và
         **không còn lệnh cấm có hạn nào** của làn nhanh (GĐ2, DEC-20). Đọc lỗi → False."""
         try:
-            self.sync(account_id)
-            if account_locked(self.repo, account_id):
-                return False
-            if self.entry_blocks(account_id):
-                return False
+            return not self.entry_denials(account_id)
         except Exception:
             log.exception("Không đọc được trạng thái Safety của %s: chặn lệnh mới", account_id)
             return False
-        rt = self._rts.get(account_id)
-        return bool(rt and rt.safety.allows_new_orders())
 
     def halt_all(self, reason_code: str, *, actor: str, trigger_source: str) -> list[str]:
         """Kill switch toàn hệ thống: HALT từng tài khoản. Trả các tài khoản vừa chuyển HALTED."""

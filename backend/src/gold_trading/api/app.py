@@ -25,6 +25,7 @@ from gold_trading.accounts.mt5_link import account_feed
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts import news_llm
 from gold_trading.analysts.event import EventAnalyst, event_handler
+from gold_trading.analysts.framework import Scope
 from gold_trading.analysts.macro import MacroAnalyst, macro_handler
 from gold_trading.analysts.news import NewsAnalyst, NewsLlmWorker, client_from_env, news_handler
 from gold_trading.analysts.positioning import PositioningAnalyst, positioning_handler
@@ -64,6 +65,7 @@ from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
 from gold_trading.risk.blocks import BlockStore
 from gold_trading.risk.fast_lane import CalendarBlocks, dedupe, fast_lane_handler
 from gold_trading.risk.fast_lane_loop import FastLaneMonitor, SpreadLoop
+from gold_trading.risk.gates import RiskGates, calendar_health_gate
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -352,6 +354,25 @@ def create_app(
                                          getattr(external_runner, "check_log", None),
                                          market.calendar)
 
+    # GĐ5 RSK-10 (KN-01): cổng đọc của Risk — Risk tự hỏi trạng thái thật lúc quyết. Chưa nối vào
+    # luồng nào (Strategy → Risk ở GĐ5 bước 7); thiết kế 35.
+    def risk_scope(account_id: str) -> Scope | None:
+        if market.source is None:
+            return None
+        feed_ = account_feed(repo, account_id) if source is DataSource.MT5 else ""
+        if feed_ is None:
+            return None     # tài khoản chưa có nguồn giá → không lấy nguồn của tài khoản khác
+        return Scope.of_feed(market.symbol, market.timeframe, market.source, feed_)
+
+    if engine_ is not None:
+        risk_calendar = calendar_health_gate(SqlSourceCheckLog(engine_),
+                                             SqlExternalRecordStore(engine_))
+    else:
+        risk_calendar = calendar_health_gate(getattr(external_runner, "check_log", None),
+                                             getattr(external_runner, "store", None))
+    risk_gates_base = dict(accounts=registry, scope_for=risk_scope,
+                           calendar_health=risk_calendar)
+
     # GĐ2 4c–4d: vòng làn nhanh 2 giây (spread theo từng nguồn giá MT5) + ngân sách độ trễ 10 giây.
     fast_monitor = FastLaneMonitor()
     spread_loop: SpreadLoop | None = None
@@ -606,6 +627,8 @@ def create_app(
     app.state.fast_lane = fast_lane       # GĐ2 4b–4d: cửa sổ lịch + nhịp làn nhanh cho Safety
     app.state.spread_loop = spread_loop
     app.state.broker_history = broker_history   # KN-05: chẩn đoán / test / GĐ5
+    app.state.risk_gates = RiskGates(market_views=market_views,   # GĐ5 RSK-10
+                                     **risk_gates_base)
 
     @app.get("/api/health")
     def health():
