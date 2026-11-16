@@ -14,7 +14,7 @@
   2. `docker compose exec backend python -m gold_trading.ingestion.cli cot-bu --dry-run` → mong đợi "… tuần trùng, 0 tuần lệch" + "CHẠY THỬ: đọc đúng" → chạy lại **không có** `--dry-run`. Nếu có chữ **DỪNG** hoặc "thiếu cột" → **không chạy lại**, gửi toàn bộ nội dung cho người phát triển.
   Sau 1–2 phút: thẻ "Bối cảnh vĩ mô" có mũi tên ↑/↓/→ cho lợi suất; thẻ COT có "Mức đông đúc" khác "Chưa đủ lịch sử".
 - [ ] ~~Sau 22:30 — COT~~ → **dời sang sáng 17/11** (16/11: lịch ghi nhầm giờ — CFTC đăng 15:30 New York thứ Hai = **03:30 giờ VN thứ Ba 17/11**, không phải 22:30; lúc 22:30 báo cáo chốt 10/11 chưa có, còn đêm nay backend tắt cho 6a).
-- [ ] **~23:00 — mục 6a (GĐ1, mục 8):** kiểm Gateway đang chạy (`Get-Process python`) → `docker compose stop backend` → đi ngủ (**không** tắt Gateway, không tắt máy).
+- [x] (16/11 xong — Gateway chạy: 2 tiến trình chính lordtrade + taikhoan2; backend `Stopped`) **~23:00 — mục 6a (GĐ1, mục 8):** kiểm Gateway đang chạy (`Get-Process python`) → `docker compose stop backend` → đi ngủ (**không** tắt Gateway, không tắt máy).
 
 ## Thứ Ba 17/11
 
