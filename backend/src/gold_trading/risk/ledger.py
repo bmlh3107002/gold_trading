@@ -27,7 +27,7 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from enum import StrEnum
 
 from sqlalchemy import and_, exists, func, insert, select
@@ -128,6 +128,49 @@ def end_key(reservation_id: str) -> str:
 
 def close_key(position_id: str) -> str:
     return f"CLOSE:{position_id}"
+
+
+@dataclass(frozen=True)
+class EquityState:
+    realized: Decimal          # vốn + nạp − rút + PnL ròng đã đóng
+    peak: Decimal              # đỉnh equity (H6), đã điều chỉnh theo nạp / rút (H10)
+
+
+EQUITY_TYPES = (EventType.START, EventType.CASH_IN, EventType.CASH_OUT, EventType.CLOSE,
+                EventType.PEAK, EventType.DRAWDOWN_RESET)
+
+
+def money_floor(x: Decimal) -> Decimal:
+    return x.quantize(Decimal("1e-8"), rounding=ROUND_FLOOR)
+
+
+def replay_equity(events) -> EquityState | None:
+    """Phát lại sự kiện theo thứ tự (thiết kế 35 mục 12.5). Không có ``START`` → None."""
+    realized: Decimal | None = None
+    peak = Decimal(0)
+    for e in events:
+        if e.type is EventType.START:
+            realized = peak = e.amount
+            continue
+        if realized is None:
+            continue
+        if e.type is EventType.CASH_IN:
+            realized += e.amount
+            peak += e.amount
+        elif e.type is EventType.CASH_OUT:
+            before = Decimal(e.data["equity_before"])
+            realized -= e.amount
+            # đỉnh giảm theo tỷ lệ rút; làm tròn LÊN (đỉnh không nhỏ hơn thật → không lờ sụt)
+            peak = (peak * (1 - e.amount / before)).quantize(Decimal("1e-8"),
+                                                              rounding=ROUND_CEILING)
+        elif e.type is EventType.CLOSE:
+            realized += e.amount
+            peak = max(peak, realized)
+        elif e.type is EventType.PEAK:
+            peak = max(peak, e.amount)
+        elif e.type is EventType.DRAWDOWN_RESET:
+            peak = e.amount
+    return None if realized is None else EquityState(realized, peak)
 
 
 class PaperLedger:
@@ -275,6 +318,58 @@ class PaperLedger:
         """Sự kiện kết thúc giữ chỗ (``RELEASE`` hoặc ``OPEN``) nếu có."""
         return next((e for e in self._events(account_id, (EventType.RELEASE, EventType.OPEN))
                      if e.once_key == end_key(reservation_id)), None)
+
+    # ------------------------------------------------------------------ equity paper (6c: H6, H10)
+
+    def start(self, account_id: str, capital: Decimal, *, actor: str, reason: str,
+              at: datetime | None = None) -> LedgerEvent:
+        """Bắt đầu sổ cái paper với vốn đầu (= equity MT5 lúc bắt đầu). Một lần / tài khoản."""
+        if not isinstance(capital, Decimal) or not capital.is_finite() or capital <= 0:
+            raise ValueError("vốn đầu phải là Decimal > 0")
+        return self.append(account_id, EventType.START, account_id, capital, at=at, actor=actor,
+                           reason=reason, once_key=f"START:{account_id}")
+
+    def equity_state(self, account_id: str, at: datetime) -> EquityState | None:
+        """Equity đã chốt (vốn + nạp − rút + PnL đã đóng) và đỉnh. Chưa ``START`` → None."""
+        evs = [e for e in self._events(account_id, EQUITY_TYPES) if e.at <= at]
+        return replay_equity(evs)
+
+    def cash_flow(self, account_id: str, kind: EventType, amount: Decimal, *,
+                  unrealized: Decimal, actor: str, reason: str,
+                  at: datetime | None = None) -> LedgerEvent:
+        """H10: nạp / rút tách khỏi lãi lỗ. Nạp → đỉnh + số nạp; rút → đỉnh × (1 − rút / equity
+        trước rút). ``unrealized`` = PnL đang chạy lúc đó (người gọi tính theo giá hiện tại)."""
+        if kind not in (EventType.CASH_IN, EventType.CASH_OUT):
+            raise ValueError("chỉ CASH_IN / CASH_OUT")
+        if not isinstance(amount, Decimal) or not amount.is_finite() or amount <= 0:
+            raise ValueError("số nạp / rút phải là Decimal > 0")
+        with self.locked(account_id):
+            st = self.equity_state(account_id, at or self.clock())
+            if st is None:
+                raise ValueError("sổ cái paper chưa bắt đầu")
+            before = st.realized + unrealized
+            if kind is EventType.CASH_OUT and amount >= before:
+                raise ValueError("số rút phải nhỏ hơn equity paper")
+            return self.append(account_id, kind, new_id("cash"), amount, at=at, actor=actor,
+                               reason=reason, data={"equity_before": str(before)})
+
+    def drawdown_reset(self, account_id: str, equity_now: Decimal, *, actor: str, reason: str,
+                       at: datetime | None = None) -> LedgerEvent:
+        """H6: người xác nhận rõ (có lý do) sau khi dừng vì sụt → đỉnh = equity lúc đó."""
+        if not reason or not actor:
+            raise ValueError("cần người xác nhận và lý do")
+        return self.append(account_id, EventType.DRAWDOWN_RESET, new_id("ddr"), equity_now,
+                           at=at, actor=actor, reason=reason)
+
+    def mark_peak(self, account_id: str, equity_now: Decimal, *,
+                  at: datetime | None = None) -> LedgerEvent | None:
+        """Ghi đỉnh mới (gồm lãi đang chạy) nếu vượt đỉnh đã lưu."""
+        with self.locked(account_id):
+            st = self.equity_state(account_id, at or self.clock())
+            if st is None or equity_now <= st.peak:
+                return None
+            return self.append(account_id, EventType.PEAK, new_id("peak"), money_floor(equity_now),
+                               at=at, actor="paper", reason="NEW_PEAK")
 
     # ------------------------------------------------------------------ quyết định (idempotency)
 

@@ -66,6 +66,7 @@ from gold_trading.risk.blocks import BlockStore
 from gold_trading.risk.fast_lane import CalendarBlocks, dedupe, fast_lane_handler
 from gold_trading.risk.fast_lane_loop import FastLaneMonitor, SpreadLoop
 from gold_trading.risk.gates import RiskGates, broker_gate, calendar_health_gate
+from gold_trading.risk.ledger import RiskLedger, SqlLedger
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -642,6 +643,10 @@ def create_app(
                      is not None else InMemoryRiskProfileStore())
     app.state.commissions = commissions
     app.state.risk_profiles = risk_profiles
+    # GĐ5 bước 6 (LED-02/04): sổ cái paper bền vững = sổ lệnh của Risk (chưa nối luồng nào).
+    paper_ledger = (SqlLedger(repo.engine) if getattr(repo, "engine", None) is not None
+                    else RiskLedger())
+    app.state.paper_ledger = paper_ledger
     app.state.risk_gates = RiskGates(   # GĐ5 RSK-10 / RSK-11 — chưa nối luồng nào (bước 7)
         market_views=market_views,
         broker=broker_gate(monitors, broker_history, locked_symbol),
@@ -651,6 +656,7 @@ def create_app(
         commission=commissions.at,
         risk_profile=risk_profiles.at,
         market_calendar=market.calendar,
+        trade_book=paper_ledger,
         **risk_gates_base)
 
     @app.get("/api/health")

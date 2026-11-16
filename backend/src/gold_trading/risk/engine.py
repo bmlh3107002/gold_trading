@@ -86,6 +86,21 @@ class _Market:
     details: dict[str, str] = field(default_factory=dict)
 
 
+def closing_soon(cal, now: datetime, minutes: int) -> tuple[str | None, datetime | None]:
+    """H8 (5c, 6d): thị trường chuyển ``WEEKEND`` / ``HOLIDAY`` trong ``minutes`` phút tới →
+    ``WEEKEND_CLOSE_WINDOW`` (kèm mốc). Nghỉ hằng ngày không tính. Lịch không có / không phủ →
+    ``MARKET_CALENDAR_UNKNOWN`` (không biết → coi như sắp đóng). Dùng chung Risk + quản lý lệnh."""
+    window = timedelta(minutes=minutes)
+    if cal is None or not cal.covers(now) or not cal.covers(now + window):
+        return "MARKET_CALENDAR_UNKNOWN", None
+    long_closed = (MarketSession.WEEKEND, MarketSession.HOLIDAY)
+    for k in range(0, minutes + 1):
+        t = now + timedelta(minutes=k)
+        if cal.session_at(t) in long_closed:
+            return "WEEKEND_CLOSE_WINDOW", t
+    return None, None
+
+
 class RiskEngine:
     def __init__(
         self,
@@ -422,6 +437,23 @@ class RiskEngine:
         pause: str | None = None
         d = m.details
         d["unrealized_pnl"] = str(unreal)
+        # 6c (thiết kế 35 mục 12.5): equity paper; equity dùng = min(MT5, paper).
+        st = book.equity_state(account_id, now)
+        if st is None:
+            return ["PAPER_LEDGER_NOT_STARTED"], None, Decimal(0), positions
+        paper_eq = st.realized + unreal
+        eq = min(eq, paper_eq)
+        m.equity = eq
+        d |= {"paper_equity": str(paper_eq), "peak_equity": str(max(st.peak, paper_eq)),
+              "equity_used": str(eq)}
+        if eq <= 0:
+            return ["NO_EQUITY"], None, Decimal(0), positions
+        peak = max(st.peak, paper_eq)
+        dd = (peak - paper_eq) / peak
+        d["drawdown"] = str(dd.quantize(Decimal("0.000001")))
+        if dd >= pv.max_drawdown_halt:                    # H6: dừng hẳn, chỉ người mở lại
+            out.append("DRAWDOWN_HALT")
+            pause = "DRAWDOWN_HALT"
         for code, start, limit in (("DAILY_LOSS_LIMIT", day, pv.max_daily_loss),
                                    ("WEEKLY_LOSS_LIMIT", week, pv.max_weekly_loss),
                                    ("MONTHLY_LOSS_LIMIT", month, pv.max_monthly_loss)):
@@ -467,17 +499,10 @@ class RiskEngine:
         """H8: thị trường đóng cửa cuối tuần / lễ (``WEEKEND`` / ``HOLIDAY``) trong
         ``weekend_close_before_min`` phút tới → không vào lệnh mới. Nghỉ hằng ngày không chặn.
         Bảng ngày lễ không phủ → không biết → chặn."""
-        cal = self.gates.market_calendar
-        window = timedelta(minutes=pv.weekend_close_before_min)
-        if cal is None or not cal.covers(now) or not cal.covers(now + window):  # type: ignore
-            return "MARKET_CALENDAR_UNKNOWN"
-        long_closed = (MarketSession.WEEKEND, MarketSession.HOLIDAY)
-        for k in range(0, pv.weekend_close_before_min + 1):
-            t = now + timedelta(minutes=k)
-            if cal.session_at(t) in long_closed:  # type: ignore[attr-defined]
-                details["market_closes_at_or_before"] = t.isoformat()
-                return "WEEKEND_CLOSE_WINDOW"
-        return None
+        code, t = closing_soon(self.gates.market_calendar, now, pv.weekend_close_before_min)
+        if t is not None:
+            details["market_closes_at_or_before"] = t.isoformat()
+        return code
 
     # ------------------------------------------------------------------ 5b: swap
 

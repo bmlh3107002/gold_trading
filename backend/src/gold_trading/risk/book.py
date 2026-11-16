@@ -38,6 +38,7 @@ class OpenPosition:
 
 
 class TradeBook(Protocol):
+    def equity_state(self, account_id: str, at: datetime): ...  # EquityState | None (6c)
     def closed_trades(self, account_id: str, since: datetime, until: datetime
                       ) -> list[ClosedTrade]: ...          # since ≤ closed_at ≤ until
     def last_closed(self, account_id: str, until: datetime, limit: int
@@ -47,7 +48,9 @@ class TradeBook(Protocol):
 
 
 class InMemoryTradeBook:
-    def __init__(self) -> None:
+    def __init__(self, capital: Decimal | None = None) -> None:
+        # 6c: vốn đầu paper (None = chưa bắt đầu → Risk từ chối PAPER_LEDGER_NOT_STARTED)
+        self.capital = capital
         self.closed: dict[str, list[ClosedTrade]] = {}
         self.open: dict[str, list[OpenPosition]] = {}
         self._lock = threading.Lock()
@@ -72,6 +75,19 @@ class InMemoryTradeBook:
     def open_positions(self, account_id, at):
         with self._lock:
             return [p for p in self.open.get(account_id, []) if p.opened_at <= at]
+
+    def equity_state(self, account_id, at):
+        from gold_trading.risk.ledger import EquityState
+        if self.capital is None:
+            return None
+        realized = peak = self.capital
+        with self._lock:
+            rows = sorted((t for t in self.closed.get(account_id, []) if t.closed_at <= at),
+                          key=lambda t: t.closed_at)
+        for t in rows:
+            realized += t.net_pnl
+            peak = max(peak, realized)
+        return EquityState(realized, peak)
 
     def opened_count(self, account_id, since, until):
         with self._lock:

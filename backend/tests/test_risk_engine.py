@@ -116,7 +116,8 @@ class World:
         # Phí GIẢ (chỉ để test): 0 USD / lot do "người dùng" nhập
         self.commission: Commission | None = Commission(ACC, Decimal("0"), "USD",
                                                         t0 - timedelta(days=1), "sub-u", "test")
-        self.book = InMemoryTradeBook()
+        # Vốn đầu paper GIẢ (chỉ để test) = equity MT5 giả 10.000
+        self.book = InMemoryTradeBook(capital=Decimal(10_000))
         # Mốc Safety về ACTIVE (đồng hồ test khác đồng hồ thật của SafetySupervisor)
         self.active_at: datetime | None = t0 - timedelta(days=60)
         self.registry.active_since = lambda acc: self.active_at  # type: ignore[method-assign]
@@ -530,6 +531,8 @@ def test_equity_is_read_not_given(t0):
     # Equity thật nhỏ hơn → lot nhỏ hơn (bên gọi không có cách nào đưa equity)
     w = World(t0)
     w.broker = reading(t0, equity=20_000.0)
+    assert w.evaluate().volume == Decimal("0.04")      # 6c: equity dùng = min(MT5, paper 10.000)
+    w.book.capital = Decimal(20_000)
     assert w.evaluate().volume == Decimal("0.09")         # 100 / 1050 = 0,095 → 0,09
 
 
@@ -575,6 +578,7 @@ def test_volume_capped_at_broker_max(t0):
     w = World(t0)
     w.broker = reading(t0, equity=10_000_000.0,
                        spec=spec_row(t0 - timedelta(days=1), volume_max=1.0))
+    w.book.capital = Decimal(10_000_000)
     d = w.evaluate()
     assert d.outcome is RiskOutcome.REDUCED and d.volume == Decimal("1.00")
     assert d.risk_amount == Decimal("1050.00")
@@ -855,6 +859,7 @@ def test_trade_book_read_error_rejects(t0):
 @pytest.mark.parametrize("pnl,blocked", [("-100", True), ("-99.99", False)])
 def test_daily_loss_limit_pauses(t0, pnl, blocked):                       # 5-C05
     w = World(t0)
+    w.book.capital = 10_000 - Decimal(pnl)        # equity paper sau lỗ = 10.000 (= MT5)
     w.book.add_closed(ACC, closed(1, pnl, t0 - timedelta(hours=1)))
     d = w.evaluate()
     if blocked:
@@ -879,6 +884,9 @@ def test_loss_before_day_start_not_daily_but_monthly(t0):
 
 def test_last_month_loss_not_counted(t0):
     w = World(t0)
+    w.book.capital = Decimal(11_000)              # sụt 1.000 / 11.000 = 9 % → H6 riêng (test 6c)
+    w.profiles.append(ACC, replace(TEST_PROFILE, max_drawdown_halt=Decimal("0.5")),
+                      created_by="sub-u", reason="t", at=t0 - timedelta(minutes=1))
     w.book.add_closed(ACC, closed(1, "-1000", t0 - timedelta(days=6)))  # 30/12/2025
     assert w.evaluate().outcome is not RiskOutcome.REJECTED
 
@@ -1018,6 +1026,7 @@ def test_reduced_says_which_limit(t0):                                    # RSK-
     # chỗ trống 30 $ < 50 $ → cắt theo heat: 30 / 1050 → 0,02 lot (21 $). Đòn bẩy: đang mở
     # 24.002 $, trần 30.000 $ → tối đa 0,02 lot nữa → không cắt thêm.
     w2 = World(t0)
+    w2.book.capital = Decimal(10_102)             # lỗ đang chạy 102 → equity paper 10.000
     w2.book.add_open(ACC, pos(1, "SELL", 2400, "2416.7", vol="0.1",
                               opened=t0 - timedelta(minutes=5)))
     d2 = w2.evaluate()
@@ -1034,6 +1043,7 @@ def test_effective_leverage_cap_reduces(t0):                             # H9
     # 60.000 / (100 × 2400,20) = 0,2499 → 0,24 lot
     w = World(t0)
     w.broker = reading(t0, equity=100_000.0)
+    w.book.capital = Decimal(100_000)
     w.profiles.append(ACC, replace(TEST_PROFILE, pyramiding_policy="ONLY_IF_ALL_IN_PROFIT"),
                       created_by="sub-u", reason="t", at=t0 - timedelta(minutes=1))
     w.book.add_open(ACC, pos(1, "BUY", 2390, "2399.8", vol="1", opened=t0 - timedelta(minutes=5)))
