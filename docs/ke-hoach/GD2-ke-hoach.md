@@ -38,7 +38,7 @@
 - [x] `GET /api/pipeline` + trang web "Pipeline" (2026-11-14: làn nhanh, dead-letter 7 ngày, job đang chờ / kẹt, đếm 24 giờ, gần đây; 7 test; soát ba kho giống hệt; thiết kế `25-…` mục 8)
 
 ### Bước 6 — Gate GĐ2
-- [~] Replay nhật ký sự kiện từ dữ liệu GĐ1 → kết quả giống hệt; không nhân đôi output (2026-11-14: công cụ `python -m gold_trading.orchestrator.replay` — chỉ đọc; 7 test + soát Postgres ĐẠT; **còn: chạy trên dữ liệu thật máy người dùng** — mục 3 phần kiểm trên máy)
+- [~] Replay nhật ký sự kiện từ dữ liệu GĐ1 → kết quả giống hệt; không nhân đôi output (2026-11-14: công cụ `python -m gold_trading.orchestrator.replay` — chỉ đọc; 7 test + soát Postgres ĐẠT; **còn: chạy trên dữ liệu thật máy người dùng** — mục 3 phần kiểm trên máy; **16/11 trên máy người dùng: KẾT LUẬN ĐẠT** — 31.788 sự kiện khớp, làn nhanh 293 job + 3 lệnh cấm khớp, 0 job chạy hai lần; mục 3 Technical "0 kết quả tính lại" vì 31 kết quả đều phiên bản cũ (trước khi dựng lại) → **chưa so thật**, phải chạy lại sau NFP 04/12)
 - [ ] Đo độ trễ làn nhanh trên một lần công bố CPI / NFP thật (NFP 04/12 hoặc CPI 10/12) — trong ngân sách
 - [ ] Kiểm trên máy người dùng + người dùng xác nhận
 
