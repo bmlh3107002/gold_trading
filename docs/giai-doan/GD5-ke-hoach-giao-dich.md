@@ -3,6 +3,8 @@
 > Một phần của bản đồ việc theo giai đoạn (tách từ `CHECKLIST.md` 2026-11-06). Chỉ mục, nguyên tắc và bất biến: [`README.md`](README.md). Trạng thái chung: `PROGRESS.md`. Ghi chú kỹ thuật: `docs/ghi-chu-ky-thuat.md`.
 
 
+> **DEC-28 (người dùng 2026-11-16): mở GĐ5 song song** khi GĐ1–GĐ4 chỉ còn kiểm trên máy / chờ ngày (ngoại lệ có chủ ý cho "đi sạch từng giai đoạn", như DEC-19, DEC-22, DEC-23). Điều kiện: **viết kế hoạch trước ở phiên chat mới** (`docs/ke-hoach/GD5-ke-hoach.md`), **người dùng duyệt rồi mới code**; **không đóng GĐ5 trước GĐ1 → GĐ2 → GĐ3 → GĐ4**; việc kiểm trên máy của các giai đoạn trước được ưu tiên; **không có lệnh thật nào** (GĐ5 chỉ tạo ý định + quyết định Risk, chưa gửi lệnh — gửi lệnh từ GĐ8/GĐ9); không tự đặt số rủi ro — chờ tài liệu quản lý vốn của người dùng (KN-12, DEC-09); RSK-10, RSK-11 (KN-01, KN-02) là việc **bắt buộc** đầu GĐ5. Code GĐ5 không lên `develop` trong đợt đếm 5 ngày của GĐ1 nếu người dùng chưa chọn lịch dựng lại.
+
 ### 5A — Hồ sơ rủi ro (việc ③b)
 
 | Mã | Việc | TT | Vị trí / ghi chú |
