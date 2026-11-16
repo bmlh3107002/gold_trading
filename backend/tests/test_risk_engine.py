@@ -67,7 +67,8 @@ def spec_row(t: datetime, **kw) -> SpecRow:
 
 def reading(t: datetime, *, equity=10_000.0, spec: SpecRow | None = None, **kw) -> BrokerReading:
     row = spec if spec is not None else spec_row(t - timedelta(days=3))
-    base = dict(connected=True, heartbeat_age_s=2.0, equity=equity, account_currency="USD",
+    base = dict(connected=True, heartbeat_age_s=2.0, equity=equity, margin_free=equity,
+                account_currency="USD",
                 identity=(LOGIN, SERVER), heartbeat_symbol=SYM, live_spec_hash=row.spec_hash,
                 locked_symbol=SYM, spec=row)
     return BrokerReading(**(base | kw))
@@ -944,7 +945,7 @@ def test_heat_includes_open_positions(t0):
 
 def test_position_with_sl_past_breakeven_has_no_heat(t0):
     w = World(t0)
-    w.book.add_open(ACC, pos(1, "SELL", 2401, 2400, vol="1", opened=t0 - timedelta(minutes=5)))
+    w.book.add_open(ACC, pos(1, "SELL", 2401, 2400, vol="0.05", opened=t0 - timedelta(minutes=5)))
     d = w.evaluate()
     assert d.outcome is RiskOutcome.APPROVED and Decimal(d.details["open_risk"]) == 0
 
@@ -1006,11 +1007,87 @@ def test_reduced_says_which_limit(t0):                                    # RSK-
     w = World(t0)
     d = w.evaluate(intent(t0 - minutes(0.5), risk_budget_requested=0.02))
     assert d.reason_codes == ("REDUCED_BY_RISK_PER_TRADE",)
-    # Lệnh SELL 1 lot SL cách 1,4 → còn rủi ro (1,4 + 0,3) × 100 = 170 $; heat 200 $ → chỗ trống
-    # 30 $ < 50 $ → cắt theo heat: 30 / 1050 → 0,02 lot (21 $)
+    # Lệnh SELL 0,1 lot SL cách 16,7 → còn rủi ro (16,7 + 0,3) × 100 × 0,1 = 170 $; heat 200 $ →
+    # chỗ trống 30 $ < 50 $ → cắt theo heat: 30 / 1050 → 0,02 lot (21 $). Đòn bẩy: đang mở
+    # 24.002 $, trần 30.000 $ → tối đa 0,02 lot nữa → không cắt thêm.
     w2 = World(t0)
-    w2.book.add_open(ACC, pos(1, "SELL", 2400, "2401.4", vol="1",
+    w2.book.add_open(ACC, pos(1, "SELL", 2400, "2416.7", vol="0.1",
                               opened=t0 - timedelta(minutes=5)))
     d2 = w2.evaluate()
     assert d2.reason_codes == ("REDUCED_BY_OPEN_RISK",) and d2.volume == Decimal("0.02")
     assert Decimal(d2.details["risk_money_allowed"]) == 30
+
+
+
+# ================================================================ bước 5a — đòn bẩy + ký quỹ
+
+def test_effective_leverage_cap_reduces(t0):                             # H9
+    # Equity 100.000 $, rủi ro 0,5 % = 500 $ → 500 / 1050 = 0,47 lot (giá trị 112.809 $).
+    # Trần 3 lần = 300.000 $; đang mở BUY 1 lot (bid 2400 → 240.000 $) → còn 60.000 $ →
+    # 60.000 / (100 × 2400,20) = 0,2499 → 0,24 lot
+    w = World(t0)
+    w.broker = reading(t0, equity=100_000.0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, pyramiding_policy="ONLY_IF_ALL_IN_PROFIT"),
+                      created_by="sub-u", reason="t", at=t0 - timedelta(minutes=1))
+    w.book.add_open(ACC, pos(1, "BUY", 2390, "2399.8", vol="1", opened=t0 - timedelta(minutes=5)))
+    d = w.evaluate()
+    assert d.reason_codes == ("REDUCED_BY_LEVERAGE",) and d.volume == Decimal("0.24")
+    assert d.details["max_volume_leverage"] == "0.24"
+    assert d.risk_amount == Decimal("0.24") * 1050
+
+
+def test_effective_leverage_full_rejects(t0):
+    w = World(t0)
+    w.broker = reading(t0, equity=100_000.0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, pyramiding_policy="ONLY_IF_ALL_IN_PROFIT"),
+                      created_by="sub-u", reason="t", at=t0 - timedelta(minutes=1))
+    w.book.add_open(ACC, pos(1, "BUY", 2390, "2399.8", vol="1.25",
+                             opened=t0 - timedelta(minutes=5)))   # 300.000 $ = đủ trần
+    assert w.evaluate().reason_codes == ("LEVERAGE_LIMIT",)
+
+
+def test_margin_reduces_then_rejects(t0):                                  # 5-C09
+    # Ký quỹ / lot = 100 × 2400,20 / 100 = 2400,20 $; margin trống 100 $ → 0,04 lot (96 $) đủ
+    w = World(t0)
+    w.broker = reading(t0, margin_free=100.0)
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.APPROVED and d.volume == Decimal("0.04")
+    w.broker = reading(t0, margin_free=50.0)                  # → 0,02 lot
+    d = w.evaluate(intent(t0 - minutes(0.5), intent_id="i2", idempotency_key="k2"))
+    assert d.reason_codes == ("REDUCED_BY_MARGIN",) and d.volume == Decimal("0.02")
+    w.broker = reading(t0, margin_free=20.0)
+    d = w.evaluate(intent(t0 - minutes(0.5), intent_id="i3", idempotency_key="k3"))
+    assert d.reason_codes == ("INSUFFICIENT_MARGIN",)
+
+
+def test_paper_positions_use_margin(t0):
+    # Lệnh paper đang mở SELL 0,03 lot (ask 2400,20 → 7.200,6 $ / 100 = 72,006 $ ký quỹ) mà MT5
+    # không biết → margin trống 100 $ chỉ còn 27,99 $ → 0,01 lot
+    w = World(t0)
+    w.broker = reading(t0, margin_free=100.0)
+    w.book.add_open(ACC, pos(1, "SELL", 2401, 2400, vol="0.03", opened=t0 - timedelta(minutes=5)))
+    d = w.evaluate()
+    assert d.reason_codes == ("REDUCED_BY_MARGIN",) and d.volume == Decimal("0.01")
+
+
+def test_margin_unknown_rejects(t0):
+    w = World(t0)
+    w.broker = reading(t0, margin_free=None)
+    assert "MARGIN_UNKNOWN" in w.evaluate().reason_codes
+
+
+def test_leverage_null_rejects(t0):
+    w = World(t0)
+    w.broker = reading(t0, spec=spec_row(t0 - timedelta(days=1), leverage=None))
+    assert "BROKER_SPEC_MISSING:leverage" in w.evaluate().reason_codes
+
+
+def test_broker_leverage_change_used_at_decision(t0):
+    # Sàn hạ đòn bẩy 1:100 → 1:10: ký quỹ / lot 24.002 $ > margin trống 10.000 → 0,41 lot đủ
+    # cho 0,04; hạ còn 1:1 → 240.020 $ / lot → 0,04 lot cần 9.600,8 $ ≤ 10.000 → vẫn được;
+    # margin trống 5.000 → 0,02 lot
+    w = World(t0)
+    w.broker = reading(t0, margin_free=5000.0,
+                       spec=spec_row(t0 - timedelta(hours=1), leverage=1))
+    d = w.evaluate()
+    assert d.reason_codes == ("REDUCED_BY_MARGIN",) and d.volume == Decimal("0.02")

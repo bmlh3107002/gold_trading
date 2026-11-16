@@ -174,3 +174,16 @@ Chia nhỏ, làm + kiểm từng phần:
 - Đề nghị PAUSED qua `AccountRegistry` (Safety có quyền cao nhất; Risk không bao giờ tự mở lại). Đã PAUSED thì không ghi thêm.
 
 **Hoãn sang bước 6 (cần đường equity của sổ cái):** H6 dừng hẳn khi sụt 5 % từ đỉnh và H10 điều chỉnh đỉnh khi nạp / rút — đỉnh equity phải là của sổ cái (paper khác equity MT5). Ghi ở kế hoạch; không làm dở.
+
+## 11. Bước 5 — đòn bẩy, ký quỹ, swap, cuối tuần (RSK-03, RSK-09; H8, H9; 5-C07, 5-C08, 5-C09)
+
+Chia **5a** (đòn bẩy thực tế + ký quỹ), **5b** (swap), **5c** (chặn vào lệnh trước cuối tuần / lễ dài).
+
+**5a — giới hạn khối lượng thêm** (sau khi tính lot theo rủi ro, làm tròn xuống theo bước; nhỏ hơn lot tối thiểu → từ chối):
+
+- Đòn bẩy thực tế (H9): `Σ lot mở × cỡ HĐ × giá + lot mới × cỡ HĐ × giá ≤ max_effective_leverage × equity`. Giá = giá đóng hiện tại của lệnh mở (bid cho BUY, ask cho SELL) và giá vào của lệnh mới (ask cho BUY, bid cho SELL). Cắt → `REDUCED_BY_LEVERAGE`; không đủ lot tối thiểu → `LEVERAGE_LIMIT`.
+- Ký quỹ (RSK-03, 5-C09): ký quỹ / lot ≈ cỡ HĐ × giá / đòn bẩy tài khoản (đòn bẩy trong thông số `spec_at`, phải trùng nhịp tim). Ký quỹ của lệnh mới + ký quỹ ước tính của lệnh paper đang mở ≤ `margin_free` trong nhịp tim (paper không làm đổi số MT5 → phải tự trừ). Cắt → `REDUCED_BY_MARGIN`; không đủ → `INSUFFICIENT_MARGIN`. `margin_free` / đòn bẩy `NULL` → từ chối (`MARGIN_UNKNOWN`, `BROKER_SPEC_MISSING:leverage`). **Ước tính** theo kiểu tính ký quỹ CFD-đòn bẩy; sàn có thể tính khác (hệ số ký quỹ) — GĐ9 dùng `order_calc_margin` của MT5 qua Gateway. Với trần đòn bẩy thực tế 3 lần và đòn bẩy sàn 1:100, ký quỹ cần ≤ 3 % equity nên hiếm khi là giới hạn chặn. Đòn bẩy sàn đổi → dùng giá trị tại lúc quyết (KN-05).
+
+**5b — swap qua đêm** (RSK-09, 5-C08): lệnh có thể còn mở qua **lần chốt ngày kế tiếp** (17:00 NY, mốc ngày của hồ sơ) → cộng chi phí swap **một đêm** (nhân 3 nếu đêm đó là `swap_rollover3days`, đánh số MT5: 0 = Chủ nhật … 3 = thứ Tư) vào **rủi ro / lot** và trừ khỏi **lời / lot** (R:R). Swap dương (được nhận) → 0, không tính là lời. Kiểu swap hỗ trợ: `0` (không swap), `1` (theo point: `−swap × point × cỡ HĐ` / lot), `4` (tiền gửi = USD / lot); kiểu khác → `SWAP_MODE_UNSUPPORTED` (không biết chi phí → không vào lệnh). "Một đêm" là giá trị khởi đầu chưa hiệu chỉnh; chiến lược v1 (STR-06) có time-stop → xét lại. Cuối tuần không có swap vì H8 đóng hết trước thứ Sáu.
+
+**5c — cuối tuần / lễ dài (H8, 5-C07):** nếu trong `weekend_close_before_min` phút tới (30) thị trường chuyển sang `WEEKEND` hoặc `HOLIDAY` (lịch thị trường + bảng ngày lễ + giờ đặc biệt broker) → `WEEKEND_CLOSE_WINDOW`. Bảng ngày lễ không phủ năm đó → `MARKET_CALENDAR_UNKNOWN` (mặc định an toàn). Nghỉ hằng ngày 17–18 NY không chặn. **Đóng lệnh đang mở trước cuối tuần (H8) và quy tắc giữ lệnh qua tin (H7) là quản lý lệnh đang mở → bước 6** (sổ cái paper); bước 5 chỉ chặn vào lệnh mới.

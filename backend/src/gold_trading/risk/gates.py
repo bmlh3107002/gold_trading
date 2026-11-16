@@ -45,6 +45,7 @@ class BrokerReading:
     connected: bool                         # GatewayStatus CONNECTED
     heartbeat_age_s: float | None
     equity: float | None
+    margin_free: float | None               # ký quỹ trống trong nhịp tim (RSK-03)
     account_currency: str | None            # trong nhịp tim (AccountSnapshot)
     identity: tuple[int, str] | None        # (login, server) MT5 do terminal báo
     heartbeat_symbol: str | None            # mã broker trong nhịp tim
@@ -121,6 +122,7 @@ def broker_gate(monitors, history, locked_symbol: Callable[[str], str | None]
             connected=st.state == "CONNECTED",
             heartbeat_age_s=st.age_seconds,
             equity=acc.equity if acc is not None else None,
+            margin_free=acc.margin_free if acc is not None else None,
             account_currency=acc.currency if acc is not None else None,
             identity=(ident.login, ident.server) if ident is not None else None,
             heartbeat_symbol=hb.symbol.broker_symbol if hb is not None and hb.symbol else None,

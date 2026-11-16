@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from gold_trading.common.enums import RiskOutcome, TradingMode
+from gold_trading.common.enums import RiskOutcome, Side, TradingMode
 from gold_trading.common.ids import new_id
 from gold_trading.common.time import utcnow
 from gold_trading.contracts.market_view import SAMPLE_DATA, UNVALIDATED_RULES, MarketView
@@ -33,7 +33,7 @@ from gold_trading.risk.book import remaining_risk, unrealized
 from gold_trading.risk.gates import BrokerReading, RiskGates
 from gold_trading.risk.ledger import RiskLedger
 from gold_trading.risk.periods import Periods
-from gold_trading.risk.sizing import SizingSpec, dec, size
+from gold_trading.risk.sizing import SizingSpec, dec, floor_to_step, size
 
 log = logging.getLogger("gold_trading.risk")
 
@@ -43,7 +43,7 @@ QUOTE_MAX_AGE = timedelta(seconds=10)      # = ngân sách độ trễ làn nhan
 BASELINE_WINDOW = timedelta(days=30)       # Q4 / Q5
 BASELINE_MIN_MINUTES = 6900                # ≈ 5 ngày giao dịch × 23 giờ × 60 phút
 SUPPORTED_CURRENCY = "USD"                 # Q2
-REQUIRED_SPEC = ("contract_size", "point", "volume_min", "volume_max", "volume_step",
+REQUIRED_SPEC = ("contract_size", "point", "volume_min", "volume_max", "volume_step", "leverage",
                  "currency_profit", "account_currency", "stops_level", "freeze_level")
 
 
@@ -71,6 +71,8 @@ class _Market:
     equity: Decimal | None = None
     bid: Decimal | None = None
     ask: Decimal | None = None
+    leverage: Decimal | None = None
+    margin_free: Decimal | None = None
     spec: SizingSpec | None = None
     point: Decimal | None = None
     spread_points: int | None = None
@@ -180,6 +182,13 @@ class RiskEngine:
         m.spec = SizingSpec(dec(s["contract_size"]), dec(s["volume_min"]), dec(s["volume_max"]),
                             dec(s["volume_step"]))
         m.point = dec(s["point"])
+        m.leverage = dec(s["leverage"])
+        if b.margin_free is None:
+            reasons.append("MARGIN_UNKNOWN")
+        else:
+            m.margin_free = dec(b.margin_free)
+            m.details["margin_free"] = str(m.margin_free)
+        m.details["leverage"] = str(m.leverage)
         m.details |= {"broker_symbol": spec.key.broker_symbol,
                       "spec_observed_at": spec.observed_at.isoformat(),
                       "contract_size": str(m.spec.contract_size), "point": str(m.point),
@@ -284,7 +293,7 @@ class RiskEngine:
                 intent, account_id, now, pv, m))
             if not ok:
                 return self._reject(intent, account_id, now, reasons, m.details)
-            limits, pause, open_risk = book  # type: ignore[misc]
+            limits, pause, open_risk, positions = book  # type: ignore[misc]
             if limits:
                 if pause:
                     self._request_pause(account_id, pause, m.details)
@@ -307,6 +316,12 @@ class RiskEngine:
             details["min_reward_risk"] = str(pv.min_reward_risk)
             if rr < pv.min_reward_risk:
                 return self._reject(intent, account_id, now, ["REWARD_RISK_TOO_LOW"], details)
+            vol, limit_cuts, limit_code = self._volume_caps(intent, res.volume, positions, pv,
+                                                            m, details)
+            if res.volume > 0 and vol < m.spec.volume_min:               # 5a: H9 / RSK-03
+                return self._reject(intent, account_id, now, [limit_code], details)
+            if vol < res.volume:
+                res = replace(res, volume=vol, risk_amount=vol * res.risk_per_lot)
             if res.volume <= 0:                                           # 5-C01
                 details["shortfall"] = str(res.shortfall)
                 if frac > 0:
@@ -317,6 +332,7 @@ class RiskEngine:
             cuts = tuple(c for c, hit in (("REDUCED_BY_RISK_PER_TRADE", frac < requested),
                                           ("REDUCED_BY_OPEN_RISK", money < frac * m.equity),
                                           ("REDUCED_BY_MAX_VOLUME", res.capped_at_max)) if hit)
+            cuts += limit_cuts
             reduced = bool(cuts)
             rid = self.ledger.reserve(intent.symbol, res.risk_amount,
                                       f"intent:{intent.intent_id}", at=now)
@@ -340,8 +356,9 @@ class RiskEngine:
     # ------------------------------------------------------------------ 4c: sổ lệnh
 
     def _book_checks(self, intent: TradeIntent, account_id: str, now: datetime, pv,
-                     m: _Market) -> tuple[list[str], str | None, Decimal]:
-        """(lý do chặn, mã đề nghị PAUSED hoặc None, tổng rủi ro mở gồm giữ chỗ). Đọc lỗi → ném."""
+                     m: _Market) -> tuple[list[str], str | None, Decimal, list]:
+        """(lý do chặn, mã đề nghị PAUSED hoặc None, tổng rủi ro mở gồm giữ chỗ, lệnh đang mở).
+        Đọc lỗi → ném."""
         book = self.gates.trade_book
         assert book is not None and m.equity is not None and m.spec is not None
         assert m.bid is not None and m.ask is not None and m.point is not None
@@ -393,7 +410,36 @@ class RiskEngine:
         open_risk = (sum((remaining_risk(p, slip, cs) for p in positions), Decimal(0))
                      + self.ledger.reserved_total())
         d["open_risk"] = str(open_risk)
-        return out, pause, open_risk
+        return out, pause, open_risk, positions
+
+    # ------------------------------------------------------------------ 5a: đòn bẩy + ký quỹ
+
+    @staticmethod
+    def _volume_caps(intent: TradeIntent, volume: Decimal, positions: list, pv, m: _Market,
+                     details: dict[str, str]) -> tuple[Decimal, tuple[str, ...], str]:
+        """Lot tối đa theo đòn bẩy thực tế (H9) và ký quỹ trống (RSK-03), làm tròn xuống.
+        Trả (lot sau khi cắt, mã REDUCED, mã từ chối nếu không đủ lot tối thiểu)."""
+        assert m.spec is not None and m.equity is not None and m.bid is not None
+        assert m.ask is not None and m.leverage is not None and m.margin_free is not None
+        cs = m.spec.contract_size
+        price = m.ask if intent.side is Side.BUY else m.bid
+        notional_open = sum((p.volume * cs * (m.bid if p.side is Side.BUY else m.ask)
+                             for p in positions), Decimal(0))
+        margin_open = notional_open / m.leverage          # lệnh paper: MT5 chưa trừ ký quỹ
+        lev_room = pv.max_effective_leverage * m.equity - notional_open
+        mar_room = m.margin_free - margin_open
+        v_lev = floor_to_step(lev_room / (cs * price), m.spec.volume_step)
+        v_mar = floor_to_step(mar_room / (cs * price / m.leverage), m.spec.volume_step)
+        details |= {"notional_open": str(notional_open), "max_volume_leverage": str(v_lev),
+                    "max_volume_margin": str(v_mar)}
+        vol: Decimal = volume
+        cuts: tuple[str, ...] = ()
+        if v_lev < vol:
+            vol, cuts = v_lev, ("REDUCED_BY_LEVERAGE",)
+        if v_mar < vol:
+            vol, cuts = v_mar, ("REDUCED_BY_MARGIN",)
+        code = "INSUFFICIENT_MARGIN" if v_mar < m.spec.volume_min else "LEVERAGE_LIMIT"
+        return max(vol, Decimal(0)), cuts, code
 
     def _request_pause(self, account_id: str, code: str, details: dict[str, str]) -> None:
         try:
