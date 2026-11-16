@@ -108,3 +108,5 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 - **2026-11-16** — Bước 3: **H4 phần 1 — lỗ tối đa một ngày = 0,75 % equity** (người dùng chốt, theo khuyến nghị; ≈ 3 lệnh thua 0,25 %). Lỗ ngày = PnL đã đóng + lỗ đang chạy của lệnh mở; chạm ngưỡng → chặn lệnh mới tới mốc reset kế tiếp + đề nghị Safety `PAUSED` (Risk không tự mở lại). Áp ở bước 4 (RSK-05, 5-C05). Mốc reset + múi giờ hỏi sau.
 
 - **2026-11-16** — Bước 3: **H4 phần 2 — lỗ tối đa một tuần = 1,5 % equity** (người dùng chốt, theo khuyến nghị; = 2 ngày chạm ngưỡng ngày). Chạm → chặn lệnh mới tới mốc reset tuần + đề nghị Safety `PAUSED`.
+
+- **2026-11-16** — Bước 3: **H4 phần 3 — lỗ tối đa một tháng = 3 % equity** (người dùng chốt, theo khuyến nghị; QLV 7.2). Chạm → chặn lệnh mới tới mốc reset tháng + đề nghị Safety `PAUSED`.
