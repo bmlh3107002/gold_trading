@@ -1,12 +1,13 @@
 """Risk Engine — RSK-10 (KN-01): Risk tự đọc cổng thật lúc quyết. 5-C14, 5-C15, 4-C05, 4-C06.
 
-Số rủi ro trong file này (``TEST_POLICY``) là **số giả chỉ để test** — không phải số khuyến nghị;
+Số rủi ro trong file này (``TEST_PROFILE``) là **số giả chỉ để test** — không phải số khuyến nghị;
 số thật đến từ hồ sơ rủi ro người dùng chọn (GĐ5 bước 3, DEC-09).
 """
 
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -26,11 +27,21 @@ from gold_trading.storage.broker_history import SpecKey, SpecRow, spec_hash
 from gold_trading.storage.commissions import Commission
 from gold_trading.storage.market_views import InMemoryMarketViewStore
 from gold_trading.storage.repository import InMemoryRepository, Member, TradingAccount
+from gold_trading.storage.risk_profiles import InMemoryRiskProfileStore, RiskProfileValues
 from tests.conftest import minutes
 from tests.factories import intent, market_view
 
 # CHỈ ĐỂ TEST — không phải số khuyến nghị (DEC-09: số do người dùng chọn ở bước 3)
-TEST_POLICY = dict(max_risk_per_trade=Decimal("0.005"), max_total_reserved=Decimal("0.02"))
+# Hồ sơ rủi ro GIẢ — CHỈ ĐỂ TEST (0,5 %/lệnh, heat 2 %); hồ sơ thật do người dùng chọn (H1–H11).
+TEST_PROFILE = RiskProfileValues(
+    risk_per_trade=Decimal("0.005"), min_reward_risk=Decimal("1.5"),
+    max_open_risk=Decimal("0.02"), max_daily_loss=Decimal("0.01"),
+    max_weekly_loss=Decimal("0.02"), max_monthly_loss=Decimal("0.04"),
+    max_consecutive_losses=5, day_reset_tz="America/New_York", day_reset_time="17:00",
+    max_trades_per_day=4, max_drawdown_halt=Decimal("0.05"), news_hold_policy="CLOSE_ALL",
+    weekend_policy="CLOSE_ALL", weekend_close_before_min=30,
+    max_effective_leverage=Decimal(3), cash_flow_policy="SEPARATE",
+    pyramiding_policy="NONE", notes="chỉ để test")
 ACC = "acc-1"
 FEED = "f1"
 SCOPE = Scope.of_feed("XAUUSD", "M15", "MT5", FEED)
@@ -102,8 +113,12 @@ class World:
             broker=lambda acc, at: self.broker, latest_quote=lambda feed, at: self.quote,
             spread_minutes=lambda feed, lo, hi, as_of: [
                 r for r in self.minutes if lo <= r.t < hi and r.available_at <= as_of],
-            commission=lambda acc, at: self.commission)
-        self.engine = RiskEngine(RiskPolicy(version="r0", **TEST_POLICY), RiskLedger(),
+            commission=lambda acc, at: self.commission,
+            risk_profile=lambda acc, at: self.profiles.at(acc, at))
+        self.profiles = InMemoryRiskProfileStore()
+        self.profiles.append(ACC, TEST_PROFILE, created_by="sub-u", reason="test",
+                             at=t0 - timedelta(days=1))
+        self.engine = RiskEngine(RiskPolicy(version="r0"), RiskLedger(),
                                  self.gates, clock=lambda: self.now)
 
     def evaluate(self, i=None):
@@ -128,10 +143,10 @@ def test_approves_and_sizes_from_risk(t0):
     assert Decimal(d.details["risk_per_lot"]) == 1050 and d.account_id == ACC
 
 
-def test_policy_has_no_default_risk_numbers():
-    # DEC-09 / KN-12: không có số rủi ro đặt sẵn trong code
-    with pytest.raises(TypeError):
-        RiskPolicy(version="x")  # type: ignore[call-arg]
+def test_policy_has_no_risk_numbers():
+    # DEC-09 / KN-12: không có số rủi ro đặt sẵn trong code — chỉ trong hồ sơ người dùng
+    names = set(RiskPolicy.__dataclass_fields__)
+    assert not names & {"max_risk_per_trade", "max_total_reserved", "max_spread"}
 
 
 # ---------------------------------------------------------------- cổng tài khoản (5-C14)
@@ -340,7 +355,7 @@ def test_sample_data_still_blocked_even_if_rules_validated_later(t0):
     w = World(t0)
     w.registry.mode = lambda acc: TradingMode.LIVE  # type: ignore[method-assign]
     pol = {TradingMode.LIVE: frozenset({"SAMPLE_DATA"})}
-    w.engine.policy = RiskPolicy(version="r1", blocking_quality_flags=pol, **TEST_POLICY)
+    w.engine.policy = RiskPolicy(version="r1", blocking_quality_flags=pol)
     w.views.append(market_view(t0 - minutes(0.5), market_view_id="mv-s", source="SAMPLE",
                                quality_flags=SAMPLE_FLAGS), report_id="r", computed_at=t0)
     w.scope = Scope.of_feed("XAUUSD", "M15", "SAMPLE", FEED)
@@ -376,8 +391,8 @@ def test_reduces_when_request_exceeds_per_trade_limit(t0):
 
 def test_concurrent_intents_never_exceed_total_limit(t0):
     w = World(t0)
-    w.engine.policy = RiskPolicy(version="r0",
-                                 **(TEST_POLICY | {"max_total_reserved": Decimal("0.01")}))
+    w.profiles.append(ACC, replace(TEST_PROFILE, max_open_risk=Decimal("0.01")),
+                      created_by="sub-u", reason="test", at=t0 - timedelta(hours=1))
     intents = [intent(t0 - minutes(0.5), intent_id=f"i{n}", idempotency_key=f"k{n}")
                for n in range(10)]
     with ThreadPoolExecutor(max_workers=10) as pool:
@@ -649,3 +664,82 @@ def test_sample_source_without_broker_rejected(t0):
     w = World(t0)
     w.scope = Scope.of_feed("XAUUSD", "M15", "SAMPLE", "")
     assert "NO_PRICE_FEED" in w.evaluate().reason_codes
+
+
+# ================================================================ bước 3 — hồ sơ rủi ro (RPF-01)
+
+def test_no_risk_profile_rejects(t0):
+    w = World(t0)
+    w.profiles = InMemoryRiskProfileStore()
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REJECTED and "NO_RISK_PROFILE" in d.reason_codes
+    assert w.engine.ledger.reserved_total() == 0
+
+
+def test_profile_created_after_decision_time_not_used(t0):
+    w = World(t0)
+    w.profiles = InMemoryRiskProfileStore()
+    w.profiles.append(ACC, TEST_PROFILE, created_by="sub-u", reason="t",
+                      at=t0 + timedelta(seconds=1))
+    assert "NO_RISK_PROFILE" in w.evaluate().reason_codes
+
+
+def test_user_v1_profile_sizes_at_quarter_percent(t0):
+    # Hồ sơ v1 người dùng chốt 16/11 (H1 = 0,25 %): 10.000 × 0,25 % = 25 $ → 25 / 1050 → 0,02 lot
+    w = World(t0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, risk_per_trade=Decimal("0.0025"),
+                                   max_open_risk=Decimal("0.005")),
+                      created_by="sub-u", reason="H1–H11", at=t0 - timedelta(minutes=1))
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REDUCED          # intent xin 0,5 % → cắt về 0,25 %
+    assert d.volume == Decimal("0.02") and d.risk_amount == Decimal("21.00")
+    assert d.risk_profile_version == 2 and d.details["risk_profile_version"] == "2"
+
+
+def test_heat_from_profile_limits_second_trade(t0):
+    # heat 0,5 % = 50 $; mỗi lệnh 0,25 % → 21 $; lệnh 3: chỗ trống 8 $ < 10,5 $ → từ chối
+    w = World(t0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, risk_per_trade=Decimal("0.0025"),
+                                   max_open_risk=Decimal("0.005")),
+                      created_by="sub-u", reason="t", at=t0 - timedelta(minutes=1))
+    out = [w.evaluate(intent(t0 - minutes(0.5), intent_id=f"i{k}", idempotency_key=f"k{k}"))
+           for k in range(3)]
+    assert [d.outcome for d in out[:2]] == [RiskOutcome.REDUCED] * 2
+    assert out[2].reason_codes == ("BELOW_MIN_VOLUME",)
+    assert w.engine.ledger.reserved_total() == Decimal("42.00")
+
+
+def test_profile_changed_between_check_and_lock_is_reread(t0):          # 5-C13
+    w = World(t0)
+    calls = {"n": 0}
+    newer = replace(TEST_PROFILE, risk_per_trade=Decimal("0.0025"))
+    base = w.profiles.at
+
+    def profile(acc, at):
+        calls["n"] += 1
+        if calls["n"] == 2:     # lần đọc dưới khóa: người dùng vừa lưu bản mới
+            w.profiles.append(ACC, newer, created_by="sub-u", reason="đổi", at=t0)
+        return base(acc, at)
+
+    object.__setattr__(w.gates, "risk_profile", profile)
+    d = w.evaluate()
+    assert d.details["profile_reread"] == "1->2" and d.risk_profile_version == 2
+    assert d.volume == Decimal("0.02")              # tính theo bản mới 0,25 %
+
+
+def test_profile_read_error_under_lock_rejects(t0):
+    w = World(t0)
+    calls = {"n": 0}
+    base = w.profiles.at
+
+    def profile(acc, at):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RuntimeError("db down")
+        return base(acc, at)
+
+    object.__setattr__(w.gates, "risk_profile", profile)
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REJECTED
+    assert "GATE_READ_ERROR:risk_profile" in d.reason_codes
+    assert w.engine.ledger.reserved_total() == 0

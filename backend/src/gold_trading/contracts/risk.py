@@ -27,6 +27,8 @@ class RiskDecision(Contract):
     decided_at: UtcDatetime
     expires_at: UtcDatetime
     policy_version: str
+    # Bước 3: phiên bản hồ sơ rủi ro đã dùng (None khi từ chối trước lúc đọc được hồ sơ)
+    risk_profile_version: int | None = None
 
     @model_validator(mode="after")
     def _check(self) -> RiskDecision:

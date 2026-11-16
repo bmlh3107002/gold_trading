@@ -8,7 +8,6 @@ lịch hỏng). Số rủi ro: **chỉ để test**.
 from __future__ import annotations
 
 from datetime import timedelta
-from decimal import Decimal
 
 from gold_trading.common.enums import RiskOutcome, SafetyState
 from gold_trading.ingestion.source_status import CheckOutcome, SourceCheck
@@ -18,12 +17,13 @@ from gold_trading.risk.engine import RiskEngine, RiskPolicy
 from gold_trading.risk.ledger import RiskLedger
 from tests.factories import intent
 
+# CHỈ ĐỂ TEST — không phải số khuyến nghị
+from tests.test_risk_engine import TEST_PROFILE  # noqa: E402  (hồ sơ GIẢ — chỉ để test)
+
 from .test_e2e_market_view import S10, SCOPE, T, pipeline  # noqa: F401  (fixture)
 from .test_event_analyst import calendar_record, revise
 from .test_fast_lane import ev_of, news
 
-# CHỈ ĐỂ TEST — không phải số khuyến nghị
-TEST_POLICY = dict(max_risk_per_trade=Decimal("0.005"), max_total_reserved=Decimal("0.02"))
 CAL_SOURCES = ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule")
 
 
@@ -33,7 +33,9 @@ def _setup(p, now):
     for src in CAL_SOURCES:                      # nguồn lịch vừa nạp OK
         p.log.record(SourceCheck(src, now - timedelta(seconds=30), CheckOutcome.OK))
     clock = {"now": now}
-    eng = RiskEngine(RiskPolicy(version="r-test", **TEST_POLICY), RiskLedger(),
+    p.app.state.risk_profiles.append("default", TEST_PROFILE, created_by="t", reason="test",
+                                     at=now - timedelta(days=1))
+    eng = RiskEngine(RiskPolicy(version="r-test"), RiskLedger(),
                      p.app.state.risk_gates, clock=lambda: clock["now"])
     return eng, clock
 

@@ -19,6 +19,7 @@ from gold_trading.market.quote_minutes import QuoteMinute
 from gold_trading.market.quotes import QuoteSecond
 from gold_trading.storage.broker_history import SpecRow
 from gold_trading.storage.commissions import Commission
+from gold_trading.storage.risk_profiles import RiskProfile
 
 
 class AccountGate(Protocol):
@@ -65,6 +66,8 @@ class RiskGates:
     spread_minutes: Callable[[str, datetime, datetime, datetime], list[QuoteMinute]]
     # (tài khoản, lúc) → phí khứ hồi / lot hiện hành (Q3); None = chưa nhập
     commission: Callable[[str, datetime], Commission | None]
+    # Bước 3: (tài khoản, lúc) → hồ sơ rủi ro hiện hành; None = chưa có → NO_RISK_PROFILE
+    risk_profile: Callable[[str, datetime], RiskProfile | None]
 
 
 # Nguồn lịch Risk đòi phải khỏe (Q1). Cùng danh sách với lịch kinh tế hợp nhất.

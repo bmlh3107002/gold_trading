@@ -726,3 +726,38 @@ account_commissions = Table(
 )
 Index("ix_account_commissions_lookup", account_commissions.c.account_id,
       account_commissions.c.created_at)
+
+
+# GĐ5 bước 3 (DB-07, RPF-01; migration 0025): hồ sơ rủi ro có phiên bản — chỉ thêm (trigger chặn
+# UPDATE / DELETE trên Postgres). Mọi số do người dùng chọn (H1–H11); DEC-09 kiểm cả ở DB.
+risk_profiles = Table(
+    "risk_profiles",
+    metadata,
+    Column("account_id", String(64), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", String(128), nullable=False),
+    Column("reason", String(256), nullable=False),
+    Column("risk_per_trade", Numeric(10, 6), nullable=False),
+    Column("min_reward_risk", Numeric(10, 6), nullable=False),
+    Column("max_open_risk", Numeric(10, 6), nullable=False),
+    Column("max_daily_loss", Numeric(10, 6), nullable=False),
+    Column("max_weekly_loss", Numeric(10, 6), nullable=False),
+    Column("max_monthly_loss", Numeric(10, 6), nullable=False),
+    Column("max_consecutive_losses", Integer, nullable=False),
+    Column("day_reset_tz", String(64), nullable=False),
+    Column("day_reset_time", String(5), nullable=False),
+    Column("max_trades_per_day", Integer, nullable=False),
+    Column("max_drawdown_halt", Numeric(10, 6), nullable=False),
+    Column("news_hold_policy", String(32), nullable=False),
+    Column("weekend_policy", String(32), nullable=False),
+    Column("weekend_close_before_min", Integer, nullable=False),
+    Column("max_effective_leverage", Numeric(10, 6), nullable=False),
+    Column("cash_flow_policy", String(32), nullable=False),
+    Column("pyramiding_policy", String(32), nullable=False),
+    Column("notes", String(1000), nullable=False, server_default=""),
+    PrimaryKeyConstraint("account_id", "version"),
+    CheckConstraint("risk_per_trade >= 0.0025 AND risk_per_trade <= 0.005",
+                    name="ck_risk_profiles_dec09"),
+    CheckConstraint("version >= 1", name="ck_risk_profiles_version"),
+)

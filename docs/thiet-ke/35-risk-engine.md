@@ -117,3 +117,37 @@ Bảng chỉ-thêm (trigger chặn UPDATE / DELETE), mỗi tài khoản một ch
 - Chưa có hồ sơ rủi ro (bước 3), hạn mức ngày / tuần (bước 4), margin + swap (bước 5), sổ cái bền (bước 6). Sổ giữ chỗ vẫn trong bộ nhớ.
 - Đệm trượt giá là proxy từ spread, không phải trượt giá đo được; không che được trượt giá lúc ra tin (đã chặn vào lệnh quanh tin — DEC-20).
 - Chỉ tài khoản USD (Q2); tài khoản cent / tiền khác chờ giá trị tick từ Gateway khi chọn sàn thật.
+
+## 9. Hồ sơ rủi ro có phiên bản (bước 3 — DB-07, RPF-01; DEC-09, KN-12, Q6)
+
+Mã: `storage/risk_profiles.py`, migration **0025** (`risk_profiles`, chỉ thêm, trigger chặn UPDATE / DELETE).
+
+**Trường** (một dòng = một phiên bản; số tỷ lệ là `NUMERIC`, đọc ra `Decimal`):
+
+| Trường | Ý nghĩa | Bản v1 người dùng chốt 16/11 | Kiểm hợp lệ cứng |
+| --- | --- | --- | --- |
+| `risk_per_trade` | rủi ro thật / lệnh (gồm chi phí) | 0,0025 (H1) | **[0,0025; 0,005]** — DEC-09; CHECK cả trong DB |
+| `min_reward_risk` | R:R tối thiểu sau chi phí | 1,5 (H2) | [1; 10] |
+| `max_open_risk` | heat — tổng rủi ro mở + giữ chỗ | 0,005 (H3) | ≥ `risk_per_trade`, ≤ 0,05 |
+| `max_daily_loss` / `max_weekly_loss` / `max_monthly_loss` | lỗ tối đa | 0,0075 / 0,015 / 0,03 (H4) | `risk_per_trade` ≤ ngày ≤ tuần ≤ tháng ≤ 0,2 |
+| `max_consecutive_losses` | chuỗi thua → PAUSED | 5 (H4) | 1–50 |
+| `day_reset_tz`, `day_reset_time` | mốc ngày giao dịch | `America/New_York`, 17:00 (H4) | múi giờ IANA có thật; `HH:MM` |
+| `max_trades_per_day` | lệnh mới / ngày | 4 (H5) | 1–100 |
+| `max_drawdown_halt` | dừng hẳn khi sụt từ đỉnh | 0,05 (H6) | (0; 0,5]¹ |
+| `news_hold_policy` | lệnh mở qua tin HIGH | `KEEP_SAFE_ONLY` (H7) | `CLOSE_ALL` / `KEEP_SAFE_ONLY` |
+| `weekend_policy`, `weekend_close_before_min` | cuối tuần / lễ dài | `CLOSE_ALL`, 30 (H8) | chỉ `CLOSE_ALL` (cho giữ cần cách tính gap — chưa có); 5–240 phút |
+| `max_effective_leverage` | đòn bẩy thực tế | 3 (H9) | (0; 30] |
+| `cash_flow_policy` | nạp / rút | `SEPARATE` (H10) | chỉ `SEPARATE` |
+| `pyramiding_policy` | thêm lệnh cùng chiều | `ONLY_IF_ALL_IN_PROFIT` (H11) | `NONE` / `ONLY_IF_ALL_SAFE` / `ONLY_IF_ALL_IN_PROFIT` |
+| `notes` | ghi chú (vốn rủi ro, mục tiêu — **không** vào phép tính nào) | — | ≤ 1000 ký tự |
+| `version`, `created_at`, `created_by`, `reason` | phiên bản tăng dần / tài khoản, ai, lúc nào, vì sao | — | duy nhất `(account_id, version)` |
+
+¹ Không ép `max_drawdown_halt` lớn hơn lỗ tháng (hai giới hạn độc lập).
+
+Chính sách chỉ cho các giá trị **đã có cách thực thi an toàn**; giá trị "cho giữ / không chặn" (vd. `KEEP` qua tin, giữ qua cuối tuần, `ALLOW` nhồi lệnh) **không** có trong danh sách — muốn thêm phải có quyết định mới + cách tính rủi ro.
+
+**Ai được tạo (Q6 = B):** chỉ **chủ tài khoản** (`account_members.role = OWNER`), người dùng đang `ACTIVE`, không phải ADMIN (`accounts.access.decide`). Hiệu lực ngay (kể cả nới), mỗi lần là một phiên bản mới; không sửa / xóa bản cũ. Giới hạn DEC-09 do hệ thống chặn, không ai vượt được.
+
+**Risk đọc:** hồ sơ mới nhất có `created_at ≤ now`. Không có → `NO_RISK_PROFILE` (mọi intent bị từ chối). Đọc một lần ở pha A (để ghi lý do) và **đọc lại dưới `ledger.lock`** ngay trước khi tính khối lượng (5-C13): khác phiên bản → dùng bản mới, ghi `details.profile_reread`. Quyết định ghi `risk_profile_version`. `RiskPolicy` không còn số rủi ro: `min(mức xin, risk_per_trade)` và trần giữ chỗ `max_open_risk × equity` lấy từ hồ sơ. Các trường còn lại (R:R, lỗ ngày…, chính sách tin / cuối tuần / nhồi lệnh, đòn bẩy) **lưu ở bước 3, thực thi ở bước 4–5**.
+
+**Cách nhập:** trang Rủi ro (bước 8, API chỉ chủ tài khoản). Trước đó hồ sơ chưa có trên máy người dùng → Risk từ chối hết (an toàn; Risk cũng chưa nối luồng nào).

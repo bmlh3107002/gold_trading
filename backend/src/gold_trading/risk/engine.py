@@ -47,12 +47,10 @@ REQUIRED_SPEC = ("contract_size", "point", "volume_min", "volume_max", "volume_s
 
 @dataclass(frozen=True)
 class RiskPolicy:
-    """Số rủi ro **không có mặc định** (DEC-09, KN-12): bước 3 thay bằng hồ sơ rủi ro người dùng
-    chọn. Test dùng số giả có nhãn "chỉ để test"."""
+    """Chính sách kỹ thuật (không có số rủi ro): số rủi ro / lệnh và trần tổng giữ chỗ lấy từ
+    **hồ sơ rủi ro** người dùng chọn (bước 3, DEC-09 / KN-12). Chưa có hồ sơ → NO_RISK_PROFILE."""
 
     version: str
-    max_risk_per_trade: Decimal      # tỷ lệ equity / lệnh
-    max_total_reserved: Decimal      # tỷ lệ equity cho mọi reservation đang mở
     decision_ttl: timedelta = timedelta(seconds=30)
     blocking_flags: frozenset[str] = frozenset({"NEWS_SHOCK", "EVENT_WINDOW"})
     # GĐ4 bước 5c (DEC-25, 4-C06): cờ chất lượng MarketView chặn theo chế độ. Dữ liệu mẫu và luật
@@ -62,12 +60,6 @@ class RiskPolicy:
         TradingMode.SHADOW: frozenset({SAMPLE_DATA, UNVALIDATED_RULES}),
         TradingMode.LIVE: frozenset({SAMPLE_DATA, UNVALIDATED_RULES}),
     })
-
-    def __post_init__(self) -> None:
-        for n in ("max_risk_per_trade", "max_total_reserved"):
-            v = getattr(self, n)
-            if not isinstance(v, Decimal) or not v.is_finite() or not 0 < v < 1:
-                raise ValueError(f"{n} phải là Decimal trong (0; 1)")
 
 
 @dataclass
@@ -239,6 +231,10 @@ class RiskEngine:
         ok, b = self._read("broker", reasons, lambda: self.gates.broker(account_id, now))
         if ok:
             self._broker_checks(b, m, reasons)  # type: ignore[arg-type]
+        ok, prof = self._read("risk_profile", reasons,
+                              lambda: self.gates.risk_profile(account_id, now))
+        if ok and prof is None:
+            reasons.append("NO_RISK_PROFILE")
         if feed:
             self._market_checks(account_id, feed, now, m, reasons)
         elif feed == "":
@@ -264,8 +260,18 @@ class RiskEngine:
         slippage = m.baseline_points * m.point
         requested = dec(intent.risk_budget_requested)
         with self.ledger.lock:            # hai intent đồng thời không cùng vượt hạn mức
-            frac = min(requested, p.max_risk_per_trade)
-            headroom = p.max_total_reserved * m.equity - self.ledger.reserved_total()
+            # 5-C13: đọc lại hồ sơ dưới khóa — đổi giữa lúc kiểm và lúc tính → dùng bản mới.
+            ok, prof2 = self._read("risk_profile", reasons,
+                                   lambda: self.gates.risk_profile(account_id, now))
+            if not ok or prof2 is None:
+                return self._reject(intent, account_id, now, reasons or ["NO_RISK_PROFILE"],
+                                    m.details)
+            if prof2.version != prof.version:  # type: ignore[union-attr]
+                m.details["profile_reread"] = f"{prof.version}->{prof2.version}"  # type: ignore
+            pv = prof2.values
+            m.details["risk_profile_version"] = str(prof2.version)
+            frac = min(requested, pv.risk_per_trade)
+            headroom = pv.max_open_risk * m.equity - self.ledger.reserved_total()
             money = min(frac * m.equity, headroom)
             res = size(money, stop, spread, slippage, m.commission, m.spec)
             details = m.details | {
@@ -294,6 +300,7 @@ class RiskEngine:
             decided_at=now,
             expires_at=now + p.decision_ttl,
             policy_version=p.version,
+            risk_profile_version=prof2.version,
         )
 
     def _reject(self, intent: TradeIntent, account_id: str, now: datetime, reasons: list[str],

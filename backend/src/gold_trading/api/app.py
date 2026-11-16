@@ -91,6 +91,7 @@ from gold_trading.storage.repository import (
     SqlRepository,
 )
 from gold_trading.storage.risk_blocks import SqlBlockStore
+from gold_trading.storage.risk_profiles import InMemoryRiskProfileStore, SqlRiskProfileStore
 from gold_trading.storage.snapshots import (
     InMemoryQualityReportStore,
     InMemorySnapshotStore,
@@ -636,7 +637,11 @@ def create_app(
         held = held_link(repo, account_id) if source is DataSource.MT5 else None
         return held.broker_symbol if held is not None else None
 
+    # GĐ5 bước 3 (RPF-01): hồ sơ rủi ro có phiên bản (chưa có → Risk từ chối NO_RISK_PROFILE).
+    risk_profiles = (SqlRiskProfileStore(repo.engine) if getattr(repo, "engine", None)
+                     is not None else InMemoryRiskProfileStore())
     app.state.commissions = commissions
+    app.state.risk_profiles = risk_profiles
     app.state.risk_gates = RiskGates(   # GĐ5 RSK-10 / RSK-11 — chưa nối luồng nào (bước 7)
         market_views=market_views,
         broker=broker_gate(monitors, broker_history, locked_symbol),
@@ -644,6 +649,7 @@ def create_app(
         spread_minutes=lambda feed, lo, hi, as_of: quote_minutes.minutes.query(
             feed, lo, hi, as_of=as_of),
         commission=commissions.at,
+        risk_profile=risk_profiles.at,
         **risk_gates_base)
 
     @app.get("/api/health")
