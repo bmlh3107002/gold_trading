@@ -17,6 +17,7 @@ from gold_trading.common.enums import SourceStatus, TradingMode
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.market.quote_minutes import QuoteMinute
 from gold_trading.market.quotes import QuoteSecond
+from gold_trading.risk.book import TradeBook
 from gold_trading.storage.broker_history import SpecRow
 from gold_trading.storage.commissions import Commission
 from gold_trading.storage.risk_profiles import RiskProfile
@@ -27,6 +28,8 @@ class AccountGate(Protocol):
 
     def entry_denials(self, account_id: str, now: datetime | None = None) -> list[str]: ...
     def mode(self, account_id: str) -> TradingMode | None: ...
+    def active_since(self, account_id: str) -> datetime | None: ...
+    def request_pause(self, account_id: str, reason_code: str) -> bool: ...
 
 
 class MarketViewGate(Protocol):
@@ -68,6 +71,8 @@ class RiskGates:
     commission: Callable[[str, datetime], Commission | None]
     # Bước 3: (tài khoản, lúc) → hồ sơ rủi ro hiện hành; None = chưa có → NO_RISK_PROFILE
     risk_profile: Callable[[str, datetime], RiskProfile | None]
+    # Bước 4c: sổ lệnh (lệnh đóng / đang mở). None = chưa có (sổ cái paper ở bước 6) → từ chối.
+    trade_book: TradeBook | None = None
 
 
 # Nguồn lịch Risk đòi phải khỏe (Q1). Cùng danh sách với lịch kinh tế hợp nhất.

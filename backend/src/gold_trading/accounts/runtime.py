@@ -175,6 +175,30 @@ class AccountRegistry:
         rt = self.get(account_id)
         return rt.modes.mode if rt is not None else None
 
+    def active_since(self, account_id: str) -> datetime | None:
+        """Lúc Safety chuyển sang ACTIVE gần nhất (Risk đếm chuỗi thua từ đây — người mở lại sau
+        khi xem thì chuỗi bắt đầu lại). Đọc lỗi → ném."""
+        rt = self.get(account_id)
+        if rt is None:
+            return None
+        self.sync(account_id)
+        for t in reversed(rt.safety.history):
+            if t.to_state is SafetyState.ACTIVE:
+                return t.at
+        return None
+
+    def request_pause(self, account_id: str, reason_code: str) -> bool:
+        """Risk đề nghị tạm dừng (GĐ5 bước 4c: chạm lỗ kỳ / chuỗi thua). Chỉ chuyển ACTIVE →
+        PAUSED; không bao giờ mở lại. Trả True nếu vừa tạm dừng."""
+        rt = self.get(account_id)
+        if rt is None:
+            return False
+        self.sync(account_id)
+        if rt.safety.state is not SafetyState.ACTIVE:
+            return False
+        rt.safety.pause(reason_code, trigger_source="risk", actor="risk")
+        return True
+
     def allows_new_orders(self, account_id: str) -> bool:
         """Chỉ True khi đọc được DB, Safety đang ACTIVE, chủ tài khoản không bị khóa (DEC-16) và
         **không còn lệnh cấm có hạn nào** của làn nhanh (GĐ2, DEC-20). Đọc lỗi → False."""

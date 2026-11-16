@@ -15,11 +15,18 @@ import pytest
 
 from gold_trading.accounts.runtime import AccountRegistry
 from gold_trading.analysts.framework import Scope
-from gold_trading.common.enums import RiskOutcome, SafetyState, SourceStatus, TradingMode
+from gold_trading.common.enums import (
+    RiskOutcome,
+    SafetyState,
+    Side,
+    SourceStatus,
+    TradingMode,
+)
 from gold_trading.ingestion.source_status import SourceHealth
 from gold_trading.market.quote_minutes import QuoteMinute
 from gold_trading.market.quotes import QuoteSecond
 from gold_trading.risk.blocks import ALL, Block, BlockKind, BlockStore
+from gold_trading.risk.book import ClosedTrade, InMemoryTradeBook, OpenPosition
 from gold_trading.risk.engine import RiskEngine, RiskPolicy
 from gold_trading.risk.gates import BrokerReading, RiskGates, calendar_health_codes
 from gold_trading.risk.ledger import RiskLedger
@@ -107,6 +114,10 @@ class World:
         # Phí GIẢ (chỉ để test): 0 USD / lot do "người dùng" nhập
         self.commission: Commission | None = Commission(ACC, Decimal("0"), "USD",
                                                         t0 - timedelta(days=1), "sub-u", "test")
+        self.book = InMemoryTradeBook()
+        # Mốc Safety về ACTIVE (đồng hồ test khác đồng hồ thật của SafetySupervisor)
+        self.active_at: datetime | None = t0 - timedelta(days=60)
+        self.registry.active_since = lambda acc: self.active_at  # type: ignore[method-assign]
         self.gates = RiskGates(
             accounts=self.registry, scope_for=lambda acc: self.scope,
             market_views=self.views, calendar_health=lambda at: self.calendar,
@@ -114,7 +125,8 @@ class World:
             spread_minutes=lambda feed, lo, hi, as_of: [
                 r for r in self.minutes if lo <= r.t < hi and r.available_at <= as_of],
             commission=lambda acc, at: self.commission,
-            risk_profile=lambda acc, at: self.profiles.at(acc, at))
+            risk_profile=lambda acc, at: self.profiles.at(acc, at),
+            trade_book=self.book)
         self.profiles = InMemoryRiskProfileStore()
         self.profiles.append(ACC, TEST_PROFILE, created_by="sub-u", reason="test",
                              at=t0 - timedelta(days=1))
@@ -797,3 +809,208 @@ def test_min_reward_risk_from_profile(t0):
                       reason="t", at=t0 - timedelta(minutes=1))
     d = w.evaluate()                        # 1,886 < 2
     assert d.reason_codes == ("REWARD_RISK_TOO_LOW",) and d.details["min_reward_risk"] == "2"
+
+
+# ================================================================ bước 4c — sổ lệnh (RSK-04/05)
+# T0 = thứ Hai 05/01/2026 14:00 UTC. Ngày + tuần giao dịch bắt đầu CN 04/01 22:00 UTC (17:00 NY);
+# tháng bắt đầu 31/12/2025 22:00 UTC. Hồ sơ TEST: lỗ ngày 1 % / tuần 2 % / tháng 4 %, chuỗi 5,
+# 4 lệnh / ngày, heat 2 %, nhồi lệnh NONE. Equity 10.000; giá bid 2400,00 / ask 2400,20.
+
+def closed(k, pnl, at, opened=None, side="BUY"):
+    return ClosedTrade(f"c{k}", Side(side), opened or at - timedelta(minutes=30), at,
+                       Decimal(str(pnl)))
+
+
+def pos(k, side, entry, sl, vol="0.10", opened=None, comm="0"):
+    return OpenPosition(f"p{k}", Side(side), Decimal(vol), Decimal(str(entry)), Decimal(str(sl)),
+                        opened, Decimal(comm))
+
+
+def test_no_trade_book_rejects(t0):
+    w = World(t0)
+    object.__setattr__(w.gates, "trade_book", None)
+    assert "TRADE_BOOK_UNAVAILABLE" in w.evaluate().reason_codes
+
+
+def test_trade_book_read_error_rejects(t0):
+    w = World(t0)
+
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+
+    w.book.open_positions = boom  # type: ignore[method-assign]
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REJECTED and "GATE_READ_ERROR:trade_book" in d.reason_codes
+    assert w.engine.ledger.reserved_total() == 0
+
+
+@pytest.mark.parametrize("pnl,blocked", [("-100", True), ("-99.99", False)])
+def test_daily_loss_limit_pauses(t0, pnl, blocked):                       # 5-C05
+    w = World(t0)
+    w.book.add_closed(ACC, closed(1, pnl, t0 - timedelta(hours=1)))
+    d = w.evaluate()
+    if blocked:
+        assert d.reason_codes == ("DAILY_LOSS_LIMIT",) and d.details["daily_loss"] == "0.010000"
+        assert d.details["safety_paused"] == "DAILY_LOSS_LIMIT"
+        assert w.registry.get(ACC).safety.state is SafetyState.PAUSED
+        assert "SAFETY_PAUSED" in w.evaluate().reason_codes     # lần sau: Safety đã chặn
+    else:
+        assert d.outcome is not RiskOutcome.REJECTED
+        assert w.registry.get(ACC).safety.state is SafetyState.ACTIVE
+
+
+def test_loss_before_day_start_not_daily_but_monthly(t0):
+    w = World(t0)
+    w.book.add_closed(ACC, closed(1, "-350", t0 - timedelta(days=3)))   # thứ Sáu 02/01
+    d = w.evaluate()
+    assert d.outcome is not RiskOutcome.REJECTED                        # tháng 3,5 % < 4 %
+    assert d.details["daily_loss"] == "0.000000" and d.details["weekly_loss"] == "0.000000"
+    w.book.add_closed(ACC, closed(2, "-50", t0 - timedelta(days=3)))
+    assert w.evaluate().reason_codes == ("MONTHLY_LOSS_LIMIT",)
+
+
+def test_last_month_loss_not_counted(t0):
+    w = World(t0)
+    w.book.add_closed(ACC, closed(1, "-1000", t0 - timedelta(days=6)))  # 30/12/2025
+    assert w.evaluate().outcome is not RiskOutcome.REJECTED
+
+
+def test_weekly_loss_limit(t0):
+    w = World(t0 + timedelta(days=2))                    # thứ Tư 07/01
+    w.book.add_closed(ACC, closed(1, "-200", t0 + timedelta(hours=1)))  # thứ Hai, tuần này
+    d = w.evaluate()
+    assert d.reason_codes == ("WEEKLY_LOSS_LIMIT",) and d.details["daily_loss"] == "0.000000"
+
+
+def test_unrealized_loss_counts(t0):
+    # SELL 0,1 lot vào 2390, ask 2400,20 → đang lỗ 10,2 × 100 × 0,1 = 102 $ ≥ 1 % → chạm lỗ ngày
+    w = World(t0)
+    w.book.add_open(ACC, pos(1, "SELL", 2390, 2420, opened=t0 - timedelta(hours=2)))
+    d = w.evaluate()
+    assert "DAILY_LOSS_LIMIT" in d.reason_codes and d.details["unrealized_pnl"] == "-102.0000"
+
+
+def test_loss_streak_pauses_and_restarts_after_resume(t0):              # 5-C06
+    w = World(t0)
+    for k in range(5):      # hôm qua (không tính vào lệnh / ngày), sau lần mở lại gần nhất
+        w.book.add_closed(ACC, closed(k, "-1", t0 - timedelta(days=1, minutes=50 - k)))
+    d = w.evaluate()
+    assert d.reason_codes == ("LOSS_STREAK_LIMIT",) and d.details["loss_streak"] == "5"
+    assert w.registry.get(ACC).safety.state is SafetyState.PAUSED
+    # Người dùng xem rồi mở lại → chuỗi đếm lại từ lúc mở
+    w.registry.get(ACC).safety.resume("XEM_XONG", trigger_source="t", actor="sub-u")
+    w.active_at = t0 - timedelta(minutes=1)
+    d = w.evaluate()
+    assert d.outcome is not RiskOutcome.REJECTED and d.details["loss_streak"] == "0"
+
+
+def test_win_breaks_streak_but_breakeven_does_not(t0):
+    w = World(t0)
+    pnls = ["-1", "-1", "5", "-1", "0", "-1", "-1", "-1"]       # cũ → mới (hôm qua)
+    for k, p in enumerate(pnls):
+        w.book.add_closed(ACC, closed(k, p, t0 - timedelta(days=1, minutes=50 - k)))
+    d = w.evaluate()
+    assert d.details["loss_streak"] == "4" and d.outcome is not RiskOutcome.REJECTED
+    w.book.add_closed(ACC, closed(99, "-1", t0 - timedelta(days=1)))
+    assert w.evaluate().reason_codes == ("LOSS_STREAK_LIMIT",)
+
+
+def test_daily_trade_limit_no_pause(t0):                                  # H5
+    w = World(t0)
+    for k in range(4):
+        w.book.add_closed(ACC, closed(k, "1", t0 - timedelta(minutes=40 - k)))
+    w.book.add_closed(ACC, closed(9, "1", t0 - timedelta(days=1, minutes=1)))  # hôm qua
+    d = w.evaluate()
+    assert d.reason_codes == ("DAILY_TRADE_LIMIT",) and d.details["trades_today"] == "4"
+    assert w.registry.get(ACC).safety.state is SafetyState.ACTIVE
+
+
+def test_reservations_count_as_trades_today(t0):
+    w = World(t0)
+    for k in range(3):
+        w.book.add_closed(ACC, closed(k, "1", t0 - timedelta(minutes=40 - k)))
+    assert w.evaluate().outcome is not RiskOutcome.REJECTED          # lệnh thứ 4 (giữ chỗ)
+    assert w.evaluate(intent(t0 - minutes(0.5), intent_id="i2", idempotency_key="k2")) \
+        .reason_codes == ("DAILY_TRADE_LIMIT",)
+
+
+def test_heat_includes_open_positions(t0):
+    # SELL 1 lot, SL cách 15 → còn rủi ro (15 + đệm 0,3) × 100 = 1530 $ > heat 200 $ → hết chỗ
+    w = World(t0)
+    w.book.add_open(ACC, pos(1, "SELL", 2400, 2415, vol="1", opened=t0 - timedelta(minutes=5)))
+    d = w.evaluate()
+    assert d.reason_codes == ("BELOW_MIN_VOLUME",) and d.details["open_risk"] == "1530.000"
+
+
+def test_position_with_sl_past_breakeven_has_no_heat(t0):
+    w = World(t0)
+    w.book.add_open(ACC, pos(1, "SELL", 2401, 2400, vol="1", opened=t0 - timedelta(minutes=5)))
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.APPROVED and Decimal(d.details["open_risk"]) == 0
+
+
+@pytest.mark.parametrize("policy,entry,sl,blocked", [
+    ("NONE", 2390, 2395, True),                       # có lệnh cùng chiều → chặn
+    ("ONLY_IF_ALL_IN_PROFIT", 2390, 2380, False),     # lời 10 × 100 × 0,1 = 100 $
+    ("ONLY_IF_ALL_IN_PROFIT", 2400, 2380, True),      # hòa (bid 2400) → chặn
+    ("ONLY_IF_ALL_IN_PROFIT", 2405, 2380, True),      # đang lỗ → chặn (bình quân giá lỗ)
+    ("ONLY_IF_ALL_SAFE", 2390, 2385, True),           # đang lời nhưng SL chưa qua hòa vốn
+    ("ONLY_IF_ALL_SAFE", 2390, 2391, False),          # SL trên giá vào + đệm 0,3 → an toàn
+])
+def test_pyramiding_policies(t0, policy, entry, sl, blocked):            # H11
+    w = World(t0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, pyramiding_policy=policy), created_by="sub-u",
+                      reason="t", at=t0 - timedelta(minutes=1))
+    w.book.add_open(ACC, pos(1, "BUY", entry, sl, opened=t0 - timedelta(minutes=5)))
+    d = w.evaluate()
+    assert ("NO_AVERAGING_DOWN" in d.reason_codes) is blocked, d.reason_codes
+
+
+def test_opposite_side_position_is_not_pyramiding(t0):
+    w = World(t0)
+    w.book.add_open(ACC, pos(1, "SELL", 2390, 2391, vol="0.01", opened=t0 - timedelta(minutes=5)))
+    assert "NO_AVERAGING_DOWN" not in w.evaluate().reason_codes
+
+
+def test_commission_makes_small_profit_a_loss(t0):
+    # Lời 0,10 × 100 × 0,1 = 1 $ nhưng phí 20 $/lot × 0,1 = 2 $ → ròng −1 $ → coi là lỗ
+    w = World(t0)
+    w.profiles.append(ACC, replace(TEST_PROFILE, pyramiding_policy="ONLY_IF_ALL_IN_PROFIT"),
+                      created_by="sub-u", reason="t", at=t0 - timedelta(minutes=1))
+    w.book.add_open(ACC, pos(1, "BUY", "2399.90", 2380, opened=t0 - timedelta(minutes=5),
+                             comm="20"))
+    assert "NO_AVERAGING_DOWN" in w.evaluate().reason_codes
+
+
+def test_pause_request_failure_still_rejects(t0):
+    w = World(t0)
+
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+
+    w.registry.request_pause = boom  # type: ignore[method-assign]
+    w.book.add_closed(ACC, closed(1, "-150", t0 - timedelta(hours=1)))
+    d = w.evaluate()
+    assert d.reason_codes == ("DAILY_LOSS_LIMIT",)
+    assert d.details["safety_pause_error"] == "DAILY_LOSS_LIMIT"
+
+
+def test_future_trades_not_seen(t0):
+    w = World(t0)
+    w.book.add_closed(ACC, closed(1, "-500", t0 + timedelta(minutes=5)))   # đóng SAU lúc quyết
+    assert w.evaluate().outcome is not RiskOutcome.REJECTED
+
+
+
+def test_reduced_says_which_limit(t0):                                    # RSK-06
+    w = World(t0)
+    d = w.evaluate(intent(t0 - minutes(0.5), risk_budget_requested=0.02))
+    assert d.reason_codes == ("REDUCED_BY_RISK_PER_TRADE",)
+    # Lệnh SELL 1 lot SL cách 1,4 → còn rủi ro (1,4 + 0,3) × 100 = 170 $; heat 200 $ → chỗ trống
+    # 30 $ < 50 $ → cắt theo heat: 30 / 1050 → 0,02 lot (21 $)
+    w2 = World(t0)
+    w2.book.add_open(ACC, pos(1, "SELL", 2400, "2401.4", vol="1",
+                              opened=t0 - timedelta(minutes=5)))
+    d2 = w2.evaluate()
+    assert d2.reason_codes == ("REDUCED_BY_OPEN_RISK",) and d2.volume == Decimal("0.02")
+    assert Decimal(d2.details["risk_money_allowed"]) == 30

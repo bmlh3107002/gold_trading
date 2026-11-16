@@ -36,9 +36,9 @@
 | RSK-01 | Kiểm Safety, hết hạn intent/MarketView, riskFlags, spread | `[x]` | `risk/engine.py`. **Sửa ghi chú 16/11 (RSK-10):** bản `[x]` cũ chỉ hỏi `SafetySupervisor.allows_new_orders()` (chỉ xét ACTIVE) — **không** gồm lệnh cấm làn nhanh DEC-20 / khóa người dùng. Từ RSK-10 Risk hỏi `AccountRegistry.entry_denials` (đủ cả ba) |
 | RSK-02 | Sizing theo rủi ro, volume step/min/max, hạn mức tổng (giữ `ledger.lock`) | `[x]` | |
 | RSK-03 | Margin/đòn bẩy | `[ ]` | ← GW-09 |
-| RSK-04 | Exposure ròng/gộp, tập trung | `[ ]` | |
-| RSK-05 | Hạn mức ngày/tuần, drawdown, chuỗi thua | `[ ]` | ← RPF-01 |
-| RSK-06 | Kết quả `REDUCED`, TTL quyết định, gắn policy version | `[ ]` | |
+| RSK-04 | Exposure ròng/gộp, tập trung | `[x]` | 16/11 (4c): heat = rủi ro còn lại của lệnh mở + giữ chỗ ≤ `max_open_risk` (mọi lệnh vàng cùng chiều = một vị thế); nhồi lệnh theo `pyramiding_policy` (H11) → `NO_AVERAGING_DOWN` |
+| RSK-05 | Hạn mức ngày/tuần, drawdown, chuỗi thua | `[~]` | 16/11 (4a, 4c): lỗ ngày / tuần / tháng theo mốc 17:00 NY (DST), chuỗi thua, lệnh / ngày, đề nghị Safety PAUSED. **Còn: drawdown dừng hẳn (H6) + nạp / rút (H10) → bước 6** (cần đường equity sổ cái) |
+| RSK-06 | Kết quả `REDUCED`, TTL quyết định, gắn policy version | `[x]` | 16/11: `REDUCED_BY_RISK_PER_TRADE` / `_OPEN_RISK` / `_MAX_VOLUME`; TTL; `policy_version` + `risk_profile_version` |
 | RSK-07 | Đọc `EVENT_WINDOW`, `WIDE_SPREAD`, `HIGH_VOLATILITY` từ MarketView thật | `[ ]` | |
 | RSK-08 | Stops level / freeze level của broker: SL quá gần → từ chối | `[x]` | 16/11 (RSK-11 2e): `D < max(max(stops, freeze) × point, spread)` → `SL_TOO_CLOSE`; `NULL` = chưa biết → `BROKER_SPEC_MISSING:<trường>` (không coi là 0) |
 | RSK-09 | Ước tính swap qua đêm (thứ Tư ×3) và commission vào rủi ro | `[ ]` | |
@@ -62,8 +62,8 @@
 | 5-C02 | SL quá gần (< spread hoặc < stops level) / quá xa | Từ chối | `[x]` 16/11 `test_sl_closer_than_stops_level_rejects`, `…_spread_…`, `test_freeze_level_counts`, `test_far_stop_falls_into_below_min_volume` |
 | 5-C03 | Tín hiệu ngược chiều khi đang có lệnh | Theo văn bản chiến lược (không tự đảo lệnh nếu chưa định nghĩa) | `[ ]` |
 | 5-C04 | Nhiều tín hiệu liên tiếp / trùng | Chống trùng, giới hạn số lệnh | `[ ]` |
-| 5-C05 | Chạm ngưỡng lỗ ngày/tuần | Chặn lệnh mới tới kỳ sau; Safety PAUSED | `[ ]` |
-| 5-C06 | Chuỗi thua liên tiếp | Giảm rủi ro hoặc dừng theo chính sách | `[ ]` |
+| 5-C05 | Chạm ngưỡng lỗ ngày/tuần | Chặn lệnh mới tới kỳ sau; Safety PAUSED | `[x]` 16/11 `test_daily_loss_limit_pauses`, `test_weekly_loss_limit`, `test_loss_before_day_start_not_daily_but_monthly`, `test_risk_periods.py` (DST) |
+| 5-C06 | Chuỗi thua liên tiếp | Giảm rủi ro hoặc dừng theo chính sách | `[x]` 16/11 dừng (0,25 % đã là sàn): `test_loss_streak_pauses_and_restarts_after_resume`, `test_win_breaks_streak_but_breakeven_does_not` |
 | 5-C07 | Giữ lệnh qua cuối tuần (gap qua SL) | Theo chính sách: cấm hoặc tính rủi ro gap | `[ ]` |
 | 5-C08 | Swap qua đêm, thứ Tư ×3 | Tính vào chi phí | `[ ]` |
 | 5-C09 | Margin không đủ / đòn bẩy bị broker đổi | Từ chối / giảm khối lượng | `[ ]` |
@@ -135,3 +135,5 @@ Khi người dùng chọn xong: ghi tên sàn + loại tài khoản vào DEC-09,
 - **2026-11-16** — **Bước 4 bắt đầu, chia 4a / 4b / 4c** (thiết kế 35 mục 10). **H6 (dừng hẳn khi sụt 5 %) + H10 (nạp / rút) hoãn sang bước 6** vì cần đường equity của sổ cái paper. **4a xong:** `risk/periods.py` — mốc ngày / tuần / tháng theo hồ sơ (17:00 NY), tự theo DST. Test: ngày đổi giờ Mỹ dài 23 / 25 giờ, châu Âu đổi giờ không ảnh hưởng, tuần bắt đầu CN 17:00, tháng bắt đầu ở mốc trước ngày 1; bất biến trên 2 năm cho 3 múi giờ (gồm giờ không tồn tại 02:30 NY). Soát riêng: so ngày giao dịch với `market.holidays.trade_date` (viết độc lập) trên 215.872 mốc (2025–2027, ngoài giờ nghỉ 17–18) → lệch 0.
 
 - **2026-11-16** — **Bước 4b xong (H2):** Risk tính R:R sau chi phí dưới khóa theo hồ sơ hiện hành: lời / lot = (|TP − vào| − spread) × cỡ HĐ − phí; R:R = lời / rủi ro thật / lot (RSK-11). < `min_reward_risk` → `REWARD_RISK_TOO_LOW` (details ghi R:R, lời / lot, ngưỡng). Intent không có TP → `NO_TAKE_PROFIT`. Test tính tay: đúng ngưỡng 1,5 được, 1,499 bị chặn; phí 7 $/lot làm 1,505 → 1,488; chiều SELL. Đột biến bỏ trừ spread khỏi tiền lời → 2 test đỏ. Test cũ "SL quá xa" đổi TP cho R:R đạt để vẫn kiểm `BELOW_MIN_VOLUME`.
+
+- **2026-11-16** — **Bước 4c xong (RSK-04, RSK-05 phần thời gian, RSK-06).** `risk/book.py`: cổng sổ lệnh `TradeBook` (lệnh đóng có PnL ròng; lệnh mở có giá vào / SL / lot / phí) + `InMemoryTradeBook` cho test; sổ thật = sổ cái paper bước 6 → tới lúc đó Risk từ chối `TRADE_BOOK_UNAVAILABLE`. Risk đọc sổ **dưới khóa** theo hồ sơ hiện hành: lỗ ngày / tuần / tháng = PnL ròng đóng trong kỳ + PnL đang chạy (bid / ask, trừ phí) chia equity lúc quyết, **chạm** (≥) → chặn + đề nghị Safety PAUSED (`AccountRegistry.request_pause`, chỉ ACTIVE → PAUSED, Risk không mở lại; lỗi đề nghị → vẫn từ chối, ghi `safety_pause_error`); chuỗi thua đếm từ lần Safety về ACTIVE gần nhất (`active_since` — người mở lại thì đếm lại), hòa không ngắt / không tính thua; lệnh / ngày gồm giữ chỗ còn mở (không PAUSED); heat gồm rủi ro còn lại của lệnh mở (SL đã qua hòa vốn sau chi phí = 0); nhồi lệnh theo `pyramiding_policy`. `REDUCED` nói rõ hạn mức cắt. Soát riêng: so 217 kịch bản sổ lệnh ngẫu nhiên với cách tính độc lập (ngày theo `market.holidays.trade_date`, tuần ISO, `Fraction`) → khớp hết (lỗ kỳ, chuỗi, lệnh / ngày, rủi ro mở). Đột biến: bỏ lỗ đang chạy → 1 test đỏ; "chạm" thành "vượt" → 3 test đỏ. Backend 2541 passed (2 skipped) trước khi thêm RSK-06; ruff sạch. **Quy ước cần biết:** lỗ đang chạy tính toàn bộ (kể cả phần lỗ từ kỳ trước) vào mọi kỳ — thiên về chặn; ở paper, equity mẫu số là equity MT5 (không gồm PnL paper) — chênh nhỏ, xét lại ở bước 6 khi có đường equity sổ cái.

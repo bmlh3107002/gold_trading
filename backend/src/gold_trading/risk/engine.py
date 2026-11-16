@@ -29,8 +29,10 @@ from gold_trading.contracts.risk import RiskDecision
 from gold_trading.contracts.trade_intent import TradeIntent
 from gold_trading.market.quote_minutes import p_nearest_rank
 from gold_trading.market.quotes import CALENDAR_CLOSED
+from gold_trading.risk.book import remaining_risk, unrealized
 from gold_trading.risk.gates import BrokerReading, RiskGates
 from gold_trading.risk.ledger import RiskLedger
+from gold_trading.risk.periods import Periods
 from gold_trading.risk.sizing import SizingSpec, dec, size
 
 log = logging.getLogger("gold_trading.risk")
@@ -67,6 +69,8 @@ class _Market:
     """Số đọc được ở pha A, dùng cho pha B (khối lượng)."""
 
     equity: Decimal | None = None
+    bid: Decimal | None = None
+    ask: Decimal | None = None
     spec: SizingSpec | None = None
     point: Decimal | None = None
     spread_points: int | None = None
@@ -196,6 +200,7 @@ class RiskEngine:
                 reasons.append("MARKET_CLOSED")
             else:
                 m.spread_points = max(q.spread_points, q.spread_max_points)  # type: ignore
+                m.bid, m.ask = dec(q.bid), dec(q.ask)  # type: ignore[union-attr]
                 m.details["spread_points"] = str(m.spread_points)
         ok, rows = self._read("spread_minutes", reasons,
                               lambda: g.spread_minutes(feed, now - BASELINE_WINDOW, now, now))
@@ -235,6 +240,8 @@ class RiskEngine:
                               lambda: self.gates.risk_profile(account_id, now))
         if ok and prof is None:
             reasons.append("NO_RISK_PROFILE")
+        if self.gates.trade_book is None:                 # 4c: sổ cái paper là bước 6
+            reasons.append("TRADE_BOOK_UNAVAILABLE")
         if feed:
             self._market_checks(account_id, feed, now, m, reasons)
         elif feed == "":
@@ -272,8 +279,18 @@ class RiskEngine:
                 m.details["profile_reread"] = f"{prof.version}->{prof2.version}"  # type: ignore
             pv = prof2.values
             m.details["risk_profile_version"] = str(prof2.version)
+            # 4c: hạn mức theo thời gian + danh mục (đọc sổ lệnh dưới khóa).
+            ok, book = self._read("trade_book", reasons, lambda: self._book_checks(
+                intent, account_id, now, pv, m))
+            if not ok:
+                return self._reject(intent, account_id, now, reasons, m.details)
+            limits, pause, open_risk = book  # type: ignore[misc]
+            if limits:
+                if pause:
+                    self._request_pause(account_id, pause, m.details)
+                return self._reject(intent, account_id, now, limits, m.details)
             frac = min(requested, pv.risk_per_trade)
-            headroom = pv.max_open_risk * m.equity - self.ledger.reserved_total()
+            headroom = pv.max_open_risk * m.equity - open_risk
             money = min(frac * m.equity, headroom)
             res = size(money, stop, spread, slippage, m.commission, m.spec)
             details = m.details | {
@@ -296,8 +313,13 @@ class RiskEngine:
                     details["min_equity_for_min_lot"] = str(
                         m.spec.volume_min * res.risk_per_lot / frac)
                 return self._reject(intent, account_id, now, ["BELOW_MIN_VOLUME"], details)
-            reduced = (frac < requested or money < frac * m.equity or res.capped_at_max)
-            rid = self.ledger.reserve(intent.symbol, res.risk_amount, f"intent:{intent.intent_id}")
+            # RSK-06: REDUCED nói rõ hạn mức nào cắt
+            cuts = tuple(c for c, hit in (("REDUCED_BY_RISK_PER_TRADE", frac < requested),
+                                          ("REDUCED_BY_OPEN_RISK", money < frac * m.equity),
+                                          ("REDUCED_BY_MAX_VOLUME", res.capped_at_max)) if hit)
+            reduced = bool(cuts)
+            rid = self.ledger.reserve(intent.symbol, res.risk_amount,
+                                      f"intent:{intent.intent_id}", at=now)
 
         return RiskDecision(
             risk_decision_id=new_id("rd"),
@@ -307,13 +329,79 @@ class RiskEngine:
             volume=res.volume,
             risk_amount=res.risk_amount,
             reservation_id=rid,
-            reason_codes=("REDUCED_TO_LIMIT",) if reduced else (),
+            reason_codes=cuts,
             details=details,
             decided_at=now,
             expires_at=now + p.decision_ttl,
             policy_version=p.version,
             risk_profile_version=prof2.version,
         )
+
+    # ------------------------------------------------------------------ 4c: sổ lệnh
+
+    def _book_checks(self, intent: TradeIntent, account_id: str, now: datetime, pv,
+                     m: _Market) -> tuple[list[str], str | None, Decimal]:
+        """(lý do chặn, mã đề nghị PAUSED hoặc None, tổng rủi ro mở gồm giữ chỗ). Đọc lỗi → ném."""
+        book = self.gates.trade_book
+        assert book is not None and m.equity is not None and m.spec is not None
+        assert m.bid is not None and m.ask is not None and m.point is not None
+        cs, eq = m.spec.contract_size, m.equity
+        slip = (m.baseline_points or 0) * m.point
+        per = Periods.of(pv.day_reset_tz, pv.day_reset_time)
+        day, week, month = per.day_start(now), per.week_start(now), per.month_start(now)
+        positions = book.open_positions(account_id, now)
+        closed = book.closed_trades(account_id, min(day, week, month), now)
+        unreal = sum((unrealized(p, m.bid, m.ask, cs) for p in positions), Decimal(0))
+        out: list[str] = []
+        pause: str | None = None
+        d = m.details
+        d["unrealized_pnl"] = str(unreal)
+        for code, start, limit in (("DAILY_LOSS_LIMIT", day, pv.max_daily_loss),
+                                   ("WEEKLY_LOSS_LIMIT", week, pv.max_weekly_loss),
+                                   ("MONTHLY_LOSS_LIMIT", month, pv.max_monthly_loss)):
+            pnl = sum((t.net_pnl for t in closed if t.closed_at >= start), Decimal(0)) + unreal
+            loss = -pnl / eq
+            d[code.lower().replace("_limit", "")] = str(loss.quantize(Decimal("0.000001")))
+            if loss >= limit:
+                out.append(code)
+                pause = pause or code
+        since = self.gates.accounts.active_since(account_id)
+        streak = 0
+        for t in book.last_closed(account_id, now, 500):
+            if since is not None and t.closed_at <= since:
+                break                       # trước lần người dùng mở lại → không đếm
+            if t.net_pnl > 0:
+                break
+            if t.net_pnl < 0:
+                streak += 1                 # hòa không ngắt chuỗi, cũng không tính là thua
+        d["loss_streak"] = str(streak)
+        if streak >= pv.max_consecutive_losses:
+            out.append("LOSS_STREAK_LIMIT")
+            pause = pause or "LOSS_STREAK_LIMIT"
+        trades = book.opened_count(account_id, day, now) + self.ledger.open_since(day)
+        d["trades_today"] = str(trades)
+        if trades >= pv.max_trades_per_day:
+            out.append("DAILY_TRADE_LIMIT")
+        same = [p for p in positions if p.side == intent.side]
+        if same and (
+                pv.pyramiding_policy == "NONE"
+                or (pv.pyramiding_policy == "ONLY_IF_ALL_SAFE"
+                    and any(remaining_risk(p, slip, cs) > 0 for p in same))
+                or (pv.pyramiding_policy == "ONLY_IF_ALL_IN_PROFIT"
+                    and any(unrealized(p, m.bid, m.ask, cs) <= 0 for p in same))):
+            out.append("NO_AVERAGING_DOWN")
+        open_risk = (sum((remaining_risk(p, slip, cs) for p in positions), Decimal(0))
+                     + self.ledger.reserved_total())
+        d["open_risk"] = str(open_risk)
+        return out, pause, open_risk
+
+    def _request_pause(self, account_id: str, code: str, details: dict[str, str]) -> None:
+        try:
+            if self.gates.accounts.request_pause(account_id, code):
+                details["safety_paused"] = code
+        except Exception:
+            log.exception("Risk: không đề nghị được Safety PAUSED cho %s", account_id)
+            details["safety_pause_error"] = code
 
     def _reject(self, intent: TradeIntent, account_id: str, now: datetime, reasons: list[str],
                 details: dict[str, str]) -> RiskDecision:

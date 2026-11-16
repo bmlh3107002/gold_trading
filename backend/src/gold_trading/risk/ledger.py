@@ -45,13 +45,19 @@ class RiskLedger:
                 Decimal(0),
             )
 
-    def reserve(self, symbol: str, amount: Decimal, reason: str) -> str:
+    def open_since(self, since: datetime) -> int:
+        """Số giữ chỗ còn mở tạo từ ``since`` (đếm lệnh / ngày, bước 4c)."""
+        with self.lock:
+            return sum(e.at >= since for e in self._open.values())
+
+    def reserve(self, symbol: str, amount: Decimal, reason: str,
+                at: datetime | None = None) -> str:
         if not isinstance(amount, Decimal) or not amount.is_finite() or amount <= 0:
             raise ValueError("số tiền giữ chỗ phải là Decimal > 0 (CORE-05)")
         with self.lock:
             rid = new_id("res")
             ev = LedgerEvent(
-                new_id("le"), LedgerEventType.RESERVE, rid, symbol, amount, utcnow(), reason
+                new_id("le"), LedgerEventType.RESERVE, rid, symbol, amount, at or utcnow(), reason
             )
             self._events.append(ev)
             self._open[rid] = ev
