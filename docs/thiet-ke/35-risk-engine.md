@@ -151,3 +151,26 @@ Chính sách chỉ cho các giá trị **đã có cách thực thi an toàn**; g
 **Risk đọc:** hồ sơ mới nhất có `created_at ≤ now`. Không có → `NO_RISK_PROFILE` (mọi intent bị từ chối). Đọc một lần ở pha A (để ghi lý do) và **đọc lại dưới `ledger.lock`** ngay trước khi tính khối lượng (5-C13): khác phiên bản → dùng bản mới, ghi `details.profile_reread`. Quyết định ghi `risk_profile_version`. `RiskPolicy` không còn số rủi ro: `min(mức xin, risk_per_trade)` và trần giữ chỗ `max_open_risk × equity` lấy từ hồ sơ. Các trường còn lại (R:R, lỗ ngày…, chính sách tin / cuối tuần / nhồi lệnh, đòn bẩy) **lưu ở bước 3, thực thi ở bước 4–5**.
 
 **Cách nhập:** trang Rủi ro (bước 8, API chỉ chủ tài khoản). Trước đó hồ sơ chưa có trên máy người dùng → Risk từ chối hết (an toàn; Risk cũng chưa nối luồng nào).
+
+## 10. Bước 4 — hạn mức theo thời gian + danh mục (RSK-04, RSK-05, RSK-06)
+
+Chia nhỏ, làm + kiểm từng phần:
+
+| Phần | Nội dung | Phụ thuộc |
+| --- | --- | --- |
+| **4a** | Mốc kỳ giao dịch (`risk/periods.py`): ngày = [mốc hôm trước; mốc hôm nay) theo `day_reset_tz` + `day_reset_time` (H4: 17:00 New York); tuần bắt đầu ở mốc **Chủ nhật** (17:00 NY CN, trước giờ mở cửa 18:00); tháng bắt đầu ở mốc của **ngày trước ngày 1** (ngày giao dịch đầu tháng). Tự theo DST (đổi giờ Mỹ khác châu Âu). | hồ sơ |
+| **4b** | R:R tối thiểu sau chi phí (H2): `lời / lot = (|TP − vào| − spread) × cỡ HĐ − phí`; `R:R = lời / R1` (R1 = rủi ro / lot RSK-11). `< min_reward_risk` → `REWARD_RISK_TOO_LOW`. Intent **không có TP** → `NO_TAKE_PROFIT` (không tính được R:R → chặn; chiến lược v1 luôn đặt TP). | RSK-11 |
+| **4c** | Cổng **sổ lệnh** (`TradeBook`: lệnh đã đóng có PnL ròng, lệnh đang mở có giá vào / SL / lot / chiều) + luật: lỗ ngày / tuần / tháng (H4), chuỗi thua (H4), số lệnh / ngày (H5), heat gồm lệnh đang mở (H3), nhồi lệnh (H11). Chạm lỗ ngày / tuần / tháng / chuỗi → từ chối + **đề nghị Safety PAUSED** (chỉ người mở lại); đủ số lệnh / ngày → chỉ từ chối. | sổ lệnh |
+
+**Sổ lệnh thật chưa có** (sổ cái paper là bước 6). Tới lúc đó cổng sổ lệnh thật = "không có" → Risk từ chối `TRADE_BOOK_UNAVAILABLE` (mặc định an toàn; Risk cũng chưa nối luồng nào). Bước 6 hiện thực đúng giao diện này.
+
+**Quy ước tính (4c):**
+
+- Lỗ kỳ = PnL ròng (đã gồm phí) của lệnh **đóng trong kỳ** + PnL **đang chạy** của lệnh mở (đánh giá theo giá đóng lệnh hiện tại: bid cho BUY, ask cho SELL, trừ phí). Tỷ lệ = lỗ / equity lúc quyết (nhịp tim). Lỗ ≥ ngưỡng → chặn (`DAILY_LOSS_LIMIT`, `WEEKLY_LOSS_LIMIT`, `MONTHLY_LOSS_LIMIT`).
+- Chuỗi thua = số lệnh đóng gần nhất liên tiếp có PnL ròng < 0 (hòa = ngắt chuỗi? **không** — hòa không phải thắng, không ngắt; chỉ lệnh lời ngắt). ≥ `max_consecutive_losses` → `LOSS_STREAK_LIMIT` + đề nghị PAUSED.
+- Số lệnh / ngày = lệnh mở trong ngày (đang mở hoặc đã đóng) + giữ chỗ đang mở; ≥ `max_trades_per_day` → `DAILY_TRADE_LIMIT` (không PAUSED).
+- Heat = Σ rủi ro thật còn lại của lệnh mở (tới SL hiện tại, gồm chi phí; lệnh SL đã qua hòa vốn = 0) + giữ chỗ đang mở ≤ `max_open_risk` × equity.
+- Nhồi lệnh (H11, `ONLY_IF_ALL_IN_PROFIT`): có lệnh **cùng chiều** đang mở mà PnL đang chạy (sau phí) ≤ 0 → `NO_AVERAGING_DOWN`. Không đọc được giá → chặn.
+- Đề nghị PAUSED qua `AccountRegistry` (Safety có quyền cao nhất; Risk không bao giờ tự mở lại). Đã PAUSED thì không ghi thêm.
+
+**Hoãn sang bước 6 (cần đường equity của sổ cái):** H6 dừng hẳn khi sụt 5 % từ đỉnh và H10 điều chỉnh đỉnh khi nạp / rút — đỉnh equity phải là của sổ cái (paper khác equity MT5). Ghi ở kế hoạch; không làm dở.
