@@ -1,4 +1,4 @@
-# 36 — Chiến lược v1 "Theo xu hướng M15" (STR-06) — BẢN NHÁP CHỜ DUYỆT
+# 36 — Chiến lược v1 "Theo xu hướng M15" (STR-06) — ĐÃ DUYỆT 17/11
 
 > 2026-11-17 · GĐ5 bước 7 · Q7 = (A): người phát triển soạn nháp từ luật GĐ4, **người dùng đọc, sửa, duyệt trước khi viết mã**.
 > Mã chiến lược: `xu-huong-m15` · phiên bản **1.0.0** · trạng thái **CHƯA KIỂM CHỨNG** (DEC-25).
@@ -101,4 +101,15 @@ Giả sử: vốn 10.000 USD, rủi ro 0,25 % = **25 USD**; 1 lot = 100 oz; ATR1
 
 ## 10. Nhật ký
 
-- **2026-11-17** — Bản nháp 1.0.0 (người phát triển soạn từ luật GĐ4). **Chờ người dùng duyệt.**
+- **2026-11-17** — Bản nháp 1.0.0 (người phát triển soạn từ luật GĐ4).
+- **2026-11-17** — **Người dùng duyệt cả bản 1.0.0** (chọn "Duyệt cả bản", không sửa điểm nào). Vẫn **chưa kiểm chứng** (DEC-25): chỉ PAPER tới khi backtest GĐ6 + người dùng duyệt lại.
+
+## 11. Hiện thực (17/11)
+
+| Phần | Mã | Ghi chú |
+| --- | --- | --- |
+| Luật vào + đặt lệnh (mục 3–4) | `strategy/trend_m15.py` `decide`, `Params` (P1–P11) | hàm thuần; thiếu dữ liệu → bỏ qua có mã (`MISSING_*`); giá tham chiếu = bid; SL làm tròn ra xa, TP vào gần theo point; khóa idempotency = băm(chiến lược@phiên bản, nguồn giá, MarketView) |
+| Quản lý lệnh (mục 5) | `strategy/trend_m15.py` `Manager`, `time_stop_at` | qua `PaperMonitor.tick`: hòa vốn = giá khớp + đệm trượt giá + phí / cỡ HĐ (rủi ro còn lại = 0), một lần; `TIME_STOP` 16:45 NY |
+| Nối luồng (mục 9) | `strategy/runner.py` `StrategyRunner`, `api/app.py` | mỗi nhịp orchestrator sau Fusion; quản lý lệnh ở mọi chế độ, ý định mới chỉ ở PAPER; nhật ký `strategy_evaluations` (migration 0027); tắt bằng `GT_PAPER_STRATEGY=0` |
+
+Giữ chỗ còn mở (đã duyệt, chưa khớp) cũng tính là "đang có lệnh" (V7). Lệnh không mang mã chiến lược này → `Manager` không đụng tới.

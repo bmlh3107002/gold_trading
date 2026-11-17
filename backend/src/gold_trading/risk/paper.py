@@ -162,7 +162,8 @@ class PaperBroker:
                                reason=f"fill:{decision.risk_decision_id}", once_key=end_key(rid),
                                data={
                 "reservation_id": rid, "risk_decision_id": decision.risk_decision_id,
-                "intent_id": intent.intent_id, "symbol": intent.symbol, "feed": feed,
+                "intent_id": intent.intent_id, "strategy_id": intent.strategy_id,
+                "symbol": intent.symbol, "feed": feed,
                 "side": intent.side.value, "volume": str(vol), "entry_price": str(entry),
                 "stop_loss": str(sl), "take_profit": str(tp) if tp is not None else "",
                 "contract_size": str(cs), "point": det["point"], "slippage": str(slip),
@@ -293,6 +294,7 @@ class TickReport:
     released: list[str] = field(default_factory=list)               # giữ chỗ đã nhả
     status: list[str] = field(default_factory=list)                 # FEED_STALE, …
     peak: Decimal | None = None
+    moved: list[tuple[str, Decimal]] = field(default_factory=list)  # (vị thế, SL mới)
 
 
 class PaperMonitor:
@@ -303,8 +305,11 @@ class PaperMonitor:
     def __init__(self, broker: PaperBroker, *, feed_for: Callable[[str], str | None],
                  risk_profile: Callable[[str, datetime], object | None],
                  entry_blocks: Callable[[str, datetime], list],
-                 market_calendar: object | None) -> None:
+                 market_calendar: object | None, managers: tuple = ()) -> None:
         self.broker = broker
+        # Quản lý của chiến lược (bước 7: dời hòa vốn, đóng theo giờ): ``action(OPEN, SL hiện tại,
+        # giây giá, now)`` → ("MOVE_SL", giá) / ("CLOSE", lý do) / None.
+        self.managers = tuple(managers)
         self.ledger = broker.ledger
         self.feed_for = feed_for
         self.risk_profile = risk_profile
@@ -317,6 +322,10 @@ class PaperMonitor:
 
         now = self.broker.clock()
         rep = TickReport()
+        # Chạy mỗi nhịp orchestrator (2 giây): không lệnh mở, không giữ chỗ → không có gì để làm.
+        if not self.ledger.open_position_events(account_id) and \
+                not self.ledger.open_reservations(account_id):
+            return rep
         for ev in self.broker.check_exits(account_id):                 # 1. SL / TP
             rep.closed.append((ev.ref_id, ev.reason))
         try:
@@ -337,13 +346,32 @@ class PaperMonitor:
         if opened and not quote_ok:
             rep.status.append("FEED_STALE")         # không bịa giá: lệnh vẫn mở, báo lên
 
+        to_close: dict[str, str] = {}
+        # 1b. quản lý của chiến lược (cần giá mới). Lỗi → giữ nguyên lệnh (SL vẫn bảo vệ), báo lên.
+        if quote_ok and self.managers:
+            for e in opened:
+                for mgr in self.managers:
+                    try:
+                        act = mgr.action(e, self.ledger.current_stop(account_id, e), q, now)
+                    except Exception:
+                        log.exception("Paper: quản lý chiến lược lỗi ở vị thế %s", e.ref_id)
+                        rep.status.append("MANAGER_ERROR")
+                        continue
+                    if act is None:
+                        continue
+                    kind, val = act
+                    if kind == "CLOSE":
+                        to_close.setdefault(e.ref_id, str(val))
+                    elif kind == "MOVE_SL" and self.broker.modify_sl(
+                            account_id, e.ref_id, val, actor="strategy", reason="BREAK_EVEN"):
+                        rep.moved.append((e.ref_id, val))
+
         # 2. H8: sắp đóng cửa cuối tuần / lễ dài (hoặc lịch không biết) → đóng hết
         try:
             wk, _ = closing_soon(self.market_calendar, now, wk_min)
         except Exception:
             log.exception("Paper: lịch thị trường lỗi → coi như sắp đóng cửa")
             wk = "MARKET_CALENDAR_UNKNOWN"
-        to_close: dict[str, str] = {}
         if wk is not None:
             rep.status.append(wk)
             for e in opened:

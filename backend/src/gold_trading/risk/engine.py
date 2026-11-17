@@ -51,6 +51,10 @@ REQUIRED_SPEC = ("contract_size", "point", "volume_min", "volume_max", "volume_s
                  "currency_profit", "account_currency", "stops_level", "freeze_level")
 
 
+# Phiên bản chính sách kỹ thuật của Risk ghi vào mỗi quyết định (đổi luật / hằng số → tăng).
+RISK_POLICY_VERSION = "risk-policy-gd5-1"
+
+
 @dataclass(frozen=True)
 class RiskPolicy:
     """Chính sách kỹ thuật (không có số rủi ro): số rủi ro / lệnh và trần tổng giữ chỗ lấy từ

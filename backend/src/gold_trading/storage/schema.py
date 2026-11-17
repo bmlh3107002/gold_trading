@@ -810,3 +810,30 @@ paper_ledger_events = Table(
 Index("ix_paper_ledger_account_type", paper_ledger_events.c.account_id,
       paper_ledger_events.c.type, paper_ledger_events.c.at)
 Index("ix_paper_ledger_ref", paper_ledger_events.c.ref_id)
+
+
+# GĐ5 bước 7 (STR-05; migration 0027): mỗi lần chiến lược xét một MarketView cho một tài khoản —
+# cả khi bỏ qua (lý do) — kèm ý định, quyết định Risk, kết quả khớp paper. Chỉ thêm; một dòng cho
+# mỗi (tài khoản, chiến lược@phiên bản, MarketView). Ý định + quyết định đầy đủ ở risk_decisions.
+strategy_evaluations = Table(
+    "strategy_evaluations",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("account_id", String(64), nullable=False),
+    Column("strategy_ref", String(64), nullable=False),
+    Column("market_view_id", String(256), nullable=False),
+    Column("evaluated_at", DateTime(timezone=True), nullable=False),
+    Column("outcome", String(16), nullable=False),
+    Column("reasons", JsonType, nullable=False),
+    Column("details", JsonType, nullable=False),
+    Column("intent_id", String(128)),
+    Column("risk_decision_id", String(64)),
+    Column("risk_outcome", String(16)),
+    Column("fill_code", String(64)),
+    Column("position_id", String(64)),
+    UniqueConstraint("account_id", "strategy_ref", "market_view_id",
+                     name="uq_strategy_evaluations_view"),
+    CheckConstraint("outcome IN ('SKIPPED', 'INTENT')", name="ck_strategy_evaluations_outcome"),
+)
+Index("ix_strategy_evaluations_account_time", strategy_evaluations.c.account_id,
+      strategy_evaluations.c.evaluated_at)

@@ -51,6 +51,7 @@ from gold_trading.ingestion.external_runner import ExternalSourceRunner, runner_
 from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.sample_feed import SampleFeed
 from gold_trading.intelligence.fusion_runner import FusionRunner, invalidate_handler
+from gold_trading.intelligence.snapshot_builder import scope_for as snapshot_scope_for
 from gold_trading.market.hours import REFERENCE, BrokerSessions, BrokerSpecialHours, MarketCalendar
 from gold_trading.market.quote_minutes import QuoteMinuteRunner
 from gold_trading.market.quotes import QuoteIngestor, QuoteStore
@@ -63,10 +64,12 @@ from gold_trading.orchestrator.model import OrchestratorStore
 from gold_trading.orchestrator.runner import OrchestratorRunner, technical_handler
 from gold_trading.orchestrator.runner import enabled as orchestrator_enabled
 from gold_trading.risk.blocks import BlockStore
+from gold_trading.risk.engine import RISK_POLICY_VERSION, RiskEngine, RiskPolicy
 from gold_trading.risk.fast_lane import CalendarBlocks, dedupe, fast_lane_handler
 from gold_trading.risk.fast_lane_loop import FastLaneMonitor, SpreadLoop
 from gold_trading.risk.gates import RiskGates, broker_gate, calendar_health_gate
 from gold_trading.risk.ledger import RiskLedger, SqlLedger
+from gold_trading.risk.paper import PaperBroker, PaperMonitor
 from gold_trading.storage.analyst_outputs import (
     AnalystOutputStore,
     InMemoryAnalystOutputStore,
@@ -100,6 +103,12 @@ from gold_trading.storage.snapshots import (
     SqlSnapshotStore,
 )
 from gold_trading.storage.source_checks import SqlSourceCheckLog
+from gold_trading.strategy.runner import (
+    InMemoryEvaluationStore,
+    SqlEvaluationStore,
+    StrategyRunner,
+)
+from gold_trading.strategy.trend_m15 import Manager as StrategyManager
 
 POLICY_VERSION = "policy-0.1.0"
 log = logging.getLogger("gold_trading.api")
@@ -400,6 +409,12 @@ def create_app(
                     else InMemoryQualityReportStore())
     orchestrator: OrchestratorRunner | None = None
     news_worker: NewsLlmWorker | None = None
+    # GĐ5 bước 7 (STR-05): chiến lược paper chạy sau Fusion mỗi nhịp; dựng sau khi có cổng Risk.
+    strategy_slot: dict[str, StrategyRunner] = {}
+
+    def strategy_tick(now: datetime) -> None:
+        if (r := strategy_slot.get("runner")) is not None:
+            r.tick(now)
     if runner is not None and orchestrator_enabled(os.environ):
         engine = getattr(repo, "engine", None)
         if engine is not None:
@@ -468,7 +483,7 @@ def create_app(
             blocked=clock.ingest_block_reason, monitor=fast_monitor,
             periodic=(event_analyst.ensure_fresh, macro_analyst.ensure_fresh,
                       positioning_analyst.ensure_fresh, news_analyst.ensure_fresh,
-                      fusion_runner.tick))
+                      fusion_runner.tick, strategy_tick))
         fast_lane["monitor"] = fast_monitor
 
     @asynccontextmanager
@@ -658,6 +673,51 @@ def create_app(
         market_calendar=market.calendar,
         trade_book=paper_ledger,
         **risk_gates_base)
+
+    # GĐ5 bước 7 (STR-05): chiến lược v1 (thiết kế 36, người dùng duyệt 17/11) → Risk → sổ cái
+    # paper. CHỈ PAPER, không có đường tới Gateway. Tắt: GT_PAPER_STRATEGY=0.
+    risk_engine = RiskEngine(RiskPolicy(version=RISK_POLICY_VERSION), paper_ledger,
+                             app.state.risk_gates)
+    paper_broker = PaperBroker(paper_ledger, latest_quote=quote_store.latest,
+                               quote_window=quote_store.window)
+    paper_monitor = PaperMonitor(
+        paper_broker, feed_for=lambda acc: (risk_scope(acc).feed if risk_scope(acc) else None),
+        risk_profile=risk_profiles.at, entry_blocks=registry.entry_blocks,
+        market_calendar=market.calendar, managers=(StrategyManager(),))
+    evaluations = (SqlEvaluationStore(repo.engine) if getattr(repo, "engine", None) is not None
+                   else InMemoryEvaluationStore())
+
+    def strategy_view(acc: str, at: datetime):
+        sc = risk_scope(acc)
+        return market_views.current(sc, at) if sc is not None else None
+
+    def strategy_technical(view):
+        rec = snapshot_store.get(view.snapshot_id)
+        oid = rec.input_manifest.get("technical") if rec is not None else None
+        if oid is None:
+            return None
+        got = analyst_store.get_scoped(oid, snapshot_scope_for("technical", rec.price_scope))
+        return got.output.features if got is not None else None
+
+    def strategy_point(acc: str, at: datetime):
+        spec = app.state.risk_gates.broker(acc, at).spec
+        pt = spec.spec.get("point") if spec is not None else None
+        return Decimal(str(pt)) if pt is not None else None
+
+    strategy_runner = StrategyRunner(
+        accounts=registry.ids, mode=registry.mode,
+        feed_for=lambda acc: (risk_scope(acc).feed if risk_scope(acc) else None),
+        view_for=strategy_view, technical_for=strategy_technical, point_for=strategy_point,
+        risk_profile=risk_profiles.at, engine=risk_engine, broker=paper_broker,
+        monitor=paper_monitor, store=evaluations)
+    app.state.risk_engine = risk_engine
+    app.state.paper_broker = paper_broker
+    app.state.paper_monitor = paper_monitor
+    app.state.strategy_evaluations = evaluations
+    app.state.strategy_runner = strategy_runner
+    app.state.paper_strategy_enabled = os.environ.get("GT_PAPER_STRATEGY", "1") != "0"
+    if app.state.paper_strategy_enabled:
+        strategy_slot["runner"] = strategy_runner
 
     @app.get("/api/health")
     def health():
