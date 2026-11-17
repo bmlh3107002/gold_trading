@@ -66,7 +66,7 @@ def test_replay_every_source(kind, tmp_path):
     assert {j.source for j in jobs} == {
         "fed_fomc", "bea_schedule", "dol_claims_schedule", "bea_nipa", "dol_claims", "fed_h15",
         "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press",
-        "bls_schedule", "bls_values"}
+        "bls_schedule", "bls_values", "census_retail_schedule"}
     first = run_all(jobs, NOW)
     assert all(c.outcome is CheckOutcome.OK for c in first), [(c.source, c.error_code)
                                                               for c in first]

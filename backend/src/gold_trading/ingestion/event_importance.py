@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
 
-POLICY_VERSION = "event-policy-2026.11.13-bls"
+POLICY_VERSION = "event-policy-2026.11.17-census"
 
 
 class Importance(StrEnum):
@@ -51,6 +51,8 @@ _TABLE: dict[tuple[str, str | None], tuple[Importance, str]] = {
     ("BLS_CPI", None): (Importance.HIGH, "lạm phát tiêu dùng — tác động mạnh tới kỳ vọng lãi suất"),
     ("BLS_EMPSIT", None): (Importance.HIGH, "việc làm phi nông nghiệp (NFP) + thất nghiệp"),
     ("BLS_PPI", None): (Importance.MEDIUM, "lạm phát phía sản xuất, thường ít bất ngờ hơn CPI"),
+    # 17/11 (lịch Census chép tay): trước đây không có trong bảng → đã là HIGH (an toàn); ghi rõ.
+    ("CENSUS_RETAIL", None): (Importance.HIGH, "doanh số bán lẻ — tiêu dùng Mỹ, hay làm vàng giật"),
 }
 UNKNOWN_REASON = "sự kiện chưa có trong bảng → coi là quan trọng cao (an toàn)"
 

@@ -125,8 +125,8 @@ def chk(at, ok=True, code=None):
 # ------------------------------------------------------------------ cấu hình
 
 def test_parse_sources():
-    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "bls", "fed_h15", "cftc_cot",
-                                     "news")
+    assert R.parse_sources(None) == ("fed_fomc", "bea", "dol", "bls", "census_retail", "fed_h15",
+                                     "cftc_cot", "news")
     assert R.parse_sources("  ") == R.DEFAULT_SOURCES
     for off in ("0", "off", "OFF", "none", "false"):
         assert R.parse_sources(off) == ()
@@ -161,7 +161,8 @@ def test_runner_from_env():
     r = R.runner_from_env(None, {})
     try:
         assert r.sources == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule",
-                             "bea_nipa", "dol_claims", "bls_values", "fed_h15",
+                             "census_retail_schedule", "bea_nipa", "dol_claims", "bls_values",
+                             "fed_h15",
                              "cftc_cot_gold", "fed_rss_monetary",
                              "fed_rss_speeches", "treasury_press"]  # lịch trước, số sau, tin cuối
     finally:
@@ -210,9 +211,11 @@ def test_first_tick_runs_all_and_missing_key_never_calls_bea_api(stores):
     r = make(stores, net)
     got = by_source(r.tick(NOW))
     assert list(got) == ["fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule",
-                         "bea_nipa", "dol_claims", "bls_values", "fed_h15", "cftc_cot_gold",
+                         "census_retail_schedule", "bea_nipa", "dol_claims", "bls_values",
+                         "fed_h15", "cftc_cot_gold",
                          "fed_rss_monetary", "fed_rss_speeches", "treasury_press"]
-    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule", "dol_claims",
+    for s in ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule",
+              "census_retail_schedule", "dol_claims",
               "fed_h15", "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches",
               "treasury_press"):
         assert got[s].outcome is CheckOutcome.OK and got[s].inserted > 0, s

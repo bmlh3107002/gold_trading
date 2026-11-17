@@ -3,7 +3,8 @@
 Thiết kế: ``docs/thiet-ke/16-chay-tu-dong-nguon-lich.md``. Tóm tắt:
 
 - Mỗi nguồn là một **việc** (``Job``): việc *lịch* (FOMC, lịch BEA, lịch DOL) và việc *số liệu*
-  (số BEA, số DOL). Census **không** có ở đây (tạm hoãn 2026-11-13: Census chặn Việt Nam).
+  (số BEA, số DOL). Census tự động **không** có ở đây (Census chặn Việt Nam, 2026-11-13); lịch
+  bán lẻ Census dùng bảng chép tay ``census_retail`` (người dùng chốt 2026-11-17).
 - Mỗi nhịp (30 giây) hỏi từng việc "có đến hạn không" bằng hàm thuần ``schedule_due`` /
   ``values_job_due`` — chỉ dựa trên nhật ký lần kiểm đã lưu (ING-30) + lịch đã biết, nên khởi
   động lại backend không làm mất nhịp và không gọi dồn.
@@ -44,7 +45,8 @@ RELEASE_DAY_POLL = timedelta(minutes=5)
 RECONCILE_RETRY = timedelta(hours=6)
 
 # "news": mọi nguồn tin đang bật trong file cấu hình nguồn tin (bước 10b, ``ingestion/news.py``).
-DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "bls", "fed_h15", "cftc_cot", "news")
+DEFAULT_SOURCES = ("fed_fomc", "bea", "dol", "bls", "census_retail", "fed_h15", "cftc_cot",
+                   "news")
 KNOWN_SOURCES = frozenset(DEFAULT_SOURCES)
 
 
@@ -106,7 +108,15 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
                client) -> tuple[list[Job], SourceRegistry]:
     """Dựng danh sách việc theo thứ tự chạy (lịch trước, số sau)."""
     from gold_trading.ingestion.api_keys import load_api_key
-    from gold_trading.ingestion.sources import bea, bls, cftc_cot, dol, fed_fomc, fed_h15
+    from gold_trading.ingestion.sources import (
+        bea,
+        bls,
+        census_manual,
+        cftc_cot,
+        dol,
+        fed_fomc,
+        fed_h15,
+    )
 
     specs = []
     sched: list[Job] = []
@@ -144,6 +154,10 @@ def build_jobs(sources: Sequence[str], *, store, check_log, env: Mapping[str, st
             store=store, log=check_log, post=post_bls, now=now, registry=registry,
             key_lookup=load_api_key("bls", env)),
             lambda now, s: bls.values_due(now, store, s.last_ok_at), is_values=True))
+    if "census_retail" in sources:  # 17/11: lịch bán lẻ Census chép tay (không gọi mạng, không số)
+        specs.append(census_manual.schedule_spec())
+        sched.append(Job(census_manual.SCHEDULE_SOURCE, lambda now: census_manual.run_schedule_once(
+            store=store, log=check_log, now=now, registry=registry), schedule_due))
     if "fed_h15" in sources:  # bước 9b: lãi suất H.15 (số vĩ mô, không theo lịch công bố)
         specs.append(fed_h15.spec())
         get_h15 = fed_h15.http_getter(client)

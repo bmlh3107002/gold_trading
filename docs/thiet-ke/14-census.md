@@ -46,6 +46,17 @@ Bản ghi: `logical_key = <ngành>:<loại>:<kỳ>` (vd. `44X72:SM:2026-09`), `e
 
 Từ máy người dùng (Việt Nam): trang đăng ký khóa bị Cloudflare chặn (Wi-Fi lẫn 4G, không VPN); `api.census.gov` và `www.census.gov` trả **403** → bộ nạp trên máy sẽ luôn `FORBIDDEN` (lỗi "chết" → nguồn MISSING, không bịa số). Người dùng chọn **tạm hoãn** bán lẻ; không bật Census trên máy, không dùng VPN lách. Code giữ nguyên cho khi có cách hợp lệ. Rủi ro mở: chưa có cửa sổ chặn quanh tin bán lẻ (ghi ở Gate GĐ1).
 
+## 4c. Lịch chép tay (người dùng chốt 2026-11-17) — `census_retail_schedule`
+
+Người dùng chọn **lịch chép tay có phiên bản** (không FRED, không bỏ): chỉ cần **giờ** công bố để chặn vào lệnh quanh tin bán lẻ; **không có số actual**. `ingestion/sources/census_manual.py`, làm theo mẫu lịch BLS chép tay (thiết kế 24):
+
+- Bảng `SCHEDULE_VERSION = census-retail-2026.11.17`: 15 kỳ 2026-09 … 2027-11 (công bố 15/10/2026 … 15/12/2027), mọi dòng 08:30 New York. Chép từ **hai** trang chính thức (lịch chỉ số kinh tế + lịch riêng khảo sát bán lẻ), đọc bằng bộ đọc đã có test của `census.py`; chỉ chép kỳ **cả hai trang khớp ngày**. Tải lại trang 17/11 (từ máy chủ phát triển, không phải máy người dùng): giống hệt bản 13/11 trong `tests/fixtures/census` → test đối chiếu bảng với file mẫu đó.
+- Kiểm bảng: tháng liên tiếp, ngày tăng, sau khi hết tháng số liệu và ≤ 75 ngày, thứ Hai–Sáu.
+- Cùng khóa `RETAIL:YYYY-MM`, `event = CENSUS_RETAIL` như nguồn tự động. Mức quan trọng **HIGH** (trước đây không có trong bảng → vốn đã HIGH theo luật an toàn; nay ghi rõ) → cửa sổ 15 phút trước / sau; `event-policy-2026.11.17-census`.
+- Bảng còn < 45 ngày → `SCHEDULE_TABLE_EXPIRING` → nguồn lịch không khỏe → chặn cả ngày + Risk từ chối (`CALENDAR_SOURCE_UNHEALTHY`). **Chép bảng mới trước ~31/10/2027.**
+- Nối: `external_runner` (tên `census_retail`, mặc định bật), `CALENDAR_SOURCES` (Risk Q1 + Event analyst kiểm sức khỏe), `health_details`, trang Nguồn dữ liệu, chân trang ghi nguồn. Lỗi tìm được khi viết test: quên thêm vào `health_details` → nguồn luôn "chưa biết" → Risk sẽ chặn **mọi** lệnh; đã sửa, có test.
+- Trên máy: nếu `.env` có đặt `GT_EXTERNAL_SOURCES` thì phải thêm `census_retail` (để trống = mặc định, đã gồm).
+
 ## 5. Chưa làm
 
 Chạy tự động + kiểm trên máy với khóa thật (8g / mục 12 file kế hoạch); hiển thị (DSH-09); mức quan trọng (ING-20); ngưỡng "sửa số lớn". Lệnh chạy tay: `docker compose exec backend python -m gold_trading.ingestion.cli census [--dry-run]`.

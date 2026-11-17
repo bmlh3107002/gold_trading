@@ -18,7 +18,7 @@ const STATUS_TONE: Record<DataSource["status"], BadgeTone> = {
 const KNOWN_NAMES = new Set([
   "fed_fomc", "bea_schedule", "bea_nipa", "dol_claims_schedule", "dol_claims", "fed_h15",
   "cftc_cot_gold", "fed_rss_monetary", "fed_rss_speeches", "treasury_press", "bls_schedule",
-  "bls_values",
+  "bls_values", "census_retail_schedule",
 ]);
 const KNOWN_REASONS = new Set([
   "OK", "FETCH_TTL_EXPIRED", "DATA_TTL_EXPIRED", "NEVER_CHECKED", "NEVER_OK", "NO_DATA", "DISABLED",

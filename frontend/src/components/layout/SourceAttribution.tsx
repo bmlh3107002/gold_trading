@@ -27,6 +27,7 @@ export function SourceAttribution() {
       <span>{t("attribution.treasury")}</span>
       <span>{t("attribution.h15")}</span>
       <span>{t("attribution.cftc")}</span>
+      <span>{t("attribution.census")}</span>
       <span lang="en">{BEA_ATTRIBUTION}</span>
       <span lang="en">{CENSUS_ATTRIBUTION}</span>
     </footer>

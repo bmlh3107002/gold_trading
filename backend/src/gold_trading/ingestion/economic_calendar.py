@@ -28,7 +28,8 @@ from zoneinfo import ZoneInfo
 from gold_trading.ingestion.event_importance import POLICY_VERSION, WINDOWS, rate
 
 ET = ZoneInfo("America/New_York")
-CALENDAR_SOURCES = ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule")
+CALENDAR_SOURCES = ("fed_fomc", "bea_schedule", "dol_claims_schedule", "bls_schedule",
+                    "census_retail_schedule")
 INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 # Sự kiện có số actual → nguồn số. Sự kiện khác (FOMC): NOT_APPLICABLE.
 ACTUAL_SOURCES = {"BEA_GDP": "bea_nipa", "BEA_PIO": "bea_nipa",
@@ -209,11 +210,11 @@ def _distrust_schedule(it: CalendarItem, as_of: datetime) -> CalendarItem:
 def health_details(check_log, store, as_of: datetime) -> dict:
     """Nguồn → ``SourceHealth`` (ING-30) cho các nguồn lịch + nguồn số đang chạy."""
     from gold_trading.ingestion.source_status import SourceRegistry, source_health
-    from gold_trading.ingestion.sources import bea, bls, dol, fed_fomc
+    from gold_trading.ingestion.sources import bea, bls, census_manual, dol, fed_fomc
 
     reg = SourceRegistry([fed_fomc.fomc_spec(), bea.schedule_spec(), bea.values_spec(),
                           dol.schedule_spec(), dol.values_spec(), bls.schedule_spec(),
-                          bls.values_spec()])
+                          bls.values_spec(), census_manual.schedule_spec()])
     return {h.source: h for h in source_health(reg, check_log, store, as_of)}
 
 

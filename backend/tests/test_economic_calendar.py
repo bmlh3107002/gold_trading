@@ -21,6 +21,7 @@ from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.source_status import SourceCheckLog
 from gold_trading.ingestion.sources import bea as B
 from gold_trading.ingestion.sources import bls as L
+from gold_trading.ingestion.sources import census_manual as CM
 from gold_trading.ingestion.sources import dol as D
 from gold_trading.ingestion.sources import fed_fomc as F
 from gold_trading.storage.external_records import SqlExternalRecordStore
@@ -46,6 +47,9 @@ POLICY_FINGERPRINTS = {
     # Bước 8e: thêm BLS_CPI / BLS_EMPSIT (HIGH), BLS_PPI (MEDIUM)
     "event-policy-2026.11.13-bls":
         "20d15ec6361b76cf50a5081dd6b956b34053b1dce5dd4813d273be58be9a8a98",
+    # 17/11: thêm CENSUS_RETAIL (HIGH) — lịch bán lẻ Census chép tay
+    "event-policy-2026.11.17-census":
+        "37976c6d10d003809937b8ccbb1ea156b56931eaf72ddeeae273106c5239035f",
 }
 
 
@@ -66,6 +70,7 @@ def store(request, tmp_path):
     B.run_schedule_once(store=st, log=log, get=lambda u, p=None: BEA[u], now=NOW)
     D.run_schedule_once(store=st, log=log, now=NOW)
     L.run_schedule_once(store=st, log=log, now=NOW)
+    CM.run_schedule_once(store=st, log=log, now=NOW)
     return st
 
 

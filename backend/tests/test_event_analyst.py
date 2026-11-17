@@ -14,6 +14,7 @@ from gold_trading.ingestion.point_in_time import PointInTimeStore
 from gold_trading.ingestion.source_status import SourceCheckLog
 from gold_trading.ingestion.sources import bea as B
 from gold_trading.ingestion.sources import bls as L
+from gold_trading.ingestion.sources import census_manual as CM
 from gold_trading.ingestion.sources import dol as D
 from gold_trading.ingestion.sources import fed_fomc as F
 from gold_trading.market.hours import REFERENCE
@@ -42,6 +43,7 @@ def load(st, log=None):
     B.run_schedule_once(store=st, log=log, get=lambda u, p=None: BEA[u], now=NOW)
     D.run_schedule_once(store=st, log=log, now=NOW)
     L.run_schedule_once(store=st, log=log, now=NOW)
+    CM.run_schedule_once(store=st, log=log, now=NOW)   # lịch bán lẻ Census chép tay (17/11)
     return st, log
 
 

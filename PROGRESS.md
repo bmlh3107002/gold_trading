@@ -8,7 +8,7 @@
 ## Trạng thái hiện tại
 
 - **Đang làm: kiểm trên máy để đóng Gate GĐ1 → GĐ2** theo [`lich-kiem-tren-may.md`](docs/ke-hoach/lich-kiem-tren-may.md) (+ file nhắc `.ics`). 16/11: dựng lại, replay ĐẠT, `h15-bu` + `cot-bu` đạt. **17/11: 6a ĐẠT** (backend tắt ~8,9 giờ, nạp bù đủ, DB không hở ngoài giờ nghỉ) + **COT chốt 10/11 khớp cftc.gov**; **đếm ≥ 5 ngày chạy liên tục từ 17/11 08:02** (DEC-21). Gate sớm nhất sau NFP 04/12.
-- **GĐ1:** code xong; mục 8 (6a) + 17 (COT) đạt 17/11; còn kiểm trên máy (DOL 19/11, dung lượng 20/11, Lễ Tạ ơn, NFP 04/12) + quyết ở Gate (Census, ETF, sao lưu).
+- **GĐ1:** code xong; mục 8 (6a) + 17 (COT) đạt 17/11; còn kiểm trên máy (DOL 19/11, dung lượng 20/11, Lễ Tạ ơn, NFP 04/12) + kiểm sao lưu tự động. 17/11 người dùng chốt: bán lẻ = lịch Census chép tay (**code xong**, `census_retail_schedule`), ETF = bỏ hẳn.
 - **GĐ2:** code xong (DEC-19); Gate: replay lại sau NFP (lần 16/11 mục Technical chưa so thật vì toàn phiên bản cũ) + độ trễ < 10 giây.
 - **GĐ3 / GĐ4:** code xong (DEC-22, DEC-23); `nguong` ~20/11, `kiem-mv` 18/11 + 24/11; đóng sau GĐ1 → GĐ2 (→ GĐ3 → GĐ4).
 - **Đánh giá độc lập GĐ0–GĐ4** ([file](docs/danh-gia/danh-gia-GD0-GD4.md)), Pha 2: KN-01/02/04 vào GĐ5; KN-16 hoãn. **17/11: gộp hết vào `develop`** (người dùng chọn): nhánh chờ (KN-03 0021, KN-05 0023, KN-13/14/15, KN-20 0022, KN-21, KN-26) + GĐ5. **Máy người dùng CHƯA dựng lại** — không dựng tới khi Gate GĐ1 + GĐ2 đóng (giữ đợt đếm 5 ngày); sau đó một lần dựng cho tất cả (lịch kiểm).
