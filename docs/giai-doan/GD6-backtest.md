@@ -8,7 +8,7 @@
 | BT-01 | Replay theo `available_at` với snapshot + policy/model version lịch sử | `[ ]` | SAMPLE → "không có giá trị đánh giá" |
 | BT-02 | Mô phỏng spread thật, slippage (lớn hơn lúc ra tin), commission/swap, độ trễ, fill một phần, giờ thị trường, margin | `[ ]` | |
 | BT-03 | Báo cáo: giả định, khoảng dữ liệu, bias còn lại, kết quả theo regime | `[ ]` | |
-| BT-04 | Tiêu chí đạt do người dùng duyệt: walk-forward, out-of-sample, số lệnh tối thiểu, drawdown tối đa | `[ ]` | |
+| BT-04 | Tiêu chí đạt do người dùng duyệt: walk-forward, out-of-sample, số lệnh tối thiểu, drawdown tối đa | `[ ]` | 17/11 tiêu chí T1–T8 đã duyệt + khóa trước khi chạy: `docs/thiet-ke/38-giao-thuc-danh-gia.md` (`protocol-1`); còn: báo cáo GĐ6 đạt |
 | MOD-03 | Mode BACKTEST nối với backtest | `[ ]` | |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
