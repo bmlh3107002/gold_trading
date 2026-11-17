@@ -1,6 +1,6 @@
 # Sổ tham số (KN-08) — mọi con số chưa hiệu chỉnh, GĐ2–GĐ5
 
-> 2026-11-17 · GĐ5 bước 9 · **bản nháp chờ người dùng duyệt** (cùng giao thức đánh giá [`38-giao-thuc-danh-gia.md`](38-giao-thuc-danh-gia.md)).
+> 2026-11-17 · GĐ5 bước 9 · **người dùng duyệt 17/11** (cùng giao thức đánh giá [`38-giao-thuc-danh-gia.md`](38-giao-thuc-danh-gia.md)).
 >
 > Mục đích: biết rõ hệ thống có **bao nhiêu "nút vặn"** trước khi backtest. Mỗi nút được vặn thêm ở GĐ6 làm tăng nguy cơ "backtest đẹp do khớp quá mức" (Bailey và cộng sự, 2017). Vì vậy GĐ6 **chỉ được thử các nút loại A**, với lưới giá trị ghi sẵn ở giao thức; mọi nút khác giữ nguyên.
 
@@ -97,3 +97,5 @@ Rủi ro / lệnh 0,25 %; R:R ≥ 1,5; tổng rủi ro mở 0,5 %; lỗ ngày / 
 ## Nhật ký
 
 - **2026-11-17** — Bản nháp đầu (người phát triển gom từ thiết kế 03, 17, 26, 28–33, 35–37). Chờ người dùng duyệt.
+
+- **2026-11-17** — Người dùng duyệt cả bản. GĐ6 chỉ thử P1, P7, P8 theo lưới của giao thức `protocol-1`.

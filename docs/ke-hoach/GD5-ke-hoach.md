@@ -95,8 +95,8 @@
 - [x] (17/11) RPF-05 / DSH-05: trang **Rủi ro** — hồ sơ hiện hành + lịch sử phiên bản, hạn mức đã dùng hôm nay / tuần này, reservation đang mở, quyết định Risk gần đây + lý do (tiếng Việt), báo cáo khả thi. OpenAPI + `npm run gen:api`; test API + giao diện.
 
 ### Bước 9 — Tài liệu cuối GĐ5 (KN-08, KN-07 — cân nhắc, người dùng duyệt)
-- [ ] KN-08 — **Sổ tham số** `docs/thiet-ke/so-tham-so.md`: mọi ngưỡng chưa hiệu chỉnh (GĐ2–GĐ5) với giá trị, phiên bản, lý do, có được tối ưu ở GĐ6 không.
-- [ ] KN-07 — **Giao thức đánh giá đăng ký trước** (bản nháp cho GĐ6): walk-forward, đoạn ngoài mẫu không đụng tới, số lệnh tối thiểu, chỉ số sau chi phí, so mốc ngẫu nhiên, Deflated Sharpe / PBO. Viết **trước** khi chạy backtest; tiêu chí (BT-04) người dùng duyệt.
+- [x] (17/11, người dùng duyệt) KN-08 — **Sổ tham số** `docs/thiet-ke/so-tham-so.md`: mọi ngưỡng chưa hiệu chỉnh (GĐ2–GĐ5) với giá trị, phiên bản, lý do, có được tối ưu ở GĐ6 không.
+- [x] (17/11, người dùng duyệt) KN-07 — **Giao thức đánh giá đăng ký trước** (bản nháp cho GĐ6): walk-forward, đoạn ngoài mẫu không đụng tới, số lệnh tối thiểu, chỉ số sau chi phí, so mốc ngẫu nhiên, Deflated Sharpe / PBO. Viết **trước** khi chạy backtest; tiêu chí (BT-04) người dùng duyệt.
 
 ### Bước 10 — Gate GĐ5
 - [ ] Mọi case 5-C01..C16 có test (ghi tên test vào bảng case)
@@ -183,9 +183,10 @@ Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấ
 - **2026-11-17** — **Bước 7 xong**: chiến lược v1 (người dùng duyệt cả bản STR-06), lõi luật + quản lý lệnh (hòa vốn, đóng 16:45 NY) + nối MarketView → chiến lược → Risk → sổ cái paper mỗi nhịp orchestrator (migration 0027 nhật ký chiến lược). Chỉ PAPER, không có đường tới Gateway. Chi tiết: nhật ký GĐ5. Tiếp: bước 8 (báo cáo khả thi + trang Rủi ro: nhập hồ sơ, phí / lot, bắt đầu paper).
 - **2026-11-17** — **Bước 8 xong**: báo cáo khả thi (cùng công thức Risk, `cli kha-thi`) + API + trang Rủi ro (nhập hồ sơ, phí, bắt đầu sổ paper, nạp / rút, xác nhận sau khi dừng). Thiết kế 37. Tiếp: bước 9 (tài liệu cuối GĐ5: sổ tham số KN-08, giao thức đánh giá KN-07 — người dùng duyệt).
 - **2026-11-17** — Bước 9: nháp sổ tham số (KN-08) + giao thức đánh giá (KN-07) chờ người dùng duyệt.
+- **2026-11-17** — **Bước 9 xong**: người dùng duyệt sổ tham số + giao thức đánh giá (`protocol-1`). Còn bước 10 (Gate GĐ5) — cần kiểm trên máy người dùng.
 
 ## Prompt cho phiên mới
 
-**Bước 8 xong 17/11.** Khi tiếp tục, dán:
+**Bước 9 xong 17/11.** Còn bước 10 (Gate GĐ5). Khi tiếp tục, dán:
 
-Làm tiếp GĐ5 bước 9 (tài liệu cuối GĐ5 — KN-08 sổ tham số, KN-07 giao thức đánh giá đăng ký trước; người dùng duyệt). Nhánh GĐ5: `claude/fervent-hypatia-n3uyfn` (`git fetch origin claude/fervent-hypatia-n3uyfn` rồi làm trên nhánh đó; **chưa lên develop**). Đọc CLAUDE.md, PROGRESS.md, docs/ke-hoach/GD5-ke-hoach.md (bước 9 + nhật ký), các thiết kế 35, 36, 37 (mọi hằng / ngưỡng chưa hiệu chỉnh). Viết `docs/thiet-ke/so-tham-so.md` (mọi ngưỡng GĐ2–GĐ5: giá trị, phiên bản, lý do, có được tối ưu ở GĐ6 không) và bản nháp giao thức đánh giá GĐ6 (walk-forward, đoạn ngoài mẫu không đụng tới, số lệnh tối thiểu, chỉ số sau chi phí, so mốc ngẫu nhiên, Deflated Sharpe / PBO) bằng tiếng Việt đơn giản để người dùng duyệt. Sau đó: kiểm trên máy (`cli kha-thi`, trang Rủi ro) theo lịch người dùng chọn, rồi Gate GĐ5 (bước 10). Việc kiểm trên máy GĐ1/GĐ2 (docs/ke-hoach/lich-kiem-tren-may.md) luôn ưu tiên. Không có lệnh thật. Người dùng không rành kỹ thuật: tiếng Việt đơn giản, mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị; không bao giờ yêu cầu dán mật khẩu / token / khóa API.
+Làm tiếp GĐ5 bước 10 (Gate GĐ5). Nhánh GĐ5: `claude/fervent-hypatia-n3uyfn` (**chưa lên develop**). Đọc CLAUDE.md, PROGRESS.md, docs/ke-hoach/GD5-ke-hoach.md (bước 10 + mục "Kiểm trên máy người dùng"). Việc: (1) rà bảng case 5-C01..C16 trong docs/giai-doan/GD5-ke-hoach-giao-dich.md — mọi case có tên test; (2) soạn hướng dẫn kiểm trên máy (tiếng Việt đơn giản, PowerShell không `\"` / `$`): dựng lại từ nhánh GĐ5 khi người dùng chọn lịch, mở trang Rủi ro, nhập hồ sơ / phí, bắt đầu paper, chạy `cli kha-thi`, xác nhận không có lệnh nào trong MT5; (3) Gate GĐ5 chỉ đóng sau khi Gate GĐ1 → GĐ4 đã đóng (DEC-28) và người dùng xác nhận. Việc kiểm trên máy GĐ1/GĐ2 (docs/ke-hoach/lich-kiem-tren-may.md) luôn ưu tiên. Không có lệnh thật. Người dùng không rành kỹ thuật: mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị; không bao giờ yêu cầu dán mật khẩu / token / khóa API.

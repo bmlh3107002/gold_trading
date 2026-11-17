@@ -1,4 +1,4 @@
-# 38 — Giao thức đánh giá đăng ký trước cho GĐ6 (KN-07, BT-04) — BẢN NHÁP CHỜ DUYỆT
+# 38 — Giao thức đánh giá đăng ký trước cho GĐ6 (KN-07, BT-04) — ĐÃ DUYỆT, KHÓA 17/11 (`protocol-1`)
 
 > 2026-11-17 · GĐ5 bước 9. Viết **trước** khi có bất kỳ kết quả backtest nào. Sau khi người dùng duyệt, giao thức này **khóa lại**: không đổi tiêu chí sau khi đã nhìn kết quả. Muốn đổi → ghi lý do, tăng phiên bản giao thức, và phần dữ liệu "để dành" đã dùng thì **không dùng lại** được.
 >
@@ -81,3 +81,5 @@ Giả định chi phí; khoảng dữ liệu + chỗ thiếu; phiên bản mọi
 ## Nhật ký
 
 - **2026-11-17** — Bản nháp đầu. Mọi con số tiêu chí là **đề xuất** của người phát triển, chờ người dùng duyệt (BT-04).
+
+- **2026-11-17** — **Người dùng duyệt cả bản** (không sửa). Giao thức khóa với tên `protocol-1`; tiêu chí T1–T8 là tiêu chí BT-04 của GĐ6.
