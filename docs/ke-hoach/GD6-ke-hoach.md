@@ -2,7 +2,7 @@
 
 > Tạo 2026-11-17. Nguồn sự thật cho mã việc / case: [`docs/giai-doan/GD6-backtest.md`](../giai-doan/GD6-backtest.md). Đặc tả: `docs/huong-dan-chuc-nang/12-van-hanh-kiem-thu.md` (mục Backtest, Mode Manager). Giao thức đánh giá **đã khóa**: [`38-giao-thuc-danh-gia.md`](../thiet-ke/38-giao-thuc-danh-gia.md) (`protocol-1`, T1–T8). Tham số: [`so-tham-so.md`](../thiet-ke/so-tham-so.md). Chiến lược: [`36-chien-luoc-v1.md`](../thiet-ke/36-chien-luoc-v1.md). Xong bước nào tick ở **cả hai** file.
 >
-> **Trạng thái: BẢN NHÁP — CHỜ NGƯỜI DÙNG DUYỆT. Chưa code.**
+> **Trạng thái: NGƯỜI DÙNG ĐÃ DUYỆT 2026-11-17 (Q0 = A, duyệt cả bản). Chưa code** — việc tiếp theo: bước 0 trên máy người dùng (chỉ xuất file + đọc thử). Q1–Q7 hỏi khi tới bước cần.
 >
 > **Làm song song (DEC-29, người dùng 2026-11-17).** (1) Người dùng duyệt kế hoạch rồi mới code; (2) code trên **nhánh riêng tách từ `develop`**, **không gộp vào `develop`** tới sau Gate GĐ1 + GĐ2 (code GĐ6 không được làm đổi bản đang kiểm Gate / replay sau NFP); (3) **không đóng GĐ6 trước GĐ5**; việc kiểm trên máy GĐ1/GĐ2 ([`lich-kiem-tren-may.md`](lich-kiem-tren-may.md)) luôn ưu tiên; (4) **máy người dùng không dựng lại** tới sau Gate GĐ1 + GĐ2. **Không có lệnh thật nào:** backtest chỉ tính trên dữ liệu đã qua, không có đường tới Gateway / MT5.
 
@@ -129,7 +129,7 @@
 
 | Mã | Câu hỏi | Lựa chọn (khuyến nghị in đậm) | Cần cho | Trả lời |
 | --- | --- | --- | --- | --- |
-| Q0 | Duyệt kế hoạch này? | **(A) Duyệt cả bản** · (B) Duyệt, sửa vài điểm · (C) Chưa duyệt | Bắt đầu | |
+| Q0 | Duyệt kế hoạch này? | **(A) Duyệt cả bản** · (B) Duyệt, sửa vài điểm · (C) Chưa duyệt | Bắt đầu | **Chốt 17/11: (A) duyệt cả bản** |
 | Q1 | **Lịch kinh tế lịch sử 2 năm** (điểm còn mở của protocol-1). Lịch hệ thống đã lưu chỉ có từ 11/2026 | **(A) Dựng lại lịch quá khứ từ trang chính thức** (FOMC: trang lịch họp các năm trước; DOL: sinh lại theo quy tắc; BEA / Census: lịch lưu trữ; BLS: bạn chép tay 2–3 bảng lịch năm như lần trước) làm bản chính, **và** chạy thêm biến thể "chặn cố định 08:30 / 10:00 / 14:00 NY mọi ngày làm việc" để so (đúng protocol-1 mục 2) · (B) Chỉ chặn cố định (đơn giản, chặn nhiều hơn thật, ít lệnh hơn) · (C) Chờ hệ thống tự lưu đủ 2 năm lịch (backtest lùi ~2 năm) | Bước 3 | |
 | Q2 | Vốn ban đầu dùng trong backtest (vốn nhỏ → 0,01 lot đã vượt 0,25 % → Risk từ chối mọi lệnh) | **(A) Số vốn bạn dự định dùng khi chạy thật** · (B) Equity tài khoản demo hiện tại · (C) 10.000 USD (số ví dụ) | Bước 5 | |
 | Q3 | Phí / lot trong backtest (MetaQuotes-Demo thường không thu phí; sàn thật có thể thu) | **(A) Phí của sàn bạn định dùng thật** (nếu chưa chọn sàn: chạy với 0 và ghi rõ là giả định lạc quan) · (B) Luôn 0 · (C) 0 làm bản chính, thêm một dòng "nếu phí 7 USD / lot" chỉ để đọc (không dùng làm tiêu chí) | Bước 5 | |
@@ -184,9 +184,10 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 ## Nhật ký kế hoạch
 
 - **2026-11-17** — Viết bản nháp kế hoạch (chưa code) theo DEC-29. Đọc code thật trên `develop` `0cdae0e`. Phát hiện khi đọc: (1) `import-csv --dry-run` chỉ đọc file, không mở DB → dùng được cho bước 0 trong đợt đếm 5 ngày; (2) Technical cần H1 / H4 / D1 (MTF) — thiếu sẽ đổi hành vi Fusion, mà CSV chưa nhận H4 / D1 → bước 0 xuất cả 4 khung, bước 2 thêm H4 / D1; (3) lịch kinh tế đã lưu có `available_at` 11/2026 → replay 2 năm trước sẽ "không thấy tin" (lạc quan sai) → Q1, chặn cả ngày khi không dựng lại được; (4) News không có lịch sử → × 0,9 → Q4; (5) Risk đọc spread theo phút (chỉ có từ 11/2026) → backtest dùng spread nến làm proxy, đo độ lệch trên đoạn trùng → Q6; (6) `StrategyRunner` / `PaperBroker` gắn cổng thật + thời gian thật → backtest gọi thẳng `decide` / `Manager` / công thức Risk qua cổng lịch sử. Chờ người dùng duyệt (Q0) rồi làm bước 0.
+- **2026-11-17** — **Người dùng duyệt cả bản (Q0 = A).** Tiếp: người dùng làm bước 0 (xuất XAUUSD M15 + H1 / H4 / D1 ra `C:\gold-backtest`, đọc thử `--dry-run`) khi rảnh, ngoài khung tin; gửi kết quả → ghi vào nhật ký này → bước 1 ở phiên chat mới.
 
 ## Prompt cho phiên mới
 
-**Chưa duyệt.** Sau khi người dùng duyệt (Q0) và làm xong bước 0, dán:
+**Đã duyệt 17/11.** Sau khi người dùng làm xong bước 0 (kết quả ghi ở nhật ký), dán:
 
 Làm tiếp GĐ6 (Backtest) theo docs/ke-hoach/GD6-ke-hoach.md — làm song song theo DEC-29. Đọc CLAUDE.md, PROGRESS.md, docs/giai-doan/GD6-backtest.md, docs/ke-hoach/GD6-ke-hoach.md (kết quả bước 0 ở nhật ký). Code trên nhánh `gd6-backtest` tách từ `develop`; không gộp vào `develop` tới sau Gate GĐ1 + GĐ2; máy người dùng không dựng lại tới sau Gate. Làm từ bước 1, hỏi Q1–Q7 khi tới bước cần (mỗi lần một câu, 2–3 lựa chọn + khuyến nghị). Không nạp gì vào DB đang chạy. Người dùng không rành kỹ thuật; PowerShell không `\"` / `$`; không bao giờ yêu cầu dán mật khẩu / token / khóa API. Trả lời tiếng Việt.
