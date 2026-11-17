@@ -32,6 +32,8 @@
 - [ ] **Thứ Tư–Sáu 25–27/11 — tuần Lễ Tạ ơn (GĐ2):** băng đỏ chặn **cả ngày** thứ Tư (có thể tới thứ Sáu) cho tới khi có số DOL — đúng chính sách. **26–27/11 (GĐ1):** đối chiếu giờ mở / đóng thật của broker với bảng giờ đặc biệt (lệch → báo để chỉnh `GT_BROKER_SPECIAL_HOURS`).
 - [ ] **Thứ Sáu 04/12, 20:30 — NFP (Gate GĐ1 + GĐ2):** số NFP vào đúng giờ, đúng giá trị (`cli lich`); 20:15–20:45+ có băng đỏ, sau khi nhận số thêm 15 phút; trang Pipeline: ghi lại "độ trễ gần nhất" (phải < 10 giây); rồi chạy lại `… orchestrator.replay` → ĐẠT.
 
+- [ ] **Sau khi đóng Gate GĐ1 + GĐ2, ngày bạn chọn (không tối thứ Sáu, không trong khung tin) — Gate GĐ5 (kế hoạch giao dịch, chỉ PAPER):** người phát triển đưa GĐ5 lên `develop` trước; bạn dựng lại như mọi lần rồi làm bước A–E ở [`GD5-ke-hoach.md`](GD5-ke-hoach.md) mục "Kiểm trên máy người dùng (Gate GĐ5)": mở trang Rủi ro, nhập hồ sơ + phí, bắt đầu sổ paper, chạy `cli kha-thi`, sau 1–2 ngày xác nhận MT5 **không có lệnh mới nào**.
+
 ## Quyết định cần bạn ở Gate (không phải thao tác máy)
 
 - **GĐ1:** doanh số bán lẻ (Census chặn Việt Nam) — lịch chép tay / số qua FRED / bỏ hẳn; ETF GLD/IAU — xin phép bằng văn bản / bỏ hẳn; xác nhận bản sao lưu tự động có dữ liệu mới.

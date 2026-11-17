@@ -222,6 +222,7 @@ const vi = {
     GATE_READ_ERROR: "lỗi đọc dữ liệu",
     BROKER_SPEC_MISSING: "thiếu thông số sàn",
     BROKER_SPEC_STALE: "thông số sàn chưa cập nhật",
+    BROKER_SPEC_CHANGED: "thông số sàn vừa đổi lúc đang duyệt",
     SAFETY_PAUSED: "Safety đang tạm dừng",
     SAFETY_HALTED: "Safety đang dừng hẳn",
     ACCOUNT_LOCKED: "tài khoản bị khóa",

@@ -752,6 +752,82 @@ def test_profile_changed_between_check_and_lock_is_reread(t0):          # 5-C13
     assert d.volume == Decimal("0.02")              # tính theo bản mới 0,25 %
 
 
+def _second_broker_read(w: World, second):
+    """Lần đọc nhịp tim thứ 2 (dưới ``ledger.lock``) trả ``second()`` — giả lập Gateway vừa gửi
+    nhịp tim mới giữa lúc kiểm (pha A) và lúc tính khối lượng."""
+    calls = {"n": 0}
+
+    def broker(acc, at):
+        calls["n"] += 1
+        return second() if calls["n"] == 2 else w.broker
+
+    object.__setattr__(w.gates, "broker", broker)
+    return calls
+
+
+def test_mt5_equity_changed_before_lock_is_reread(t0):                  # 5-C13
+    # Pha A thấy equity 10.000; dưới khóa nhịp tim mới báo 5.000 → tính theo 5.000:
+    # 0,5 % (số test) × 5.000 = 25 $; 1.050 $/lot → 0,0238 → 0,02 lot, rủi ro thật 21 $
+    w = World(t0)
+    calls = _second_broker_read(w, lambda: reading(t0, equity=5_000.0))
+    d = w.evaluate()
+    assert calls["n"] == 2
+    assert d.details["equity_reread"] == "10000.0->5000.0"
+    assert d.details["equity_used"] == "5000.0"
+    assert d.volume == Decimal("0.02") and d.risk_amount == Decimal("21.00")
+    assert w.engine.ledger.reserved_total() == Decimal("21.00")
+
+
+def test_paper_equity_changed_before_lock_is_used(t0):                  # 5-C13
+    # Lệnh paper vừa đóng lỗ 80 $ giữa pha A và lúc lấy khóa → equity paper 9.920 (đọc dưới khóa)
+    w = World(t0)
+    base = w.profiles.at
+    calls = {"n": 0}
+
+    def profile(acc, at):
+        calls["n"] += 1
+        if calls["n"] == 2:     # lần đọc dưới khóa
+            w.book.add_closed(ACC, closed(1, -80, t0 - minutes(0.2)))
+        return base(acc, at)
+
+    object.__setattr__(w.gates, "risk_profile", profile)
+    d = w.evaluate()
+    assert d.details["paper_equity"] == "9920" and d.details["equity_used"] == "9920"
+    # 0,5 % × 9.920 = 49,60 $ → 0,0472 → 0,04 lot, 42 $
+    assert d.volume == Decimal("0.04") and d.risk_amount == Decimal("42.00")
+
+
+def test_heartbeat_stale_under_lock_rejects(t0):                        # 5-C13
+    w = World(t0)
+    _second_broker_read(w, lambda: reading(t0, heartbeat_age_s=120.0))
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REJECTED and "EQUITY_STALE" in d.reason_codes
+    assert w.engine.ledger.reserved_total() == 0
+
+
+def test_broker_read_error_under_lock_rejects(t0):                      # 5-C13
+    w = World(t0)
+
+    def boom():
+        raise RuntimeError("db down")
+
+    _second_broker_read(w, boom)
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REJECTED
+    assert "GATE_READ_ERROR:broker" in d.reason_codes
+    assert w.engine.ledger.reserved_total() == 0
+
+
+def test_spec_changed_under_lock_rejects(t0):                           # 5-C13
+    # Thông số mã đổi (stops level 20 → 500) giữa pha A và lúc tính → không trộn hai bộ thông số
+    w = World(t0)
+    row = spec_row(t0 - timedelta(minutes=0.1), stops_level=500)
+    _second_broker_read(w, lambda: reading(t0, spec=row))
+    d = w.evaluate()
+    assert d.reason_codes == ("BROKER_SPEC_CHANGED",)
+    assert w.engine.ledger.reserved_total() == 0
+
+
 def test_profile_read_error_under_lock_rejects(t0):
     w = World(t0)
     calls = {"n": 0}

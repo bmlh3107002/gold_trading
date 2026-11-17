@@ -87,6 +87,7 @@ class _Market:
     spread_points: int | None = None
     baseline_points: int | None = None
     commission: Decimal | None = None
+    spec_hash: str | None = None
     details: dict[str, str] = field(default_factory=dict)
 
 
@@ -237,6 +238,7 @@ class RiskEngine:
                             dec(s["volume_step"]))
         m.point = dec(s["point"])
         m.leverage = dec(s["leverage"])
+        m.spec_hash = spec.spec_hash
         if int(s["swap_mode"]) not in SUPPORTED_SWAP_MODES:                # 5b (RSK-09)
             reasons.append("SWAP_MODE_UNSUPPORTED")
         m.swap = {k: s[k] for k in ("swap_mode", "swap_long", "swap_short",
@@ -253,6 +255,28 @@ class RiskEngine:
                       "stops_level": str(s["stops_level"]),
                       "freeze_level": str(s["freeze_level"])}
         m.details["_stops"] = str(max(int(s["stops_level"]), int(s["freeze_level"])))
+
+    def _reread_broker(self, account_id: str, now: datetime, m: _Market,
+                       reasons: list[str]) -> list[str]:
+        """5-C13 (dưới ``ledger.lock``): đọc lại nhịp tim → dùng equity / ký quỹ trống / đòn bẩy
+        mới nhất. Nhịp tim cũ / mất kết nối / lỗi đọc → từ chối như pha A; thông số mã đổi giữa
+        lúc kiểm và lúc tính → ``BROKER_SPEC_CHANGED`` (không trộn hai bộ thông số)."""
+        ok, b = self._read("broker", reasons, lambda: self.gates.broker(account_id, now))
+        if not ok:
+            return list(reasons)
+        m2, bad = _Market(), []
+        self._broker_checks(b, m2, bad)  # type: ignore[arg-type]
+        if bad:
+            return bad
+        if m2.spec_hash != m.spec_hash:
+            return ["BROKER_SPEC_CHANGED"]
+        assert m2.equity is not None
+        if m2.equity != m.equity:
+            m.details["equity_reread"] = f"{m.equity}->{m2.equity}"
+        m.equity, m.margin_free, m.leverage = m2.equity, m2.margin_free, m2.leverage
+        m.details |= {"equity": str(m2.equity), "margin_free": str(m2.margin_free),
+                      "leverage": str(m2.leverage)}
+        return []
 
     # ------------------------------------------------------------------ pha A9–A11 (2c–2d)
 
@@ -372,6 +396,9 @@ class RiskEngine:
                 m.details["profile_reread"] = f"{prof.version}->{prof2.version}"  # type: ignore
             pv = prof2.values
             m.details["risk_profile_version"] = str(prof2.version)
+            # 5-C13: đọc lại nhịp tim MT5 dưới khóa — equity / ký quỹ trống / đòn bẩy mới nhất.
+            if bad := self._reread_broker(account_id, now, m, reasons):
+                return self._reject(intent, account_id, now, bad, m.details)
             ok, wk = self._read("market_calendar", reasons,
                                 lambda: self._weekend_check(now, pv, m.details))
             if not ok or wk:

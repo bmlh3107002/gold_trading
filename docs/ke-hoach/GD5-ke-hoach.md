@@ -99,8 +99,8 @@
 - [x] (17/11, người dùng duyệt) KN-07 — **Giao thức đánh giá đăng ký trước** (bản nháp cho GĐ6): walk-forward, đoạn ngoài mẫu không đụng tới, số lệnh tối thiểu, chỉ số sau chi phí, so mốc ngẫu nhiên, Deflated Sharpe / PBO. Viết **trước** khi chạy backtest; tiêu chí (BT-04) người dùng duyệt.
 
 ### Bước 10 — Gate GĐ5
-- [ ] Mọi case 5-C01..C16 có test (ghi tên test vào bảng case)
-- [ ] Người dùng duyệt hồ sơ rủi ro (DEC-09 / KN-12) và văn bản chiến lược (STR-06)
+- [x] (17/11) Mọi case 5-C01..C16 có test (ghi tên test vào bảng case) — rà 17/11: 5-C11, 5-C12 thêm tên test; **5-C13 làm nốt** (Risk đọc lại nhịp tim MT5 dưới khóa: equity / ký quỹ / đòn bẩy mới nhất, thông số đổi → `BROKER_SPEC_CHANGED`; 6 test); 46 tên test trong bảng đều kiểm có thật bằng script
+- [x] (16–17/11) Người dùng duyệt hồ sơ rủi ro (DEC-09 / KN-12 — chọn H1–H11 16/11) và văn bản chiến lược (STR-06 — duyệt 17/11). Lưu hồ sơ vào DB trên máy = bước C của mục kiểm trên máy
 - [ ] Báo cáo khả thi trên dữ liệu thật của máy người dùng (`cli kha-thi`)
 - [ ] **Gate GĐ1 → GĐ2 → GĐ3 → GĐ4 đã đóng** (DEC-28)
 - [ ] Người dùng xác nhận
@@ -148,10 +148,64 @@ Không áp dụng: chương 9 (tâm lý — hệ thống tự động), 13.6 (qu
 
 Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấu trúc trước khi có số (KN-12), Risk từ chối mọi intent tới khi có hồ sơ.
 
-## Kiểm trên máy người dùng (điền chi tiết khi tới)
+## Kiểm trên máy người dùng (Gate GĐ5)
 
-- Chỉ sau khi người dùng chọn lịch dựng lại (sau Gate GĐ1 + GĐ2 và sau khi nhánh chờ lên `develop`). Không dựng lại trong đợt đếm 5 ngày, không trong khung công bố tin.
-- Dự kiến: `cli kha-thi` (chỉ đọc) trên dữ liệu thật; trang Rủi ro hiện "Chưa có hồ sơ rủi ro — mọi lệnh bị từ chối" khi chưa nhập; sau khi nhập hồ sơ: quyết định Risk paper có lý do tiếng Việt, **không có lệnh nào xuất hiện trong MT5**.
+> Soạn 17/11. **Chưa làm bây giờ.** Chỉ làm khi bạn chọn lịch, **sau khi Gate GĐ1 + GĐ2 đã đóng** (sớm nhất sau NFP 04/12) và sau khi nhánh chờ đã lên `develop`. Không làm trong đợt đếm 5 ngày, không làm trong khung công bố tin (băng đỏ), không làm tối thứ Sáu / cuối tuần. Việc trong [`lich-kiem-tren-may.md`](lich-kiem-tren-may.md) luôn làm trước.
+>
+> **Không có lệnh thật nào.** Code GĐ5 không có đường gửi lệnh: backend không gọi hàm đặt lệnh nào, Gateway chỉ đọc MT5 (thông tin tài khoản, giá, nến, thông số mã — kiểm 17/11 bằng tìm trong mã: không có `order_send`). "Paper" = hệ thống tự giả lập lệnh trong sổ riêng bằng giá thật.
+
+**Lưu ý trước khi bắt đầu**
+
+- Lần dựng này thêm bảng mới vào cơ sở dữ liệu. **Sau khi dựng, không tự quay về bản cũ** — có lỗi thì gửi người phát triển.
+- Mở web bằng địa chỉ Tailscale (`https://…ts.net`), không dùng `localhost`.
+- Trang **Rủi ro** chỉ hiện với tài khoản **USER** (chủ tài khoản giao dịch). ADMIN không vào được (đúng thiết kế, Q6). Mỗi tài khoản giao dịch làm riêng các bước B–D.
+- Không dán mật khẩu, token, khóa API vào chat. Chỉ gửi nội dung lệnh in ra hoặc ảnh chụp màn hình.
+
+**Bước A — dựng lại (người phát triển đưa GĐ5 lên `develop` trước, bạn chỉ dựng như mọi lần)**
+
+Trong PowerShell, tại thư mục `C:\gold-trading`, gõ từng lệnh một:
+
+```powershell
+docker compose build --no-cache backend frontend
+```
+
+```powershell
+docker compose up -d
+```
+
+Chờ 2 phút. Trước khi làm tiếp, ghi lại trong MT5 (cả hai cửa sổ MT5): mở **Hộp công cụ** (`Ctrl+T`) → thẻ **Giao dịch** (Trade): số lệnh đang mở; thẻ **Lịch sử** (History): lệnh cuối cùng là lúc nào. Chụp màn hình.
+
+**Bước B — mở trang Rủi ro khi chưa nhập gì**
+
+Đăng nhập bằng USER → thanh bên chọn **Rủi ro**. Mong đợi:
+- Thẻ "Sẵn sàng chạy chiến lược paper": cả 3 việc (Hồ sơ rủi ro / Phí giao dịch / lot / Bắt đầu sổ paper) đều **"Chưa có"**.
+- Thẻ Hồ sơ rủi ro: **"Chưa có hồ sơ rủi ro — mọi lệnh bị từ chối."**
+- Thẻ Phí: **"Chưa nhập phí — mọi lệnh bị từ chối."**
+- Chụp màn hình cả trang.
+
+**Bước C — nhập hồ sơ rủi ro, phí, bắt đầu paper**
+
+1. **Hồ sơ rủi ro** → "Tạo phiên bản mới". Biểu mẫu đã điền sẵn số bạn chốt (H1–H11): rủi ro mỗi lệnh 0,25 % · R:R 1,5 · tổng rủi ro mở 0,5 % · lỗ ngày 0,75 % / tuần 1,5 % / tháng 3 % · thua liên tiếp 5 · tối đa 4 lệnh / ngày · dừng hẳn khi sụt 5 % · đòn bẩy thực tế 3 · đóng trước cuối tuần 30 phút · tin quan trọng: "Chỉ giữ lệnh đã dời cắt lỗ về hòa vốn" · thêm lệnh cùng chiều: "Chỉ khi mọi lệnh cùng chiều đang lời" · mốc ngày 17:00 New York. Kiểm lại từng ô, ghi lý do (ví dụ "Gate GĐ5"), bấm **Lưu**. Mong đợi: "Phiên bản 1 · …".
+2. **Phí giao dịch**: xem phí hoa hồng khứ hồi / 1 lot trên trang của sàn (tài khoản MetaQuotes-Demo thường không thu phí → nhập **0** — phải tự nhập 0, hệ thống không tự hiểu). Ghi lý do, bấm Lưu. Mong đợi: "Hiện tại: … USD / lot".
+3. **Sổ paper** → **Bắt đầu sổ paper** (Gateway phải đang chạy). Vốn đầu = equity MT5 lúc bấm, không gõ tay. Nếu báo "Chưa bắt đầu được" → kiểm Gateway (`Get-Process python`) rồi bấm lại sau 1 phút.
+4. Thẻ "Sẵn sàng": cả 3 việc **"Đã xong"**. Chụp màn hình.
+
+**Bước D — báo cáo khả thi (chỉ đọc)**
+
+```powershell
+docker compose exec backend python -m gold_trading.ingestion.cli kha-thi
+```
+
+Gửi **toàn bộ** nội dung in ra cho người phát triển. Mong đợi với mỗi tài khoản: equity, ATR M15 đo thật, spread, phí, rủi ro thật cho 1 lot, và kết luận **KHẢ THI** hoặc **KHÔNG KHẢ THI** (kèm số tiền thiếu) ở mức 0,25 %. Không được có chữ "CHỈ MINH HỌA" (nếu có = đang dùng nguồn giá mẫu → báo ngay). "Không đủ dữ liệu: …" → gửi nguyên văn, không tự sửa. Thẻ "Báo cáo khả thi" trên trang Rủi ro phải cùng kết luận.
+
+**Bước E — để chạy 1–2 ngày giao dịch, rồi xác nhận không có lệnh trong MT5**
+
+- Trang Rủi ro → "Hoạt động gần đây": có "Lần xét của chiến lược" (Bỏ qua / Có ý định) và có thể có "Quyết định của Risk" (Duyệt / Từ chối) kèm lý do tiếng Việt. Mã lý do hiện nguyên chữ tiếng Anh (chưa dịch) → chụp gửi.
+- Nếu có lệnh paper: thẻ "Lệnh paper đang mở" / "Mức đã dùng" thay đổi — đó là lệnh **giả lập**.
+- MT5 (cả hai cửa sổ): thẻ **Giao dịch** và **Lịch sử** giống hệt ảnh chụp ở bước A — **không có lệnh mới nào**. Có lệnh lạ → tắt backend (`docker compose stop backend`) và báo ngay.
+- Gửi ảnh chụp trang Rủi ro + hai thẻ MT5.
+
+**Kết quả cần để đóng Gate GĐ5:** bước B–E đạt; báo cáo khả thi bằng số thật (bước D); không có lệnh nào trong MT5 (bước E); Gate GĐ1 → GĐ4 đã đóng (DEC-28); bạn xác nhận.
 
 ## Nhật ký kế hoạch
 
@@ -184,9 +238,10 @@ Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấ
 - **2026-11-17** — **Bước 8 xong**: báo cáo khả thi (cùng công thức Risk, `cli kha-thi`) + API + trang Rủi ro (nhập hồ sơ, phí, bắt đầu sổ paper, nạp / rút, xác nhận sau khi dừng). Thiết kế 37. Tiếp: bước 9 (tài liệu cuối GĐ5: sổ tham số KN-08, giao thức đánh giá KN-07 — người dùng duyệt).
 - **2026-11-17** — Bước 9: nháp sổ tham số (KN-08) + giao thức đánh giá (KN-07) chờ người dùng duyệt.
 - **2026-11-17** — **Bước 9 xong**: người dùng duyệt sổ tham số + giao thức đánh giá (`protocol-1`). Còn bước 10 (Gate GĐ5) — cần kiểm trên máy người dùng.
+- **2026-11-17** — **Bước 10 (phần sandbox) xong**: bảng case đủ tên test (5-C13 làm nốt: Risk đọc lại nhịp tim MT5 dưới khóa, `BROKER_SPEC_CHANGED`); hướng dẫn kiểm trên máy (bước A–E) ở mục "Kiểm trên máy người dùng (Gate GĐ5)". Còn: kiểm trên máy khi người dùng chọn lịch (sau Gate GĐ1 + GĐ2), Gate GĐ1 → GĐ4 đóng, người dùng xác nhận.
 
 ## Prompt cho phiên mới
 
-**Bước 9 xong 17/11.** Còn bước 10 (Gate GĐ5). Khi tiếp tục, dán:
+**Bước 10 phần sandbox xong 17/11.** Còn kiểm trên máy (bước A–E) — chỉ khi người dùng chọn lịch, sau Gate GĐ1 + GĐ2. Khi tới, dán:
 
-Làm tiếp GĐ5 bước 10 (Gate GĐ5). Nhánh GĐ5: `claude/fervent-hypatia-n3uyfn` (**chưa lên develop**). Đọc CLAUDE.md, PROGRESS.md, docs/ke-hoach/GD5-ke-hoach.md (bước 10 + mục "Kiểm trên máy người dùng"). Việc: (1) rà bảng case 5-C01..C16 trong docs/giai-doan/GD5-ke-hoach-giao-dich.md — mọi case có tên test; (2) soạn hướng dẫn kiểm trên máy (tiếng Việt đơn giản, PowerShell không `\"` / `$`): dựng lại từ nhánh GĐ5 khi người dùng chọn lịch, mở trang Rủi ro, nhập hồ sơ / phí, bắt đầu paper, chạy `cli kha-thi`, xác nhận không có lệnh nào trong MT5; (3) Gate GĐ5 chỉ đóng sau khi Gate GĐ1 → GĐ4 đã đóng (DEC-28) và người dùng xác nhận. Việc kiểm trên máy GĐ1/GĐ2 (docs/ke-hoach/lich-kiem-tren-may.md) luôn ưu tiên. Không có lệnh thật. Người dùng không rành kỹ thuật: mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị; không bao giờ yêu cầu dán mật khẩu / token / khóa API.
+Làm tiếp GĐ5 bước 10 (Gate GĐ5) — kiểm trên máy. Nhánh GĐ5: `claude/fervent-hypatia-n3uyfn`. Đọc CLAUDE.md, PROGRESS.md, docs/ke-hoach/GD5-ke-hoach.md (bước 10 + mục "Kiểm trên máy người dùng (Gate GĐ5)"). Trước tiên kiểm Gate GĐ1 + GĐ2 đã đóng và nhánh chờ đã lên `develop`; rồi đưa GĐ5 lên `develop` (đánh lại số migration nếu cần, kiểm CI job `docker`), rồi hướng dẫn người dùng bước A–E, mỗi lần một bước. Gate GĐ5 chỉ đóng sau Gate GĐ1 → GĐ4 (DEC-28) + người dùng xác nhận. Không có lệnh thật. Người dùng không rành kỹ thuật: mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị; không bao giờ yêu cầu dán mật khẩu / token / khóa API.
