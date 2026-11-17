@@ -52,7 +52,7 @@ REQUIRED_SPEC = ("contract_size", "point", "volume_min", "volume_max", "volume_s
 
 
 # Phiên bản chính sách kỹ thuật của Risk ghi vào mỗi quyết định (đổi luật / hằng số → tăng).
-RISK_POLICY_VERSION = "risk-policy-gd5-1"
+RISK_POLICY_VERSION = "risk-policy-gd5-2"
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,13 @@ class RiskPolicy:
 
     version: str
     decision_ttl: timedelta = timedelta(seconds=30)
-    blocking_flags: frozenset[str] = frozenset({"NEWS_SHOCK", "EVENT_WINDOW"})
+    # RSK-07 (17/11): cờ rủi ro của MarketView mà Risk TỰ chặn, không phụ thuộc chiến lược —
+    # các cờ làm việc vào lệnh không an toàn (tin, spread giãn, biến động cao, thanh khoản lễ).
+    # Cờ mang tính nhận định (RISK_OFF_REGIME, MACRO_STRESS, CROWDING_RISK, EVENT_SOON) do
+    # chiến lược quyết (thiết kế 36 P2). Thiết kế 35 mục 3.
+    blocking_flags: frozenset[str] = frozenset({
+        "NEWS_SHOCK", "EVENT_WINDOW", "WIDE_SPREAD", "HIGH_VOLATILITY",
+        "HIGH_VOLATILITY_REGIME", "LOW_LIQUIDITY_HOLIDAY"})
     # GĐ4 bước 5c (DEC-25, 4-C06): cờ chất lượng MarketView chặn theo chế độ. Dữ liệu mẫu và luật
     # chưa kiểm chứng (backtest GĐ6 + người dùng duyệt) KHÔNG được dẫn tới lệnh SHADOW / LIVE.
     # Gỡ UNVALIDATED_RULES = quyết định mới của người dùng (ghi file giai đoạn + đổi version).

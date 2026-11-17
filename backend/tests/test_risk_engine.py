@@ -307,6 +307,37 @@ def test_rejects_blocking_risk_flags_and_expired_intent(t0):
     assert "RISK_FLAGS:NEWS_SHOCK" in d.reason_codes and "INTENT_EXPIRED" in d.reason_codes
 
 
+@pytest.mark.parametrize("flag", ["WIDE_SPREAD", "HIGH_VOLATILITY", "HIGH_VOLATILITY_REGIME",
+                                  "LOW_LIQUIDITY_HOLIDAY", "EVENT_WINDOW", "NEWS_SHOCK"])
+def test_execution_risk_flags_rejected_by_risk_itself(t0, flag):          # RSK-07
+    # Risk tự chặn, không dựa vào chiến lược đã lọc cờ (intent có thể đến từ chiến lược khác)
+    w = World(t0)
+    w.views = InMemoryMarketViewStore()
+    w.views.append(market_view(t0 - minutes(1), risk_flags=frozenset({flag})),
+                   report_id="r", computed_at=t0 - minutes(1))
+    object.__setattr__(w.gates, "market_views", w.views)
+    d = w.evaluate()
+    assert d.outcome is RiskOutcome.REJECTED and f"RISK_FLAGS:{flag}" in d.reason_codes
+    assert w.engine.ledger.reserved_total() == 0
+
+
+@pytest.mark.parametrize("flag", ["RISK_OFF_REGIME", "MACRO_STRESS", "CROWDING_RISK",
+                                  "EVENT_SOON"])
+def test_view_flags_left_to_strategy(t0, flag):                         # RSK-07
+    # Cờ mang tính nhận định: chiến lược v1 đã chặn (P2); Risk không tự chặn
+    w = World(t0)
+    w.views = InMemoryMarketViewStore()
+    w.views.append(market_view(t0 - minutes(1), risk_flags=frozenset({flag})),
+                   report_id="r", computed_at=t0 - minutes(1))
+    object.__setattr__(w.gates, "market_views", w.views)
+    assert w.evaluate().outcome is RiskOutcome.APPROVED
+
+
+def test_strategy_blocks_superset_of_risk_flags():                       # RSK-07
+    from gold_trading.strategy.trend_m15 import Params
+    assert RiskPolicy(version="r").blocking_flags <= Params().blocked_flags
+
+
 def test_symbol_mismatch_rejected(t0):
     w = World(t0)
     d = w.evaluate(intent(t0 - minutes(0.5), symbol="XAGUSD"))

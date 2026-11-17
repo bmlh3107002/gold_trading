@@ -239,6 +239,7 @@ Gửi **toàn bộ** nội dung in ra cho người phát triển. Mong đợi v�
 - **2026-11-17** — Bước 9: nháp sổ tham số (KN-08) + giao thức đánh giá (KN-07) chờ người dùng duyệt.
 - **2026-11-17** — **Bước 9 xong**: người dùng duyệt sổ tham số + giao thức đánh giá (`protocol-1`). Còn bước 10 (Gate GĐ5) — cần kiểm trên máy người dùng.
 - **2026-11-17** — **Bước 10 (phần sandbox) xong**: bảng case đủ tên test (5-C13 làm nốt: Risk đọc lại nhịp tim MT5 dưới khóa, `BROKER_SPEC_CHANGED`); hướng dẫn kiểm trên máy (bước A–E) ở mục "Kiểm trên máy người dùng (Gate GĐ5)". Còn: kiểm trên máy khi người dùng chọn lịch (sau Gate GĐ1 + GĐ2), Gate GĐ1 → GĐ4 đóng, người dùng xác nhận.
+- **2026-11-17** — Rà thêm **bảng việc** GĐ5 (lần trước chỉ rà bảng case): RSK-07 còn `[ ]` → làm ngay (Risk tự chặn cờ spread giãn / biến động cao / thanh khoản lễ, `risk-policy-gd5-2`); RSK-05, DEC-09 sửa trạng thái (đã xong 16/11). Không còn mục GĐ5 nào chưa xong ngoài kiểm trên máy + Gate.
 
 ## Prompt cho phiên mới
 

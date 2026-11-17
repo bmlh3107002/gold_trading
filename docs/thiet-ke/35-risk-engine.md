@@ -23,7 +23,7 @@
 | A2 | Chế độ của tài khoản (không do bên gọi khai) + cờ chất lượng MarketView theo chế độ (DEC-25) | `AccountRegistry` (ModeManager) | `MODE_UNKNOWN`, `QUALITY_FLAGS_<chế độ>:…` |
 | A3 | Intent còn hạn | intent | `INTENT_EXPIRED` |
 | A4 | MarketView **hiện hành** của đúng nguồn giá của tài khoản; id khớp intent; mã khớp | `MarketViewStore.current(phạm vi của tài khoản, now)` | `NO_PRICE_FEED`, `NO_MARKET_VIEW` (không có / hết hạn / bị vô hiệu), `MARKET_VIEW_MISMATCH`, `SYMBOL_MISMATCH` |
-| A5 | Cờ rủi ro của MarketView | MarketView hiện hành | `RISK_FLAGS:…` |
+| A5 | Cờ rủi ro của MarketView (RSK-07, 17/11): Risk **tự** chặn `NEWS_SHOCK`, `EVENT_WINDOW`, `WIDE_SPREAD`, `HIGH_VOLATILITY`, `HIGH_VOLATILITY_REGIME`, `LOW_LIQUIDITY_HOLIDAY` — các cờ làm việc vào lệnh không an toàn, không phụ thuộc chiến lược đã lọc. Cờ mang tính nhận định (`RISK_OFF_REGIME`, `MACRO_STRESS`, `CROWDING_RISK`, `EVENT_SOON`) để chiến lược quyết (thiết kế 36 P2 đã chặn cả). Test giữ: cờ Risk chặn ⊆ cờ chiến lược v1 chặn. Phiên bản chính sách `risk-policy-gd5-2` | MarketView hiện hành | `RISK_FLAGS:…` |
 | A6 | Sức khỏe nguồn lịch (Q1) | nhật ký kiểm nguồn (ING-30) | `CALENDAR_SOURCE_UNHEALTHY:<nguồn>`, `CALENDAR_HEALTH_UNKNOWN` |
 | A7 | Nhịp tim Gateway + equity (2b) | `GatewayMonitors` | `EQUITY_STALE`, `NO_EQUITY` |
 | A8 | Thông số broker tại lúc quyết (2a) | `spec_at` (KN-05) + nhịp tim hiện tại | `BROKER_SPEC_MISSING:<trường>`, `BROKER_SPEC_STALE`, `CURRENCY_UNSUPPORTED` |
