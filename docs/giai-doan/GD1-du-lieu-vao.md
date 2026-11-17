@@ -154,7 +154,7 @@ Mô hình yêu cầu: **Giá MT5** (OHLC, tick) · **Tin tức** (báo, RSS, Fed
 | Mã | Việc | TT | Vị trí / ghi chú |
 | --- | --- | --- | --- |
 | ING-12 | COT vàng (dữ liệu chốt thứ Ba, công bố thứ Sáu) | `[x]` | `available_at` = thời điểm công bố. 2026-11-13 (9e): `ingestion/sources/cftc_cot.py` — báo cáo legacy COMEX khối GOLD 088691, giờ công bố 15:30 ET theo lịch chính thức 2026 (ngoài lịch → không đoán), kiểm đẳng thức cộng của CFTC (`docs/thiet-ke/20-cot-vang.md`); điều khoản CFTC `VERIFIED` đọc từ máy người dùng |
-| ING-28 | Lượng vàng nắm giữ của ETF vàng lớn | `[ ]` (hoãn) | DEC-05: GLD, IAU. **Người dùng hoãn 2026-11-13 (9f):** điều khoản website GLD cấm tự tải + cấm dùng kiếm tiền khi chưa có phép bằng văn bản; IAU: trang điều khoản trên `blackrock.com` chưa đọc được, trích đoạn có câu cấm lấy dữ liệu → cả hai `BLOCKED`. ETF chỉ là đầu vào phụ của POSN-01 (GĐ3); thiếu ETF → bộ Vị thế chạy bằng COT, ghi "thiếu dữ liệu ETF" + hạ độ tin cậy. Xem lại ở Gate (xin phép bằng văn bản nếu cần) |
+| ING-28 | Lượng vàng nắm giữ của ETF vàng lớn | `[-]` (bỏ — người dùng chốt 17/11) | DEC-05: GLD, IAU. **Người dùng hoãn 2026-11-13 (9f):** điều khoản website GLD cấm tự tải + cấm dùng kiếm tiền khi chưa có phép bằng văn bản; IAU: trang điều khoản trên `blackrock.com` chưa đọc được, trích đoạn có câu cấm lấy dữ liệu → cả hai `BLOCKED`. ETF chỉ là đầu vào phụ của POSN-01 (GĐ3); thiếu ETF → bộ Vị thế chạy bằng COT, ghi "thiếu dữ liệu ETF" + hạ độ tin cậy. Xem lại ở Gate (xin phép bằng văn bản nếu cần) |
 | ING-29 | NHTW mua vàng | `[ ]` (hoãn) | Người dùng hoãn 2026-11-07 (DEC-05): dữ liệu trễ hàng tháng/quý |
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
