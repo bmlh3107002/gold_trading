@@ -1,8 +1,8 @@
 # Lưu trữ nhánh cũ (dọn 2026-11-17)
 
-Người dùng chọn dọn nhánh 17/11. Ghi lại commit cuối của từng nhánh trước khi xóa — cần lại thì tạo nhánh từ mã commit (GitHub MCP `create_branch` với `from_branch` = SHA, hoặc `git push origin <sha>:refs/heads/<tên>`).
+Người dùng dọn nhánh 17/11 (xóa trên trang GitHub — sandbox không có quyền xóa nhánh / tạo thẻ). Ghi lại commit cuối của từng nhánh trước khi xóa — cần lại thì tạo nhánh từ mã commit (GitHub MCP `create_branch` với `from_branch` = SHA, hoặc `git push origin <sha>:refs/heads/<tên>`).
 
-**Nhóm 1 — phiên bản cũ 6–13/11**, không chung gốc với `develop` (lịch sử `develop` từng làm lại). Đã kiểm 17/11: không có file nào `develop` thiếu ngoài `backend/tests/test_members.py`; 55 hàm / lớp chỉ có ở đây đều thuộc mô hình phân quyền cũ (thành viên, OWNER / VIEWER / OPERATOR — bỏ theo DEC-16) và bản Fusion thử cũ (viết lại ở GĐ4).
+**Nhóm 1 — nhánh cũ 6–13/11.** Đã xóa 17/11. **Mọi commit cuối dưới đây đều nằm trong lịch sử `develop`** (kiểm 17/11 bằng `git merge-base --is-ancestor` trên bản sao đủ lịch sử; GitHub cũng báo "Ahead 0" cho mọi nhánh) → xóa không mất code. (Lần kiểm đầu báo "không chung gốc" là sai — bản sao trong sandbox chỉ có 50 commit gần nhất.)
 
 | Nhánh | Commit cuối | Ngày | Nội dung commit cuối |
 | --- | --- | --- | --- |
@@ -23,7 +23,7 @@ Người dùng chọn dọn nhánh 17/11. Ghi lại commit cuối của từng n
 | `claude/youthful-tesla-21q2ri` | `32e3d7f13139f5f5afca08b5fd349bff81841cfc` | 2026-11-13 | PROGRESS: rút gọn, ghi phiên mới bắt đầu từ 9f |
 | `claude/zealous-hamilton-5crveb` | `94622e84478cf3addc0eb025cf15209091654c88` | 2026-11-11 | MT-05 (đọc): mỗi tài khoản xem giá + analyst theo nguồn giá của mình (GĐ1  |
 
-**Nhóm 2 — đã gộp hết vào `develop`** (commit cuối nằm trong lịch sử `develop`, xóa không mất gì):
+**Nhóm 2 — đã gộp hết vào `develop`**, đã xóa 17/11:
 
 - `claude/affectionate-einstein-8ypy59` — `01056f3`
 - `claude/awesome-maxwell-g5y0zs` — `1a5e974`
@@ -35,4 +35,4 @@ Người dùng chọn dọn nhánh 17/11. Ghi lại commit cuối của từng n
 
 **Nhóm 3 — `main`** (người dùng chọn 17/11: chỉ giữ `develop`): `main` — `8e4aae838adc79e343d0fad4aafdfb52ef11f12c` (05/11, "gold_trading init project": tài liệu đặc tả ban đầu — đã có trong `develop` — + 2 file `.DS_Store`). Nhánh mặc định của kho là `develop`.
 
-Giữ: `develop`.
+Còn lại trên GitHub (kiểm 17/11): **chỉ `develop`** (cả `claude/wizardly-franklin-8zeol8` cũng đã xóa). Cần lại nhánh nào: tạo từ mã commit ở trên.
