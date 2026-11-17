@@ -182,6 +182,7 @@ Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấ
 - **2026-11-17** — Bước 7: nháp văn bản chiến lược v1 (`docs/thiet-ke/36-chien-luoc-v1.md`) chờ người dùng duyệt; chưa code. Chi tiết: nhật ký GĐ5.
 - **2026-11-17** — **Bước 7 xong**: chiến lược v1 (người dùng duyệt cả bản STR-06), lõi luật + quản lý lệnh (hòa vốn, đóng 16:45 NY) + nối MarketView → chiến lược → Risk → sổ cái paper mỗi nhịp orchestrator (migration 0027 nhật ký chiến lược). Chỉ PAPER, không có đường tới Gateway. Chi tiết: nhật ký GĐ5. Tiếp: bước 8 (báo cáo khả thi + trang Rủi ro: nhập hồ sơ, phí / lot, bắt đầu paper).
 - **2026-11-17** — **Bước 8 xong**: báo cáo khả thi (cùng công thức Risk, `cli kha-thi`) + API + trang Rủi ro (nhập hồ sơ, phí, bắt đầu sổ paper, nạp / rút, xác nhận sau khi dừng). Thiết kế 37. Tiếp: bước 9 (tài liệu cuối GĐ5: sổ tham số KN-08, giao thức đánh giá KN-07 — người dùng duyệt).
+- **2026-11-17** — Bước 9: nháp sổ tham số (KN-08) + giao thức đánh giá (KN-07) chờ người dùng duyệt.
 
 ## Prompt cho phiên mới
 
