@@ -33,4 +33,6 @@ Người dùng chọn dọn nhánh 17/11. Ghi lại commit cuối của từng n
 - `claude/sleepy-clarke-pca9oo` — `7185482`
 - `claude/vigilant-hopper-f4wuqk` — `97de1da`
 
-Giữ: `develop`, `main`.
+**Nhóm 3 — `main`** (người dùng chọn 17/11: chỉ giữ `develop`): `main` — `8e4aae838adc79e343d0fad4aafdfb52ef11f12c` (05/11, "gold_trading init project": tài liệu đặc tả ban đầu — đã có trong `develop` — + 2 file `.DS_Store`). Nhánh mặc định của kho là `develop`.
+
+Giữ: `develop`.
