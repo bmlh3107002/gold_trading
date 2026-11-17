@@ -1,5 +1,7 @@
 # GĐ6 — Backtest (đặc tả 12)
 
+> **DEC-29 (người dùng 2026-11-17): mở GĐ6 song song** ("đang chạy gấp"; đồng ý sửa code cũ nếu cần). Điều kiện như DEC-28: (1) viết kế hoạch `docs/ke-hoach/GD6-ke-hoach.md` ở phiên chat mới, **người dùng duyệt rồi mới code**; (2) code trên **nhánh riêng tách từ `develop`**, chưa gộp vào `develop` tới sau Gate GĐ1 + GĐ2 (sửa code cũ không được làm đổi bản đang kiểm Gate / replay sau NFP); (3) **không đóng GĐ6 trước GĐ5**; việc kiểm trên máy GĐ1/GĐ2 luôn ưu tiên; (4) việc đầu tiên: kiểm trên máy người dùng MT5 tải được bao nhiêu năm nến M15 XAUUSD (giao thức `protocol-1` cần ≥ 2 năm) — **chỉ xuất file, không nạp vào DB đang chạy** trong đợt đếm 5 ngày.
+
 > Một phần của bản đồ việc theo giai đoạn (tách từ `CHECKLIST.md` 2026-11-06). Chỉ mục, nguyên tắc và bất biến: [`README.md`](README.md). Trạng thái chung: `PROGRESS.md`. Ghi chú kỹ thuật: `docs/ghi-chu-ky-thuat.md`.
 
 
