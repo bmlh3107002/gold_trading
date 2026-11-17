@@ -120,6 +120,8 @@ def main(argv: list[str] | None = None) -> int:
     tin.add_argument("--hours", type=int, default=72, help="In tin mới trong N giờ (mặc định 72)")
     kmv = sub.add_parser("kiem-mv", help="Kiểm MarketView: tái dựng + độ phủ (Gate GĐ4, chỉ đọc)")
     kmv.add_argument("--hours", type=int, default=24, help="Số giờ gần nhất (mặc định 24, ≤ 168)")
+    kt = sub.add_parser("kha-thi", help="Báo cáo khả thi chiến lược v1, số thật (RPF-03, chỉ đọc)")
+    kt.add_argument("--account", default=None, help="Mã tài khoản (mặc định: mọi tài khoản)")
     sub.add_parser("dung-luong", help="Dung lượng từng bảng + ước tính 1 năm (ING-33, chỉ đọc)")
     sub.add_parser("spread-phut", help="Spread theo phút đã giữ lâu dài (ING-35, chỉ đọc)")
     lich = sub.add_parser("lich", help="In bảng lịch kinh tế hợp nhất đã lưu (chỉ đọc)")
@@ -131,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
         return _h15(args.dry_run)
     if args.cmd == "nguong":
         return _nguong(args.days)
+    if args.cmd == "kha-thi":
+        return _kha_thi(args.account)
     if args.cmd == "kiem-mv":
         return _kiem_mv(args.hours)
     if args.cmd == "h15-bu":
@@ -551,6 +555,67 @@ def _nguong(days: int, env=None, repo=None, candle_store=None, record_store=None
         rep = QR.analyze(rows, windows, since=now - timedelta(days=days))
         print("\n".join(QR.render(rep, f"{srv} / {sym}")))
     print("Gửi toàn bộ nội dung này cho người phát triển để quyết có đổi ngưỡng hay không.")
+    return 0
+
+
+EQUITY_ROW_MAX_AGE = timedelta(hours=2)   # bản equity theo giờ cũ hơn → coi như chưa có
+
+
+def _kha_thi(account: str | None, env=None, repo=None, now=None) -> int:
+    """GĐ5 bước 8a (RPF-02..04): báo cáo khả thi từ số **thật** trong DB. Chỉ đọc.
+
+    Tiến trình riêng không thấy nhịp tim (bộ nhớ của backend) → equity lấy bản ghi theo giờ mới
+    nhất của Gateway (KN-05), ≤ 2 giờ; cũ hơn → thiếu (không đoán)."""
+    from decimal import Decimal
+
+    from gold_trading.accounts.mt5_link import account_feed, held_link
+    from gold_trading.analysts.framework import Scope
+    from gold_trading.risk.feasibility import compute, gather, render
+    from gold_trading.risk.ledger import SqlLedger
+    from gold_trading.storage.analyst_outputs import SqlAnalystOutputStore
+    from gold_trading.storage.broker_history import SqlBrokerHistoryStore
+    from gold_trading.storage.commissions import SqlCommissionStore
+    from gold_trading.storage.quotes import SqlQuoteMinuteStore, SqlQuoteStore
+    from gold_trading.storage.risk_profiles import SqlRiskProfileStore
+
+    env = os.environ if env is None else env
+    if repo is None:
+        url = env.get("DATABASE_URL")
+        if not url:
+            print("Thiếu DATABASE_URL", file=sys.stderr)
+            return 2
+        repo = SqlRepository.from_url(url)
+    eng = repo.engine
+    now = now or utcnow()
+    hist, outs = SqlBrokerHistoryStore(eng), SqlAnalystOutputStore(eng)
+    quotes, minutes = SqlQuoteStore(eng), SqlQuoteMinuteStore(eng)
+    comm, profs, led = SqlCommissionStore(eng), SqlRiskProfileStore(eng), SqlLedger(eng)
+    ids = [account] if account else [a.account_id for a in repo.accounts()]
+    for acc in ids:
+        print(f"=== Tài khoản {acc} ===")
+        feed = account_feed(repo, acc)
+        link = held_link(repo, acc)
+        if not feed or link is None or link.broker_symbol is None:
+            print("Chưa có nguồn giá MT5 đã liên kết → không tính được (cần Gateway + liên kết)")
+            continue
+        row = hist.spec_at(acc, link.broker_symbol, now)
+        eqs = [r for r in hist.equity_rows(acc)
+               if r.get("equity") is not None and r["observed_at"] <= now]
+        last = max(eqs, key=lambda r: r["observed_at"]) if eqs else None
+        fresh = last is not None and now - last["observed_at"] <= EQUITY_ROW_MAX_AGE
+        inp = gather(
+            now=now, is_sample=False,
+            equity=Decimal(str(last["equity"])) if fresh else None,
+            equity_note=(f"bản ghi theo giờ của Gateway lúc {last['observed_at']:%H:%M} UTC"
+                         if fresh else ""),
+            spec=dict(row.spec) if row is not None else None,
+            technical=outs.latest_scoped("technical", Scope.of_feed("XAUUSD", "M15", "MT5", feed),
+                                         known_by=now),
+            quote=quotes.latest(feed, now),
+            minute_rows=minutes.query(feed, now - timedelta(days=30), now, as_of=now),
+            commission=comm.at(acc, now), profile=profs.at(acc, now),
+            paper_state=led.equity_state(acc, now))
+        print("\n".join(render(compute(inp))))
     return 0
 
 

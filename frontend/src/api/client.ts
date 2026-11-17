@@ -38,6 +38,9 @@ export type DataSourcesResponse = components["schemas"]["DataSourcesResponse"];
 export type DataSource = components["schemas"]["DataSourceOut"];
 export type PipelineResponse = components["schemas"]["PipelineResponse"];
 export type PipelineJob = components["schemas"]["JobOut"];
+export type RiskOverview = components["schemas"]["RiskOverview"];
+export type FeasibilityReport = components["schemas"]["FeasibilityReport"];
+export type ProfileValues = components["schemas"]["ProfileValuesIO-Input"];
 
 export type ApiErrorKind = "network" | "conflict" | "validation" | "server" | "unauthorized" | "forbidden";
 
@@ -147,6 +150,19 @@ export const api = {
     request<Mt5LinkState>(`${acc(id)}/mt5-link/reverify`, post(body)),
   revokeMt5Link: (id: string, linkId: string) =>
     request<Mt5LinkState>(`${acc(id)}/mt5-link/revoke`, post({ link_id: linkId })),
+  // --- GĐ5 bước 8 (DSH-05): trang Rủi ro — chỉ chủ tài khoản; backend kiểm hợp lệ cứng ---
+  riskOverview: (id: string) => request<RiskOverview>(`${acc(id)}/risk/overview`),
+  feasibility: (id: string) => request<FeasibilityReport>(`${acc(id)}/risk/feasibility`),
+  createProfile: (id: string, values: ProfileValues, reason: string) =>
+    request<unknown>(`${acc(id)}/risk/profile`, post({ values, reason })),
+  setCommission: (id: string, perLot: string, reason: string) =>
+    request<unknown>(`${acc(id)}/risk/commission`, post({ per_lot: perLot, reason })),
+  startPaper: (id: string, reason: string) =>
+    request<RiskOverview>(`${acc(id)}/risk/paper/start`, post({ reason })),
+  paperCash: (id: string, kind: "CASH_IN" | "CASH_OUT", amount: string, reason: string) =>
+    request<RiskOverview>(`${acc(id)}/risk/paper/cash`, post({ kind, amount, reason })),
+  drawdownReset: (id: string, reason: string) =>
+    request<RiskOverview>(`${acc(id)}/risk/paper/drawdown-reset`, post({ confirm: true, reason })),
   // --- Quản trị (DEC-16, DEC-17): chỉ ADMIN; backend kiểm lại ---
   users: () => request<UserAdmin[]>("/api/admin/users"),
   createUser: (body: UserCreate) => request<UserCreated>("/api/admin/users", post(body)),

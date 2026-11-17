@@ -2015,6 +2015,350 @@
         }
       }
     },
+    "/api/accounts/{account_id}/risk/overview": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Overview",
+        "operationId": "overview_api_accounts__account_id__risk_overview_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/risk/feasibility": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Feasibility",
+        "operationId": "feasibility_api_accounts__account_id__risk_feasibility_get",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeasibilityReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/risk/profile": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "New Profile",
+        "operationId": "new_profile_api_accounts__account_id__risk_profile_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/risk/commission": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "New Commission",
+        "operationId": "new_commission_api_accounts__account_id__risk_commission_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/risk/paper/start": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Paper Start",
+        "operationId": "paper_start_api_accounts__account_id__risk_paper_start_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperStartIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/risk/paper/cash": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Paper Cash",
+        "operationId": "paper_cash_api_accounts__account_id__risk_paper_cash_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CashIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/{account_id}/risk/paper/drawdown-reset": {
+      "post": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Drawdown Reset",
+        "operationId": "drawdown_reset_api_accounts__account_id__risk_paper_drawdown_reset_post",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrawdownResetIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -2929,6 +3273,45 @@
         ],
         "title": "CandlesResponse"
       },
+      "CashIn": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CASH_IN",
+              "CASH_OUT"
+            ],
+            "title": "Kind"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Lý do (bắt buộc, ghi audit)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "amount",
+          "reason"
+        ],
+        "title": "CashIn"
+      },
       "ClockOut": {
         "properties": {
           "state": {
@@ -2979,6 +3362,70 @@
           "measured_at"
         ],
         "title": "ClockOut"
+      },
+      "CommissionIn": {
+        "properties": {
+          "per_lot": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Per Lot",
+            "description": "Phí khứ hồi / lot, USD (≥ 0; nhập 0 nếu sàn không thu)"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Lý do (bắt buộc, ghi audit)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "per_lot",
+          "reason"
+        ],
+        "title": "CommissionIn"
+      },
+      "CommissionOut": {
+        "properties": {
+          "per_lot": {
+            "type": "string",
+            "title": "Per Lot"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "per_lot",
+          "currency",
+          "created_at",
+          "created_by",
+          "reason"
+        ],
+        "title": "CommissionOut"
       },
       "DataQuality": {
         "properties": {
@@ -3276,6 +3723,48 @@
         ],
         "title": "DataSourcesResponse"
       },
+      "DecisionOut": {
+        "properties": {
+          "risk_decision_id": {
+            "type": "string",
+            "title": "Risk Decision Id"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Decided At"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "reason_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reason Codes"
+          },
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "risk_amount": {
+            "type": "string",
+            "title": "Risk Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "risk_decision_id",
+          "decided_at",
+          "outcome",
+          "reason_codes",
+          "volume",
+          "risk_amount"
+        ],
+        "title": "DecisionOut"
+      },
       "DeleteResult": {
         "properties": {
           "sub": {
@@ -3351,6 +3840,30 @@
           "warn"
         ],
         "title": "DiskOut"
+      },
+      "DrawdownResetIn": {
+        "properties": {
+          "confirm": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirm",
+            "description": "Phải là true: xác nhận rõ đã xem lại (H6)"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Lý do (bắt buộc, ghi audit)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirm",
+          "reason"
+        ],
+        "title": "DrawdownResetIn"
       },
       "EntryBlockOut": {
         "properties": {
@@ -3444,6 +3957,62 @@
         "title": "EntryBlockWindowOut",
         "description": "Cửa sổ chặn đã gộp (2-C08): các lệnh cấm chồng / nối nhau → một cửa sổ liền."
       },
+      "EvaluationOut": {
+        "properties": {
+          "evaluated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Evaluated At"
+          },
+          "market_view_id": {
+            "type": "string",
+            "title": "Market View Id"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "risk_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Outcome"
+          },
+          "fill_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fill Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "evaluated_at",
+          "market_view_id",
+          "outcome",
+          "reasons",
+          "risk_outcome",
+          "fill_code"
+        ],
+        "title": "EvaluationOut"
+      },
       "EventLatest": {
         "properties": {
           "output": {
@@ -3494,6 +4063,250 @@
         ],
         "title": "EventLatest",
         "description": "GĐ3 bước 2 (ANA-02): kết quả analyst Lịch sự kiện — chung cho mọi tài khoản."
+      },
+      "FeasibilityReport": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "KHONG_DU_DU_LIEU",
+              "CHI_MINH_HOA"
+            ],
+            "title": "Status"
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "'CHỈ MINH HỌA — dữ liệu mẫu' khi SAMPLE"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing",
+            "default": []
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "equity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equity"
+          },
+          "equity_note": {
+            "type": "string",
+            "title": "Equity Note",
+            "default": ""
+          },
+          "atr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr"
+          },
+          "atr_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr As Of"
+          },
+          "sl_distance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sl Distance"
+          },
+          "tp_distance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tp Distance"
+          },
+          "spread": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread"
+          },
+          "spread_note": {
+            "type": "string",
+            "title": "Spread Note",
+            "default": ""
+          },
+          "slippage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slippage"
+          },
+          "commission_per_lot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commission Per Lot"
+          },
+          "swap_per_lot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Per Lot"
+          },
+          "risk_per_lot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Per Lot"
+          },
+          "min_lot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Lot"
+          },
+          "min_lot_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Lot Risk",
+            "description": "Rủi ro của lot nhỏ nhất"
+          },
+          "min_lot_risk_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Lot Risk Pct",
+            "description": "… theo % vốn"
+          },
+          "reward_risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reward Risk",
+            "description": "R:R sau chi phí với TP = 2 × SL"
+          },
+          "max_hold": {
+            "type": "string",
+            "title": "Max Hold",
+            "description": "Giữ lệnh tối đa (đóng 16:45 New York)",
+            "default": ""
+          },
+          "levels": {
+            "items": {
+              "$ref": "#/components/schemas/Level"
+            },
+            "type": "array",
+            "title": "Levels",
+            "default": []
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "is_sample",
+          "as_of"
+        ],
+        "title": "FeasibilityReport"
       },
       "Freshness": {
         "type": "string",
@@ -4339,6 +5152,64 @@
           "ok"
         ],
         "title": "LaneOut"
+      },
+      "Level": {
+        "properties": {
+          "risk_fraction": {
+            "type": "string",
+            "title": "Risk Fraction",
+            "description": "Mức rủi ro / lệnh (0,0025 = 0,25 %)"
+          },
+          "risk_money": {
+            "type": "string",
+            "title": "Risk Money"
+          },
+          "lots": {
+            "type": "string",
+            "title": "Lots",
+            "description": "Lot làm tròn xuống; 0 khi không đủ lot tối thiểu"
+          },
+          "risk_amount": {
+            "type": "string",
+            "title": "Risk Amount"
+          },
+          "min_equity": {
+            "type": "string",
+            "title": "Min Equity",
+            "description": "Vốn tối thiểu để lot nhỏ nhất nằm trong mức này"
+          },
+          "shortfall": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortfall",
+            "description": "Tiền còn thiếu (không khả thi)"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "KHA_THI",
+              "KHONG_KHA_THI",
+              "CHI_MINH_HOA"
+            ],
+            "title": "Verdict"
+          }
+        },
+        "type": "object",
+        "required": [
+          "risk_fraction",
+          "risk_money",
+          "lots",
+          "risk_amount",
+          "min_equity",
+          "verdict"
+        ],
+        "title": "Level"
       },
       "LiveQuote": {
         "properties": {
@@ -5362,6 +6233,116 @@
         "title": "OpsHealth",
         "description": "Tình trạng vận hành hiển thị trên Dashboard (đồng hồ, ổ đĩa, sao lưu)."
       },
+      "PaperOut": {
+        "properties": {
+          "started": {
+            "type": "boolean",
+            "title": "Started"
+          },
+          "capital": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capital"
+          },
+          "realized_equity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Realized Equity",
+            "description": "vốn + nạp − rút + PnL đã đóng"
+          },
+          "unrealized": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unrealized",
+            "description": "PnL đang chạy (null: không có giá mới)"
+          },
+          "peak": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak"
+          },
+          "drawdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drawdown",
+            "description": "Mức sụt từ đỉnh (0,05 = 5 %)"
+          },
+          "halted": {
+            "type": "boolean",
+            "title": "Halted",
+            "description": "Sụt ≥ ngưỡng H6 → cần xác nhận rõ",
+            "default": false
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/PositionOut"
+            },
+            "type": "array",
+            "title": "Positions",
+            "default": []
+          },
+          "reservations": {
+            "items": {
+              "$ref": "#/components/schemas/ReservationOut"
+            },
+            "type": "array",
+            "title": "Reservations",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "started"
+        ],
+        "title": "PaperOut"
+      },
+      "PaperStartIn": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Lý do (bắt buộc, ghi audit)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "PaperStartIn"
+      },
       "PasswordReset": {
         "properties": {
           "sub": {
@@ -5479,6 +6460,376 @@
           "last_latency_ms"
         ],
         "title": "PipelineResponse"
+      },
+      "PositionOut": {
+        "properties": {
+          "position_id": {
+            "type": "string",
+            "title": "Position Id"
+          },
+          "side": {
+            "$ref": "#/components/schemas/Side"
+          },
+          "volume": {
+            "type": "string",
+            "title": "Volume"
+          },
+          "entry_price": {
+            "type": "string",
+            "title": "Entry Price"
+          },
+          "stop_loss": {
+            "type": "string",
+            "title": "Stop Loss"
+          },
+          "take_profit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Profit"
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Opened At"
+          },
+          "strategy_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position_id",
+          "side",
+          "volume",
+          "entry_price",
+          "stop_loss",
+          "take_profit",
+          "opened_at",
+          "strategy_id"
+        ],
+        "title": "PositionOut"
+      },
+      "ProfileIn": {
+        "properties": {
+          "values": {
+            "$ref": "#/components/schemas/ProfileValuesIO-Input"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Reason",
+            "description": "Lý do (bắt buộc, ghi audit)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "values",
+          "reason"
+        ],
+        "title": "ProfileIn"
+      },
+      "ProfileOut": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "values": {
+            "$ref": "#/components/schemas/ProfileValuesIO-Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "created_at",
+          "created_by",
+          "reason",
+          "values"
+        ],
+        "title": "ProfileOut"
+      },
+      "ProfileValuesIO-Input": {
+        "properties": {
+          "risk_per_trade": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Risk Per Trade"
+          },
+          "min_reward_risk": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Min Reward Risk"
+          },
+          "max_open_risk": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Max Open Risk"
+          },
+          "max_daily_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Max Daily Loss"
+          },
+          "max_weekly_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Max Weekly Loss"
+          },
+          "max_monthly_loss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Max Monthly Loss"
+          },
+          "max_consecutive_losses": {
+            "type": "integer",
+            "title": "Max Consecutive Losses"
+          },
+          "day_reset_tz": {
+            "type": "string",
+            "title": "Day Reset Tz"
+          },
+          "day_reset_time": {
+            "type": "string",
+            "title": "Day Reset Time"
+          },
+          "max_trades_per_day": {
+            "type": "integer",
+            "title": "Max Trades Per Day"
+          },
+          "max_drawdown_halt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Max Drawdown Halt"
+          },
+          "news_hold_policy": {
+            "type": "string",
+            "title": "News Hold Policy"
+          },
+          "weekend_policy": {
+            "type": "string",
+            "title": "Weekend Policy"
+          },
+          "weekend_close_before_min": {
+            "type": "integer",
+            "title": "Weekend Close Before Min"
+          },
+          "max_effective_leverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Max Effective Leverage"
+          },
+          "cash_flow_policy": {
+            "type": "string",
+            "title": "Cash Flow Policy"
+          },
+          "pyramiding_policy": {
+            "type": "string",
+            "title": "Pyramiding Policy"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "risk_per_trade",
+          "min_reward_risk",
+          "max_open_risk",
+          "max_daily_loss",
+          "max_weekly_loss",
+          "max_monthly_loss",
+          "max_consecutive_losses",
+          "day_reset_tz",
+          "day_reset_time",
+          "max_trades_per_day",
+          "max_drawdown_halt",
+          "news_hold_policy",
+          "weekend_policy",
+          "weekend_close_before_min",
+          "max_effective_leverage",
+          "cash_flow_policy",
+          "pyramiding_policy"
+        ],
+        "title": "ProfileValuesIO"
+      },
+      "ProfileValuesIO-Output": {
+        "properties": {
+          "risk_per_trade": {
+            "type": "string",
+            "title": "Risk Per Trade"
+          },
+          "min_reward_risk": {
+            "type": "string",
+            "title": "Min Reward Risk"
+          },
+          "max_open_risk": {
+            "type": "string",
+            "title": "Max Open Risk"
+          },
+          "max_daily_loss": {
+            "type": "string",
+            "title": "Max Daily Loss"
+          },
+          "max_weekly_loss": {
+            "type": "string",
+            "title": "Max Weekly Loss"
+          },
+          "max_monthly_loss": {
+            "type": "string",
+            "title": "Max Monthly Loss"
+          },
+          "max_consecutive_losses": {
+            "type": "integer",
+            "title": "Max Consecutive Losses"
+          },
+          "day_reset_tz": {
+            "type": "string",
+            "title": "Day Reset Tz"
+          },
+          "day_reset_time": {
+            "type": "string",
+            "title": "Day Reset Time"
+          },
+          "max_trades_per_day": {
+            "type": "integer",
+            "title": "Max Trades Per Day"
+          },
+          "max_drawdown_halt": {
+            "type": "string",
+            "title": "Max Drawdown Halt"
+          },
+          "news_hold_policy": {
+            "type": "string",
+            "title": "News Hold Policy"
+          },
+          "weekend_policy": {
+            "type": "string",
+            "title": "Weekend Policy"
+          },
+          "weekend_close_before_min": {
+            "type": "integer",
+            "title": "Weekend Close Before Min"
+          },
+          "max_effective_leverage": {
+            "type": "string",
+            "title": "Max Effective Leverage"
+          },
+          "cash_flow_policy": {
+            "type": "string",
+            "title": "Cash Flow Policy"
+          },
+          "pyramiding_policy": {
+            "type": "string",
+            "title": "Pyramiding Policy"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "risk_per_trade",
+          "min_reward_risk",
+          "max_open_risk",
+          "max_daily_loss",
+          "max_weekly_loss",
+          "max_monthly_loss",
+          "max_consecutive_losses",
+          "day_reset_tz",
+          "day_reset_time",
+          "max_trades_per_day",
+          "max_drawdown_halt",
+          "news_hold_policy",
+          "weekend_policy",
+          "weekend_close_before_min",
+          "max_effective_leverage",
+          "cash_flow_policy",
+          "pyramiding_policy"
+        ],
+        "title": "ProfileValuesIO"
       },
       "QualityVerdict": {
         "type": "string",
@@ -5702,6 +7053,29 @@
         "title": "QuoteSecondIn",
         "description": "ING-08 / GW-08: một giây ĐÃ TRỌN do Gateway gom từ tick (giá cuối giây + cực trị)."
       },
+      "Readiness": {
+        "properties": {
+          "profile": {
+            "type": "boolean",
+            "title": "Profile"
+          },
+          "commission": {
+            "type": "boolean",
+            "title": "Commission"
+          },
+          "paper_started": {
+            "type": "boolean",
+            "title": "Paper Started"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "commission",
+          "paper_started"
+        ],
+        "title": "Readiness"
+      },
       "Regime": {
         "type": "string",
         "enum": [
@@ -5711,6 +7085,139 @@
           "HIGH_VOL"
         ],
         "title": "Regime"
+      },
+      "ReservationOut": {
+        "properties": {
+          "reservation_id": {
+            "type": "string",
+            "title": "Reservation Id"
+          },
+          "amount": {
+            "type": "string",
+            "title": "Amount"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reservation_id",
+          "amount",
+          "at",
+          "expires_at"
+        ],
+        "title": "ReservationOut"
+      },
+      "RiskOverview": {
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "is_sample": {
+            "type": "boolean",
+            "title": "Is Sample"
+          },
+          "strategy_enabled": {
+            "type": "boolean",
+            "title": "Strategy Enabled"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/Readiness"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile_history": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileOut"
+            },
+            "type": "array",
+            "title": "Profile History"
+          },
+          "commission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommissionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commission_history": {
+            "items": {
+              "$ref": "#/components/schemas/CommissionOut"
+            },
+            "type": "array",
+            "title": "Commission History"
+          },
+          "paper": {
+            "$ref": "#/components/schemas/PaperOut"
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionOut"
+            },
+            "type": "array",
+            "title": "Decisions"
+          },
+          "evaluations": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationOut"
+            },
+            "type": "array",
+            "title": "Evaluations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "account_id",
+          "is_sample",
+          "strategy_enabled",
+          "readiness",
+          "profile",
+          "profile_history",
+          "commission",
+          "commission_history",
+          "paper",
+          "usage",
+          "decisions",
+          "evaluations"
+        ],
+        "title": "RiskOverview"
       },
       "SafetyCommand": {
         "properties": {
@@ -5800,6 +7307,14 @@
           "policy_version"
         ],
         "title": "SafetyTransition"
+      },
+      "Side": {
+        "type": "string",
+        "enum": [
+          "BUY",
+          "SELL"
+        ],
+        "title": "Side"
       },
       "SourceStatus": {
         "type": "string",
@@ -6059,6 +7574,92 @@
           "LIVE"
         ],
         "title": "TradingMode"
+      },
+      "UsageOut": {
+        "properties": {
+          "day_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Day Start"
+          },
+          "trades_today": {
+            "type": "integer",
+            "title": "Trades Today"
+          },
+          "max_trades_per_day": {
+            "type": "integer",
+            "title": "Max Trades Per Day"
+          },
+          "daily_loss": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Loss",
+            "description": "Lỗ đã chốt trong ngày / equity paper"
+          },
+          "weekly_loss": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Loss"
+          },
+          "monthly_loss": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Loss"
+          },
+          "max_daily_loss": {
+            "type": "string",
+            "title": "Max Daily Loss"
+          },
+          "max_weekly_loss": {
+            "type": "string",
+            "title": "Max Weekly Loss"
+          },
+          "max_monthly_loss": {
+            "type": "string",
+            "title": "Max Monthly Loss"
+          },
+          "loss_streak": {
+            "type": "integer",
+            "title": "Loss Streak"
+          },
+          "max_consecutive_losses": {
+            "type": "integer",
+            "title": "Max Consecutive Losses"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day_start",
+          "trades_today",
+          "max_trades_per_day",
+          "daily_loss",
+          "weekly_loss",
+          "monthly_loss",
+          "max_daily_loss",
+          "max_weekly_loss",
+          "max_monthly_loss",
+          "loss_streak",
+          "max_consecutive_losses"
+        ],
+        "title": "UsageOut"
       },
       "UserAdminOut": {
         "properties": {

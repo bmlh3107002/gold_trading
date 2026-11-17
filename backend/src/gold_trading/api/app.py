@@ -38,6 +38,7 @@ from gold_trading.api.ingest import GatewayMonitors, ingest_router
 from gold_trading.api.market import account_market_router, account_quote_router, market_router
 from gold_trading.api.market_view import account_market_view_router, market_view_of
 from gold_trading.api.pipeline import pipeline_router
+from gold_trading.api.risk import risk_router
 from gold_trading.api.users import users_router
 from gold_trading.auth.config import AuthConfig
 from gold_trading.auth.kc_admin import KeycloakAdmin
@@ -718,6 +719,18 @@ def create_app(
     app.state.paper_strategy_enabled = os.environ.get("GT_PAPER_STRATEGY", "1") != "0"
     if app.state.paper_strategy_enabled:
         strategy_slot["runner"] = strategy_runner
+
+    # GĐ5 bước 8b (RPF-05, DSH-05): trang Rủi ro — chỉ chủ tài khoản (Guard.check), có audit.
+    def technical_latest(acc: str, at: datetime):
+        sc = risk_scope(acc)
+        return (analyst_store.latest_scoped("technical", sc, known_by=at)
+                if sc is not None else None)
+
+    app.include_router(risk_router(
+        guard=account_guard, repo=repo, profiles=risk_profiles, commissions=commissions,
+        ledger=paper_ledger, gates=app.state.risk_gates, evaluations=evaluations,
+        technical_latest=technical_latest,
+        strategy_enabled=lambda: app.state.paper_strategy_enabled))
 
     @app.get("/api/health")
     def health():

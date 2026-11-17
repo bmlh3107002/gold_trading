@@ -18,6 +18,7 @@ import { MarketPage } from "./pages/MarketPage";
 import { PipelinePage } from "./pages/PipelinePage";
 import { SourcesPage } from "./pages/SourcesPage";
 import { AccountPage } from "./pages/AccountPage";
+import { RiskPage } from "./pages/RiskPage";
 import { AdminPage } from "./pages/AdminPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { useTranslation } from "react-i18next";
@@ -105,6 +106,8 @@ function AuthedApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <PipelinePage />
           ) : route === "admin" ? (
             <AdminPage me={me} multiUser={system.data?.multi_user_enabled ?? true} />
+          ) : route === "risk" ? (
+            <RiskPage account={accounts.selected} />
           ) : route === "account" ? (
             <AccountPage account={accounts.selected} />
           ) : (

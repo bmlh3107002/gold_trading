@@ -817,6 +817,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounts/{account_id}/risk/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Overview */
+        get: operations["overview_api_accounts__account_id__risk_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/risk/feasibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Feasibility */
+        get: operations["feasibility_api_accounts__account_id__risk_feasibility_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/risk/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Profile */
+        post: operations["new_profile_api_accounts__account_id__risk_profile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/risk/commission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** New Commission */
+        post: operations["new_commission_api_accounts__account_id__risk_commission_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/risk/paper/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Paper Start */
+        post: operations["paper_start_api_accounts__account_id__risk_paper_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/risk/paper/cash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Paper Cash */
+        post: operations["paper_cash_api_accounts__account_id__risk_paper_cash_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounts/{account_id}/risk/paper/drawdown-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Drawdown Reset */
+        post: operations["drawdown_reset_api_accounts__account_id__risk_paper_drawdown_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1151,6 +1270,21 @@ export interface components {
             /** Rsi14 */
             rsi14: (number | null)[];
         };
+        /** CashIn */
+        CashIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "CASH_IN" | "CASH_OUT";
+            /** Amount */
+            amount: number | string;
+            /**
+             * Reason
+             * @description Lý do (bắt buộc, ghi audit)
+             */
+            reason: string;
+        };
         /** ClockOut */
         ClockOut: {
             /**
@@ -1168,6 +1302,35 @@ export interface components {
             sources_ok: number;
             /** Measured At */
             measured_at: string | null;
+        };
+        /** CommissionIn */
+        CommissionIn: {
+            /**
+             * Per Lot
+             * @description Phí khứ hồi / lot, USD (≥ 0; nhập 0 nếu sàn không thu)
+             */
+            per_lot: number | string;
+            /**
+             * Reason
+             * @description Lý do (bắt buộc, ghi audit)
+             */
+            reason: string;
+        };
+        /** CommissionOut */
+        CommissionOut: {
+            /** Per Lot */
+            per_lot: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Reason */
+            reason: string;
         };
         /** DataQuality */
         DataQuality: {
@@ -1265,6 +1428,24 @@ export interface components {
             /** Sources */
             sources: components["schemas"]["DataSourceOut"][];
         };
+        /** DecisionOut */
+        DecisionOut: {
+            /** Risk Decision Id */
+            risk_decision_id: string;
+            /**
+             * Decided At
+             * Format: date-time
+             */
+            decided_at: string;
+            /** Outcome */
+            outcome: string;
+            /** Reason Codes */
+            reason_codes: string[];
+            /** Volume */
+            volume: string;
+            /** Risk Amount */
+            risk_amount: string;
+        };
         /** DeleteResult */
         DeleteResult: {
             /** Sub */
@@ -1295,6 +1476,20 @@ export interface components {
              * @description True khi đã dùng > 85%
              */
             warn: boolean;
+        };
+        /** DrawdownResetIn */
+        DrawdownResetIn: {
+            /**
+             * Confirm
+             * @description Phải là true: xác nhận rõ đã xem lại (H6)
+             * @constant
+             */
+            confirm: true;
+            /**
+             * Reason
+             * @description Lý do (bắt buộc, ghi audit)
+             */
+            reason: string;
         };
         /**
          * EntryBlockOut
@@ -1341,6 +1536,24 @@ export interface components {
             /** Reason Codes */
             reason_codes: string[];
         };
+        /** EvaluationOut */
+        EvaluationOut: {
+            /**
+             * Evaluated At
+             * Format: date-time
+             */
+            evaluated_at: string;
+            /** Market View Id */
+            market_view_id: string;
+            /** Outcome */
+            outcome: string;
+            /** Reasons */
+            reasons: string[];
+            /** Risk Outcome */
+            risk_outcome: string | null;
+            /** Fill Code */
+            fill_code: string | null;
+        };
         /**
          * EventLatest
          * @description GĐ3 bước 2 (ANA-02): kết quả analyst Lịch sự kiện — chung cho mọi tài khoản.
@@ -1366,6 +1579,99 @@ export interface components {
              * @default true
              */
             observer_only: boolean;
+        };
+        /** FeasibilityReport */
+        FeasibilityReport: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "OK" | "KHONG_DU_DU_LIEU" | "CHI_MINH_HOA";
+            /** Is Sample */
+            is_sample: boolean;
+            /**
+             * Label
+             * @description 'CHỈ MINH HỌA — dữ liệu mẫu' khi SAMPLE
+             */
+            label?: string | null;
+            /**
+             * Missing
+             * @default []
+             */
+            missing: string[];
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /** Equity */
+            equity?: string | null;
+            /**
+             * Equity Note
+             * @default
+             */
+            equity_note: string;
+            /** Atr */
+            atr?: string | null;
+            /** Atr As Of */
+            atr_as_of?: string | null;
+            /** Sl Distance */
+            sl_distance?: string | null;
+            /** Tp Distance */
+            tp_distance?: string | null;
+            /** Spread */
+            spread?: string | null;
+            /**
+             * Spread Note
+             * @default
+             */
+            spread_note: string;
+            /** Slippage */
+            slippage?: string | null;
+            /** Commission Per Lot */
+            commission_per_lot?: string | null;
+            /** Swap Per Lot */
+            swap_per_lot?: string | null;
+            /** Risk Per Lot */
+            risk_per_lot?: string | null;
+            /** Min Lot */
+            min_lot?: string | null;
+            /**
+             * Min Lot Risk
+             * @description Rủi ro của lot nhỏ nhất
+             */
+            min_lot_risk?: string | null;
+            /**
+             * Min Lot Risk Pct
+             * @description … theo % vốn
+             */
+            min_lot_risk_pct?: string | null;
+            /**
+             * Reward Risk
+             * @description R:R sau chi phí với TP = 2 × SL
+             */
+            reward_risk?: string | null;
+            /**
+             * Max Hold
+             * @description Giữ lệnh tối đa (đóng 16:45 New York)
+             * @default
+             */
+            max_hold: string;
+            /**
+             * Levels
+             * @default []
+             */
+            levels: components["schemas"]["Level"][];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+            /**
+             * Strategy
+             * @default
+             */
+            strategy: string;
         };
         /**
          * Freshness
@@ -1654,6 +1960,38 @@ export interface components {
              * @description Chạy xong trong ngân sách 10 giây và không tồn đọng quá hạn
              */
             ok: boolean;
+        };
+        /** Level */
+        Level: {
+            /**
+             * Risk Fraction
+             * @description Mức rủi ro / lệnh (0,0025 = 0,25 %)
+             */
+            risk_fraction: string;
+            /** Risk Money */
+            risk_money: string;
+            /**
+             * Lots
+             * @description Lot làm tròn xuống; 0 khi không đủ lot tối thiểu
+             */
+            lots: string;
+            /** Risk Amount */
+            risk_amount: string;
+            /**
+             * Min Equity
+             * @description Vốn tối thiểu để lot nhỏ nhất nằm trong mức này
+             */
+            min_equity: string;
+            /**
+             * Shortfall
+             * @description Tiền còn thiếu (không khả thi)
+             */
+            shortfall?: string | null;
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "KHA_THI" | "KHONG_KHA_THI" | "CHI_MINH_HOA";
         };
         /**
          * LiveQuote
@@ -2046,6 +2384,54 @@ export interface components {
             disks: components["schemas"]["DiskOut"][];
             backup: components["schemas"]["BackupOut"];
         };
+        /** PaperOut */
+        PaperOut: {
+            /** Started */
+            started: boolean;
+            /** Capital */
+            capital?: string | null;
+            /**
+             * Realized Equity
+             * @description vốn + nạp − rút + PnL đã đóng
+             */
+            realized_equity?: string | null;
+            /**
+             * Unrealized
+             * @description PnL đang chạy (null: không có giá mới)
+             */
+            unrealized?: string | null;
+            /** Peak */
+            peak?: string | null;
+            /**
+             * Drawdown
+             * @description Mức sụt từ đỉnh (0,05 = 5 %)
+             */
+            drawdown?: string | null;
+            /**
+             * Halted
+             * @description Sụt ≥ ngưỡng H6 → cần xác nhận rõ
+             * @default false
+             */
+            halted: boolean;
+            /**
+             * Positions
+             * @default []
+             */
+            positions: components["schemas"]["PositionOut"][];
+            /**
+             * Reservations
+             * @default []
+             */
+            reservations: components["schemas"]["ReservationOut"][];
+        };
+        /** PaperStartIn */
+        PaperStartIn: {
+            /**
+             * Reason
+             * @description Lý do (bắt buộc, ghi audit)
+             */
+            reason: string;
+        };
         /** PasswordReset */
         PasswordReset: {
             /** Sub */
@@ -2096,6 +2482,135 @@ export interface components {
             budget_breaches: number;
             /** Last Latency Ms */
             last_latency_ms: number | null;
+        };
+        /** PositionOut */
+        PositionOut: {
+            /** Position Id */
+            position_id: string;
+            side: components["schemas"]["Side"];
+            /** Volume */
+            volume: string;
+            /** Entry Price */
+            entry_price: string;
+            /** Stop Loss */
+            stop_loss: string;
+            /** Take Profit */
+            take_profit: string | null;
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Strategy Id */
+            strategy_id: string | null;
+        };
+        /** ProfileIn */
+        ProfileIn: {
+            values: components["schemas"]["ProfileValuesIO-Input"];
+            /**
+             * Reason
+             * @description Lý do (bắt buộc, ghi audit)
+             */
+            reason: string;
+        };
+        /** ProfileOut */
+        ProfileOut: {
+            /** Version */
+            version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Reason */
+            reason: string;
+            values: components["schemas"]["ProfileValuesIO-Output"];
+        };
+        /** ProfileValuesIO */
+        "ProfileValuesIO-Input": {
+            /** Risk Per Trade */
+            risk_per_trade: number | string;
+            /** Min Reward Risk */
+            min_reward_risk: number | string;
+            /** Max Open Risk */
+            max_open_risk: number | string;
+            /** Max Daily Loss */
+            max_daily_loss: number | string;
+            /** Max Weekly Loss */
+            max_weekly_loss: number | string;
+            /** Max Monthly Loss */
+            max_monthly_loss: number | string;
+            /** Max Consecutive Losses */
+            max_consecutive_losses: number;
+            /** Day Reset Tz */
+            day_reset_tz: string;
+            /** Day Reset Time */
+            day_reset_time: string;
+            /** Max Trades Per Day */
+            max_trades_per_day: number;
+            /** Max Drawdown Halt */
+            max_drawdown_halt: number | string;
+            /** News Hold Policy */
+            news_hold_policy: string;
+            /** Weekend Policy */
+            weekend_policy: string;
+            /** Weekend Close Before Min */
+            weekend_close_before_min: number;
+            /** Max Effective Leverage */
+            max_effective_leverage: number | string;
+            /** Cash Flow Policy */
+            cash_flow_policy: string;
+            /** Pyramiding Policy */
+            pyramiding_policy: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** ProfileValuesIO */
+        "ProfileValuesIO-Output": {
+            /** Risk Per Trade */
+            risk_per_trade: string;
+            /** Min Reward Risk */
+            min_reward_risk: string;
+            /** Max Open Risk */
+            max_open_risk: string;
+            /** Max Daily Loss */
+            max_daily_loss: string;
+            /** Max Weekly Loss */
+            max_weekly_loss: string;
+            /** Max Monthly Loss */
+            max_monthly_loss: string;
+            /** Max Consecutive Losses */
+            max_consecutive_losses: number;
+            /** Day Reset Tz */
+            day_reset_tz: string;
+            /** Day Reset Time */
+            day_reset_time: string;
+            /** Max Trades Per Day */
+            max_trades_per_day: number;
+            /** Max Drawdown Halt */
+            max_drawdown_halt: string;
+            /** News Hold Policy */
+            news_hold_policy: string;
+            /** Weekend Policy */
+            weekend_policy: string;
+            /** Weekend Close Before Min */
+            weekend_close_before_min: number;
+            /** Max Effective Leverage */
+            max_effective_leverage: string;
+            /** Cash Flow Policy */
+            cash_flow_policy: string;
+            /** Pyramiding Policy */
+            pyramiding_policy: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
         };
         /**
          * QualityVerdict
@@ -2189,11 +2704,56 @@ export interface components {
             /** Ticks */
             ticks: number;
         };
+        /** Readiness */
+        Readiness: {
+            /** Profile */
+            profile: boolean;
+            /** Commission */
+            commission: boolean;
+            /** Paper Started */
+            paper_started: boolean;
+        };
         /**
          * Regime
          * @enum {string}
          */
         Regime: "TREND" | "RANGE" | "RISK_OFF" | "HIGH_VOL";
+        /** ReservationOut */
+        ReservationOut: {
+            /** Reservation Id */
+            reservation_id: string;
+            /** Amount */
+            amount: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Expires At */
+            expires_at: string | null;
+        };
+        /** RiskOverview */
+        RiskOverview: {
+            /** Account Id */
+            account_id: string;
+            /** Is Sample */
+            is_sample: boolean;
+            /** Strategy Enabled */
+            strategy_enabled: boolean;
+            readiness: components["schemas"]["Readiness"];
+            profile: components["schemas"]["ProfileOut"] | null;
+            /** Profile History */
+            profile_history: components["schemas"]["ProfileOut"][];
+            commission: components["schemas"]["CommissionOut"] | null;
+            /** Commission History */
+            commission_history: components["schemas"]["CommissionOut"][];
+            paper: components["schemas"]["PaperOut"];
+            usage: components["schemas"]["UsageOut"] | null;
+            /** Decisions */
+            decisions: components["schemas"]["DecisionOut"][];
+            /** Evaluations */
+            evaluations: components["schemas"]["EvaluationOut"][];
+        };
         /**
          * SafetyCommand
          * @description Người thực hiện lấy từ phiên đăng nhập; gửi thêm trường lạ (vd. actor) → 422.
@@ -2237,6 +2797,11 @@ export interface components {
             /** Policy Version */
             policy_version: string;
         };
+        /**
+         * Side
+         * @enum {string}
+         */
+        Side: "BUY" | "SELL";
         /**
          * SourceStatus
          * @enum {string}
@@ -2327,6 +2892,37 @@ export interface components {
          * @enum {string}
          */
         TradingMode: "BACKTEST" | "PAPER" | "SHADOW" | "LIVE";
+        /** UsageOut */
+        UsageOut: {
+            /**
+             * Day Start
+             * Format: date-time
+             */
+            day_start: string;
+            /** Trades Today */
+            trades_today: number;
+            /** Max Trades Per Day */
+            max_trades_per_day: number;
+            /**
+             * Daily Loss
+             * @description Lỗ đã chốt trong ngày / equity paper
+             */
+            daily_loss: string | null;
+            /** Weekly Loss */
+            weekly_loss: string | null;
+            /** Monthly Loss */
+            monthly_loss: string | null;
+            /** Max Daily Loss */
+            max_daily_loss: string;
+            /** Max Weekly Loss */
+            max_weekly_loss: string;
+            /** Max Monthly Loss */
+            max_monthly_loss: string;
+            /** Loss Streak */
+            loss_streak: number;
+            /** Max Consecutive Losses */
+            max_consecutive_losses: number;
+        };
         /**
          * UserAdminOut
          * @description Một USER = một dòng (DEC-17). Không có token hay mật khẩu.
@@ -3862,6 +4458,243 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_accounts__account_id__risk_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feasibility_api_accounts__account_id__risk_feasibility_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeasibilityReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_profile_api_accounts__account_id__risk_profile_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    new_commission_api_accounts__account_id__risk_commission_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paper_start_api_accounts__account_id__risk_paper_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaperStartIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    paper_cash_api_accounts__account_id__risk_paper_cash_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CashIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    drawdown_reset_api_accounts__account_id__risk_paper_drawdown_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrawdownResetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskOverview"];
+                };
             };
             /** @description Validation Error */
             422: {

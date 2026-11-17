@@ -24,12 +24,12 @@ const PAGES = [
   { key: "market", icon: CandlestickChart },
   { key: "sources", icon: Database },
   { key: "pipeline", icon: Workflow },
+  { key: "risk", icon: ShieldAlert },
   { key: "account", icon: Users },
 ] as const;
 
 const SOON = [
   { key: "orders", icon: ListOrdered },
-  { key: "risk", icon: ShieldAlert },
   { key: "journal", icon: BookOpenText },
 ] as const;
 

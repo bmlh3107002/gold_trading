@@ -376,6 +376,10 @@ class PaperLedger:
     def decision_for(self, account_id: str, idempotency_key: str) -> StoredDecision | None:
         return self._decision_get(account_id, idempotency_key)
 
+    def recent_decisions(self, account_id: str, limit: int = 20) -> list[RiskDecision]:
+        """Quyết định Risk gần nhất (mới trước) — trang Rủi ro (bước 8)."""
+        return self._decisions_recent(account_id, limit)
+
     def record_decision(self, decision: RiskDecision, intent: TradeIntent) -> StoredDecision:
         """Lưu quyết định (trong khóa tài khoản). Cùng (tài khoản, khóa) đã có → trả bản đã lưu,
         không ghi bản mới (người gọi so ``intent_hash`` để biết có phải cùng yêu cầu)."""
@@ -412,6 +416,9 @@ class PaperLedger:
         raise NotImplementedError
 
     def _decision_put(self, h, decision, intent, ihash) -> None:  # pragma: no cover
+        raise NotImplementedError
+
+    def _decisions_recent(self, account_id, limit) -> list[RiskDecision]:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -493,6 +500,11 @@ class RiskLedger(PaperLedger):
             return h.decisions[(account_id, key)]
         with self._mem:
             return self._dec.get((account_id, key))
+
+    def _decisions_recent(self, account_id, limit):
+        with self._mem:
+            rows = [d.decision for (a, _), d in self._dec.items() if a == account_id]
+        return sorted(rows, key=lambda d: d.decided_at, reverse=True)[:limit]
 
     def _decision_put(self, h, decision, intent, ihash):
         assert isinstance(h, _MemTxn)
@@ -615,6 +627,13 @@ class SqlLedger(PaperLedger):
         if m is None:
             return None
         return StoredDecision(RiskDecision.model_validate(m.decision), m.intent_hash)
+
+    def _decisions_recent(self, account_id, limit):
+        c = rdt.c
+        with self.engine.connect() as conn:
+            rows = conn.execute(select(rdt.c.decision).where(c.account_id == account_id)
+                                .order_by(c.decided_at.desc()).limit(limit)).all()
+        return [RiskDecision.model_validate(m.decision) for m in rows]
 
     def _decision_put(self, h, decision, intent, ihash):
         assert isinstance(h, Connection)

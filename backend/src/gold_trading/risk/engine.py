@@ -105,6 +105,36 @@ def closing_soon(cal, now: datetime, minutes: int) -> tuple[str | None, datetime
     return None, None
 
 
+def spread_baseline(rows, now: datetime) -> tuple[int, int | None]:
+    """(số phút dùng được, p95 hạng gần nhất của ``spread_p95``) — chỉ phút thị trường mở, trước
+    ``now``; < ``BASELINE_MIN_MINUTES`` phút → None (không đoán). Q4 / Q5; dùng chung với báo cáo
+    khả thi."""
+    vals = [r.spread_p95 for r in rows if r.seconds_closed == 0 and r.t < now]
+    if len(vals) < BASELINE_MIN_MINUTES:
+        return len(vals), None
+    return len(vals), p_nearest_rank(vals, 0.95)
+
+
+def swap_night_cost(sw, side: Side, point: Decimal, contract_size: Decimal) -> Decimal:
+    """5b (RSK-09): chi phí swap MỘT đêm / lot (tiền TK). Kiểu 0 không swap, 1 theo point, 4 tiền
+    gửi (USD). Swap dương (được nhận) → 0 (không tính là lời). Dùng chung Risk + báo cáo khả thi."""
+    mode = int(sw["swap_mode"])
+    raw = dec(sw["swap_long"] if side is Side.BUY else sw["swap_short"])
+    if mode == 0 or raw >= 0:
+        return Decimal(0)
+    if mode == 1:
+        return -raw * point * contract_size
+    return -raw                                 # 4: tiền gửi (USD) / lot
+
+
+def swap_nights_next(sw, now: datetime, tz: str, hm: str) -> int:
+    """Số đêm của lần chốt ngày kế tiếp (mốc ngày hồ sơ): 3 nếu là ``swap_rollover3days``."""
+    per = Periods.of(tz, hm)
+    roll = per.next_day_start(now)
+    mt5_day = (roll.astimezone(per.tz).weekday() + 1) % 7    # Python T2 = 0 → MT5 T2 = 1
+    return 3 if mt5_day == int(sw["swap_rollover3days"]) else 1
+
+
 class RiskEngine:
     def __init__(
         self,
@@ -242,13 +272,11 @@ class RiskEngine:
         ok, rows = self._read("spread_minutes", reasons,
                               lambda: g.spread_minutes(feed, now - BASELINE_WINDOW, now, now))
         if ok:
-            vals = [r.spread_p95 for r in rows  # type: ignore[union-attr]
-                    if r.seconds_closed == 0 and r.t < now]
-            m.details["baseline_minutes"] = str(len(vals))
-            if len(vals) < BASELINE_MIN_MINUTES:
+            n, m.baseline_points = spread_baseline(rows, now)  # type: ignore[arg-type]
+            m.details["baseline_minutes"] = str(n)
+            if m.baseline_points is None:
                 reasons.append("SPREAD_BASELINE_MISSING")
             else:
-                m.baseline_points = p_nearest_rank(vals, 0.95)
                 m.details["spread_p95_30d_points"] = str(m.baseline_points)
         if m.spread_points is not None and m.baseline_points is not None \
                 and m.spread_points > m.baseline_points:
@@ -517,18 +545,8 @@ class RiskEngine:
         (được nhận) → 0. Thiết kế 35 mục 11."""
         assert m.swap is not None and m.spec is not None and m.point is not None
         sw = m.swap
-        mode = int(sw["swap_mode"])
-        raw = dec(sw["swap_long"] if intent.side is Side.BUY else sw["swap_short"])
-        if mode == 0 or raw >= 0:
-            cost = Decimal(0)
-        elif mode == 1:
-            cost = -raw * m.point * m.spec.contract_size
-        else:                                   # 4: tiền gửi (USD) / lot
-            cost = -raw
-        per = Periods.of(pv.day_reset_tz, pv.day_reset_time)
-        roll = per.next_day_start(now)
-        mt5_day = (roll.astimezone(per.tz).weekday() + 1) % 7    # Python T2 = 0 → MT5 T2 = 1
-        nights = 3 if mt5_day == int(sw["swap_rollover3days"]) else 1
+        cost = swap_night_cost(sw, intent.side, m.point, m.spec.contract_size)
+        nights = swap_nights_next(sw, now, pv.day_reset_tz, pv.day_reset_time)
         m.details |= {"swap_per_lot": str(cost * nights), "swap_nights": str(nights),
                       # 6b: sổ cái paper tính swap lúc đóng theo số đêm thật đã qua
                       "swap_night_cost": str(cost),
