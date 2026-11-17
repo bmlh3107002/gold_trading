@@ -134,9 +134,9 @@ DTSTAMP:20261116T042631Z
 DTSTART:20261124T014500Z
 DTEND:20261124T020000Z
 SUMMARY:Gold: kiem-mv 7 ngày — Gate GĐ4 (chỉ đọc)
-DESCRIPTION:docker compose exec backend python -m gold_trading.ingestion.
- cli kiem-mv --hours 168\nDán toàn bộ kết quả cho Claude. Sau đ
- ó Claude đưa KN-03 lên và hướng dẫn dựng lại.
+DESCRIPTION:docker compose exec backend python -m gold_trading.ingestion.cl
+ i kiem-mv --hours 168\nDán toàn bộ kết quả cho Claude. KHÔNG dự
+ ng lại (chờ Gate GĐ1 + GĐ2).
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Gold: kiem-mv 7 ngày — Gate GĐ4 (chỉ đọc)

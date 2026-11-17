@@ -161,7 +161,7 @@ Bước 0–2 chỉ cần Q1–Q5; bước 3 trở đi làm được phần cấ
 - Trang **Rủi ro** chỉ hiện với tài khoản **USER** (chủ tài khoản giao dịch). ADMIN không vào được (đúng thiết kế, Q6). Mỗi tài khoản giao dịch làm riêng các bước B–D.
 - Không dán mật khẩu, token, khóa API vào chat. Chỉ gửi nội dung lệnh in ra hoặc ảnh chụp màn hình.
 
-**Bước A — dựng lại (người phát triển đưa GĐ5 lên `develop` trước, bạn chỉ dựng như mọi lần)**
+**Bước A — dựng lại (GĐ5 đã ở `develop` từ 17/11; nếu đã dựng lại sau Gate GĐ1 + GĐ2 theo lịch kiểm thì bỏ qua 2 lệnh dưới, chỉ chụp MT5)**
 
 Trong PowerShell, tại thư mục `C:\gold-trading`, gõ từng lệnh một:
 
@@ -240,9 +240,10 @@ Gửi **toàn bộ** nội dung in ra cho người phát triển. Mong đợi v�
 - **2026-11-17** — **Bước 9 xong**: người dùng duyệt sổ tham số + giao thức đánh giá (`protocol-1`). Còn bước 10 (Gate GĐ5) — cần kiểm trên máy người dùng.
 - **2026-11-17** — **Bước 10 (phần sandbox) xong**: bảng case đủ tên test (5-C13 làm nốt: Risk đọc lại nhịp tim MT5 dưới khóa, `BROKER_SPEC_CHANGED`); hướng dẫn kiểm trên máy (bước A–E) ở mục "Kiểm trên máy người dùng (Gate GĐ5)". Còn: kiểm trên máy khi người dùng chọn lịch (sau Gate GĐ1 + GĐ2), Gate GĐ1 → GĐ4 đóng, người dùng xác nhận.
 - **2026-11-17** — Rà thêm **bảng việc** GĐ5 (lần trước chỉ rà bảng case): RSK-07 còn `[ ]` → làm ngay (Risk tự chặn cờ spread giãn / biến động cao / thanh khoản lễ, `risk-policy-gd5-2`); RSK-05, DEC-09 sửa trạng thái (đã xong 16/11). Không còn mục GĐ5 nào chưa xong ngoài kiểm trên máy + Gate.
+- **2026-11-17** — **Người dùng chọn gộp hết vào `develop` ngay** (nhánh chờ + GĐ5) nhưng **chưa dựng lại máy** tới khi Gate GĐ1 + GĐ2 đóng (giữ đợt đếm 5 ngày; máy dùng lại bản dựng 16/11). Gộp `develop` vào nhánh GĐ5 (vướng một chỗ nhật ký GD1 — giữ cả hai), test + CI rồi đẩy `develop`. Lịch kiểm: bỏ lần dựng 24/11, thay bằng một lần dựng sau Gate GĐ1 + GĐ2. Bước A (dựng lại) giờ không cần người phát triển gộp trước.
 
 ## Prompt cho phiên mới
 
 **Bước 10 phần sandbox xong 17/11.** Còn kiểm trên máy (bước A–E) — chỉ khi người dùng chọn lịch, sau Gate GĐ1 + GĐ2. Khi tới, dán:
 
-Làm tiếp GĐ5 bước 10 (Gate GĐ5) — kiểm trên máy. Nhánh GĐ5: `claude/fervent-hypatia-n3uyfn`. Đọc CLAUDE.md, PROGRESS.md, docs/ke-hoach/GD5-ke-hoach.md (bước 10 + mục "Kiểm trên máy người dùng (Gate GĐ5)"). Trước tiên kiểm Gate GĐ1 + GĐ2 đã đóng và nhánh chờ đã lên `develop`; rồi đưa GĐ5 lên `develop` (đánh lại số migration nếu cần, kiểm CI job `docker`), rồi hướng dẫn người dùng bước A–E, mỗi lần một bước. Gate GĐ5 chỉ đóng sau Gate GĐ1 → GĐ4 (DEC-28) + người dùng xác nhận. Không có lệnh thật. Người dùng không rành kỹ thuật: mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị; không bao giờ yêu cầu dán mật khẩu / token / khóa API.
+Làm tiếp GĐ5 bước 10 (Gate GĐ5) — kiểm trên máy. Nhánh GĐ5: `claude/fervent-hypatia-n3uyfn`. Đọc CLAUDE.md, PROGRESS.md, docs/ke-hoach/GD5-ke-hoach.md (bước 10 + mục "Kiểm trên máy người dùng (Gate GĐ5)"). Trước tiên kiểm Gate GĐ1 + GĐ2 đã đóng (GĐ5 + nhánh chờ đã ở `develop` từ 17/11), rồi hướng dẫn người dùng bước A–E, mỗi lần một bước. Gate GĐ5 chỉ đóng sau Gate GĐ1 → GĐ4 (DEC-28) + người dùng xác nhận. Không có lệnh thật. Người dùng không rành kỹ thuật: mỗi lần hỏi một câu kèm 2–3 lựa chọn + khuyến nghị; không bao giờ yêu cầu dán mật khẩu / token / khóa API.
