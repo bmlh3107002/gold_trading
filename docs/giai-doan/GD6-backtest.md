@@ -22,3 +22,7 @@
 | 6-C05 | Kết quả không đạt tiêu chí | Quay lại GĐ5, **không** sang GĐ8 | `[ ]` |
 
 **Gate GĐ6:** báo cáo đạt BT-04 và được người dùng duyệt.
+
+## Nhật ký
+
+- **2026-11-17** — Bản nháp kế hoạch [`docs/ke-hoach/GD6-ke-hoach.md`](../ke-hoach/GD6-ke-hoach.md) (chưa code, chờ người dùng duyệt). Việc đầu: bước 0 — xuất nến XAUUSD M15 (+ H1 / H4 / D1) từ MT5 ra file, đọc thử bằng `import-csv --dry-run` (không mở DB), không nạp. Điểm mở lịch kinh tế lịch sử → Q1 của kế hoạch.
