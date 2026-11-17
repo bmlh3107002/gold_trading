@@ -184,7 +184,7 @@ Chia nhỏ (2026-11-13), mỗi phần xong + test + kiểm rồi mới sang ph�
 ## Gate GĐ1 (đủ hết mới đóng; người dùng xác nhận)
 
 - [ ] Mọi việc 1A–1G xong (trừ việc người dùng hoãn: ING-29), mọi case có test
-- [ ] **Doanh số bán lẻ (tạm hoãn 2026-11-13, Census chặn Việt Nam):** quyết định lại — lịch chép tay có phiên bản / số qua FRED (ngoại lệ DEC-01) / bỏ hẳn. Trong lúc hoãn **không có cửa sổ chặn quanh tin bán lẻ** → phải xử lý trước khi chạy SHADOW/LIVE
+- [~] **Doanh số bán lẻ (tạm hoãn 2026-11-13, Census chặn Việt Nam):** **người dùng chốt 17/11: lịch chép tay có phiên bản** (lịch công bố chính thức của Census, chỉ giờ để chặn; không có số actual; cập nhật mỗi năm) — không FRED, không bỏ. Còn: làm (bảng lịch + nạp vào lịch hợp nhất + test), lên máy cùng lần dựng sau Gate. Trong lúc hoãn **không có cửa sổ chặn quanh tin bán lẻ** → phải xử lý trước khi chạy SHADOW/LIVE
 - [ ] **ETF GLD/IAU (tạm hoãn 2026-11-13, điều khoản `BLOCKED`):** quyết định lại trước GĐ3 — xin phép bằng văn bản (GLD: `sprdgoldshares@gold.org`; IAU: BlackRock) / bỏ hẳn. Trong lúc hoãn, bộ Vị thế (POSN-01) chỉ dùng COT, ghi "thiếu dữ liệu ETF"
 - [ ] MT-12..MT-15 + case MT-C08, MT-C11, MT-C14 (phần dữ liệu) xong
 - [ ] Chạy trên máy người dùng **≥ 5 ngày giao dịch liên tục** (DEC-21: gián đoạn < 1 giờ tự hồi phục + nạp bù đủ → vẫn tính; > 1 giờ trong giờ mở cửa / cần người can thiệp → ngày đó không tính)
