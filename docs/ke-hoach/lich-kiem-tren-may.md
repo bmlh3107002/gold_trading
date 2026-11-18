@@ -24,7 +24,7 @@
 
 ## Các ngày sau
 
-- [ ] **Sáng thứ Tư 18/11, sau 08:30 (GĐ4, chỉ đọc):** `docker compose exec backend python -m gold_trading.ingestion.cli kiem-mv --hours 24` → gửi toàn bộ nội dung cho người phát triển. Mong đợi "Tái dựng: khớp 100 %"; khoảng trống đêm 16→17/11 (6a, backend tắt) là **đúng**, không cần lo.
+- [x] (18/11 xong — khớp 100 %, phủ 98,9 %; kết quả ở GD4-ke-hoach mục 3) **Sáng thứ Tư 18/11, sau 08:30 (GĐ4, chỉ đọc):** `docker compose exec backend python -m gold_trading.ingestion.cli kiem-mv --hours 24` → gửi toàn bộ nội dung cho người phát triển. Mong đợi "Tái dựng: khớp 100 %"; khoảng trống đêm 16→17/11 (6a, backend tắt) là **đúng**, không cần lo.
 
 - [ ] **Thứ Năm 19/11, 20:25–20:45 — DOL (GĐ1 mục 13–14 + GĐ2 + GĐ3):** thẻ "Lịch sự kiện kinh tế" (trang Thị trường) phải báo "Đang trong cửa sổ" cùng lúc với băng đỏ; 20:25–20:40 trang Tổng quan có băng đỏ "Cửa sổ công bố số liệu"; sau 20:30 `docker compose exec backend python -m gold_trading.ingestion.cli lich --days 14` → dòng `CLAIMS:2026-11-19` có `số: RECEIVED ICSA=…` khớp `dol.gov/ui/data.pdf`.
 - [ ] **~Thứ Sáu 20/11 — đo lại dung lượng sau 7 ngày (GĐ1 mục 20):** `docker compose exec backend python -m gold_trading.ingestion.cli dung-luong` → gửi bảng. Cùng lúc (GĐ3 7c): `docker compose exec backend python -m gold_trading.ingestion.cli nguong --days 5` → gửi toàn bộ nội dung (chỉ đọc).
