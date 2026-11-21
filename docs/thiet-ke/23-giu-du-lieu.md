@@ -69,3 +69,9 @@ Nến CSV / MT5: idempotent đã có test riêng (`test_candles.py`, `test_inges
 - Dung lượng: ~1.380 dòng / ngày / nguồn giá (23 giờ × 60), vài MB / năm. Lệnh chỉ đọc: `cli spread-phut` (số phút, phút đầu / cuối mỗi nguồn); có trong `cli dung-luong`.
 - Kiểm chứng: `tests/test_quote_minutes.py` (tính tay, p95, làm tròn, phút trống, giây tới muộn → revision point-in-time, giây đã xóa không ghi đè, tách nguồn, nạp bù, chốt chặn xóa, CHECK, CLI); Postgres 16: migration lên / xuống, `alembic check` sạch, trigger chặn sửa / xóa, chạy lại không ghi trùng.
 
+
+## Đo lại 21/11/2026 — người dùng giữ nguyên chính sách
+
+- `cli dung-luong` sau 8 ngày chạy thật: DB 244,4 MB; ước tính 1 năm ≈ **1,8 GB** (13/11: ≈ 0,6 GB). Tăng chủ yếu do `analyst_outputs` (909 dòng/ngày × ~3 KB ≈ 1 GB/năm — analyst GĐ3 + MarketView GĐ4 bật từ 16/11) và `candles` (2.224 dòng/ngày — thêm 6 cặp tiền cho chỉ số USD, ≈ 300 MB/năm). `quote_seconds` vẫn trần 30 ngày ≈ 400 MB.
+- **Người dùng chốt 21/11: giữ nguyên** — mọi bảng giữ vĩnh viễn, riêng giá theo giây 30 ngày. Lý do: 1,8 GB/năm nhỏ so với ổ đĩa; kết quả phân tích cũ cần cho kiểm lại (tái dựng MarketView) và backtest; xóa dữ liệu quyết định là hướng không an toàn cho truy vết.
+- Đo lại sau lần dựng chung (bản gộp 17/11 thêm `quote_minutes`, bảng GĐ5).
