@@ -3,11 +3,11 @@
 > File này **ngắn** và được nạp tự động mỗi lượt (qua `CLAUDE.md`). Chỉ giữ trạng thái hiện tại. Chi tiết nằm theo giai đoạn ở `docs/giai-doan/` — mỗi phiên chỉ mở **file của giai đoạn đang làm**.
 > Đặc tả gốc: `docs/huong-dan-chuc-nang/` (01–12). Sơ đồ: `docs/mo-hinh/`. Ghi chú kỹ thuật (bảng thành phần, quy ước code): `docs/ghi-chu-ky-thuat.md` — chỉ đọc mục liên quan.
 
-**Cập nhật lần cuối:** 2026-11-17 · **Nhánh làm việc:** `develop`
+**Cập nhật lần cuối:** 2026-11-21 · **Nhánh làm việc:** `develop`
 
 ## Trạng thái hiện tại
 
-- **Đang làm: kiểm trên máy để đóng Gate GĐ1 → GĐ2** theo [`lich-kiem-tren-may.md`](docs/ke-hoach/lich-kiem-tren-may.md) (+ file nhắc `.ics`). 16/11: dựng lại, replay ĐẠT, `h15-bu` + `cot-bu` đạt. **17/11: 6a ĐẠT** (backend tắt ~8,9 giờ, nạp bù đủ, DB không hở ngoài giờ nghỉ) + **COT chốt 10/11 khớp cftc.gov**; **đếm ≥ 5 ngày chạy liên tục từ 17/11 08:02** (DEC-21). Gate sớm nhất sau NFP 04/12.
+- **Đang làm: kiểm trên máy để đóng Gate GĐ1 → GĐ2** theo [`lich-kiem-tren-may.md`](docs/ke-hoach/lich-kiem-tren-may.md) (+ file nhắc `.ics`). 16/11: dựng lại, replay ĐẠT, `h15-bu` + `cot-bu` đạt. **17/11: 6a ĐẠT** (backend tắt ~8,9 giờ, nạp bù đủ, DB không hở ngoài giờ nghỉ) + **COT chốt 10/11 khớp cftc.gov**; **đếm ≥ 5 ngày chạy liên tục từ 17/11 08:02** (DEC-21). 18/11 `kiem-mv` 24 giờ đạt; 19/11 DOL đạt; 21/11 dung lượng (~1,8 GB/năm, giữ chính sách) + `nguong` (giữ ngưỡng) + cập nhật MT5; sự cố Smart App Control chặn Gateway sau restart → đã tắt, chạy lại. Gate sớm nhất sau NFP 04/12.
 - **GĐ1:** code xong; mục 8 (6a) + 17 (COT) đạt 17/11; còn kiểm trên máy (DOL 19/11, dung lượng 20/11, Lễ Tạ ơn, NFP 04/12) + kiểm sao lưu tự động. 17/11 người dùng chốt: bán lẻ = lịch Census chép tay (**code xong**, `census_retail_schedule`), ETF = bỏ hẳn.
 - **GĐ2:** code xong (DEC-19); Gate: replay lại sau NFP (lần 16/11 mục Technical chưa so thật vì toàn phiên bản cũ) + độ trễ < 10 giây.
 - **GĐ3 / GĐ4:** code xong (DEC-22, DEC-23); `nguong` ~20/11, `kiem-mv` 18/11 + 24/11; đóng sau GĐ1 → GĐ2 (→ GĐ3 → GĐ4).
