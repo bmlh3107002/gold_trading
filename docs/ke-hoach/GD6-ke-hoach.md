@@ -80,11 +80,13 @@
 - [ ] Đối chiếu: trên đoạn trùng với lúc chạy thật (từ 11/2026), MarketView tầng 1 so với MarketView đã lưu của hệ thống thật (cùng phiên bản) — khác nhau phải giải thích được (ví dụ News).
 
 ### Bước 5 — Tầng 2: mô phỏng giao dịch + chi phí (BT-02; MOD-03)
-- [ ] Cổng lịch sử cho Risk (cùng giao diện cổng thật, test riêng): equity = sổ lệnh mô phỏng; thông số broker = theo Q / thiết kế 39; spread lúc vào = theo Q6; đệm trượt giá + ngưỡng spread = p95 spread 30 ngày trước `t` (từ nguồn spread lịch sử); phí / lot = theo Q3; hồ sơ rủi ro H1–H11 đúng như đã chốt.
-- [ ] Gọi **đúng** `decide` + công thức Risk (khối lượng, R:R sau chi phí, hạn mức, chuỗi thua, heat, H6 dừng hẳn, H7 qua tin, H8 cuối tuần, H9 đòn bẩy, ký quỹ) — không chép công thức.
-- [ ] Khớp + quản lý lệnh theo nến (mục "Ý tưởng chính"): vào ở nến sau; SL / TP / hòa vốn (`Manager`) / đóng 16:45 NY / đóng trước cuối tuần; swap theo thông số; độ trễ = 1 nến; khớp đủ khối lượng (bias ghi rõ).
-- [ ] MOD-03: chế độ `BACKTEST` — mọi kết quả mang nhãn BACKTEST, không bao giờ ghi vào sổ paper / bảng của hệ thống đang chạy; dữ liệu `SAMPLE` → báo cáo "không có giá trị đánh giá".
-- [ ] Test **tính tay**: vài lệnh mẫu (BUY / SELL, chạm SL, chạm TP, cùng nến chạm cả hai → SL, khoảng trống giá qua SL, hòa vốn, đóng 16:45, đóng trước cuối tuần, swap thứ Tư ×3) — lãi / lỗ sau chi phí khớp số tính tay; dưới lot tối thiểu → không vào (đếm vào báo cáo).
+- [x] (23/11) Cổng lịch sử cho Risk (cùng giao diện cổng thật, test riêng): equity = sổ lệnh mô phỏng; thông số broker = theo Q / thiết kế 39; spread lúc vào = theo Q6; đệm trượt giá + ngưỡng spread = p95 spread 30 ngày trước `t` (từ nguồn spread lịch sử); phí / lot = theo Q3; hồ sơ rủi ro H1–H11 đúng như đã chốt.
+- [x] (23/11) Gọi **đúng** `decide` + công thức Risk (khối lượng, R:R sau chi phí, hạn mức, chuỗi thua, heat, H6 dừng hẳn, H7 qua tin, H8 cuối tuần, H9 đòn bẩy, ký quỹ) — không chép công thức.
+- [x] (23/11) Khớp + quản lý lệnh theo nến (mục "Ý tưởng chính"): vào ở nến sau; SL / TP / hòa vốn (`Manager`) / đóng 16:45 NY / đóng trước cuối tuần; swap theo thông số; độ trễ = 1 nến; khớp đủ khối lượng (bias ghi rõ).
+- [~] (23/11 phần mô phỏng) MOD-03: chế độ `BACKTEST` — mọi kết quả mang nhãn BACKTEST, không bao giờ ghi vào sổ paper / bảng của hệ thống đang chạy; dữ liệu `SAMPLE` → báo cáo "không có giá trị đánh giá".
+- [x] (23/11) Test **tính tay**: vài lệnh mẫu (BUY / SELL, chạm SL, chạm TP, cùng nến chạm cả hai → SL, khoảng trống giá qua SL, hòa vốn, đóng 16:45, đóng trước cuối tuần, swap thứ Tư ×3) — lãi / lỗ sau chi phí khớp số tính tay; dưới lot tối thiểu → không vào (đếm vào báo cáo).
+
+*(23/11: `backtest/simulate.py` + `tests/test_backtest_simulate.py` 33 test — TP +35,20 / SL −19,20 / khoảng trống −31,20 / hòa vốn 0,00 / đóng 16:45 −1,20 / SELL +35,60 / cuối tuần thứ Sáu 16:30 / tuần lệch DST / thiếu nến / lịch không khỏe / thiếu nền spread / vốn dưới lot tối thiểu / dừng–mở lại / point-in-time spread / không import Gateway–mạng–DB thật. Swap ×3: không xảy ra với v1 (đóng 16:45). Dùng lại nguyên `StrategyRunner`, `RiskEngine`, `RiskLedger`, `PaperBroker`, `PaperMonitor`; mới: `BarBroker`, cổng lịch sử. Còn của MOD-03: nhãn `run_id` + DB backtest — cùng bước 2 / 8.)*
 
 ### Bước 6 — Thống kê + mốc so sánh (protocol-1 mục 5–6)
 - [ ] Chỉ số mục 5 (sau chi phí, mức 0,25 %): số lệnh, tỷ lệ thắng, kỳ vọng / lệnh (R + USD), hệ số lợi nhuận, sụt giảm lớn nhất, chuỗi thua dài nhất, số lần chạm H6 / H4, Sharpe theo ngày, thời gian giữ; chia theo regime / phiên / năm / chiều.
@@ -191,6 +193,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-23** — **Bước 6 phần hàm thống kê xong** (`backtest/stats.py`): Sharpe / độ lệch / độ nhọn, hệ số lợi nhuận, tỷ lệ lệnh lãi, chuỗi thua, sụt giảm theo tỷ lệ, bootstrap theo khối ngày, DSR, PBO (CSCV). Thiếu dữ liệu → `None`, không trả vô cực. Còn của bước 6: mốc ngẫu nhiên, mốc không lọc, chia nhóm — sau bước 5. Test backend 2853 passed, 3 skipped.
 
 - **2026-11-23** — **Bước 7 phần thuần xong** (`backtest/protocol.py`, 8 test). Soát riêng 5.000 khoảng dữ liệu ngẫu nhiên **bắt được lỗi thật**: ngày bắt đầu 29–31 + cộng dồn 3 tháng bị trôi → đoạn kiểm hở / chồng (37 ca) → sửa: mọi mốc tính từ mốc gốc; thêm test (đột biến về mã cũ → đỏ); soát lại 0 lỗi. Còn của bước 7: bảng đăng ký + khóa đoạn để dành trong DB backtest (cần DB riêng — cùng bước 2 / 5).
+
+- **2026-11-23** — **Bước 5 xong (phần mô phỏng)**: dùng lại nguyên luồng thật qua cổng lịch sử + đồng hồ mô phỏng; `StrategyRunner` nhận thêm chế độ `BACKTEST` (một dòng). Soát riêng: 3 bộ giá đi ngẫu nhiên 3 tháng (~6.000 nến, ~75 lệnh / bộ, có khoảng trống giá) → 0 lỗi bất biến (không chồng lệnh, chỉ vào trong giờ, không qua đêm, sổ tiền khớp, lỗ vượt rủi ro chỉ khi có khoảng trống giá); tốc độ ~1,5 giây / 3 tháng. Phát hiện: bảng ngày lễ chỉ phủ 2024–2027 → dữ liệu 2023 sẽ bị chặn hết (ghi bias 0, xử lý ở bước 2). Luật mới ghi trước: mở lại sau dừng ở mốc ngày kế tiếp (thiết kế 39 mục 5a).
 
 ## Prompt cho phiên mới
 

@@ -113,3 +113,5 @@ Giả sử: vốn 10.000 USD, rủi ro 0,25 % = **25 USD**; 1 lot = 100 oz; ATR1
 | Nối luồng (mục 9) | `strategy/runner.py` `StrategyRunner`, `api/app.py` | mỗi nhịp orchestrator sau Fusion; quản lý lệnh ở mọi chế độ, ý định mới chỉ ở PAPER; nhật ký `strategy_evaluations` (migration 0027); tắt bằng `GT_PAPER_STRATEGY=0` |
 
 Giữ chỗ còn mở (đã duyệt, chưa khớp) cũng tính là "đang có lệnh" (V7). Lệnh không mang mã chiến lược này → `Manager` không đụng tới.
+
+- **2026-11-23 (GĐ6, nhánh `gd6-backtest`)** — `StrategyRunner` tạo ý định ở `PAPER` **hoặc** `BACKTEST` (MOD-03; chỉ tài khoản mô phỏng của backtest có chế độ này). Luật chiến lược không đổi, phiên bản giữ `1.0.0`.

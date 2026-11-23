@@ -164,7 +164,9 @@ class StrategyRunner:
     def run_account(self, acc: str) -> str:
         self.monitor.tick(acc)                                    # 1. quản lý lệnh đang mở
         now = self.clock()
-        if self.mode(acc) is not TradingMode.PAPER:               # v1 chưa kiểm chứng: chỉ PAPER
+        # v1 chưa kiểm chứng: chỉ PAPER, và BACKTEST (GĐ6 MOD-03 — chỉ tài khoản mô phỏng trong DB
+        # backtest riêng; không tài khoản thật nào ở chế độ này).
+        if self.mode(acc) not in (TradingMode.PAPER, TradingMode.BACKTEST):
             return "skip:mode"
         feed = self.feed_for(acc)
         if feed is None:                       # chưa có nguồn giá ("" = nguồn mẫu / CSV: vẫn xét,

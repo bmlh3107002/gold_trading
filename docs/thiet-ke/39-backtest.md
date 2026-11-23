@@ -54,6 +54,11 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 
 `RiskEngine` lấy giờ từ `clock` → backtest truyền đồng hồ mô phỏng. Nhịp tim / thông số "vừa đổi" (5-C13) không xảy ra trong backtest (một bộ thông số).
 
+## 5a. Dừng / mở lại trong mô phỏng (luật ghi trước, 23/11)
+
+- Risk đề nghị PAUSED (H4: lỗ ngày / tuần / tháng, chuỗi 5 lệnh thua; H6: sụt 5 % từ đỉnh) → tài khoản mô phỏng chặn vào lệnh (`SAFETY_PAUSED:<mã>`).
+- **Người dùng mô phỏng mở lại ở mốc ngày giao dịch kế tiếp** (17:00 NY theo hồ sơ) sau lúc dừng; Risk vẫn tự chặn tiếp nếu hạn mức tuần / tháng chưa qua kỳ. H6: lúc mở lại đặt lại đỉnh equity (`drawdown_reset`, như người dùng xác nhận thật). Lý do: dừng vĩnh viễn làm phần còn lại của dữ liệu không đo được gì; mọi lần dừng được **đếm** và in báo cáo (protocol-1 mục 5), và T6 (sụt < 5 %) đã đánh trượt nếu H6 từng chạm.
+
 ## 6. Khớp và đóng theo nến (giá MT5 = giá bid; ask = bid + spread nến × point)
 
 - **Giây giá giả tại `t`** (dùng cho fill, hòa vốn, đóng chủ động): `bid = giá mở nến bắt đầu lúc t`, `ask = bid + spread`, `t = available_at = t`. Không có nến bắt đầu lúc `t` (đóng cửa / hở dữ liệu) → không có giá → **không khớp / không quyết** (`QUOTE_STALE`, an toàn).
@@ -66,6 +71,8 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 - **Quản lý lệnh** (`PaperMonitor.tick` tại mỗi `t` với giây giá giả = giá đóng nến): hòa vốn (`Manager`, P9) xét tại giá đóng nến — **không** xét trong nến (bảo thủ: dời hòa vốn muộn hơn thật); đóng 16:45 NY (nến 16:30–16:45 đóng đúng 16:45); đóng 30 phút trước cuối tuần / lễ (H8); qua tin HIGH (H7); nhả giữ chỗ hết hạn.
 - **Độ trễ:** một nến (quyết sau khi nến đóng, khớp ở giá mở nến kế tiếp). **Khớp một phần:** không mô phỏng — XAUUSD lot nhỏ (0,01–vài lot) coi như khớp đủ; ghi bias.
 - **Ký quỹ:** Risk đã kiểm (H9, ký quỹ trống = equity − ký quỹ lệnh mô phỏng).
+- **Hệ quả cần biết:** đệm trượt giá bị trừ **hai lần** khi chạm SL (lúc vào và lúc thoát) → lỗ thật ở SL lớn hơn rủi ro Risk đã duyệt đúng một đệm × khối lượng × cỡ HĐ (ví dụ tính tay: duyệt 18,80, lỗ 19,20). Cố ý (bảo thủ hơn sổ paper — sổ paper không trừ đệm khi thoát). Khoảng trống giá qua SL → lỗ lớn hơn nữa (test `test_gap_through_stop_closes_at_open_worse`).
+- **Swap:** v1 đóng 16:45 NY trước mốc 17:00 → không bao giờ qua đêm → swap luôn 0 trong mô phỏng v1 (công thức swap đã có test ở GĐ5).
 
 ## 7. Lịch kinh tế lịch sử (điểm mở — Q1, hỏi ở bước 3)
 
@@ -75,6 +82,8 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 - Biến thể "chặn cố định" (protocol-1 mục 2) = chạy thêm, **chỉ để đọc**, không thay bản chính.
 
 ## 8. Bias đã biết (báo cáo phải in đủ)
+
+0. **Bảng ngày lễ** (`market/holidays.py`) chỉ phủ **2024–2027** → nến năm 2023 trở về trước: lịch thị trường "không biết" → Risk chặn hết, quản lý lệnh đóng hết (an toàn, nhưng phí dữ liệu). Muốn dùng 2023: thêm năm 2023 vào bảng ngày lễ (bước 2, cần kiểm từng ngày với lịch CME / sàn).
 
 1. **Spread nến MT5** có thể thấp hơn spread thật trung bình (MT5 lưu một con số spread cho cả nến). Đo độ lệch trên đoạn trùng với spread theo phút thật (từ 11/2026) ở bước 2 → Q6.
 2. **Đệm trượt giá = p95 spread nến 30 ngày** thay vì p95 spread theo phút — proxy của proxy.
@@ -90,6 +99,7 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 
 - Mọi lần chạy có `run_id`; mọi kết quả (MarketView tầng 1, lệnh mô phỏng, báo cáo) mang nhãn `BACKTEST` + `run_id`, chỉ nằm trong DB backtest.
 - `ModeManager` không đổi (LIVE vẫn khóa). Tài khoản mô phỏng có chế độ `BACKTEST` → Risk / chiến lược coi như PAPER về luật vào lệnh (test), nhưng không có tài khoản thật nào được đặt vào `BACKTEST`.
+- **Hiện thực (23/11):** Risk đã coi `BACKTEST` như `PAPER` từ GĐ4 (`test_unvalidated_rules_allowed_in_paper_and_backtest`); `StrategyRunner` sửa một dòng: tạo ý định ở `PAPER` **hoặc** `BACKTEST` (trước chỉ `PAPER`). Chế độ đến từ `BacktestAccounts.mode` của tài khoản mô phỏng; hệ thống thật không đổi hành vi.
 
 ## 10. Walk-forward và khóa đoạn để dành (protocol-1 mục 3–4)
 
@@ -115,9 +125,12 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 
 ## 13. Hiệu năng (ước tính, đo lại ở bước 4)
 
+- **Đo 23/11 (tầng 2):** ~6.000 nến (3 tháng) + ~1.800 MarketView → **~1,5 giây** / lần chạy → ~2,5 năm ≈ 15 giây / tổ hợp; 27 tổ hợp × số vòng walk-forward: vài phút. **Mốc ngẫu nhiên 1.000 lần** theo cách này ≈ 4 giờ → cần làm nhanh (chạy song song, hoặc chỉ mô phỏng lại các ngày có lệnh) — việc của bước 6 phần mốc.
+
 ~2,5 năm M15 ≈ 60.000 nến mở cửa. Tầng 1 chạy 6 analyst mỗi nến — chậm nhất (ước tính vài giờ, chạy một lần, lưu lại). Tầng 2 không chạy analyst → 27 tổ hợp + 1.000 lần mốc ngẫu nhiên trong thời gian chấp nhận được; nếu chậm → song song theo tổ hợp (không đổi kết quả).
 
 ## Nhật ký
 
 - **2026-11-23** — Bản đầu (GĐ6 bước 1). Đọc code thật: `RiskEngine` nhận `clock` + `RiskGates` dạng hàm → dùng lại nguyên Risk; `PaperBroker.fill` đã cộng đệm trượt giá; `RiskLedger` là sổ trong bộ nhớ cùng giao diện; `PaperMonitor` nhận `managers` (hòa vốn / 16:45) → dùng lại; chỉ cần `BarBroker` thay dò SL / TP theo giây bằng theo nến.
 - **2026-11-23** — Bước 6 + 7 (phần thuần): `backtest/stats.py`, `backtest/protocol.py`. Ghi thêm luật cửa sổ walk-forward tính từ mốc gốc + cắt đoạn kiểm cuối (mục 10).
+- **2026-11-23** — Bước 5 (tầng 2): `backtest/simulate.py` — `simulate`, `BarBroker`, `BacktestAccounts`, `HistoricalViews`; `StrategyRunner` nhận `BACKTEST`. Ghi thêm mục 5a (dừng / mở lại), hệ quả đệm trượt giá hai lần, swap v1 = 0, đo hiệu năng, bias 0 (bảng ngày lễ 2024–2027).
