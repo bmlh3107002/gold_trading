@@ -63,10 +63,12 @@
 
 ### Bước 2 — Dữ liệu giá lịch sử vào DB riêng (BT-01 phần dữ liệu; 6-C03 phần dữ liệu)
 - [ ] **Q8 = A:** thêm ngày lễ **2020–2023** vào `market/holidays.py` (lớp 2 bảng ngày lễ có phiên bản mới); kiểm từng ngày với lịch CME / sàn **và** với chỗ hở nến thật trong file xuất (ngày nghỉ phải trùng chỗ hở, không thừa không thiếu); kiểm phiên bản bảng ngày lễ mới **không** làm đổi kết quả replay / Gate của hệ thống thật (chỉ thêm năm cũ).
-- [ ] `import-csv` nhận **H4 / D1** (căn theo giờ server, ngày đổi DST 23 / 25 giờ — ING-14 đã có trong `CandleIngestor`); test DST, nến lệch căn.
-- [ ] Lệnh backtest dùng `GT_BACKTEST_DATABASE_URL`; **từ chối** khi thiếu hoặc trùng `DATABASE_URL` (test). Khởi tạo schema DB riêng bằng Alembic.
-- [ ] Báo cáo dữ liệu (chỉ đọc): khoảng thời gian, chỗ hở trong giờ mở cửa (theo `market/hours` + ngày lễ), nến bị cách ly, nến spike / đóng băng, phân bố spread theo phiên. Chỗ hở → danh sách cho báo cáo GĐ6.
+- [x] (23/11) Lệnh nạp **của backtest** nhận **H4 / D1** (không sửa `import-csv` của GĐ1 — hệ thống đang kiểm Gate) (căn theo giờ server, ngày đổi DST 23 / 25 giờ — ING-14 đã có trong `CandleIngestor`); test DST, nến lệch căn.
+- [x] (23/11) Lệnh backtest dùng `GT_BACKTEST_DATABASE_URL`; **từ chối** khi thiếu hoặc trùng `DATABASE_URL` (test). Khởi tạo schema DB riêng bằng Alembic.
+- [~] (23/11 phần mã xong; chạy trên dữ liệu thật khi có file bước 0) Báo cáo dữ liệu (chỉ đọc): khoảng thời gian, chỗ hở trong giờ mở cửa (theo `market/hours` + ngày lễ), nến bị cách ly, nến spike / đóng băng, phân bố spread theo phiên. Chỗ hở → danh sách cho báo cáo GĐ6.
 - [ ] **Đo độ lệch spread nến so với thật:** trên đoạn trùng (từ 11/2026, khi đã có spread theo phút thật) so spread cột `<SPREAD>` của nến M15 với trung vị / p95 spread theo phút cùng nến. Kết quả quyết Q6 (cách dùng spread lịch sử).
+
+*(23/11: `backtest/db.py` (`resolve_url` từ chối khi thiếu / trùng DB thật — so máy, cổng, tên DB sau chuẩn hóa, khác user / mật khẩu / driver vẫn là trùng; `init_db`: Postgres tạo DB nếu chưa có + `alembic upgrade head`, SQLite `create_all`), `backtest/data.py` (đọc UTF-8 / UTF-16, R1 — H4 / D1 chỉ xét giờ mở nến, nạp qua `CandleIngestor` nguồn `CSV` backfill, báo cáo chỗ hở gom theo ngày giao dịch NY + cách ly + cờ + spread theo phiên), `backtest/cli.py` (`init-db`, `import` (`--dry-run` không mở DB), `data-report`). `tests/test_backtest_data.py` 19 test. CI `docker` (`ops/scripts/ci_stack.sh` mục 2d): tạo `gold_backtest` + migration trên TimescaleDB thật, trỏ DB thật → phải từ chối.)*
 
 ### Bước 3 — Dữ liệu ngoài lịch sử (lịch kinh tế theo Q1; Macro, Positioning)
 - [ ] Lịch kinh tế lịch sử theo lựa chọn Q1. Bản ghi dựng lại mang cờ `HISTORICAL_RECONSTRUCTED` + giả định `available_at` (ví dụ: lịch công bố trước ≥ 7 ngày) ghi rõ trong thiết kế 39; **không** trộn vào bảng lịch của hệ thống đang chạy (chỉ ở DB riêng).
@@ -223,6 +225,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-23** — **Bước 9 xong** (phần sandbox; CI TimescaleDB chạy sau khi đẩy). Ba lỗi tìm được và đã sửa (chuỗi equity ngày gồm ngày nghỉ — ảnh hưởng T5; mốc ngày cuối kỳ thiếu; đoạn kiểm bắt đầu cuối tuần). **Phát hiện về giao thức (không đổi giao thức):** với ~2 năm dữ liệu, phần ngoài mẫu chỉ ~6 tháng (2 vòng walk-forward) và nằm trọn trong **một năm** → T1 (≥ 200 lệnh ngoài mẫu) khó, **T8 (không năm nào > 70 % lãi) gần như không thể đạt** dù chiến lược có lợi thế thật (thước đo: lợi thế cài sẵn vẫn trượt T8 "năm 2025: 100 %"). Muốn T8 có nghĩa cần ngoài mẫu trải ≥ 2 năm → dữ liệu ≈ 4 năm (12 tháng học + ~2 năm kiểm + để dành) → hỏi người dùng (Q8) trước khi làm bước 0.
 
 - **2026-11-23** — **Q8 chốt (A):** xuất từ 2020 (càng xa càng tốt). Hướng dẫn bước 0 sửa: M15 hai file (2020–2022, 2023–nay — tránh giới hạn số thanh, không đổi cài đặt MT5), H1 / H4 / D1 từ 2019.06. Bước 2 thêm việc: ngày lễ 2020–2023 (kiểm với lịch sàn + chỗ hở nến thật).
+
+- **2026-11-23** — **Bước 2 phần không cần dữ liệu thật xong** (2a DB riêng + chốt chặn, 2b nạp CSV gồm H4 / D1, 2c báo cáo dữ liệu, CLI). Còn: 2d ngày lễ 2020–2023 (Q8), đo độ lệch spread (cần dữ liệu thật), chạy báo cáo dữ liệu trên file bước 0.
 
 ## Prompt cho phiên mới
 

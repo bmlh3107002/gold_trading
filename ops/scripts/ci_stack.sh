@@ -68,6 +68,15 @@ Q "select source, outcome, coalesce(error_code,''), inserted from external_sourc
 echo "== 2c. Sổ cái paper trên TimescaleDB thật (GĐ5 6a: 8 luồng, cùng khóa, crash, chỉ thêm)"
 $DC exec -T backend python - < ops/scripts/ledger_race_check.py
 
+echo "== 2d. Backtest GĐ6: DB riêng trên TimescaleDB thật (tạo + migration); trỏ DB thật → từ chối"
+$DC exec -T backend sh -c 'GT_BACKTEST_DATABASE_URL="${DATABASE_URL%/*}/gold_backtest" python -m gold_trading.backtest.cli init-db'
+[ "$($DC exec -T db psql -U gold -d gold_backtest -Atc "select count(*) from information_schema.tables where table_name in ('candles','backtest_registrations','backtest_holdout_runs')")" = "3" ] \
+  || { echo "LỖI: DB backtest thiếu bảng" >&2; exit 1; }
+if $DC exec -T backend sh -c 'GT_BACKTEST_DATABASE_URL="$DATABASE_URL" python -m gold_trading.backtest.cli init-db'; then
+  echo "LỖI: lệnh backtest không từ chối DB thật" >&2; exit 1
+fi
+Q "select count(*) from backtest_registrations" >/dev/null
+
 echo "== 3. Sao lưu → phá → khôi phục"
 # Nến mẫu (SAMPLE) tự sinh mỗi 15 phút: chỉ đếm nến nạp TRƯỚC lúc sao lưu, nếu không lần chạy
 # trùng mốc 15 phút sẽ hỏng ngẫu nhiên (CI run 76, 2026-11-12: 5873 → 5874 qua mốc 16:15).

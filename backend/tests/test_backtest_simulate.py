@@ -300,12 +300,20 @@ FORBIDDEN = ("gold_trading.api", "gold_trading.accounts.mt5_link", "httpx", "req
              "urllib", "socket", "gold_trading.storage.repository")
 
 
+# Chỉ lệnh CLI được mở kho SQL — và chỉ bằng URL đã qua ``resolve_url`` (DB riêng, test ở
+# ``test_backtest_data.py``); mọi mô-đun khác không chạm cơ sở dữ liệu nào.
+DB_OK = {"cli.py"}
+
+
 @pytest.mark.parametrize("mod", sorted(p.name for p in PKG.glob("*.py")))
 def test_backtest_has_no_path_to_gateway_network_or_live_db(mod):
     tree = ast.parse((PKG / mod).read_text())
     names = [a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names]
     names += [n.module or "" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
-    assert not [x for x in names if x.startswith(FORBIDDEN)]
+    bad = [x for x in names if x.startswith(FORBIDDEN)]
+    if mod in DB_OK:
+        bad = [x for x in bad if x != "gold_trading.storage.repository"]
+    assert not bad
 
 
 def test_spread_baseline_rows_are_point_in_time():
