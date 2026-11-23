@@ -2,7 +2,7 @@
 
 > Tạo 2026-11-17. Nguồn sự thật cho mã việc / case: [`docs/giai-doan/GD6-backtest.md`](../giai-doan/GD6-backtest.md). Đặc tả: `docs/huong-dan-chuc-nang/12-van-hanh-kiem-thu.md` (mục Backtest, Mode Manager). Giao thức đánh giá **đã khóa**: [`38-giao-thuc-danh-gia.md`](../thiet-ke/38-giao-thuc-danh-gia.md) (`protocol-1`, T1–T8). Tham số: [`so-tham-so.md`](../thiet-ke/so-tham-so.md). Chiến lược: [`36-chien-luoc-v1.md`](../thiet-ke/36-chien-luoc-v1.md). Xong bước nào tick ở **cả hai** file.
 >
-> **Trạng thái: NGƯỜI DÙNG ĐÃ DUYỆT 2026-11-17 (Q0 = A, duyệt cả bản). Chưa code** — việc tiếp theo: bước 0 trên máy người dùng (chỉ xuất file + đọc thử). Q1–Q7 hỏi khi tới bước cần.
+> **Trạng thái: NGƯỜI DÙNG ĐÃ DUYỆT 2026-11-17 (Q0 = A). 23/11 người dùng chọn (A): code ngay trên nhánh `gd6-backtest` các phần không cần dữ liệu thật (bước 1 → 5, 6, 7 với dữ liệu tự tạo); bước 2–4 chờ kết quả bước 0.** Q1–Q7 hỏi khi tới bước cần.
 >
 > **Làm song song (DEC-29, người dùng 2026-11-17).** (1) Người dùng duyệt kế hoạch rồi mới code; (2) code trên **nhánh riêng tách từ `develop`**, **không gộp vào `develop`** tới sau Gate GĐ1 + GĐ2 (code GĐ6 không được làm đổi bản đang kiểm Gate / replay sau NFP); (3) **không đóng GĐ6 trước GĐ5**; việc kiểm trên máy GĐ1/GĐ2 ([`lich-kiem-tren-may.md`](lich-kiem-tren-may.md)) luôn ưu tiên; (4) **máy người dùng không dựng lại** tới sau Gate GĐ1 + GĐ2. **Không có lệnh thật nào:** backtest chỉ tính trên dữ liệu đã qua, không có đường tới Gateway / MT5.
 
@@ -58,8 +58,8 @@
 - Không đụng tới: nạp vào DB đang chạy, dựng lại, khởi động lại MT5 / Gateway, đổi cài đặt MT5. Không làm trong khung băng đỏ, tối thứ Sáu / cuối tuần.
 
 ### Bước 1 — Chuẩn bị + thiết kế (không đổi hành vi)
-- [ ] Tạo nhánh `gd6-backtest` từ `develop`; chạy test gốc (backend, mt5_gateway, frontend) + ruff, ghi số làm mốc.
-- [ ] Thiết kế `docs/thiet-ke/39-backtest.md`: hai tầng; DB riêng + chốt chặn trùng URL; cổng lịch sử cho Risk (equity mô phỏng, thông số broker, spread / đệm trượt giá từ nến, phí, sổ lệnh mô phỏng); luật khớp theo nến; danh sách **bias đã biết** (spread nến MT5, không có giây giá, thông số broker hiện hành dùng cho quá khứ, lịch kinh tế dựng lại, không có News, khớp đủ khối lượng); đơn vị + `Decimal`. Viết **trước** khi code bước 2–8.
+- [x] (23/11) Tạo nhánh `gd6-backtest` từ `develop` (`187c50f`); chạy test gốc (backend, mt5_gateway, frontend) + ruff, ghi số làm mốc. *(Mốc: backend 2841 passed, 3 skipped; mt5_gateway 206; frontend 150, build đạt; ruff sạch. Trước đó sửa trên `develop` test GĐ1 `test_cli_dry_run` (Census) phụ thuộc ngày thật — CI `develop` đỏ từ 21/11.)*
+- [x] (23/11) Thiết kế `docs/thiet-ke/39-backtest.md`: hai tầng; DB riêng + chốt chặn trùng URL; cổng lịch sử cho Risk (equity mô phỏng, thông số broker, spread / đệm trượt giá từ nến, phí, sổ lệnh mô phỏng); luật khớp theo nến; danh sách **bias đã biết** (spread nến MT5, không có giây giá, thông số broker hiện hành dùng cho quá khứ, lịch kinh tế dựng lại, không có News, khớp đủ khối lượng); đơn vị + `Decimal`. Viết **trước** khi code bước 2–8.
 
 ### Bước 2 — Dữ liệu giá lịch sử vào DB riêng (BT-01 phần dữ liệu; 6-C03 phần dữ liệu)
 - [ ] `import-csv` nhận **H4 / D1** (căn theo giờ server, ngày đổi DST 23 / 25 giờ — ING-14 đã có trong `CandleIngestor`); test DST, nến lệch căn.
@@ -185,6 +185,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 
 - **2026-11-17** — Viết bản nháp kế hoạch (chưa code) theo DEC-29. Đọc code thật trên `develop` `0cdae0e`. Phát hiện khi đọc: (1) `import-csv --dry-run` chỉ đọc file, không mở DB → dùng được cho bước 0 trong đợt đếm 5 ngày; (2) Technical cần H1 / H4 / D1 (MTF) — thiếu sẽ đổi hành vi Fusion, mà CSV chưa nhận H4 / D1 → bước 0 xuất cả 4 khung, bước 2 thêm H4 / D1; (3) lịch kinh tế đã lưu có `available_at` 11/2026 → replay 2 năm trước sẽ "không thấy tin" (lạc quan sai) → Q1, chặn cả ngày khi không dựng lại được; (4) News không có lịch sử → × 0,9 → Q4; (5) Risk đọc spread theo phút (chỉ có từ 11/2026) → backtest dùng spread nến làm proxy, đo độ lệch trên đoạn trùng → Q6; (6) `StrategyRunner` / `PaperBroker` gắn cổng thật + thời gian thật → backtest gọi thẳng `decide` / `Manager` / công thức Risk qua cổng lịch sử. Chờ người dùng duyệt (Q0) rồi làm bước 0.
 - **2026-11-17** — **Người dùng duyệt cả bản (Q0 = A).** Tiếp: người dùng làm bước 0 (xuất XAUUSD M15 + H1 / H4 / D1 ra `C:\gold-backtest`, đọc thử `--dry-run`) khi rảnh, ngoài khung tin; gửi kết quả → ghi vào nhật ký này → bước 1 ở phiên chat mới.
+
+- **2026-11-23** — Người dùng hỏi code được chưa (đã đủ 5 ngày chạy liên tục — chưa phải Gate) → chọn **(A)**: code ngay phần không cần dữ liệu thật, bước 0 làm khi rảnh. **Bước 1 xong**: nhánh `gd6-backtest`, mốc test, thiết kế 39 (dùng lại nguyên `RiskEngine` qua cổng lịch sử + đồng hồ mô phỏng, `RiskLedger`, `PaperBroker.fill`, `PaperMonitor`; chỉ thêm `BarBroker` dò SL / TP theo nến; DB riêng từ chối khi trùng `DATABASE_URL`; bias 1–9). Trước đó: sửa test GĐ1 phụ thuộc ngày (CI `develop` đỏ từ 21/11) trên `develop`.
 
 ## Prompt cho phiên mới
 

@@ -27,3 +27,4 @@
 
 - **2026-11-17** — Bản nháp kế hoạch [`docs/ke-hoach/GD6-ke-hoach.md`](../ke-hoach/GD6-ke-hoach.md) (chưa code, chờ người dùng duyệt). Việc đầu: bước 0 — xuất nến XAUUSD M15 (+ H1 / H4 / D1) từ MT5 ra file, đọc thử bằng `import-csv --dry-run` (không mở DB), không nạp. Điểm mở lịch kinh tế lịch sử → Q1 của kế hoạch.
 - **2026-11-17** — Người dùng **duyệt cả bản** kế hoạch (Q0 = A). Tiếp: bước 0 trên máy người dùng.
+- **2026-11-23** — Người dùng chọn code ngay phần không cần dữ liệu thật (nhánh `gd6-backtest`). Bước 1 xong: thiết kế [`39-backtest.md`](../thiet-ke/39-backtest.md).
