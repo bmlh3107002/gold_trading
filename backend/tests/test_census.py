@@ -443,7 +443,9 @@ def test_http_204_and_bad_url():
         get("https://census.gov.evil.example/x")
 
 
-def test_cli_dry_run(capsys):
+def test_cli_dry_run(capsys, monkeypatch):
+    # Cố định "bây giờ": lệnh chỉ in kỳ công bố sắp tới → không để test hỏng khi ngày thật trôi qua.
+    monkeypatch.setattr(cli, "utcnow", lambda: datetime(2026, 11, 16, 12, 0, tzinfo=UTC))
     def h(req):
         u = str(req.url).split("?")[0]
         if u == C.API_URL:
