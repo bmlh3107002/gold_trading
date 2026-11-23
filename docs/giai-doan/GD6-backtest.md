@@ -9,7 +9,7 @@
 | --- | --- | --- | --- |
 | BT-01 | Replay theo `available_at` với snapshot + policy/model version lịch sử | `[ ]` | SAMPLE → "không có giá trị đánh giá" |
 | BT-02 | Mô phỏng spread thật, slippage (lớn hơn lúc ra tin), commission/swap, độ trễ, fill một phần, giờ thị trường, margin | `[~]` | 23/11 nhánh `gd6-backtest`: `backtest/simulate.py` (dùng lại Risk / sổ paper / chiến lược thật, khớp theo nến, phía bất lợi); còn chạy trên dữ liệu thật (bước 2–4) |
-| BT-03 | Báo cáo: giả định, khoảng dữ liệu, bias còn lại, kết quả theo regime | `[ ]` | |
+| BT-03 | Báo cáo: giả định, khoảng dữ liệu, bias còn lại, kết quả theo regime | `[~]` | 23/11 nhánh `gd6-backtest`: `backtest/report.py` (Markdown, đủ mục 9 protocol-1); còn HTML + CLI + chạy trên dữ liệu thật |
 | BT-04 | Tiêu chí đạt do người dùng duyệt: walk-forward, out-of-sample, số lệnh tối thiểu, drawdown tối đa | `[ ]` | 17/11 tiêu chí T1–T8 đã duyệt + khóa trước khi chạy: `docs/thiet-ke/38-giao-thuc-danh-gia.md` (`protocol-1`); còn: báo cáo GĐ6 đạt |
 | MOD-03 | Mode BACKTEST nối với backtest | `[~]` | 23/11: tài khoản mô phỏng chế độ `BACKTEST`, `StrategyRunner` nhận `BACKTEST`; còn nhãn `run_id` + DB riêng |
 
@@ -19,7 +19,7 @@
 | 6-C02 | Gap cuối tuần, ngày lễ, tuần lệch DST | Mô phỏng đúng | `[ ]` |
 | 6-C03 | Thiếu dữ liệu một đoạn | Không giao dịch trong đoạn thiếu, ghi vào báo cáo | `[ ]` |
 | 6-C04 | Quá khớp (quá nhiều tham số / tối ưu trên toàn bộ dữ liệu) | Bắt buộc out-of-sample; cảnh báo | `[~]` 23/11 nhánh `gd6-backtest`: `test_walk_forward_refuses_holdout_data_and_changed_data`, `test_walk_forward_rounds_slices_and_holdout_once`, `test_holdout_claimed_before_run_even_if_run_fails`, `test_new_registration_validation_and_grid_check`; DSR + PBO có ở `stats.py` — còn in cảnh báo trong báo cáo (bước 8) |
-| 6-C05 | Kết quả không đạt tiêu chí | Quay lại GĐ5, **không** sang GĐ8 | `[ ]` |
+| 6-C05 | Kết quả không đạt tiêu chí | Quay lại GĐ5, **không** sang GĐ8 | `[x]` 23/11 nhánh `gd6-backtest`: `test_each_threshold_fails_at_edge`, `test_sample_data_never_passes`, `test_no_path_to_mark_strategy_validated` (`tests/test_backtest_report.py`) |
 
 **Gate GĐ6:** báo cáo đạt BT-04 và được người dùng duyệt.
 
@@ -30,3 +30,4 @@
 - **2026-11-23** — Người dùng chọn code ngay phần không cần dữ liệu thật (nhánh `gd6-backtest`). Bước 1 xong: thiết kế [`39-backtest.md`](../thiet-ke/39-backtest.md).
 - **2026-11-23** — Bước 6 + 7 phần thuần (thống kê; protocol-1 dạng mã) và bước 5 phần mô phỏng xong trên nhánh `gd6-backtest`. Phát hiện: bảng ngày lễ chỉ phủ 2024–2027.
 - **2026-11-23** — Bước 7 (đăng ký, walk-forward, khóa đoạn để dành — migration 0028) xong trên nhánh `gd6-backtest`; thêm `FastLedger` (hiệu năng). 6-C04 có test (`tests/test_backtest_walkforward.py`).
+- **2026-11-23** — Bước 8: chấm T1–T8 (luật ghi trước, thiết kế 39 mục 12) + báo cáo Markdown; 6-C05 có test.
