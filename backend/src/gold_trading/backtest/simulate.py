@@ -419,16 +419,29 @@ def simulate(bars: Sequence[SimBar] | Bars, views: HistoricalViews, cfg: SimConf
         monitor=monitor, store=store, params=cfg.params, clock=clock)
 
     periods = accounts.periods
+    # Equity đã chốt ở mỗi mốc ngày (17:00 NY) — CHỈ ngày giao dịch (có ít nhất một nến đóng trong
+    # (mốc trước, mốc này]); thứ Bảy / Chủ nhật / lễ đóng cả ngày không ghi (lỗi tìm được khi soát
+    # 23/11: ngày nghỉ lãi 0 làm sai Sharpe ngày + số quan sát của DSR). Mốc nằm trong
+    # (start, end] đều được ghi, kể cả sau nến cuối.
     equity_days: list[tuple[datetime, Decimal]] = []
     next_day = periods.next_day_start(start)
+    traded = False
+
+    def book_until(limit: datetime, inclusive: bool) -> None:
+        nonlocal next_day, traded
+        while next_day < limit or (inclusive and next_day == limit):
+            if traded:
+                st = ledger.equity_state(ACCOUNT, next_day)
+                assert st is not None
+                equity_days.append((next_day, st.realized))
+            traded = False
+            next_day = periods.next_day_start(next_day)
+
     ticks = no_quote = 0
     for b in bs.closed_between(start, end):
         t = b.close_time
-        while next_day <= t:                         # chốt equity đã thực hiện ở mỗi mốc ngày
-            st = ledger.equity_state(ACCOUNT, next_day)
-            assert st is not None
-            equity_days.append((next_day, st.realized))
-            next_day = periods.next_day_start(next_day)
+        book_until(t, inclusive=False)              # mốc trước nến này đã xong → chốt
+        traded = True
         clock_now[0] = t
         if accounts.paused is not None:              # equity chỉ cần khi mở lại sau H6
             accounts.maybe_resume(t, ledger, equity_margin(t)[0])
@@ -436,6 +449,7 @@ def simulate(bars: Sequence[SimBar] | Bars, views: HistoricalViews, cfg: SimConf
             no_quote += 1
         runner.run_account(ACCOUNT)                 # monitor.tick + decide + Risk + fill
         ticks += 1
+    book_until(end, inclusive=True)
     clock_now[0] = end
     trades = sorted(ledger.events(ACCOUNT, (EventType.CLOSE,)), key=lambda e: e.at)
     opens = sorted(ledger.events(ACCOUNT, (EventType.OPEN,)), key=lambda e: e.at)

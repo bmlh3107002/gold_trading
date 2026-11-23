@@ -204,3 +204,21 @@ def test_t7_zero_holdout_fails_even_when_oos_negative():
     zero = [tr(i, 10 if i % 2 == 0 else -10) for i in range(30)]          # 0R
     assert not by_code(E.criteria(good_inputs(oos_trades=neg_oos, holdout_trades=zero)))[
         "T7"].passed
+
+
+def test_oos_daily_window_starting_on_weekend_keeps_first_day_pnl():
+    """Lỗi tìm được khi soát 23/11: chuỗi equity chỉ còn ngày giao dịch → mốc đầu đoạn kiểm rơi
+    vào cuối tuần không có trong chuỗi → ngày đầu bị tính 0. Equity đầu đoạn = ngày giao dịch
+    gần nhất trước mốc."""
+    from types import SimpleNamespace
+
+    from gold_trading.backtest.protocol import Window
+    sat = datetime(2025, 3, 8, 22, 0, tzinfo=UTC)          # thứ Bảy 17:00 NY (giờ mùa đông)
+    fri = datetime(2025, 3, 7, 22, 0, tzinfo=UTC)
+    mon = datetime(2025, 3, 10, 21, 0, tzinfo=UTC)          # thứ Hai 17:00 NY (giờ mùa hè)
+    tue = datetime(2025, 3, 11, 21, 0, tzinfo=UTC)
+    res = SimpleNamespace(capital=D(10_000), equity_by_day=[(fri, D(10_000)), (mon, D(10_050)),
+                                                            (tue, D(10_020))])
+    rd = SimpleNamespace(window=Window(sat - timedelta(days=365), sat, tue), chosen=current_combo())
+    dev = SimpleNamespace(rounds=[rd], per_combo={current_combo(): res})
+    assert E.oos_daily(dev) == [(mon, D(50)), (tue, D(-30))]

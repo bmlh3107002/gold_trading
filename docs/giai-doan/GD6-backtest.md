@@ -15,7 +15,7 @@
 
 | Mã | Tình huống | Hành vi bắt buộc | TT |
 | --- | --- | --- | --- |
-| 6-C01 | Rò rỉ tương lai | Test tự động: thêm dữ liệu tương lai không đổi kết quả quá khứ | `[ ]` |
+| 6-C01 | Rò rỉ tương lai | Test tự động: thêm dữ liệu tương lai không đổi kết quả quá khứ | `[~]` 23/11 phần mô phỏng: `test_future_data_does_not_change_the_past`, `test_late_or_out_of_order_market_view_is_refused`, `test_spread_baseline_rows_are_point_in_time`; còn tầng 1 (analyst trên dữ liệu thật, bước 4) |
 | 6-C02 | Gap cuối tuần, ngày lễ, tuần lệch DST | Mô phỏng đúng | `[ ]` |
 | 6-C03 | Thiếu dữ liệu một đoạn | Không giao dịch trong đoạn thiếu, ghi vào báo cáo | `[ ]` |
 | 6-C04 | Quá khớp (quá nhiều tham số / tối ưu trên toàn bộ dữ liệu) | Bắt buộc out-of-sample; cảnh báo | `[~]` 23/11 nhánh `gd6-backtest`: `test_walk_forward_refuses_holdout_data_and_changed_data`, `test_walk_forward_rounds_slices_and_holdout_once`, `test_holdout_claimed_before_run_even_if_run_fails`, `test_new_registration_validation_and_grid_check`; DSR + PBO có ở `stats.py` — còn in cảnh báo trong báo cáo (bước 8) |
@@ -31,3 +31,4 @@
 - **2026-11-23** — Bước 6 + 7 phần thuần (thống kê; protocol-1 dạng mã) và bước 5 phần mô phỏng xong trên nhánh `gd6-backtest`. Phát hiện: bảng ngày lễ chỉ phủ 2024–2027.
 - **2026-11-23** — Bước 7 (đăng ký, walk-forward, khóa đoạn để dành — migration 0028) xong trên nhánh `gd6-backtest`; thêm `FastLedger` (hiệu năng). 6-C04 có test (`tests/test_backtest_walkforward.py`).
 - **2026-11-23** — Bước 8: chấm T1–T8 (luật ghi trước, thiết kế 39 mục 12) + báo cáo Markdown; 6-C05 có test.
+- **2026-11-23** — Bước 9 (soát): 3 lỗi tìm được + sửa; thước đo toàn quy trình phân biệt đúng có / không lợi thế; phát hiện dữ liệu 2 năm làm T8 / T1 gần như chắc trượt → câu hỏi Q8 (độ dài dữ liệu).

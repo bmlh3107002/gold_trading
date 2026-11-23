@@ -188,10 +188,14 @@ def oos_daily(dev: DevResult) -> list[tuple[datetime, Decimal]]:
         w = rd.window
         src = dev.per_combo[rd.chosen] if rd.chosen is not None else dev.per_combo[ref]
         eq = _equity_map(src)
-        days = sorted(d for d in eq if w.test_start < d <= w.test_end)
-        prev = eq.get(w.test_start)
+        allday = sorted(eq)
+        days = [d for d in allday if w.test_start < d <= w.test_end]
+        # equity lúc bắt đầu đoạn = ngày giao dịch gần nhất ≤ mốc đầu đoạn (mốc có thể rơi vào
+        # cuối tuần — không có trong chuỗi); chưa có ngày nào → vốn đầu.
+        i = bisect.bisect_right(allday, w.test_start) - 1
+        prev = eq[allday[i]] if i >= 0 else src.capital
         for d in days:
-            if rd.chosen is None or prev is None:
+            if rd.chosen is None:
                 out.append((d, Decimal(0)))
             else:
                 out.append((d, eq[d] - prev))
@@ -220,8 +224,8 @@ def inputs_from(dev: DevResult, *, capital: Decimal, n_trials: int, random_p95_r
     # khối = ngày giao dịch (mỗi mốc ngày ngoài mẫu một khối, gồm ngày không lệnh)
     days = [d for d, _ in daily]
     blocks: list[list[float]] = [[] for _ in days]
-    for t in oos:                     # ngày giao dịch của lệnh = mốc ngày đầu tiên ≥ lúc đóng
-        i = bisect.bisect_left(days, t.closed_at)
+    for t in oos:     # ngày giao dịch của lệnh = mốc ngày đầu tiên SAU lúc đóng (đóng đúng 17:00
+        i = bisect.bisect_right(days, t.closed_at)   # NY = sang ngày mới, như equity theo ngày)
         if i >= len(blocks):
             raise ValueError("lệnh ngoài mẫu đóng sau mốc ngày cuối của đoạn kiểm")
         blocks[i].append(t.r)

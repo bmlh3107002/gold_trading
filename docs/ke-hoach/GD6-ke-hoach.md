@@ -110,10 +110,12 @@
 *(23/11: `backtest/evaluation.py` + `backtest/report.py`; `tests/test_backtest_report.py` 35 test: đạt cả tám với số tính tay; từng ngưỡng trượt đúng ở mép (199 lệnh, cận dưới 0, bằng p95, DSR 0,9499, PBO 0,2001, sụt đúng 5 %, để dành 0,245R…); SAMPLE không bao giờ đạt; báo cáo đủ mục, cấm chữ "xác suất thắng"; bất biến tổng lãi / lỗ ngày ngoài mẫu = tổng lãi / lỗ lệnh ngoài mẫu; 6-C05: mã `backtest/` không đụng `UNVALIDATED_RULES` / chế độ / Quality Gate. Soát đột biến 12 phép so sánh ngưỡng: lọt 1 (T7 "> 0") → thêm test → bắt được.)*
 
 ### Bước 9 — Soát riêng (kịch bản nhắm chỗ dễ sai)
-- [ ] Dữ liệu tổng hợp **đi ngẫu nhiên** (không có lợi thế) → kết luận phải KHÔNG ĐẠT (T4 / T5); dữ liệu tổng hợp **cài sẵn lợi thế** biết trước → hệ thống phải phát hiện. Hai kịch bản này là "thước đo" cho cả bộ máy.
-- [ ] Rò rỉ: đảo thứ tự / thêm dữ liệu tương lai / bản sửa số đến muộn → kết quả quá khứ không đổi.
-- [ ] Công thức lãi / lỗ: viết lại độc lập (phân số chính xác) cho hàng nghìn lệnh ngẫu nhiên → lệch 0.
+- [x] (23/11) Dữ liệu tổng hợp **đi ngẫu nhiên** (không có lợi thế) → kết luận phải KHÔNG ĐẠT (T4 / T5); dữ liệu tổng hợp **cài sẵn lợi thế** biết trước → hệ thống phải phát hiện. Hai kịch bản này là "thước đo" cho cả bộ máy.
+- [x] (23/11, phần mô phỏng; tầng 1 ở bước 4) Rò rỉ: đảo thứ tự / thêm dữ liệu tương lai / bản sửa số đến muộn → kết quả quá khứ không đổi.
+- [x] (23/11) Công thức lãi / lỗ: viết lại độc lập (phân số chính xác) cho hàng nghìn lệnh ngẫu nhiên → lệch 0.
 - [ ] Postgres + TimescaleDB qua CI.
+
+*(23/11: `tests/test_backtest_audit.py` — thêm nến / MarketView sau T không đổi lệnh / quyết định / lần dừng / equity tới T; MarketView đến muộn (as_of lùi) bị từ chối; lãi / lỗ + giá vào / ra viết lại bằng `Fraction` trên > 100 lệnh / bộ (phí 7 USD / lot, khoảng trống giá) → lệch 0. **Lỗi tìm được:** (1) chuỗi equity ngày có cả thứ Bảy / Chủ nhật (lãi 0) → sai Sharpe ngày + số quan sát DSR (nghiêng về dễ đạt T5) → chỉ ghi ngày giao dịch; (2) mốc ngày sau nến cuối không được ghi; (3) kéo theo: đoạn kiểm bắt đầu cuối tuần làm mất lãi / lỗ ngày đầu → equity đầu đoạn = ngày giao dịch gần nhất (test riêng). **Thước đo toàn quy trình** (27 tổ hợp, walk-forward, để dành, mốc 200 lần, T1–T8; 24 tháng giá ngẫu nhiên): không lợi thế → T2–T6 KHÔNG ĐẠT; cài lợi thế → T2–T7 ĐẠT; cả hai trượt **T1 + T8 vì dữ liệu chỉ 2 năm** (xem nhật ký).)*
 
 ### Bước 10 — Chạy thật + Gate GĐ6 (sau Gate GĐ1 + GĐ2, người dùng chọn lịch)
 - [ ] Gộp nhánh GĐ6 vào `develop` (sau Gate GĐ1 + GĐ2) → một lần dựng lại cho tất cả (theo lịch kiểm).
@@ -143,6 +145,7 @@
 | Q5 | Chỉ số USD (Macro, tùy chọn) cần nến M15 của 6 cặp tiền 2 năm | **(A) Xuất thêm 6 cặp** từ MT5 (cùng cách bước 0) · (B) Bỏ, Macro chạy không có chỉ số USD (hạ trần confidence), ghi bias | Bước 3 | |
 | Q6 | Spread lịch sử: cột `<SPREAD>` của nến MT5 có thể thấp hơn spread thật (hỏi **sau** khi có số đo ở bước 2) | (A) Dùng spread nến, ghi bias · (B) Dùng spread nến nhưng nâng lên theo tỷ lệ đo được trên đoạn trùng · (C) Dùng mức xấu hơn của hai cách — khuyến nghị chọn sau khi có số đo | Bước 2 / 5 | |
 | Q7 | Chạy backtest thật ở đâu | **(A) Trên máy bạn**, container riêng + DB riêng, sau Gate GĐ1 + GĐ2 (dữ liệu chính sàn, không gửi file đi đâu; người phát triển không thấy đoạn để dành trước) · (B) Bạn gửi file cho người phát triển chạy trong máy ảo phát triển | Bước 10 | |
+| Q8 | Độ dài dữ liệu: với ~2 năm, ngoài mẫu chỉ ~6 tháng nằm trong một năm → T8 gần như chắc trượt, T1 khó (thước đo 23/11) | **(A) Xuất càng xa càng tốt (từ 2020 nếu MT5 có)**, người phát triển thêm ngày lễ 2020–2023 vào bảng (kiểm từng ngày) · (B) Từ 2023 (thêm ngày lễ 2023) · (C) Giữ 2024 trở đi, chấp nhận T8 / T1 nhiều khả năng trượt | Bước 0, 2 | |
 
 ## Kiểm trên máy người dùng — bước 0 (xuất nến từ MT5, KHÔNG nạp)
 
@@ -205,6 +208,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-23** — **Bước 7 xong** (phần không cần dữ liệu thật): đăng ký chỉ-thêm (migration 0028), walk-forward theo lát cắt, chặn đọc đoạn để dành, chạy để dành một lần. **Phát hiện khi viết test:** sổ paper trong bộ nhớ của GĐ5 chậm theo bình phương khi nhiều lệnh (84 giây / 669 lệnh) → `FastLedger` có chỉ mục (18,5 giây), chứng minh tương đương bằng bộ test GĐ5 + so từng lệnh. Không đổi code GĐ5 (chỉ thêm lớp con trong `backtest/`; test GĐ5 chạy thêm loại sổ `fast`). Test backend 2961 passed, 3 skipped.
 
 - **2026-11-23** — **Bước 8 xong** (trừ HTML + lệnh CLI — cần DB riêng, làm cùng bước 2 / 10): luật chấm T1–T8 ghi trước trong thiết kế 39 mục 12; chấm thuần + tính số từ walk-forward + báo cáo Markdown + cảnh báo 6-C04; 6-C05 có test. Soát đột biến: 11/12 bắt ngay, 1 lọt (T7 để dành đúng 0R khi ngoài mẫu âm) → thêm test.
+
+- **2026-11-23** — **Bước 9 xong** (phần sandbox; CI TimescaleDB chạy sau khi đẩy). Ba lỗi tìm được và đã sửa (chuỗi equity ngày gồm ngày nghỉ — ảnh hưởng T5; mốc ngày cuối kỳ thiếu; đoạn kiểm bắt đầu cuối tuần). **Phát hiện về giao thức (không đổi giao thức):** với ~2 năm dữ liệu, phần ngoài mẫu chỉ ~6 tháng (2 vòng walk-forward) và nằm trọn trong **một năm** → T1 (≥ 200 lệnh ngoài mẫu) khó, **T8 (không năm nào > 70 % lãi) gần như không thể đạt** dù chiến lược có lợi thế thật (thước đo: lợi thế cài sẵn vẫn trượt T8 "năm 2025: 100 %"). Muốn T8 có nghĩa cần ngoài mẫu trải ≥ 2 năm → dữ liệu ≈ 4 năm (12 tháng học + ~2 năm kiểm + để dành) → hỏi người dùng (Q8) trước khi làm bước 0.
 
 ## Prompt cho phiên mới
 
