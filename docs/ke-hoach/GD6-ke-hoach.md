@@ -140,7 +140,9 @@
 
 ## Kiểm trên máy người dùng — bước 0 (xuất nến từ MT5, KHÔNG nạp)
 
-> Chỉ **xuất file** và **đọc thử**. Không nạp vào cơ sở dữ liệu, không dựng lại, không khởi động lại MT5 hay Gateway, không đổi cài đặt MT5 (đang đếm 5 ngày cho Gate GĐ1). Không làm trong khung băng đỏ, tối thứ Sáu / cuối tuần. Không dán mật khẩu / token / khóa API vào chat.
+> Cập nhật 23/11 theo **Q8 = (A)**: xuất **càng xa càng tốt, từ 2020** (để phần ngoài mẫu trải ≥ 2 năm — T1 / T8 mới có ý nghĩa). Chỉ **xuất file** và **đọc thử**. Không nạp vào cơ sở dữ liệu, không dựng lại, không khởi động lại MT5 hay Gateway, **không đổi cài đặt MT5**. Không làm trong khung băng đỏ, tối thứ Sáu / cuối tuần. Không dán mật khẩu / token / khóa API vào chat.
+>
+> M15 từ 2020 ≈ 170.000 nến — có thể vượt giới hạn số thanh của MT5 → **xuất M15 thành 2 file** (2020–2022 và 2023–nay); khi nạp ở bước 2, hệ thống tự ghép + bỏ trùng.
 
 **1. Tạo thư mục chứa file** (PowerShell):
 
@@ -148,23 +150,31 @@
 New-Item -ItemType Directory -Force C:\gold-backtest
 ```
 
-**2. Xuất XAUUSD M15 trong MT5** (cửa sổ MT5 đang chạy, MetaQuotes-Demo; **không đóng / mở lại MT5**):
+**2. Xuất XAUUSD M15 trong MT5 — 2 lần** (cửa sổ MT5 đang chạy, MetaQuotes-Demo; **không đóng / mở lại MT5**):
 
-1. Menu **Xem (View) → Ký hiệu (Symbols)** (hoặc `Ctrl+U`).
-2. Thẻ **Thanh (Bars)**. Chọn mã **XAUUSD**, khung **M15**, từ ngày **2023.01.01** tới **hôm nay**. Bấm **Yêu cầu (Request)** — MT5 tải lịch sử từ máy chủ (có thể mất 1–2 phút).
-3. Ghi lại: **ngày giờ nến đầu tiên**, **ngày giờ nến cuối cùng**, **số thanh** MT5 hiện (nếu có). Nếu số thanh **tròn đúng** 100.000 hoặc 50.000 → có thể bị giới hạn bởi cài đặt, **không tự đổi cài đặt**, chỉ báo lại.
-4. Bấm **Xuất thanh (Export Bars)** → lưu thành `C:\gold-backtest\XAUUSD_M15.csv`.
+1. Menu **Xem (View) → Ký hiệu (Symbols)** (hoặc `Ctrl+U`) → thẻ **Thanh (Bars)** → mã **XAUUSD**, khung **M15**.
+2. **Lần 1:** từ **2020.01.01** tới **2022.12.31** → **Yêu cầu (Request)** (chờ 1–2 phút) → ghi **ngày giờ nến đầu**, **nến cuối**, **số thanh** → **Xuất thanh (Export Bars)** → lưu `C:\gold-backtest\XAUUSD_M15_2020_2022.csv`.
+3. **Lần 2:** từ **2023.01.01** tới **hôm nay** → Yêu cầu → ghi như trên → Xuất → `C:\gold-backtest\XAUUSD_M15_2023_nay.csv`.
+4. Nếu **nến đầu của lần 1 muộn hơn 2020 nhiều** (ví dụ 2022) → MT5 / sàn không có lịch sử xa hơn — **cứ báo lại**, không cần làm gì thêm. Nếu số thanh **tròn đúng** 100.000 hoặc 50.000 → có thể bị giới hạn bởi cài đặt → **không tự đổi cài đặt**, chỉ báo lại.
 
-**3. Làm lại bước 2 cho H1, H4, D1** (từ **2022.01.01**) → lưu `XAUUSD_H1.csv`, `XAUUSD_H4.csv`, `XAUUSD_D1.csv` trong cùng thư mục. Ghi ngày đầu / cuối / số thanh mỗi khung.
+**3. Xuất H1, H4, D1** (mỗi khung **một** file, từ **2019.06.01** tới **hôm nay** — sớm hơn M15 để đủ nến khởi động) → `XAUUSD_H1.csv`, `XAUUSD_H4.csv`, `XAUUSD_D1.csv` trong cùng thư mục. Ghi ngày đầu / cuối / số thanh mỗi khung. (H1 ≈ 40.000 thanh — dưới giới hạn.)
 
-**4. Đọc thử file (chỉ đọc, không ghi gì vào cơ sở dữ liệu)** — trong PowerShell tại `C:\gold-trading`, gõ từng lệnh một:
+**4. Đọc thử file (chỉ đọc, không ghi gì vào cơ sở dữ liệu)** — trong PowerShell tại `C:\gold-trading`, gõ **từng lệnh một**:
 
 ```powershell
-docker compose cp ..\gold-backtest\XAUUSD_M15.csv backend:/tmp/bt_m15.csv
+docker compose cp ..\gold-backtest\XAUUSD_M15_2020_2022.csv backend:/tmp/bt_m15a.csv
 ```
 
 ```powershell
-docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp/bt_m15.csv --server-tz Europe/Athens --dry-run
+docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp/bt_m15a.csv --server-tz Europe/Athens --dry-run
+```
+
+```powershell
+docker compose cp ..\gold-backtest\XAUUSD_M15_2023_nay.csv backend:/tmp/bt_m15b.csv
+```
+
+```powershell
+docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp/bt_m15b.csv --server-tz Europe/Athens --dry-run
 ```
 
 ```powershell
@@ -177,9 +187,9 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 
 (`..\gold-backtest` = thư mục `C:\gold-backtest` vừa tạo. `--dry-run` dừng trước khi mở cơ sở dữ liệu — chỉ đọc file trong `/tmp` của container. H4 / D1 chưa đọc thử được vì lệnh chưa hỗ trợ — làm ở bước 2.)
 
-**5. Gửi cho người phát triển:** ngày đầu / cuối / số thanh của 4 khung (bước 2–3) + **toàn bộ** nội dung 2 lệnh `--dry-run` in ra. Mong đợi: "Đọc được … nến, 0 dòng lỗi", khoảng thời gian UTC từ 2023 tới hôm nay, **không** có chữ "TỪ CHỐI". Có "TỪ CHỐI … múi giờ" → gửi nguyên văn (kèm dòng "Gợi ý"), không tự sửa.
+**5. Gửi cho người phát triển:** ngày đầu / cuối / số thanh của **5 file** (bước 2–3) + **toàn bộ** nội dung 3 lệnh `--dry-run` in ra. Mong đợi: "Đọc được … nến, 0 dòng lỗi", **không** có chữ "TỪ CHỐI". Có "TỪ CHỐI … múi giờ" → gửi nguyên văn (kèm dòng "Gợi ý"), không tự sửa. (Năm 2020–2023 chưa có trong bảng ngày lễ của hệ thống — lệnh đọc thử vẫn chạy; người phát triển thêm ngày lễ ở bước 2.)
 
-**Giữ nguyên 4 file trong `C:\gold-backtest`** — đó là dữ liệu sẽ nạp vào DB riêng của backtest ở bước 10.
+**Giữ nguyên 5 file trong `C:\gold-backtest`** — đó là dữ liệu sẽ nạp vào DB riêng của backtest ở bước 10.
 
 ## Nhật ký kế hoạch
 
