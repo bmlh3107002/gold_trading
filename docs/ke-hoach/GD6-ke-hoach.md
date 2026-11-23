@@ -51,7 +51,7 @@
 ## Thứ tự làm (mỗi bước: thiết kế → code + test (gồm trường hợp xấu) + soát lại kịch bản riêng → tick → commit → push nhánh GĐ6 → kiểm CI)
 
 ### Bước 0 — VIỆC ĐẦU TIÊN, KIỂM TRÊN MÁY: MT5 có bao nhiêu năm nến? (chỉ xuất file, KHÔNG nạp)
-- [ ] 0a. Xuất **XAUUSD M15** từ MT5 ra file (hướng dẫn ở mục "Kiểm trên máy — bước 0"). Ghi: ngày nến đầu, ngày nến cuối, số nến. **Cần ≥ 2 năm** (tối thiểu tuyệt đối 21 tháng = 12 tháng học + 3 tháng kiểm + 6 tháng để dành; dưới mức đó protocol-1 không chạy được).
+- [ ] 0a. Xuất **XAUUSD M15** từ MT5 ra file — **từ 2020, hai file** (Q8 = A; hướng dẫn ở mục "Kiểm trên máy — bước 0"). Ghi: ngày nến đầu, ngày nến cuối, số nến. **Cần ≥ 2 năm** (tối thiểu tuyệt đối 21 tháng = 12 tháng học + 3 tháng kiểm + 6 tháng để dành; dưới mức đó protocol-1 không chạy được).
 - [ ] 0b. Xuất **XAUUSD H1, H4, D1** (cho Technical MTF). Ghi ngày đầu / cuối / số nến.
 - [ ] 0c. Kiểm file M15 và H1 **chỉ đọc** bằng `import-csv --dry-run` (không mở DB, không ghi gì): số nến đọc được, số dòng lỗi, khoảng thời gian UTC, kiểm múi giờ R1 đạt.
 - [ ] 0d. Người phát triển ghi kết quả vào nhật ký; < 21 tháng → dừng, hỏi người dùng (không chạy protocol-1 với dữ liệu ngắn hơn).
@@ -62,6 +62,7 @@
 - [x] (23/11) Thiết kế `docs/thiet-ke/39-backtest.md`: hai tầng; DB riêng + chốt chặn trùng URL; cổng lịch sử cho Risk (equity mô phỏng, thông số broker, spread / đệm trượt giá từ nến, phí, sổ lệnh mô phỏng); luật khớp theo nến; danh sách **bias đã biết** (spread nến MT5, không có giây giá, thông số broker hiện hành dùng cho quá khứ, lịch kinh tế dựng lại, không có News, khớp đủ khối lượng); đơn vị + `Decimal`. Viết **trước** khi code bước 2–8.
 
 ### Bước 2 — Dữ liệu giá lịch sử vào DB riêng (BT-01 phần dữ liệu; 6-C03 phần dữ liệu)
+- [ ] **Q8 = A:** thêm ngày lễ **2020–2023** vào `market/holidays.py` (lớp 2 bảng ngày lễ có phiên bản mới); kiểm từng ngày với lịch CME / sàn **và** với chỗ hở nến thật trong file xuất (ngày nghỉ phải trùng chỗ hở, không thừa không thiếu); kiểm phiên bản bảng ngày lễ mới **không** làm đổi kết quả replay / Gate của hệ thống thật (chỉ thêm năm cũ).
 - [ ] `import-csv` nhận **H4 / D1** (căn theo giờ server, ngày đổi DST 23 / 25 giờ — ING-14 đã có trong `CandleIngestor`); test DST, nến lệch căn.
 - [ ] Lệnh backtest dùng `GT_BACKTEST_DATABASE_URL`; **từ chối** khi thiếu hoặc trùng `DATABASE_URL` (test). Khởi tạo schema DB riêng bằng Alembic.
 - [ ] Báo cáo dữ liệu (chỉ đọc): khoảng thời gian, chỗ hở trong giờ mở cửa (theo `market/hours` + ngày lễ), nến bị cách ly, nến spike / đóng băng, phân bố spread theo phiên. Chỗ hở → danh sách cho báo cáo GĐ6.
@@ -145,11 +146,13 @@
 | Q5 | Chỉ số USD (Macro, tùy chọn) cần nến M15 của 6 cặp tiền 2 năm | **(A) Xuất thêm 6 cặp** từ MT5 (cùng cách bước 0) · (B) Bỏ, Macro chạy không có chỉ số USD (hạ trần confidence), ghi bias | Bước 3 | |
 | Q6 | Spread lịch sử: cột `<SPREAD>` của nến MT5 có thể thấp hơn spread thật (hỏi **sau** khi có số đo ở bước 2) | (A) Dùng spread nến, ghi bias · (B) Dùng spread nến nhưng nâng lên theo tỷ lệ đo được trên đoạn trùng · (C) Dùng mức xấu hơn của hai cách — khuyến nghị chọn sau khi có số đo | Bước 2 / 5 | |
 | Q7 | Chạy backtest thật ở đâu | **(A) Trên máy bạn**, container riêng + DB riêng, sau Gate GĐ1 + GĐ2 (dữ liệu chính sàn, không gửi file đi đâu; người phát triển không thấy đoạn để dành trước) · (B) Bạn gửi file cho người phát triển chạy trong máy ảo phát triển | Bước 10 | |
-| Q8 | Độ dài dữ liệu: với ~2 năm, ngoài mẫu chỉ ~6 tháng nằm trong một năm → T8 gần như chắc trượt, T1 khó (thước đo 23/11) | **(A) Xuất càng xa càng tốt (từ 2020 nếu MT5 có)**, người phát triển thêm ngày lễ 2020–2023 vào bảng (kiểm từng ngày) · (B) Từ 2023 (thêm ngày lễ 2023) · (C) Giữ 2024 trở đi, chấp nhận T8 / T1 nhiều khả năng trượt | Bước 0, 2 | |
+| Q8 | Độ dài dữ liệu: với ~2 năm, ngoài mẫu chỉ ~6 tháng nằm trong một năm → T8 gần như chắc trượt, T1 khó (thước đo 23/11) | **(A) Xuất càng xa càng tốt (từ 2020 nếu MT5 có)**, người phát triển thêm ngày lễ 2020–2023 vào bảng (kiểm từng ngày) · (B) Từ 2023 (thêm ngày lễ 2023) · (C) Giữ 2024 trở đi, chấp nhận T8 / T1 nhiều khả năng trượt | Bước 0, 2 | **Chốt 23/11: (A)** xuất từ 2020 (M15 hai file, H1 / H4 / D1 từ 2019.06); người phát triển thêm ngày lễ 2020–2023 ở bước 2, kiểm từng ngày với lịch sàn **và** chỗ hở nến thật trong file xuất |
 
 ## Kiểm trên máy người dùng — bước 0 (xuất nến từ MT5, KHÔNG nạp)
 
-> Chỉ **xuất file** và **đọc thử**. Không nạp vào cơ sở dữ liệu, không dựng lại, không khởi động lại MT5 hay Gateway, không đổi cài đặt MT5 (đang đếm 5 ngày cho Gate GĐ1). Không làm trong khung băng đỏ, tối thứ Sáu / cuối tuần. Không dán mật khẩu / token / khóa API vào chat.
+> Cập nhật 23/11 theo **Q8 = (A)**: xuất **càng xa càng tốt, từ 2020** (để phần ngoài mẫu trải ≥ 2 năm — T1 / T8 mới có ý nghĩa). Chỉ **xuất file** và **đọc thử**. Không nạp vào cơ sở dữ liệu, không dựng lại, không khởi động lại MT5 hay Gateway, **không đổi cài đặt MT5**. Không làm trong khung băng đỏ, tối thứ Sáu / cuối tuần. Không dán mật khẩu / token / khóa API vào chat.
+>
+> M15 từ 2020 ≈ 170.000 nến — có thể vượt giới hạn số thanh của MT5 → **xuất M15 thành 2 file** (2020–2022 và 2023–nay); khi nạp ở bước 2, hệ thống tự ghép + bỏ trùng.
 
 **1. Tạo thư mục chứa file** (PowerShell):
 
@@ -157,23 +160,31 @@
 New-Item -ItemType Directory -Force C:\gold-backtest
 ```
 
-**2. Xuất XAUUSD M15 trong MT5** (cửa sổ MT5 đang chạy, MetaQuotes-Demo; **không đóng / mở lại MT5**):
+**2. Xuất XAUUSD M15 trong MT5 — 2 lần** (cửa sổ MT5 đang chạy, MetaQuotes-Demo; **không đóng / mở lại MT5**):
 
-1. Menu **Xem (View) → Ký hiệu (Symbols)** (hoặc `Ctrl+U`).
-2. Thẻ **Thanh (Bars)**. Chọn mã **XAUUSD**, khung **M15**, từ ngày **2023.01.01** tới **hôm nay**. Bấm **Yêu cầu (Request)** — MT5 tải lịch sử từ máy chủ (có thể mất 1–2 phút).
-3. Ghi lại: **ngày giờ nến đầu tiên**, **ngày giờ nến cuối cùng**, **số thanh** MT5 hiện (nếu có). Nếu số thanh **tròn đúng** 100.000 hoặc 50.000 → có thể bị giới hạn bởi cài đặt, **không tự đổi cài đặt**, chỉ báo lại.
-4. Bấm **Xuất thanh (Export Bars)** → lưu thành `C:\gold-backtest\XAUUSD_M15.csv`.
+1. Menu **Xem (View) → Ký hiệu (Symbols)** (hoặc `Ctrl+U`) → thẻ **Thanh (Bars)** → mã **XAUUSD**, khung **M15**.
+2. **Lần 1:** từ **2020.01.01** tới **2022.12.31** → **Yêu cầu (Request)** (chờ 1–2 phút) → ghi **ngày giờ nến đầu**, **nến cuối**, **số thanh** → **Xuất thanh (Export Bars)** → lưu `C:\gold-backtest\XAUUSD_M15_2020_2022.csv`.
+3. **Lần 2:** từ **2023.01.01** tới **hôm nay** → Yêu cầu → ghi như trên → Xuất → `C:\gold-backtest\XAUUSD_M15_2023_nay.csv`.
+4. Nếu **nến đầu của lần 1 muộn hơn 2020 nhiều** (ví dụ 2022) → MT5 / sàn không có lịch sử xa hơn — **cứ báo lại**, không cần làm gì thêm. Nếu số thanh **tròn đúng** 100.000 hoặc 50.000 → có thể bị giới hạn bởi cài đặt → **không tự đổi cài đặt**, chỉ báo lại.
 
-**3. Làm lại bước 2 cho H1, H4, D1** (từ **2022.01.01**) → lưu `XAUUSD_H1.csv`, `XAUUSD_H4.csv`, `XAUUSD_D1.csv` trong cùng thư mục. Ghi ngày đầu / cuối / số thanh mỗi khung.
+**3. Xuất H1, H4, D1** (mỗi khung **một** file, từ **2019.06.01** tới **hôm nay** — sớm hơn M15 để đủ nến khởi động) → `XAUUSD_H1.csv`, `XAUUSD_H4.csv`, `XAUUSD_D1.csv` trong cùng thư mục. Ghi ngày đầu / cuối / số thanh mỗi khung. (H1 ≈ 40.000 thanh — dưới giới hạn.)
 
-**4. Đọc thử file (chỉ đọc, không ghi gì vào cơ sở dữ liệu)** — trong PowerShell tại `C:\gold-trading`, gõ từng lệnh một:
+**4. Đọc thử file (chỉ đọc, không ghi gì vào cơ sở dữ liệu)** — trong PowerShell tại `C:\gold-trading`, gõ **từng lệnh một**:
 
 ```powershell
-docker compose cp ..\gold-backtest\XAUUSD_M15.csv backend:/tmp/bt_m15.csv
+docker compose cp ..\gold-backtest\XAUUSD_M15_2020_2022.csv backend:/tmp/bt_m15a.csv
 ```
 
 ```powershell
-docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp/bt_m15.csv --server-tz Europe/Athens --dry-run
+docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp/bt_m15a.csv --server-tz Europe/Athens --dry-run
+```
+
+```powershell
+docker compose cp ..\gold-backtest\XAUUSD_M15_2023_nay.csv backend:/tmp/bt_m15b.csv
+```
+
+```powershell
+docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp/bt_m15b.csv --server-tz Europe/Athens --dry-run
 ```
 
 ```powershell
@@ -186,9 +197,9 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 
 (`..\gold-backtest` = thư mục `C:\gold-backtest` vừa tạo. `--dry-run` dừng trước khi mở cơ sở dữ liệu — chỉ đọc file trong `/tmp` của container. H4 / D1 chưa đọc thử được vì lệnh chưa hỗ trợ — làm ở bước 2.)
 
-**5. Gửi cho người phát triển:** ngày đầu / cuối / số thanh của 4 khung (bước 2–3) + **toàn bộ** nội dung 2 lệnh `--dry-run` in ra. Mong đợi: "Đọc được … nến, 0 dòng lỗi", khoảng thời gian UTC từ 2023 tới hôm nay, **không** có chữ "TỪ CHỐI". Có "TỪ CHỐI … múi giờ" → gửi nguyên văn (kèm dòng "Gợi ý"), không tự sửa.
+**5. Gửi cho người phát triển:** ngày đầu / cuối / số thanh của **5 file** (bước 2–3) + **toàn bộ** nội dung 3 lệnh `--dry-run` in ra. Mong đợi: "Đọc được … nến, 0 dòng lỗi", **không** có chữ "TỪ CHỐI". Có "TỪ CHỐI … múi giờ" → gửi nguyên văn (kèm dòng "Gợi ý"), không tự sửa. (Năm 2020–2023 chưa có trong bảng ngày lễ của hệ thống — lệnh đọc thử vẫn chạy; người phát triển thêm ngày lễ ở bước 2.)
 
-**Giữ nguyên 4 file trong `C:\gold-backtest`** — đó là dữ liệu sẽ nạp vào DB riêng của backtest ở bước 10.
+**Giữ nguyên 5 file trong `C:\gold-backtest`** — đó là dữ liệu sẽ nạp vào DB riêng của backtest ở bước 10.
 
 ## Nhật ký kế hoạch
 
@@ -210,6 +221,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-23** — **Bước 8 xong** (trừ HTML + lệnh CLI — cần DB riêng, làm cùng bước 2 / 10): luật chấm T1–T8 ghi trước trong thiết kế 39 mục 12; chấm thuần + tính số từ walk-forward + báo cáo Markdown + cảnh báo 6-C04; 6-C05 có test. Soát đột biến: 11/12 bắt ngay, 1 lọt (T7 để dành đúng 0R khi ngoài mẫu âm) → thêm test.
 
 - **2026-11-23** — **Bước 9 xong** (phần sandbox; CI TimescaleDB chạy sau khi đẩy). Ba lỗi tìm được và đã sửa (chuỗi equity ngày gồm ngày nghỉ — ảnh hưởng T5; mốc ngày cuối kỳ thiếu; đoạn kiểm bắt đầu cuối tuần). **Phát hiện về giao thức (không đổi giao thức):** với ~2 năm dữ liệu, phần ngoài mẫu chỉ ~6 tháng (2 vòng walk-forward) và nằm trọn trong **một năm** → T1 (≥ 200 lệnh ngoài mẫu) khó, **T8 (không năm nào > 70 % lãi) gần như không thể đạt** dù chiến lược có lợi thế thật (thước đo: lợi thế cài sẵn vẫn trượt T8 "năm 2025: 100 %"). Muốn T8 có nghĩa cần ngoài mẫu trải ≥ 2 năm → dữ liệu ≈ 4 năm (12 tháng học + ~2 năm kiểm + để dành) → hỏi người dùng (Q8) trước khi làm bước 0.
+
+- **2026-11-23** — **Q8 chốt (A):** xuất từ 2020 (càng xa càng tốt). Hướng dẫn bước 0 sửa: M15 hai file (2020–2022, 2023–nay — tránh giới hạn số thanh, không đổi cài đặt MT5), H1 / H4 / D1 từ 2019.06. Bước 2 thêm việc: ngày lễ 2020–2023 (kiểm với lịch sàn + chỗ hở nến thật).
 
 ## Prompt cho phiên mới
 
