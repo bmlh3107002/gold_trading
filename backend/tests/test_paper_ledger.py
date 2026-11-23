@@ -37,9 +37,16 @@ class Crash(Exception):
     """Crash giả lập (tiến trình chết giữa giao dịch = giao dịch không commit)."""
 
 
+# GĐ6: sổ có chỉ mục của backtest phải cho đúng kết quả như sổ trong bộ nhớ → chạy cùng bộ test.
+LEDGER_KINDS = [*KINDS, "fast"]
+
+
 def make_ledger(kind: str, tmp_path, name: str = "l.db"):
     if kind == "memory":
         return RiskLedger()
+    if kind == "fast":
+        from gold_trading.backtest.fastledger import FastLedger
+        return FastLedger()
     if kind == "sqlite":
         repo = SqlRepository.from_url(f"sqlite:///{tmp_path / name}")
         repo.create_all()
@@ -52,7 +59,7 @@ def make_ledger(kind: str, tmp_path, name: str = "l.db"):
     return SqlLedger(eng)
 
 
-@pytest.fixture(params=KINDS)
+@pytest.fixture(params=LEDGER_KINDS)
 def kind(request):
     return request.param
 

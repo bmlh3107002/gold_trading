@@ -837,3 +837,49 @@ strategy_evaluations = Table(
 )
 Index("ix_strategy_evaluations_account_time", strategy_evaluations.c.account_id,
       strategy_evaluations.c.evaluated_at)
+
+
+# GĐ6 bước 7 (BT-04, 6-C04; migration 0028): đăng ký lần chạy backtest theo protocol-1 — chỉ thêm
+# (trigger chặn UPDATE + DELETE). Chỉ dùng trong **DB backtest riêng** (thiết kế 39 mục 4, 10);
+# ở DB hệ thống thật các bảng này luôn rỗng.
+backtest_registrations = Table(
+    "backtest_registrations",
+    metadata,
+    Column("registration_id", String(64), primary_key=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", String(128), nullable=False),
+    Column("protocol_id", String(32), nullable=False),
+    Column("strategy_ref", String(64), nullable=False),
+    Column("data_start", DateTime(timezone=True), nullable=False),
+    Column("dev_end", DateTime(timezone=True), nullable=False),
+    Column("data_end", DateTime(timezone=True), nullable=False),
+    Column("grid", JsonType, nullable=False),
+    Column("data_fingerprint", String(64), nullable=False),
+    Column("code_version", String(128), nullable=False),
+    Column("notes", String(2000), nullable=False),
+    CheckConstraint("data_start < dev_end AND dev_end < data_end",
+                    name="ck_backtest_registrations_order"),
+)
+
+# Mỗi lần thử NGOÀI lưới đã đăng ký → một dòng; số lần thử cho Deflated Sharpe = lưới + số dòng.
+backtest_trials = Table(
+    "backtest_trials",
+    metadata,
+    Column("seq", SeqId, Identity(), primary_key=True),
+    Column("registration_id", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("created_by", String(128), nullable=False),
+    Column("description", String(2000), nullable=False),
+)
+Index("ix_backtest_trials_registration", backtest_trials.c.registration_id)
+
+# Đoạn để dành chạy đúng MỘT lần / đăng ký: ghi dòng TRƯỚC khi chạy (khóa chính = đăng ký) → lần
+# hai bị từ chối kể cả khi lần đầu lỗi giữa chừng.
+backtest_holdout_runs = Table(
+    "backtest_holdout_runs",
+    metadata,
+    Column("registration_id", String(64), primary_key=True),
+    Column("started_at", DateTime(timezone=True), nullable=False),
+    Column("started_by", String(128), nullable=False),
+    Column("combo", String(64), nullable=False),
+)

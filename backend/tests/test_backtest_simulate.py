@@ -328,3 +328,39 @@ def test_below_min_lot_capital_never_trades():                                  
     r = run(bars, [view_at(T_SIG)], capital=D(3_000))
     assert r.trades == []
     assert any("BELOW_MIN_VOLUME" in d.reason_codes for d in r.decisions)
+
+
+def test_fast_ledger_gives_identical_results_to_reference_ledger(monkeypatch):
+    """Sổ có chỉ mục (hiệu năng) phải cho đúng từng lệnh như sổ tham chiếu của GĐ5."""
+    import random
+
+    import gold_trading.backtest.simulate as SM
+    from gold_trading.risk.ledger import RiskLedger
+    rng = random.Random(11)
+    t, p, bl, views = START, 2400.0, [], []
+    while t < START + timedelta(days=40):
+        if is_open(t) and is_open(t + timedelta(minutes=14)):
+            o = round(p, 2)
+            c = round(o + rng.gauss(0, 2.5), 2)
+            if rng.random() < 0.004:
+                o = round(o + rng.choice([-12, 12]), 2)              # khoảng trống giá
+            bl.append(SimBar(t, D(str(o)), D(str(round(max(o, c) + 0.4, 2))),
+                             D(str(round(min(o, c) - 0.4, 2))), D(str(c)),
+                             rng.choice([15, 20, 40])))
+            p = c
+            if rng.random() < 0.3:
+                tc = t + timedelta(minutes=15)
+                v = market_view(tc, market_view_id=f"r{len(views)}", feed_id=FEED,
+                                bias=rng.choice([Bias.LONG, Bias.SHORT]), confidence=0.8)
+                views.append(HistoricalView(v, tc, {"atr14": 4.0, "ema20": c}))
+        t += timedelta(minutes=15)
+    end = START + timedelta(days=40)
+
+    def sig(r):
+        return [(e.type, e.ref_id[:0], e.amount, e.at, e.reason, e.data.get("exit_price"))
+                for e in r.trades], [(p.code, p.at) for p in r.pauses], r.equity_by_day
+    fast = simulate(bl, HistoricalViews(views, SCOPE), cfg(), START, end)
+    monkeypatch.setattr(SM, "FastLedger", RiskLedger)
+    ref = simulate(bl, HistoricalViews(views, SCOPE), cfg(), START, end)
+    assert len(fast.trades) > 20
+    assert sig(fast) == sig(ref)

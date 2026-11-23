@@ -22,6 +22,7 @@ from decimal import Decimal
 from typing import Any
 
 from gold_trading.analysts.framework import Scope
+from gold_trading.backtest.fastledger import FastLedger
 from gold_trading.common.enums import Side, TradingMode
 from gold_trading.contracts.market_view import MarketView
 from gold_trading.market.quotes import QuoteSecond
@@ -305,6 +306,27 @@ def _quote_from_bar(feed: str, b: SimBar, point: Decimal) -> QuoteSecond:
                        b.spread_points, b.spread_points, 1, (), b.open_time, b.open_time)
 
 
+class _IndexedEvaluations(InMemoryEvaluationStore):
+    """Kho "lần xét" trong bộ nhớ có chỉ mục (lớp gốc quét toàn bộ mỗi lần — chậm theo bình
+    phương khi mô phỏng nhiều năm). Cùng ngữ nghĩa: một dòng / (tài khoản, chiến lược,
+    MarketView)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._keys: set[tuple[str, str, str]] = set()
+
+    def exists(self, account_id, strategy_ref, market_view_id):
+        return (account_id, strategy_ref, market_view_id) in self._keys
+
+    def record(self, e):
+        k = (e.account_id, e.strategy_ref, e.market_view_id)
+        if k in self._keys:
+            return False
+        self._keys.add(k)
+        self.rows.append(e)
+        return True
+
+
 # ====================================================================== chạy
 
 
@@ -338,7 +360,7 @@ def simulate(bars: Sequence[SimBar] | Bars, views: HistoricalViews, cfg: SimConf
         b = bs.starting_at(at)
         return _quote_from_bar(feed, b, point) if b is not None else None
 
-    ledger = RiskLedger(clock=clock)
+    ledger = FastLedger(clock=clock)
     ledger.start(ACCOUNT, cfg.capital, actor=ACTOR, reason="BACKTEST_START", at=start)
     accounts = BacktestAccounts(cfg, start, clock)
     profiles = InMemoryRiskProfileStore()
@@ -389,7 +411,7 @@ def simulate(bars: Sequence[SimBar] | Bars, views: HistoricalViews, cfg: SimConf
     monitor = PaperMonitor(broker, feed_for=lambda acc: cfg.feed_id, risk_profile=profiles.at,
                            entry_blocks=lambda acc, at: cfg.entry_blocks(at),
                            market_calendar=cfg.market_calendar, managers=(Manager(cfg.params),))
-    store = InMemoryEvaluationStore()
+    store = _IndexedEvaluations()
     runner = StrategyRunner(
         accounts=lambda: [ACCOUNT], mode=accounts.mode, feed_for=lambda acc: cfg.feed_id,
         view_for=lambda acc, at: views.current(scope, at), technical_for=views.technical,

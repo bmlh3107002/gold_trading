@@ -22,7 +22,7 @@ from gold_trading.risk.paper import PaperBroker, swap_nights
 from gold_trading.storage.repository import SqlRepository
 from tests.conftest import minutes
 from tests.factories import intent
-from tests.test_paper_ledger import KINDS, make_ledger
+from tests.test_paper_ledger import LEDGER_KINDS, make_ledger
 from tests.test_risk_engine import ACC, FEED, World, reading, spec_row
 
 D = Decimal
@@ -60,7 +60,7 @@ class Paper:
         self.w.now = t
 
 
-@pytest.fixture(params=KINDS)
+@pytest.fixture(params=LEDGER_KINDS)
 def paper(request, tmp_path, t0):
     if request.param == "memory":
         return Paper(t0)
