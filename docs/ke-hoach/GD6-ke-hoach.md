@@ -89,8 +89,8 @@
 ### Bước 6 — Thống kê + mốc so sánh (protocol-1 mục 5–6)
 - [ ] Chỉ số mục 5 (sau chi phí, mức 0,25 %): số lệnh, tỷ lệ thắng, kỳ vọng / lệnh (R + USD), hệ số lợi nhuận, sụt giảm lớn nhất, chuỗi thua dài nhất, số lần chạm H6 / H4, Sharpe theo ngày, thời gian giữ; chia theo regime / phiên / năm / chiều.
 - [ ] Mốc ngẫu nhiên 1.000 lần (cùng giờ phiên, cùng số lệnh, cùng tỷ lệ chiều, cùng SL / TP / đóng 16:45; hạt giống ngẫu nhiên ghi lại); mốc không lọc (bỏ V3–V6); tham chiếu 0 và mua – giữ.
-- [ ] Deflated Sharpe Ratio (Bailey & López de Prado 2014), PBO bằng CSCV 16 khối (Bailey và cộng sự 2017), bootstrap khoảng tin cậy 95 % theo khối ngày.
-- [ ] Test so **giá trị tham chiếu**: ví dụ số trong bài báo gốc (DSR), PBO trên dữ liệu dựng sẵn biết đáp án (chiến lược ngẫu nhiên → PBO ≈ 0,5), bootstrap trên chuỗi biết trung bình; Sharpe / sụt giảm tính tay trên chuỗi nhỏ.
+- [x] (23/11) Deflated Sharpe Ratio (Bailey & López de Prado 2014), PBO bằng CSCV 16 khối (Bailey và cộng sự 2017), bootstrap khoảng tin cậy 95 % theo khối ngày. *(`backtest/stats.py`, thư viện chuẩn, không numpy.)*
+- [x] (23/11) Test so **giá trị tham chiếu**: ví dụ số trong bài báo gốc (DSR), PBO trên dữ liệu dựng sẵn biết đáp án (chiến lược ngẫu nhiên → PBO ≈ 0,5), bootstrap trên chuỗi biết trung bình; Sharpe / sụt giảm tính tay trên chuỗi nhỏ. *(`tests/test_backtest_stats.py` 12 test: DSR ví dụ bài báo = **0,9004** khớp; PBO ngẫu nhiên ≈ 0,5, có lợi thế thật < 0,05, quá khớp > 0,4; soát riêng: PBO viết lại thô bằng `statistics` khớp tuyệt đối trên 6 bộ ngẫu nhiên. Chỉ số mục 5 dạng hàm thuần đã có; phần chia theo regime / phiên / năm / chiều, mốc ngẫu nhiên và mốc không lọc cần bộ mô phỏng → làm cùng bước 5.)*
 
 ### Bước 7 — Walk-forward + khóa đoạn để dành (protocol-1 mục 3–4; 6-C04)
 - [ ] Đăng ký lần chạy: khoảng dữ liệu, ranh giới phát triển / để dành (≈ 75 / 25 %, để dành ≥ 6 tháng, là đoạn **mới nhất**), lưới 27 tổ hợp, số lần thử — ghi vào nhật ký chỉ-thêm (DB riêng) trước khi chạy.
@@ -187,6 +187,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-17** — **Người dùng duyệt cả bản (Q0 = A).** Tiếp: người dùng làm bước 0 (xuất XAUUSD M15 + H1 / H4 / D1 ra `C:\gold-backtest`, đọc thử `--dry-run`) khi rảnh, ngoài khung tin; gửi kết quả → ghi vào nhật ký này → bước 1 ở phiên chat mới.
 
 - **2026-11-23** — Người dùng hỏi code được chưa (đã đủ 5 ngày chạy liên tục — chưa phải Gate) → chọn **(A)**: code ngay phần không cần dữ liệu thật, bước 0 làm khi rảnh. **Bước 1 xong**: nhánh `gd6-backtest`, mốc test, thiết kế 39 (dùng lại nguyên `RiskEngine` qua cổng lịch sử + đồng hồ mô phỏng, `RiskLedger`, `PaperBroker.fill`, `PaperMonitor`; chỉ thêm `BarBroker` dò SL / TP theo nến; DB riêng từ chối khi trùng `DATABASE_URL`; bias 1–9). Trước đó: sửa test GĐ1 phụ thuộc ngày (CI `develop` đỏ từ 21/11) trên `develop`.
+
+- **2026-11-23** — **Bước 6 phần hàm thống kê xong** (`backtest/stats.py`): Sharpe / độ lệch / độ nhọn, hệ số lợi nhuận, tỷ lệ lệnh lãi, chuỗi thua, sụt giảm theo tỷ lệ, bootstrap theo khối ngày, DSR, PBO (CSCV). Thiếu dữ liệu → `None`, không trả vô cực. Còn của bước 6: mốc ngẫu nhiên, mốc không lọc, chia nhóm — sau bước 5. Test backend 2853 passed, 3 skipped.
 
 ## Prompt cho phiên mới
 
