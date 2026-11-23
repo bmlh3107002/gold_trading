@@ -183,3 +183,30 @@ def test_cli_import_and_report(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "Kết quả (DB backtest): thêm" in out and "Khung M15:" in out and "thiếu 0" in out
     assert cli.main(["import", str(f), "--timeframe", "D1"], env=env) == 2   # thiếu múi giờ
+
+
+def test_holiday_check_on_data_with_good_friday_2023(tmp_path, capsys):
+    """Dữ liệu 2023: sàn nghỉ Good Friday 07/04 → bảng ghi nghỉ → khớp; xóa thêm một ngày thường
+    (12/04) → báo DATA_CLOSED_NOT_IN_TABLE; ngày lễ 2023 có trong bảng."""
+    from gold_trading.backtest.holidays import BACKTEST_HOLIDAYS
+    start = datetime(2023, 4, 2, 22, 0, tzinfo=UTC)
+    cal = BD.backtest_calendar()
+    lines = ["<DATE>\t<TIME>\t<OPEN>\t<HIGH>\t<LOW>\t<CLOSE>\t<TICKVOL>\t<VOL>\t<SPREAD>"]
+    t = start
+    from datetime import date as _d
+    while t < start + timedelta(days=14):
+        if cal.bar_in_session(t, t + timedelta(minutes=15)) and \
+                BD.NY_DAY.trade_date(t) != _d(2023, 4, 12):
+            loc = t.astimezone(ATH)
+            lines.append(f"{loc:%Y.%m.%d}\t{loc:%H:%M:%S}\t2000\t2001\t1999\t2000.5\t9\t0\t20")
+        t += timedelta(minutes=15)
+    f = tmp_path / "m15.csv"
+    f.write_text("\n".join(lines) + "\n")
+    env = {"GT_BACKTEST_DATABASE_URL": f"sqlite:///{tmp_path / 'bt.db'}"}
+    assert cli.main(["init-db"], env=env) == 0
+    assert cli.main(["import", str(f), "--server-tz", "Europe/Athens"], env=env) == 0
+    assert cli.main(["data-report", "--holidays"], env=env) == 0
+    out = capsys.readouterr().out
+    assert "1 chỗ lệch" in out and "2023-04-12 (Wed) DATA_CLOSED_NOT_IN_TABLE" in out
+    assert BACKTEST_HOLIDAYS.on(_d(2023, 4, 7)) is not None
+    assert "thiếu 0" not in out                               # 12/04 thiếu thật → báo thiếu

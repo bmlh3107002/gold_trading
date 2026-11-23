@@ -5,7 +5,7 @@
     python -m gold_trading.backtest.cli import FILE --timeframe M15 --server-tz Europe/Athens
     python -m gold_trading.backtest.cli import FILE --timeframe D1 --server-tz Europe/Athens \
         --dry-run
-    python -m gold_trading.backtest.cli data-report --timeframe M15
+    python -m gold_trading.backtest.cli data-report --timeframe M15 --holidays
 
 ``--dry-run`` chỉ đọc + kiểm file, không mở cơ sở dữ liệu nào.
 """
@@ -34,6 +34,8 @@ def main(argv: list[str] | None = None, env=None) -> int:
     rep = sub.add_parser("data-report", help="Báo cáo dữ liệu đã nạp (chỉ đọc)")
     rep.add_argument("--timeframe", default="M15", choices=BD.TIMEFRAMES)
     rep.add_argument("--symbol", default="XAUUSD")
+    rep.add_argument("--holidays", action="store_true",
+                     help="Đối chiếu bảng ngày lễ 2020–2027 với chỗ hở nến M15 thật")
     args = p.parse_args(argv)
     try:
         if args.cmd == "import" and args.dry_run:
@@ -100,8 +102,16 @@ def _report(args, url: str) -> int:
         return 0
     lo, hi = st.first_open_time, st.last_open_time
     cs = list(store.latest_by_open_time(args.symbol, tf, DataSource.CSV, lo, hi).values())
-    rep = BD.report(cs, tf, quarantined=st.quarantined)
+    rep = BD.report(cs, tf, BD.backtest_calendar(), quarantined=st.quarantined)
     print("\n".join(BD.render(rep)))
+    if args.holidays:
+        if tf is not Timeframe.M15:
+            print("Đối chiếu ngày lễ chỉ dùng khung M15", file=sys.stderr)
+            return 2
+        mism = BD.holiday_check(cs)
+        print(f"Đối chiếu ngày lễ (bảng backtest) với dữ liệu: {len(mism)} chỗ lệch")
+        for m in mism:
+            print(f"  {m.day.isoformat()} ({m.day:%a}) {m.kind}: {m.detail}")
     print(f"(chỉ đọc, {datetime.now(UTC):%Y-%m-%d %H:%M} UTC)")
     return 0
 

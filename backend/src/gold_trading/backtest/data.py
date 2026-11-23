@@ -23,12 +23,18 @@ from gold_trading.backtest.metrics import session_of
 from gold_trading.contracts.candle import Candle, DataSource
 from gold_trading.ingestion.candles import CandleIngestor, IngestResult, RawBar
 from gold_trading.ingestion.sources import csv_file
-from gold_trading.market.hours import REFERENCE, MarketCalendar
+from gold_trading.market.hours import REFERENCE, WEEKLY_ONLY, MarketCalendar
 from gold_trading.market.quality import expected_open_times
 from gold_trading.market.timeframes import Timeframe
 from gold_trading.risk.periods import Periods
 
 NY_DAY = Periods.of("America/New_York", "17:00")
+def backtest_calendar() -> MarketCalendar:
+    """Lịch thị trường của backtest: tuần tham chiếu − ngày lễ 2020–2027 (bảng riêng, Q8)."""
+    from gold_trading.backtest.holidays import BACKTEST_HOLIDAYS
+    return MarketCalendar(holidays=BACKTEST_HOLIDAYS)
+
+
 TIMEFRAMES = ("M1", "M5", "M15", "M30", "H1", "H4", "D1")
 
 
@@ -149,3 +155,25 @@ def render(rep: DataReport, max_gaps: int = 60) -> list[str]:
     for k, (med, p95, n) in rep.spread_by_session.items():
         out.append(f"  Spread {k}: trung vị {med:g}, p95 {p95:g} point ({n} nến)")
     return out
+
+
+def holiday_check(candles: list[Candle], table=None) -> list:
+    """Đối chiếu bảng ngày lễ backtest với dữ liệu M15 thật: chỗ hở tính theo lịch **không có**
+    ngày lễ, gom theo ngày giao dịch NY → ``holidays.compare_gaps``. Chỉ đọc."""
+    from gold_trading.backtest.holidays import BACKTEST_HOLIDAYS, compare_gaps
+    cs = sorted(candles, key=lambda c: c.open_time)
+    if not cs:
+        return []
+    tf = Timeframe.M15
+    exp = expected_open_times(cs[0].open_time, cs[-1].open_time, tf, WEEKLY_ONLY)
+    have = {c.open_time for c in cs}
+    missing: dict[date, int] = defaultdict(int)
+    present: dict[date, int] = defaultdict(int)
+    for t in exp:
+        d = NY_DAY.trade_date(t)
+        if t in have:
+            present[d] += 1
+        else:
+            missing[d] += 1
+    return compare_gaps(missing, present, table or BACKTEST_HOLIDAYS,
+                        years={d.year for d in present} | {d.year for d in missing})

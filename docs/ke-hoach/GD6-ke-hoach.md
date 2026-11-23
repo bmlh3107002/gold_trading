@@ -62,7 +62,7 @@
 - [x] (23/11) Thiết kế `docs/thiet-ke/39-backtest.md`: hai tầng; DB riêng + chốt chặn trùng URL; cổng lịch sử cho Risk (equity mô phỏng, thông số broker, spread / đệm trượt giá từ nến, phí, sổ lệnh mô phỏng); luật khớp theo nến; danh sách **bias đã biết** (spread nến MT5, không có giây giá, thông số broker hiện hành dùng cho quá khứ, lịch kinh tế dựng lại, không có News, khớp đủ khối lượng); đơn vị + `Decimal`. Viết **trước** khi code bước 2–8.
 
 ### Bước 2 — Dữ liệu giá lịch sử vào DB riêng (BT-01 phần dữ liệu; 6-C03 phần dữ liệu)
-- [ ] **Q8 = A:** thêm ngày lễ **2020–2023** vào `market/holidays.py` (lớp 2 bảng ngày lễ có phiên bản mới); kiểm từng ngày với lịch CME / sàn **và** với chỗ hở nến thật trong file xuất (ngày nghỉ phải trùng chỗ hở, không thừa không thiếu); kiểm phiên bản bảng ngày lễ mới **không** làm đổi kết quả replay / Gate của hệ thống thật (chỉ thêm năm cũ).
+- [~] (23/11 bản nháp + công cụ đối chiếu; còn đối chiếu dữ liệu thật) **Q8 = A:** ngày lễ **2020–2023** — làm ở **bảng riêng của backtest** `backtest/holidays.py` (`BACKTEST_HOLIDAYS` = bảng thật 2024–2027 nguyên vẹn + 2020–2023), **không sửa** `market/holidays.py` (phiên bản bảng thật đi vào mọi kết quả analyst → tránh lệch replay / Gate). Ngày soạn theo thông lệ CME kim loại, nguồn `CME_PATTERN_UNVERIFIED`; ngày tính lại bằng quy tắc độc lập (Phục sinh, thứ Hai thứ n, nghỉ bù) khớp cả 2020–2023 và bảng thật 2024–2027. **Chưa chắc:** Good Friday 2021 / 2023 (trùng NFP), 03/07/2023, 24/12/2021. **Bắt buộc trước khi chạy backtest:** `data-report --holidays` trên M15 thật → 0 chỗ lệch (sửa bảng theo dữ liệu sàn, nguồn `BROKER_DATA`).
 - [x] (23/11) Lệnh nạp **của backtest** nhận **H4 / D1** (không sửa `import-csv` của GĐ1 — hệ thống đang kiểm Gate) (căn theo giờ server, ngày đổi DST 23 / 25 giờ — ING-14 đã có trong `CandleIngestor`); test DST, nến lệch căn.
 - [x] (23/11) Lệnh backtest dùng `GT_BACKTEST_DATABASE_URL`; **từ chối** khi thiếu hoặc trùng `DATABASE_URL` (test). Khởi tạo schema DB riêng bằng Alembic.
 - [~] (23/11 phần mã xong; chạy trên dữ liệu thật khi có file bước 0) Báo cáo dữ liệu (chỉ đọc): khoảng thời gian, chỗ hở trong giờ mở cửa (theo `market/hours` + ngày lễ), nến bị cách ly, nến spike / đóng băng, phân bố spread theo phiên. Chỗ hở → danh sách cho báo cáo GĐ6.
@@ -227,6 +227,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-23** — **Q8 chốt (A):** xuất từ 2020 (càng xa càng tốt). Hướng dẫn bước 0 sửa: M15 hai file (2020–2022, 2023–nay — tránh giới hạn số thanh, không đổi cài đặt MT5), H1 / H4 / D1 từ 2019.06. Bước 2 thêm việc: ngày lễ 2020–2023 (kiểm với lịch sàn + chỗ hở nến thật).
 
 - **2026-11-23** — **Bước 2 phần không cần dữ liệu thật xong** (2a DB riêng + chốt chặn, 2b nạp CSV gồm H4 / D1, 2c báo cáo dữ liệu, CLI). Còn: 2d ngày lễ 2020–2023 (Q8), đo độ lệch spread (cần dữ liệu thật), chạy báo cáo dữ liệu trên file bước 0.
+
+- **2026-11-23** — **2d bản nháp xong:** bảng ngày lễ 2020–2023 riêng cho backtest (không đụng bảng thật), 4 ngày ghi "chưa chắc"; `data-report --holidays` đối chiếu với chỗ hở nến thật (theo lịch không ngày lễ) → in từng ngày lệch. Soát: quy tắc độc lập khớp 2020–2027.
 
 ## Prompt cho phiên mới
 
