@@ -112,7 +112,7 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 
 - Lãi / lỗ từng lệnh bằng `Decimal` (từ `net_pnl`); chỉ số tổng hợp bằng `float` (thống kê, không phải tiền).
 - R của một lệnh = lãi / lỗ ròng ÷ rủi ro đã duyệt lúc khớp (`risk_at_fill`).
-- **Mốc ngẫu nhiên:** cùng số lệnh, cùng tỷ lệ chiều, giờ vào ngẫu nhiên trong cùng cửa sổ phiên P3 (chỉ nến có dữ liệu + Risk cho phép theo luật thời gian), cùng SL / TP theo ATR lúc đó, cùng đóng 16:45 — qua đúng tầng 2; 1.000 lần; hạt giống ghi báo cáo. T4: kỳ vọng / lệnh chiến lược > phân vị 95 %.
+- **Mốc ngẫu nhiên:** cùng số lệnh (**hiệu chỉnh số lần bốc** k để trung vị số lệnh thực khớp ≈ số lệnh chiến lược — bốc đúng n chỉ khớp ~55 % vì va lệnh đang mở / nghỉ 30 phút / 4 lệnh ngày; ≤ 8 vòng × 5 hạt giống riêng), cùng tỷ lệ chiều, giờ vào ngẫu nhiên trong cùng cửa sổ phiên P3 tại mốc có MarketView tầng 1 + có nến để khớp, bỏ V3 / V4 / V6 (hướng bốc thăm), cùng SL / TP / hòa vốn / đóng 16:45 — qua đúng tầng 2 (Risk, chặn tin, hạn mức); 1.000 lần; hạt giống lần i = băm(gốc, i). T4: kỳ vọng / lệnh chiến lược > phân vị 95 %. **Mốc không lọc:** bỏ V3–V6 (cả giờ phiên). **Phiên** (giờ NY lúc mở): Á 18–03, London 03–08, Mỹ 08–17.
 - **Deflated Sharpe** (Bailey & López de Prado 2014) trên Sharpe ngày; số lần thử N = 27 + thử thêm; phương sai Sharpe giữa các lần thử từ 27 tổ hợp.
 - **PBO** bằng CSCV, 16 khối (Bailey, Borwein, López de Prado, Zhu 2017), ma trận lợi nhuận ngày × 27 tổ hợp.
 - **Bootstrap** khoảng tin cậy 95 % kỳ vọng / lệnh: lấy mẫu lại theo **khối ngày giao dịch** (giữ tương quan trong ngày), 10.000 lần, hạt giống ghi lại.
@@ -128,6 +128,7 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 - **Đo 23/11 (tầng 2):** ~6.000 nến (3 tháng) + ~1.800 MarketView → **~1,5 giây** / lần chạy → ~2,5 năm ≈ 15 giây / tổ hợp; 27 tổ hợp × số vòng walk-forward: vài phút. **Mốc ngẫu nhiên 1.000 lần** theo cách này ≈ 4 giờ → cần làm nhanh (chạy song song, hoặc chỉ mô phỏng lại các ngày có lệnh) — việc của bước 6 phần mốc.
 
 ~2,5 năm M15 ≈ 60.000 nến mở cửa. Tầng 1 chạy 6 analyst mỗi nến — chậm nhất (ước tính vài giờ, chạy một lần, lưu lại). Tầng 2 không chạy analyst → 27 tổ hợp + 1.000 lần mốc ngẫu nhiên trong thời gian chấp nhận được; nếu chậm → song song theo tổ hợp (không đổi kết quả).
+- **Đo 23/11 (bước 6):** bảng spread dựng một lần / chuỗi nến, equity chỉ tính khi đang dừng → 2,5 năm ít lệnh ~1,8 giây / lần. Mốc ngẫu nhiên (sau hiệu chỉnh, nhiều MarketView giả hơn): 6 tháng × 100 lần ≈ 5 phút với 4 tiến trình → **2,5 năm × 1.000 lần ước ~4 giờ** với 4 tiến trình. Chạy một lần trên máy người dùng; nếu quá lâu → tăng tốc (bỏ qua nhịp không có lệnh / MarketView) trước bước 10, không đổi kết quả (test so trước / sau).
 
 ## Nhật ký
 

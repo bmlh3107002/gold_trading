@@ -83,6 +83,14 @@ class Bars:
         self.opens = [b.open_time for b in self.bars]
         if len(set(self.opens)) != len(self.opens):
             raise ValueError("nến trùng thời điểm")
+        self._spreads: _SpreadMinutes | None = None
+
+    @property
+    def spreads(self) -> _SpreadMinutes:
+        """Bảng "phút" spread dựng một lần, dùng lại cho mọi lần chạy trên cùng chuỗi nến."""
+        if self._spreads is None:
+            self._spreads = _SpreadMinutes(self)
+        return self._spreads
 
     def starting_at(self, t: datetime) -> SimBar | None:
         i = bisect.bisect_left(self.opens, t)
@@ -303,6 +311,7 @@ def _quote_from_bar(feed: str, b: SimBar, point: Decimal) -> QuoteSecond:
 @dataclass
 class SimResult:
     trades: list[LedgerEvent]                 # sự kiện CLOSE theo thời gian
+    opens: list[LedgerEvent]                  # sự kiện OPEN (rủi ro lúc khớp, intent)
     evaluations: list                         # mọi lần xét của chiến lược (cả bỏ qua)
     decisions: list                           # mọi quyết định Risk
     pauses: list[PauseEvent]
@@ -339,7 +348,7 @@ def simulate(bars: Sequence[SimBar] | Bars, views: HistoricalViews, cfg: SimConf
                             ACTOR, "BACKTEST")
     spec_row = SpecRow(SpecKey(ACCOUNT, LOGIN, SERVER, cfg.symbol), start - timedelta(days=1),
                        dict(cfg.spec), spec_hash(dict(cfg.spec)), "backtest")
-    spreads = _SpreadMinutes(bs)
+    spreads = bs.spreads
     broker = BarBroker(ledger, bs, point, latest_quote=latest_quote, clock=clock)
     cs = Decimal(str(cfg.spec["contract_size"]))
     lev = Decimal(str(cfg.spec["leverage"]))
@@ -399,14 +408,15 @@ def simulate(bars: Sequence[SimBar] | Bars, views: HistoricalViews, cfg: SimConf
             equity_days.append((next_day, st.realized))
             next_day = periods.next_day_start(next_day)
         clock_now[0] = t
-        eq, _ = equity_margin(t)
-        accounts.maybe_resume(t, ledger, eq)
+        if accounts.paused is not None:              # equity chỉ cần khi mở lại sau H6
+            accounts.maybe_resume(t, ledger, equity_margin(t)[0])
         if latest_quote(cfg.feed_id, t) is None:
             no_quote += 1
         runner.run_account(ACCOUNT)                 # monitor.tick + decide + Risk + fill
         ticks += 1
     clock_now[0] = end
     trades = sorted(ledger.events(ACCOUNT, (EventType.CLOSE,)), key=lambda e: e.at)
-    return SimResult(trades, list(reversed(store.recent(ACCOUNT, 10**9))),
+    opens = sorted(ledger.events(ACCOUNT, (EventType.OPEN,)), key=lambda e: e.at)
+    return SimResult(trades, opens, list(reversed(store.recent(ACCOUNT, 10**9))),
                      list(reversed(ledger.recent_decisions(ACCOUNT, 10**9))),
                      accounts.pauses, equity_days, cfg.capital, ticks, no_quote)
