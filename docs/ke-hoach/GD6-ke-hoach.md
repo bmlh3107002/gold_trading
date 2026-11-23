@@ -94,7 +94,7 @@
 
 ### Bước 7 — Walk-forward + khóa đoạn để dành (protocol-1 mục 3–4; 6-C04)
 - [ ] Đăng ký lần chạy: khoảng dữ liệu, ranh giới phát triển / để dành (≈ 75 / 25 %, để dành ≥ 6 tháng, là đoạn **mới nhất**), lưới 27 tổ hợp, số lần thử — ghi vào nhật ký chỉ-thêm (DB riêng) trước khi chạy.
-- [ ] Walk-forward: học 12 tháng → kiểm 3 tháng, cuốn chiếu; mỗi vòng chọn tổ hợp tốt nhất theo kỳ vọng / lệnh sau chi phí trên đoạn học; ghép các đoạn kiểm = ngoài mẫu.
+- [~] (23/11 phần thuần xong) Walk-forward: học 12 tháng → kiểm 3 tháng, cuốn chiếu; mỗi vòng chọn tổ hợp tốt nhất theo kỳ vọng / lệnh sau chi phí trên đoạn học; ghép các đoạn kiểm = ngoài mẫu. *(`backtest/protocol.py`: lưới 27 khóa thứ tự, `make_split` (để dành ≈ 25 %, ≥ 6 tháng, đoạn mới nhất, mốc 17:00 NY), `select_combo` / `holdout_combo` (≥ 30 lệnh học; hòa → gần tổ hợp hiện tại, rồi thứ tự lưới). Còn: chạy thật trên bộ mô phỏng — sau bước 5.)*
 - [ ] **6-C04:** mã không cho tối ưu trên toàn bộ dữ liệu; tổ hợp ngoài lưới → bị từ chối hoặc phải ghi + cộng vào số lần thử (cảnh báo trong báo cáo); dữ liệu đoạn để dành **không đọc được** ở mọi lệnh chạy phần phát triển (test: cố đọc → lỗi).
 - [ ] Chạy đoạn để dành: cờ riêng, đúng **một** tổ hợp đã chọn, một lần; lần hai → từ chối (test).
 
@@ -189,6 +189,8 @@ docker compose exec backend python -m gold_trading.ingestion.cli import-csv /tmp
 - **2026-11-23** — Người dùng hỏi code được chưa (đã đủ 5 ngày chạy liên tục — chưa phải Gate) → chọn **(A)**: code ngay phần không cần dữ liệu thật, bước 0 làm khi rảnh. **Bước 1 xong**: nhánh `gd6-backtest`, mốc test, thiết kế 39 (dùng lại nguyên `RiskEngine` qua cổng lịch sử + đồng hồ mô phỏng, `RiskLedger`, `PaperBroker.fill`, `PaperMonitor`; chỉ thêm `BarBroker` dò SL / TP theo nến; DB riêng từ chối khi trùng `DATABASE_URL`; bias 1–9). Trước đó: sửa test GĐ1 phụ thuộc ngày (CI `develop` đỏ từ 21/11) trên `develop`.
 
 - **2026-11-23** — **Bước 6 phần hàm thống kê xong** (`backtest/stats.py`): Sharpe / độ lệch / độ nhọn, hệ số lợi nhuận, tỷ lệ lệnh lãi, chuỗi thua, sụt giảm theo tỷ lệ, bootstrap theo khối ngày, DSR, PBO (CSCV). Thiếu dữ liệu → `None`, không trả vô cực. Còn của bước 6: mốc ngẫu nhiên, mốc không lọc, chia nhóm — sau bước 5. Test backend 2853 passed, 3 skipped.
+
+- **2026-11-23** — **Bước 7 phần thuần xong** (`backtest/protocol.py`, 8 test). Soát riêng 5.000 khoảng dữ liệu ngẫu nhiên **bắt được lỗi thật**: ngày bắt đầu 29–31 + cộng dồn 3 tháng bị trôi → đoạn kiểm hở / chồng (37 ca) → sửa: mọi mốc tính từ mốc gốc; thêm test (đột biến về mã cũ → đỏ); soát lại 0 lỗi. Còn của bước 7: bảng đăng ký + khóa đoạn để dành trong DB backtest (cần DB riêng — cùng bước 2 / 5).
 
 ## Prompt cho phiên mới
 

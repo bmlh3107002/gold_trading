@@ -95,7 +95,7 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 
 - **Đăng ký** (bảng chỉ-thêm `backtest_registrations` trong DB backtest, có trigger chặn sửa / xóa như các bảng chỉ-thêm khác): khoảng dữ liệu, ranh giới phát triển / để dành (≈ 75 / 25 %, để dành ≥ 6 tháng, đoạn **mới nhất**, cắt ở mốc ngày giao dịch 17:00 NY), lưới 27, số lần thử, dấu vân tay tầng 1, phiên bản mã.
 - Lệnh chạy phần phát triển nhận **kho dữ liệu đã cắt** ở ranh giới (đọc sau ranh giới → lỗi), không chỉ "lọc kết quả".
-- Walk-forward: học 12 tháng → kiểm 3 tháng, cuốn chiếu; chọn tổ hợp có kỳ vọng / lệnh (R, sau chi phí) cao nhất trên đoạn học (hòa → tổ hợp gần (0,6 / 1,5 / 2) nhất, rồi thứ tự lưới — quy tắc cố định, ghi trước). Tổ hợp ít hơn 30 lệnh trên đoạn học không được chọn; không tổ hợp nào đủ → đoạn kiểm đó không giao dịch (ghi báo cáo).
+- Walk-forward: học 12 tháng → kiểm 3 tháng, cuốn chiếu 3 tháng; mọi mốc tính **từ cùng mốc đầu dữ liệu** (vòng k: học [đầu + 3k tháng, đầu + 12 + 3k), kiểm tới đầu + 15 + 3k, ngày 29–31 kẹp về cuối tháng) — không cộng dồn (cộng dồn bị trôi, làm đoạn kiểm hở / chồng: lỗi tìm được khi soát 23/11); đoạn kiểm cuối **cắt ở ranh giới để dành** nếu không đủ 3 tháng (không bỏ dữ liệu phát triển). Phát triển < 15 tháng hoặc tổng < 15 + 6 tháng → không chạy ("không đủ dữ liệu"); chọn tổ hợp có kỳ vọng / lệnh (R, sau chi phí) cao nhất trên đoạn học (hòa → tổ hợp gần (0,6 / 1,5 / 2) nhất, rồi thứ tự lưới — quy tắc cố định, ghi trước). Tổ hợp ít hơn 30 lệnh trên đoạn học không được chọn; không tổ hợp nào đủ → đoạn kiểm đó không giao dịch (ghi báo cáo).
 - **Đoạn để dành:** lệnh riêng + xác nhận; đúng **một** tổ hợp (tổ hợp được chọn nhiều nhất qua các vòng walk-forward; hòa → quy tắc trên); ghi bảng `backtest_holdout_runs` (duy nhất theo đăng ký) **trước** khi chạy → lần hai bị từ chối kể cả khi lần đầu lỗi giữa chừng.
 
 ## 11. Thống kê (protocol-1 mục 5–6)
@@ -120,3 +120,4 @@ Chạy lại tầng 1 trên cùng dữ liệu → cùng dấu vân tay, cùng ch
 ## Nhật ký
 
 - **2026-11-23** — Bản đầu (GĐ6 bước 1). Đọc code thật: `RiskEngine` nhận `clock` + `RiskGates` dạng hàm → dùng lại nguyên Risk; `PaperBroker.fill` đã cộng đệm trượt giá; `RiskLedger` là sổ trong bộ nhớ cùng giao diện; `PaperMonitor` nhận `managers` (hòa vốn / 16:45) → dùng lại; chỉ cần `BarBroker` thay dò SL / TP theo giây bằng theo nến.
+- **2026-11-23** — Bước 6 + 7 (phần thuần): `backtest/stats.py`, `backtest/protocol.py`. Ghi thêm luật cửa sổ walk-forward tính từ mốc gốc + cắt đoạn kiểm cuối (mục 10).
