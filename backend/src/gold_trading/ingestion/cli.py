@@ -120,6 +120,9 @@ def main(argv: list[str] | None = None) -> int:
     tin.add_argument("--hours", type=int, default=72, help="In tin mới trong N giờ (mặc định 72)")
     kmv = sub.add_parser("kiem-mv", help="Kiểm MarketView: tái dựng + độ phủ (Gate GĐ4, chỉ đọc)")
     kmv.add_argument("--hours", type=int, default=24, help="Số giờ gần nhất (mặc định 24, ≤ 168)")
+    kmv.add_argument("--den", default=None,
+                     help="Kiểm tới mốc này (UTC, vd. 2026-11-24T05:41) thay vì bây giờ — xem lại "
+                          "một tuần đã qua; chỉ dùng dữ liệu đã có tới mốc đó")
     kt = sub.add_parser("kha-thi", help="Báo cáo khả thi chiến lược v1, số thật (RPF-03, chỉ đọc)")
     kt.add_argument("--account", default=None, help="Mã tài khoản (mặc định: mọi tài khoản)")
     sub.add_parser("dung-luong", help="Dung lượng từng bảng + ước tính 1 năm (ING-33, chỉ đọc)")
@@ -136,7 +139,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "kha-thi":
         return _kha_thi(args.account)
     if args.cmd == "kiem-mv":
-        return _kiem_mv(args.hours)
+        if args.den is None:
+            return _kiem_mv(args.hours)
+        until = _parse_utc(args.den)
+        if until is None or until > utcnow():
+            print("--den phải là thời điểm UTC đã qua, dạng 2026-11-24T05:41", file=sys.stderr)
+            return 2
+        return _kiem_mv(args.hours, now=until)
     if args.cmd == "h15-bu":
         return _h15_backfill(args.dry_run, args.days)
     if args.cmd == "cot-bu":
@@ -617,6 +626,17 @@ def _kha_thi(account: str | None, env=None, repo=None, now=None) -> int:
             paper_state=led.equity_state(acc, now))
         print("\n".join(render(compute(inp))))
     return 0
+
+
+def _parse_utc(text: str):
+    """``2026-11-24T05:41`` (không múi giờ = UTC) hoặc có múi giờ → giờ UTC; sai dạng → None."""
+    from datetime import UTC, datetime
+
+    try:
+        t = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return t.replace(tzinfo=UTC) if t.tzinfo is None else t.astimezone(UTC)
 
 
 def _kiem_mv(hours: int, env=None, engine=None, now=None, calendar=None) -> int:
