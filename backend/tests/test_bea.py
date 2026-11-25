@@ -668,11 +668,13 @@ def _mock_factory():
 
 
 def test_cli_dry_run_with_and_without_key(capsys):
-    rc = cli._bea(True, env={"GT_BEA_API_KEY": KEY_VALUE}, client_factory=_mock_factory())
+    # Cố định "bây giờ" như file mẫu (trước đây dùng giờ thật → hỏng từ 25/11/2026, khi lần công
+    # bố GDP 2026Q3 lần 2 trong file mẫu đã qua).
+    rc = cli._bea(True, env={"GT_BEA_API_KEY": KEY_VALUE}, client_factory=_mock_factory(), now=NOW)
     out = capsys.readouterr().out
     assert rc == 0
     assert "GDP:2026Q3:SECOND" in out and "A191RL 2026Q3: 3.4" in out
     assert "not endorsed or certified by BEA" in out and KEY_VALUE not in out
-    rc = cli._bea(True, env={}, client_factory=_mock_factory())
+    rc = cli._bea(True, env={}, client_factory=_mock_factory(), now=NOW)
     out = capsys.readouterr().out
     assert rc == 1 and "KEY_MISSING" in out and "GDP:2026Q3:SECOND" in out
