@@ -265,7 +265,7 @@ def _fomc(dry_run: bool) -> int:
     return 0 if check.outcome.value == "OK" else 1
 
 
-def _bea(dry_run: bool, env=None, client_factory=None) -> int:
+def _bea(dry_run: bool, env=None, client_factory=None, now=None) -> int:
     import httpx
 
     from gold_trading.ingestion.api_keys import load_api_key
@@ -276,7 +276,7 @@ def _bea(dry_run: bool, env=None, client_factory=None) -> int:
     from gold_trading.storage.source_checks import SqlSourceCheckLog
 
     env = os.environ if env is None else env
-    now = utcnow()
+    now = now or utcnow()
     if dry_run:
         store, log = PointInTimeStore(), SourceCheckLog()
     else:
