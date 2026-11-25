@@ -172,6 +172,31 @@ def test_unrevised_and_unchanged_forms():
     assert D.parse_release(t).values["ICSA:2026-10-31"][1] == 191000
 
 
+def test_parse_real_release_holiday_week_missing_by():
+    """Bản tin thật 25/11/2026 (thứ Tư, tuần Lễ Tạ ơn) ghi "revised up 29,000" (thiếu "by") —
+    trên máy người dùng bộ đọc từ chối → nguồn KHÔNG KHỎE, số UNKNOWN_SOURCE_DOWN (an toàn, nhưng
+    chặn kéo dài). Số kiểm tay từ bản tin: 202.000 − 13.000 = 189.000; 203.000 − 1.000 = 202.000;
+    197.500 − 1.500 = 196.000; 1.792.000 − 95.000 = 1.697.000; 1.763.000 + 29.000 = 1.792.000."""
+    rel = D.parse_release(D.pdf_text((FIX / "ui-data-2026-11-25.pdf").read_bytes()))
+    assert rel.released_at == datetime(2026, 11, 25, 8, 30, tzinfo=D.ET)
+    v = {k: x[1] for k, x in rel.values.items()}
+    assert v == {"ICSA:2026-11-21": 189000, "ICSA:2026-11-14": 202000,
+                 "IC4WSA:2026-11-21": 196000, "IC4WSA:2026-11-14": 197500,
+                 "CCSA:2026-11-14": 1697000, "CCSA:2026-11-07": 1792000}
+
+
+@pytest.mark.parametrize("old,new", [
+    ("revised up by 2,000 from 189,000", "revised up 3,000 from 189,000"),   # thiếu "by" + sai số
+    ("revised up by 2,000 from 189,000", "revised by 2,000 from 189,000"),   # thiếu up/down
+    ("revised up by 2,000 from 189,000", "revised upward 2,000 from 189,000"),
+])
+def test_missing_by_still_checked(old, new):
+    with pytest.raises(D.DolParseError):
+        D.parse_release(mutate(old, new))
+    ok = mutate("revised up by 2,000 from 189,000", "revised up 2,000 from 189,000")
+    assert D.parse_release(ok).values["ICSA:2026-10-31"][1] == 191000
+
+
 def test_not_a_pdf():
     with pytest.raises(D.DolParseError):
         D.pdf_text(b"%PDF-1.7 broken")

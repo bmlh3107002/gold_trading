@@ -47,3 +47,7 @@ Bản tin thật 12/11/2026 (tuần Veterans Day 11/11 thứ Tư): đọc đúng
 ## 5. Chưa làm / giới hạn
 
 Mẫu câu mới chỉ kiểm trên **một** bản tin (chưa lấy được bản cũ — trang lưu trữ chặn chương trình) → mẫu lạ sẽ ra INVALID (hướng an toàn) và phải sửa. Chạy tự động (8g), hiển thị (DSH-09), đối chiếu bảng ngày lễ với OPM (người dùng chụp trang OPM). Lệnh chạy tay: `docker compose exec backend python -m gold_trading.ingestion.cli dol [--dry-run]`.
+
+## Sửa 25/11/2026 — bản tin viết thiếu "by"
+
+Bản tin thật thứ Tư 25/11/2026 (tuần Lễ Tạ ơn) ghi *"The previous week's level was revised up 29,000 from 1,763,000 to 1,792,000"* (thiếu chữ "by"; các câu khác vẫn có). Bộ đọc cũ đòi đúng mẫu → `DolParseError` "không đọc được câu số đơn tiếp tục" → nguồn `dol_claims` KHÔNG KHỎE, `CLAIMS:2026-11-26:WED` = `UNKNOWN_SOURCE_DOWN` → tiếp tục chặn (hướng an toàn, không dùng số sai). Sửa: chữ "by" là tùy chọn; **mọi kiểm số học giữ nguyên** (tuần trước ± mức sửa = số đã sửa; số đã sửa ± mức thay đổi = số tuần này) nên đọc nhầm vẫn bị từ chối. Test với PDF thật 25/11 (`tests/fixtures/dol/ui-data-2026-11-25.pdf`) + biến thể thiếu "by" mà sai số / thiếu up–down → vẫn từ chối.

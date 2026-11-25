@@ -133,8 +133,10 @@ _EMBARGO = re.compile(
 _NUM = r"(\d{1,3}(?:,\d{3})*)"
 _CHANGE = (r"(?:an increase of " + _NUM + r"|a decrease of " + _NUM + r"|unchanged) from the "
            r"previous week's (?:revised|unrevised) (?:level|average)")
-_PREV = (r"The previous week's (?:level|average) was (?:revised (up|down) by " + _NUM + r" from "
-         + _NUM + r" to " + _NUM + r"|unrevised at " + _NUM + r")")
+# "revised up by 2,000" — bản tin 25/11/2026 viết thiếu "by" ("revised up 29,000"): chấp nhận cả
+# hai, số học vẫn phải khớp (``_checked``).
+_PREV = (r"The previous week's (?:level|average) was (?:revised (up|down)(?: by)? " + _NUM
+         + r" from " + _NUM + r" to " + _NUM + r"|unrevised at " + _NUM + r")")
 _ICSA = re.compile(r"In the week ending ([A-Z][a-z]+) (\d{1,2}), the advance figure for seasonally "
                    r"adjusted initial claims was " + _NUM + ", " + _CHANGE + r"\. " + _PREV + r"\.")
 _IC4W = re.compile(r"The 4-week moving average was " + _NUM + ", " + _CHANGE + r"\. " + _PREV
