@@ -125,7 +125,28 @@ def test_table_matches_us_calendar_rules(year):
         for h in US_HOLIDAYS.holidays
         if h.day.year == year
     }
-    assert table == _expected(year)
+    expected = _expected(year)
+    expected.update({d: c for d, c in BROKER_OVERRIDES.items() if d.year == year})
+    assert table == expected
+
+
+# Dòng bảng đã đối chiếu dữ liệu broker và KHÁC thông lệ CME (mỗi dòng phải có lý do + test riêng).
+BROKER_OVERRIDES = {date(2026, 11, 27): time(14, 45)}
+
+
+def test_thanksgiving_2026_matches_broker_data():
+    """28/11/2026: nến M15 thật MetaQuotes-Demo — 26/11 nến cuối mở 19:15 UTC, mở lại 23:00 UTC;
+    27/11 nến cuối mở 19:30 UTC (bảng cũ 13:45 NY coi 18:45–19:30 UTC là ngoài lịch →
+    Technical chặn CALENDAR_MISMATCH tới khi 4 nến trôi khỏi cửa sổ 300 nến)."""
+    assert MQ.is_open(u(2026, 11, 26, 19, 15)) and not MQ.is_open(u(2026, 11, 26, 19, 30))
+    assert not MQ.is_open(u(2026, 11, 26, 22, 45)) and MQ.is_open(u(2026, 11, 26, 23, 0))
+    for mi in (0, 15, 30):
+        assert MQ.is_open(u(2026, 11, 27, 19, mi))
+    assert MQ.is_open(u(2026, 11, 27, 18, 45))
+    assert not MQ.is_open(u(2026, 11, 27, 19, 45))
+    assert not MQ.is_open(u(2026, 11, 29, 22, 45)) and MQ.is_open(u(2026, 11, 29, 23, 0))
+    for d in (26, 27):
+        assert US_HOLIDAYS.on(date(2026, 11, d)).source == "BROKER_DATA"
 
 
 def test_known_dates_hand_checked():
@@ -219,7 +240,7 @@ def test_outside_table_years_no_holiday_and_flagged():
 
 
 def test_description_carries_versions():
-    assert "us-holidays-2026.11.07" in MQ.description
+    assert "us-holidays-2026.11.28" in MQ.description
     d = special("2026-12-24 00:00-20:45", "thong-bao-12-2026").description
     assert "giờ đặc biệt [thong-bao-12-2026#" in d
 

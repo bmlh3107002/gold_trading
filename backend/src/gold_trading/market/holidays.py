@@ -39,7 +39,7 @@ REOPEN = time(18, 0)
 
 # Đổi bảng (thêm năm, sửa giờ) → tăng phiên bản. Phiên bản đi vào ``MarketCalendar.description``
 # và được ghi kèm mỗi kết quả analyst (``features.input.calendar``).
-US_HOLIDAYS_VERSION = "us-holidays-2026.11.07"
+US_HOLIDAYS_VERSION = "us-holidays-2026.11.28"
 
 # Thời gian thanh khoản thấp cuối năm theo ngày giao dịch NY (1B-C04): 24/12 → 02/01.
 _YEAR_END_FROM = (12, 24)
@@ -178,8 +178,11 @@ US_HOLIDAYS = HolidayTable(
         _h(2026, 6, 19, "Juneteenth", _HALT),
         _h(2026, 7, 3, "Independence Day (observed)", _HALT),  # 04/07 là thứ Bảy
         _h(2026, 9, 7, "Labor Day", _HALT, "BROKER_DATA"),
-        _h(2026, 11, 26, "Thanksgiving Day", _HALT),
-        _h(2026, 11, 27, "Day after Thanksgiving", _EARLY),
+        # 28/11/2026 đối chiếu nến M15 thật MetaQuotes-Demo: 26/11 nến cuối mở 19:15 UTC (ngừng
+        # 14:30 NY — khớp); 27/11 nến cuối mở 19:30 UTC → broker báo giá tới 14:45 NY, muộn hơn
+        # thông lệ CME (13:45 NY) 1 giờ → bảng cũ coi 4 nến 18:45–19:30 UTC là "ngoài lịch".
+        _h(2026, 11, 26, "Thanksgiving Day", _HALT, "BROKER_DATA"),
+        _h(2026, 11, 27, "Day after Thanksgiving", time(14, 45), "BROKER_DATA"),
         _h(2026, 12, 24, "Christmas Eve", _EARLY),
         _h(2026, 12, 25, "Christmas Day"),
         # 2027
